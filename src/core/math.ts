@@ -26,7 +26,7 @@ export const vlen2 = (a: Vec3): number => a[0] * a[0] + a[1] * a[1] + a[2] * a[2
 export const vdist = (a: Vec3, b: Vec3): number => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 export const vnorm = (a: Vec3, fallback: Vec3 = [0, 1, 0]): Vec3 => {
   const l = vlen(a);
-  return l < 1e-12 ? [...fallback] as Vec3 : [a[0] / l, a[1] / l, a[2] / l];
+  return l < 1e-12 ? ([...fallback] as Vec3) : [a[0] / l, a[1] / l, a[2] / l];
 };
 export const vlerp = (a: Vec3, b: Vec3, t: number): Vec3 => [
   a[0] + (b[0] - a[0]) * t,
@@ -66,11 +66,7 @@ export function qrot(q: Quat, v: Vec3): Vec3 {
   const tx = 2 * (y * v[2] - z * v[1]);
   const ty = 2 * (z * v[0] - x * v[2]);
   const tz = 2 * (x * v[1] - y * v[0]);
-  return [
-    v[0] + w * tx + (y * tz - z * ty),
-    v[1] + w * ty + (z * tx - x * tz),
-    v[2] + w * tz + (x * ty - y * tx),
-  ];
+  return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)];
 }
 /** Rotate by the inverse of q. */
 export const qrotInv = (q: Quat, v: Vec3): Vec3 => qrot(qconj(q), v);
@@ -101,15 +97,13 @@ export function qslerp(a: Quat, b: Quat, t: number): Quat {
   let cos = a[0] * bx + a[1] * by + a[2] * bz + a[3] * bw;
   if (cos < 0) {
     cos = -cos;
-    bx = -bx; by = -by; bz = -bz; bw = -bw;
+    bx = -bx;
+    by = -by;
+    bz = -bz;
+    bw = -bw;
   }
   if (cos > 0.9995) {
-    return qnorm([
-      a[0] + (bx - a[0]) * t,
-      a[1] + (by - a[1]) * t,
-      a[2] + (bz - a[2]) * t,
-      a[3] + (bw - a[3]) * t,
-    ]);
+    return qnorm([a[0] + (bx - a[0]) * t, a[1] + (by - a[1]) * t, a[2] + (bz - a[2]) * t, a[3] + (bw - a[3]) * t]);
   }
   const theta = Math.acos(cos);
   const sin = Math.sin(theta);
@@ -120,8 +114,12 @@ export function qslerp(a: Quat, b: Quat, t: number): Quat {
 
 /** Euler angles (radians, intrinsic XYZ — same convention as three.js default) → quaternion. */
 export function qfromEuler(e: Vec3): Quat {
-  const c1 = Math.cos(e[0] / 2), c2 = Math.cos(e[1] / 2), c3 = Math.cos(e[2] / 2);
-  const s1 = Math.sin(e[0] / 2), s2 = Math.sin(e[1] / 2), s3 = Math.sin(e[2] / 2);
+  const c1 = Math.cos(e[0] / 2),
+    c2 = Math.cos(e[1] / 2),
+    c3 = Math.cos(e[2] / 2);
+  const s1 = Math.sin(e[0] / 2),
+    s2 = Math.sin(e[1] / 2),
+    s3 = Math.sin(e[2] / 2);
   return [
     s1 * c2 * c3 + c1 * s2 * s3,
     c1 * s2 * c3 - s1 * c2 * s3,

@@ -9,15 +9,7 @@ import type { Quat, Vec3 } from '../core/math';
 
 export type { Quat, Vec3 };
 
-export type ShapeType =
-  | 'box'
-  | 'sphere'
-  | 'cylinder'
-  | 'capsule'
-  | 'cone'
-  | 'wedge'
-  | 'prism'
-  | 'icosahedron';
+export type ShapeType = 'box' | 'sphere' | 'cylinder' | 'capsule' | 'cone' | 'wedge' | 'prism' | 'icosahedron';
 
 /**
  * Shapes are parameterised by a bounding size [x, y, z] in metres (full extents):

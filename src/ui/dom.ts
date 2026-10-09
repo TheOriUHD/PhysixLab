@@ -9,7 +9,11 @@ type Props = {
   [k: string]: unknown;
 };
 
-export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props?: Props | null, ...children: Child[]): HTMLElementTagNameMap[K] {
+export function h<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  props?: Props | null,
+  ...children: Child[]
+): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
   if (props) {
     for (const [k, v] of Object.entries(props)) {
@@ -19,7 +23,8 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props?: Props |
         if (typeof v === 'string') el.setAttribute('style', v);
         else Object.assign(el.style, v);
       } else if (k === 'dataset') Object.assign(el.dataset, v);
-      else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v as EventListener);
+      else if (k.startsWith('on') && typeof v === 'function')
+        el.addEventListener(k.slice(2).toLowerCase(), v as EventListener);
       else if (k in el && k !== 'list') (el as unknown as Record<string, unknown>)[k] = v;
       else el.setAttribute(k, v === true ? '' : String(v));
     }
@@ -49,4 +54,5 @@ export function svg(markup: string, cls = 'icon'): SVGSVGElement {
   return s;
 }
 
-export const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document): T | null => root.querySelector<T>(sel);
+export const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document): T | null =>
+  root.querySelector<T>(sel);

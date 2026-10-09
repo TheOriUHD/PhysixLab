@@ -2,7 +2,16 @@
  * App — wires the document store, the simulation controller, the renderer and the editor
  * commands together. UI panels talk to this class; this class never builds panel DOM.
  */
-import { Box3, Color, LineBasicMaterial, LineSegments, BufferGeometry, Float32BufferAttribute, Quaternion, Vector3 } from 'three';
+import {
+  Box3,
+  Color,
+  LineBasicMaterial,
+  LineSegments,
+  BufferGeometry,
+  Float32BufferAttribute,
+  Quaternion,
+  Vector3,
+} from 'three';
 import { Emitter } from '../core/events';
 import { qfromEuler, type Vec3 } from '../core/math';
 import { createBody } from '../model/factory';
@@ -104,7 +113,10 @@ export class App extends Emitter<AppEvents> {
     shell.stage.appendChild(this.labels.layer);
     const mg = new BufferGeometry();
     mg.setAttribute('position', new Float32BufferAttribute(new Float32Array(6), 3));
-    this.measureLine = new LineSegments(mg, new LineBasicMaterial({ color: 0x3ddcff, depthTest: false, transparent: true, toneMapped: false }));
+    this.measureLine = new LineSegments(
+      mg,
+      new LineBasicMaterial({ color: 0x3ddcff, depthTest: false, transparent: true, toneMapped: false }),
+    );
     this.measureLine.visible = false;
     this.measureLine.renderOrder = 997;
     this.measureLine.frustumCulled = false;
@@ -150,7 +162,9 @@ export class App extends Emitter<AppEvents> {
     this.emit('hint', text);
   }
 
-  get camera() { return this.viewport.camera; }
+  get camera() {
+    return this.viewport.camera;
+  }
 
   // ------------------------------------------------------------------------------------------
   // preferences → renderer
@@ -174,19 +188,37 @@ export class App extends Emitter<AppEvents> {
     const p = this.prefs.value;
     for (const k of keys) {
       switch (k) {
-        case 'quality': this.viewport.setQuality(p.quality); break;
-        case 'colorMode': this.bodies.mode = p.colorMode; break;
-        case 'showJoints': this.joints.visible = p.showJoints; break;
+        case 'quality':
+          this.viewport.setQuality(p.quality);
+          break;
+        case 'colorMode':
+          this.bodies.mode = p.colorMode;
+          break;
+        case 'showJoints':
+          this.joints.visible = p.showJoints;
+          break;
         case 'overlays':
           this.overlays.options = { ...p.overlays };
           this.sim.wantContacts = p.overlays.contacts;
           if (p.overlays.trails === 'off') this.overlays.clearTrails();
           break;
-        case 'timeScale': this.sim.timeScale = p.timeScale; break;
-        case 'space': this.gizmo.setSpace(p.space); break;
-        case 'snap': case 'snapGrid': case 'snapAngle': this.applySnaps(); break;
-        case 'tool': this.onToolChanged(); break;
-        case 'gizmo': this.updateGizmoMode(); break;
+        case 'timeScale':
+          this.sim.timeScale = p.timeScale;
+          break;
+        case 'space':
+          this.gizmo.setSpace(p.space);
+          break;
+        case 'snap':
+        case 'snapGrid':
+        case 'snapAngle':
+          this.applySnaps();
+          break;
+        case 'tool':
+          this.onToolChanged();
+          break;
+        case 'gizmo':
+          this.updateGizmoMode();
+          break;
       }
     }
     this.dirtyColors = true;
@@ -213,7 +245,9 @@ export class App extends Emitter<AppEvents> {
     const sim = this.sim.active;
     const jt = this.prefs.value.jointType;
     const hints: Record<string, string | null> = {
-      select: sim ? '<b>Drag</b> a body to throw it · <b>Right-drag</b> orbit · <b>Middle-drag</b> pan · <b>Scroll</b> zoom' : null,
+      select: sim
+        ? '<b>Drag</b> a body to throw it · <b>Right-drag</b> orbit · <b>Middle-drag</b> pan · <b>Scroll</b> zoom'
+        : null,
       joint: `<b>${jt}</b> — click the first body (or the ground to pin it to the world)`,
       measure: 'Click two points to measure the distance between them',
       blast: sim ? 'Click anywhere to set off a blast' : 'Start the simulation, then click to set off blasts',
@@ -354,7 +388,12 @@ export class App extends Emitter<AppEvents> {
       if (sf) {
         // Soft bodies are positioned in the editor only; once simulating their particles are free.
         if (!sf.locked && !sf.hidden && !this.sim.active) {
-          items.push({ id, position: new Vector3(...sf.position), quaternion: new Quaternion(...sf.rotation), size: new Vector3(...sf.size) });
+          items.push({
+            id,
+            position: new Vector3(...sf.position),
+            quaternion: new Quaternion(...sf.rotation),
+            size: new Vector3(...sf.size),
+          });
         }
         continue;
       }
@@ -498,7 +537,10 @@ export class App extends Emitter<AppEvents> {
   // ------------------------------------------------------------------------------------------
 
   /** Pick a body or joint under the pointer. */
-  pickEntity(ev: { clientX: number; clientY: number }, opts: { bodies?: boolean; joints?: boolean } = {}): PickHit | null {
+  pickEntity(
+    ev: { clientX: number; clientY: number },
+    opts: { bodies?: boolean; joints?: boolean } = {},
+  ): PickHit | null {
     const targets = [];
     if (opts.joints !== false) targets.push(...this.joints.pickables());
     // Joint gizmos draw on top, so give them priority when they are hit.
@@ -518,7 +560,11 @@ export class App extends Emitter<AppEvents> {
   /** Point where something new should be placed when the user clicks "add" (centre of the view). */
   viewCenterPlacement(shapeType: ShapeType, size: Vec3): Vec3 {
     const rect = this.viewport.dom.getBoundingClientRect();
-    return this.placementAt({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height * 0.6 }, shapeType, size);
+    return this.placementAt(
+      { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height * 0.6 },
+      shapeType,
+      size,
+    );
   }
 
   placementAt(ev: { clientX: number; clientY: number }, shapeType: ShapeType, size: Vec3): Vec3 {
@@ -548,15 +594,26 @@ export class App extends Emitter<AppEvents> {
   // ------------------------------------------------------------------------------------------
 
   addShape(type: ShapeType, at?: Vec3): BodyEntity {
-    const body = this.editor.addShape(type, at ?? this.viewCenterPlacement(type, createBody({ shape: { type } }).shape.size));
-    this.effects.ping(new Vector3(body.position[0], Math.max(0, body.position[1] - halfHeight(body.shape)), body.position[2]));
+    const body = this.editor.addShape(
+      type,
+      at ?? this.viewCenterPlacement(type, createBody({ shape: { type } }).shape.size),
+    );
+    this.effects.ping(
+      new Vector3(body.position[0], Math.max(0, body.position[1] - halfHeight(body.shape)), body.position[2]),
+    );
     return body;
   }
 
   addSoft(type: SoftType): void {
     const t = this.viewport.controls.target;
     const s = this.prefs.value.snap ? this.prefs.value.snapGrid : 0.01;
-    const sf = this.editor.addSoft(type, undefined, { position: [Math.round(t.x / s) * s, type === 'jelly' ? 0.56 : type === 'balloon' ? 0.55 : 2.4, Math.round(t.z / s) * s] });
+    const sf = this.editor.addSoft(type, undefined, {
+      position: [
+        Math.round(t.x / s) * s,
+        type === 'jelly' ? 0.56 : type === 'balloon' ? 0.55 : 2.4,
+        Math.round(t.z / s) * s,
+      ],
+    });
     this.effects.ping(new Vector3(sf.position[0], 0, sf.position[2]));
   }
 
@@ -566,7 +623,9 @@ export class App extends Emitter<AppEvents> {
     this.updateToolHint();
   }
 
-  setTool(tool: ToolId): void { this.prefs.set({ tool }); }
+  setTool(tool: ToolId): void {
+    this.prefs.set({ tool });
+  }
   setGizmo(kind: GizmoKind): void {
     this.prefs.set({ gizmo: kind, tool: 'select' });
   }
@@ -579,7 +638,11 @@ export class App extends Emitter<AppEvents> {
     const at: Vec3 = [Math.round(t.x / snap) * snap, 0, Math.round(t.z / snap) * snap];
     const list = translateEntities(pf.build(), at);
     // Re-id so repeated insertions never collide.
-    const copies = cloneEntities(list, list.map((e) => e.id), [0, 0, 0]).map((e) => ({ ...e, name: this.store.uniqueName(e.name) } as Entity));
+    const copies = cloneEntities(
+      list,
+      list.map((e) => e.id),
+      [0, 0, 0],
+    ).map((e) => ({ ...e, name: this.store.uniqueName(e.name) }) as Entity);
     this.store.add(copies, `Insert ${pf.name}`);
     this.frameSelection();
     this.toast(`${pf.name} inserted`, 'success');
@@ -612,18 +675,33 @@ export class App extends Emitter<AppEvents> {
 
   frameSelection(): void {
     const ids = this.store.selection;
-    if (!ids.length) { this.frameAll(); return; }
+    if (!ids.length) {
+      this.frameAll();
+      return;
+    }
     const box = new Box3();
     let any = false;
     for (const id of ids) {
       const v = this.bodies.get(id);
-      if (v) { box.expandByObject(v.mesh); any = true; continue; }
+      if (v) {
+        box.expandByObject(v.mesh);
+        any = true;
+        continue;
+      }
       const sm = this.softs.meshOf(id);
-      if (sm) { box.expandByObject(sm); any = true; continue; }
+      if (sm) {
+        box.expandByObject(sm);
+        any = true;
+        continue;
+      }
       const j = this.store.joint(id);
       if (j) {
         const f = this.joints.frameOf(j, { a: new Vector3(), b: new Vector3(), axis: new Vector3() });
-        if (f) { box.expandByPoint(f.a); box.expandByPoint(f.b); any = true; }
+        if (f) {
+          box.expandByPoint(f.a);
+          box.expandByPoint(f.b);
+          any = true;
+        }
       }
     }
     if (!any) return;
@@ -644,7 +722,10 @@ export class App extends Emitter<AppEvents> {
       box.expandByObject(sv.active);
       any = true;
     }
-    if (!any) { this.viewport.flyTo(new Vector3(9, 7, 11), new Vector3(0, 1.2, 0)); return; }
+    if (!any) {
+      this.viewport.flyTo(new Vector3(9, 7, 11), new Vector3(0, 1.2, 0));
+      return;
+    }
     const c = box.getCenter(new Vector3());
     const r = Math.min(40, Math.max(2.5, box.getSize(new Vector3()).length() / 2));
     this.viewport.frame(c, r, keepDirection);
@@ -669,7 +750,9 @@ export class App extends Emitter<AppEvents> {
   // per-frame
   // ------------------------------------------------------------------------------------------
 
-  get framesPerSecond(): number { return this.fps; }
+  get framesPerSecond(): number {
+    return this.fps;
+  }
 
   private onFrame(dt: number): void {
     // fps estimate
@@ -718,10 +801,20 @@ export class App extends Emitter<AppEvents> {
 
     const grav = Math.hypot(...this.store.settings.gravity);
     this.overlays.update(
-      this.camera, this.bodies, live ? client.poses : null, (id) => client.bodyIndex.get(id), client.contacts, client.frameNo,
-      new Set(this.store.selection), client.info.mass, client.info.com, grav,
+      this.camera,
+      this.bodies,
+      live ? client.poses : null,
+      (id) => client.bodyIndex.get(id),
+      client.contacts,
+      client.frameNo,
+      new Set(this.store.selection),
+      client.info.mass,
+      client.info.com,
+      grav,
     );
-    if (this.overlays.options.trails !== 'off' || live) { /* trails recorded inside update */ }
+    if (this.overlays.options.trails !== 'off' || live) {
+      /* trails recorded inside update */
+    }
 
     this.effects.update(dt);
     this.updateFollow(dt);
@@ -739,14 +832,20 @@ export class App extends Emitter<AppEvents> {
   }
 
   private updateFollow(dt: number): void {
-    if (!this.prefs.value.followSelection) { this.followOffset = null; return; }
+    if (!this.prefs.value.followSelection) {
+      this.followOffset = null;
+      return;
+    }
     const id = this.store.selection.find((s) => this.bodies.get(s));
     const v = id ? this.bodies.get(id) : null;
     if (!v) return;
     const c = this.viewport.controls;
     if (!this.followOffset) this.followOffset = c.target.clone().sub(v.position);
     const desired = v.position.clone();
-    const delta = desired.clone().sub(c.target).multiplyScalar(1 - Math.exp(-9 * dt));
+    const delta = desired
+      .clone()
+      .sub(c.target)
+      .multiplyScalar(1 - Math.exp(-9 * dt));
     c.target.add(delta);
     this.camera.position.add(delta);
   }
@@ -756,7 +855,12 @@ export class App extends Emitter<AppEvents> {
     if (!m || !m.b) return;
     const d = m.b.clone().sub(m.a);
     const mid = m.a.clone().add(m.b).multiplyScalar(0.5);
-    this.labels.set('measure', mid, `${d.length().toFixed(3)} m   Δ ${d.x.toFixed(2)}, ${d.y.toFixed(2)}, ${d.z.toFixed(2)}`, 'accent');
+    this.labels.set(
+      'measure',
+      mid,
+      `${d.length().toFixed(3)} m   Δ ${d.x.toFixed(2)}, ${d.y.toFixed(2)}, ${d.z.toFixed(2)}`,
+      'accent',
+    );
   }
 
   // ------------------------------------------------------------------------------------------
@@ -764,7 +868,10 @@ export class App extends Emitter<AppEvents> {
   // ------------------------------------------------------------------------------------------
 
   shoot(origin: Vector3, dir: Vector3): void {
-    if (!this.sim.active) { this.toast('Start the simulation to fire projectiles', 'warn'); return; }
+    if (!this.sim.active) {
+      this.toast('Start the simulation to fire projectiles', 'warn');
+      return;
+    }
     const p = this.prefs.value;
     const r = p.shootSize;
     const b = createBody({
@@ -780,7 +887,10 @@ export class App extends Emitter<AppEvents> {
   }
 
   blast(at: Vector3): void {
-    if (!this.sim.active) { this.toast('Start the simulation to set off blasts', 'warn'); return; }
+    if (!this.sim.active) {
+      this.toast('Start the simulation to set off blasts', 'warn');
+      return;
+    }
     const p = this.prefs.value;
     this.sim.client.op({ op: 'explode', center: [at.x, at.y, at.z], strength: p.blastStrength, radius: 7 });
     this.effects.shockwave(at, 7);
@@ -790,11 +900,17 @@ export class App extends Emitter<AppEvents> {
   softParticleAt(id: string, point: Vector3): number {
     const pos = this.sim.client.softOf(id);
     if (!pos) return -1;
-    let best = -1, bd = Infinity;
+    let best = -1,
+      bd = Infinity;
     for (let i = 0; i < pos.length; i += 3) {
-      const dx = pos[i] - point.x, dy = pos[i + 1] - point.y, dz = pos[i + 2] - point.z;
+      const dx = pos[i] - point.x,
+        dy = pos[i + 1] - point.y,
+        dz = pos[i + 2] - point.z;
       const d = dx * dx + dy * dy + dz * dz;
-      if (d < bd) { bd = d; best = i / 3; }
+      if (d < bd) {
+        bd = d;
+        best = i / 3;
+      }
     }
     return best;
   }
@@ -803,7 +919,14 @@ export class App extends Emitter<AppEvents> {
   liveBody(id: string): { vel: Vec3; ang: Vec3; force: Vec3; ke: number; mass: number; state: number } | null {
     const v = this.sim.velocityOf(id);
     if (!v) return null;
-    return { vel: v.linear, ang: v.angular, force: v.force, ke: v.ke, mass: this.sim.client.info.mass[id] ?? 0, state: v.state };
+    return {
+      vel: v.linear,
+      ang: v.angular,
+      force: v.force,
+      ke: v.ke,
+      mass: this.sim.client.info.mass[id] ?? 0,
+      state: v.state,
+    };
   }
 
   liveJoint(id: string): { value: number; speed: number; force: number; broken: boolean } | null {

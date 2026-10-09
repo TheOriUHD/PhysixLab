@@ -3,9 +3,7 @@
  * transform …). They operate on the SceneStore and, when a simulation is live, route pose
  * changes to the live world instead of the document.
  */
-import {
-  qconj, qmul, qrot, qrotInv, vadd, vlen, vnorm, vsub, type Quat, type Vec3,
-} from '../core/math';
+import { qconj, qmul, qrot, qrotInv, vadd, vlen, vnorm, vsub, type Quat, type Vec3 } from '../core/math';
 import { createBody, createJoint, createSoft, SOFT_LABELS } from '../model/factory';
 import { MATERIAL_PRESETS } from '../model/materials';
 import { defaultSize, normalizeSize, SHAPE_LABELS } from '../model/shapes';
@@ -28,7 +26,10 @@ export class Editor {
   private clipboard: Entity[] = [];
   private spawnCounter = 0;
 
-  constructor(readonly store: SceneStore, readonly sim: SimController) {}
+  constructor(
+    readonly store: SceneStore,
+    readonly sim: SimController,
+  ) {}
 
   // ---- creation ----------------------------------------------------------------------------
 
@@ -51,7 +52,14 @@ export class Editor {
   /** Add a soft body (jelly, balloon, cloth, cable) at a position, or in front of the view. */
   addSoft(type: SoftType, at?: Vec3, over: Partial<SoftEntity> = {}): SoftEntity {
     const proto = createSoft(type);
-    const h = type === 'jelly' ? proto.size[1] / 2 + 0.06 : type === 'balloon' ? proto.size[0] / 2 + 0.05 : type === 'cloth' ? 2.2 : 2.2;
+    const h =
+      type === 'jelly'
+        ? proto.size[1] / 2 + 0.06
+        : type === 'balloon'
+          ? proto.size[0] / 2 + 0.05
+          : type === 'cloth'
+            ? 2.2
+            : 2.2;
     const pos: Vec3 = at ?? [0, h, 0];
     const soft = createSoft(type, { name: this.store.uniqueName(SOFT_LABELS[type]), position: pos, ...over });
     this.store.add([soft], `Add ${SOFT_LABELS[type]}`);
@@ -59,7 +67,13 @@ export class Editor {
   }
 
   /** Create a joint between two endpoints, deriving local anchors from current poses. */
-  addJoint(type: JointType, a: JointEndpoint, b: JointEndpoint, axisWorld?: Vec3, over: Partial<JointEntity> = {}): JointEntity | null {
+  addJoint(
+    type: JointType,
+    a: JointEndpoint,
+    b: JointEndpoint,
+    axisWorld?: Vec3,
+    over: Partial<JointEntity> = {},
+  ): JointEntity | null {
     if (a.body && a.body === b.body) return null;
     const poseA = a.body ? this.sim.poseOf(a.body) : null;
     const poseB = b.body ? this.sim.poseOf(b.body) : null;
@@ -71,13 +85,28 @@ export class Editor {
     const dist = vlen(vsub(a.point, b.point));
     const spring = { restLength: Math.max(0.1, dist), stiffness: 500, damping: 15, breakForce: 0 };
     const joint = createJoint({
-      type, bodyA: a.body, bodyB: b.body, anchorA, anchorB, axis,
-      name: this.store.uniqueName(type === 'fixed' ? 'Weld' : type === 'ball' ? 'Ball joint' : type[0].toUpperCase() + type.slice(1)),
+      type,
+      bodyA: a.body,
+      bodyB: b.body,
+      anchorA,
+      anchorB,
+      axis,
+      name: this.store.uniqueName(
+        type === 'fixed' ? 'Weld' : type === 'ball' ? 'Ball joint' : type[0].toUpperCase() + type.slice(1),
+      ),
       ropeLength: Math.max(0.2, dist),
       spring,
       ...over,
     });
-    if (type === 'slider') joint.motor = { ...joint.motor, targetVelocity: 1, targetPosition: 0.5, stiffness: 6000, damping: 400, maxForce: 8000 };
+    if (type === 'slider')
+      joint.motor = {
+        ...joint.motor,
+        targetVelocity: 1,
+        targetPosition: 0.5,
+        stiffness: 6000,
+        damping: 400,
+        maxForce: 8000,
+      };
     this.store.add([joint], `Add ${joint.name}`);
     return joint;
   }
@@ -86,12 +115,16 @@ export class Editor {
   defaultAxis(type: JointType, bodyA: string | null, bodyB: string | null): Vec3 {
     for (const id of [bodyA, bodyB]) {
       const b = id ? this.store.body(id) : undefined;
-      if (b && (b.shape.type === 'cylinder' || b.shape.type === 'cone' || b.shape.type === 'capsule') && (type === 'hinge' || type === 'slider')) {
+      if (
+        b &&
+        (b.shape.type === 'cylinder' || b.shape.type === 'cone' || b.shape.type === 'capsule') &&
+        (type === 'hinge' || type === 'slider')
+      ) {
         const pose = this.sim.poseOf(b.id);
         return qrot(pose?.rotation ?? b.rotation, [0, 1, 0]);
       }
     }
-    return type === 'slider' ? [0, 1, 0] : this.cameraHorizontalAxis?.() ?? [0, 0, 1];
+    return type === 'slider' ? [0, 1, 0] : (this.cameraHorizontalAxis?.() ?? [0, 0, 1]);
   }
 
   /** Injected by the app: horizontal world axis most aligned with the camera's viewing direction. */
@@ -155,7 +188,7 @@ export class Editor {
     const copies = this.store.clone(ids, [0.6, 0, 0.6]);
     if (!copies.length) return;
     // Give copies fresh names.
-    const renamed = copies.map((c) => ({ ...c, name: this.nameForCopy(c.name) } as Entity));
+    const renamed = copies.map((c) => ({ ...c, name: this.nameForCopy(c.name) }) as Entity);
     this.store.add(renamed, 'Duplicate');
   }
 
@@ -180,7 +213,11 @@ export class Editor {
         ]
       : [0, 0, 0];
     const offset: Vec3 = at ? [at[0] - center[0], 0, at[2] - center[2]] : [0.8, 0, 0.8];
-    const copies = cloneEntities(this.clipboard, this.clipboard.map((e) => e.id), offset).map((c) => ({ ...c, name: this.nameForCopy(c.name) } as Entity));
+    const copies = cloneEntities(
+      this.clipboard,
+      this.clipboard.map((e) => e.id),
+      offset,
+    ).map((c) => ({ ...c, name: this.nameForCopy(c.name) }) as Entity);
     this.store.add(copies, 'Paste');
   }
 
@@ -189,14 +226,22 @@ export class Editor {
   }
 
   setBodyType(ids: string[], bodyType: BodyEntity['bodyType']): void {
-    this.store.updateMany(ids.filter((id) => this.store.body(id)).map((id) => [id, { bodyType } as Partial<BodyEntity>]), 'Change body type');
+    this.store.updateMany(
+      ids.filter((id) => this.store.body(id)).map((id) => [id, { bodyType } as Partial<BodyEntity>]),
+      'Change body type',
+    );
   }
 
   toggleFlag(ids: string[], flag: 'locked' | 'hidden'): void {
-    const es = ids.map((id) => this.store.get(id)).filter((e): e is Entity => !!e && (flag === 'hidden' || isBody(e) || isSoft(e)));
+    const es = ids
+      .map((id) => this.store.get(id))
+      .filter((e): e is Entity => !!e && (flag === 'hidden' || isBody(e) || isSoft(e)));
     if (!es.length) return;
     const value = !es.every((e) => (e as unknown as Record<string, boolean>)[flag]);
-    this.store.updateMany(es.map((e) => [e.id, { [flag]: value } as Partial<Entity>]), value ? (flag === 'locked' ? 'Lock' : 'Hide') : flag === 'locked' ? 'Unlock' : 'Show');
+    this.store.updateMany(
+      es.map((e) => [e.id, { [flag]: value } as Partial<Entity>]),
+      value ? (flag === 'locked' ? 'Lock' : 'Hide') : flag === 'locked' ? 'Unlock' : 'Show',
+    );
   }
 
   /** Write the current simulated poses into the document (becomes the new starting layout). */
@@ -205,7 +250,8 @@ export class Editor {
     const patches: [string, Partial<Entity>][] = [];
     for (const b of this.store.bodies()) {
       const p = this.sim.poseOf(b.id);
-      if (p && b.bodyType !== 'static') patches.push([b.id, { position: p.position, rotation: p.rotation } as Partial<BodyEntity>]);
+      if (p && b.bodyType !== 'static')
+        patches.push([b.id, { position: p.position, rotation: p.rotation } as Partial<BodyEntity>]);
     }
     // Joint frames are body-relative, so they follow automatically.
     this.store.updateMany(patches, 'Capture simulation state');
@@ -231,7 +277,9 @@ export class Editor {
 
   /** Axis (world) → vector helpers used by the joint inspector. */
   worldAxisToLocal(bodyId: string | null, axis: Vec3): Vec3 {
-    const pose = bodyId ? this.sim.poseOf(bodyId) ?? (this.store.body(bodyId) ? { rotation: this.store.body(bodyId)!.rotation } : null) : null;
+    const pose = bodyId
+      ? (this.sim.poseOf(bodyId) ?? (this.store.body(bodyId) ? { rotation: this.store.body(bodyId)!.rotation } : null))
+      : null;
     if (!pose) return vnorm(axis);
     return vnorm(qrot(qconj(pose.rotation), axis));
   }
@@ -245,14 +293,20 @@ export class Editor {
 function softSizeFromScale(e: SoftEntity, s: Vec3): Vec3 {
   const m = (v: number) => Math.max(0.1, v);
   switch (e.type) {
-    case 'jelly': return [m(s[0]), m(s[1]), m(s[2])];
+    case 'jelly':
+      return [m(s[0]), m(s[1]), m(s[2])];
     case 'balloon': {
       // Uniform: follow whichever axis the user dragged the most.
-      const k = [0, 1, 2].reduce((best, i) => (Math.abs(s[i] - e.size[0]) > Math.abs(s[best] - e.size[0]) ? i : best), 0);
+      const k = [0, 1, 2].reduce(
+        (best, i) => (Math.abs(s[i] - e.size[0]) > Math.abs(s[best] - e.size[0]) ? i : best),
+        0,
+      );
       const d = m(s[k]);
       return [d, d, d];
     }
-    case 'cloth': return [m(s[0]), 0, m(s[2])];
-    case 'cable': return [m(s[0]), 0, 0];
+    case 'cloth':
+      return [m(s[0]), 0, m(s[2])];
+    case 'cable':
+      return [m(s[0]), 0, 0];
   }
 }

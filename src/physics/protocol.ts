@@ -9,11 +9,22 @@ import type { BodyEntity, JointEntity, SceneDocument, SceneSettings, SoftEntity 
 export const BODY_STRIDE = 18;
 /** Offsets inside one body record. */
 export const B = {
-  px: 0, py: 1, pz: 2,
-  qx: 3, qy: 4, qz: 5, qw: 6,
-  vx: 7, vy: 8, vz: 9,
-  wx: 10, wy: 11, wz: 12,
-  fx: 13, fy: 14, fz: 15, // average net force over the last frame (N): m·Δv/Δt
+  px: 0,
+  py: 1,
+  pz: 2,
+  qx: 3,
+  qy: 4,
+  qz: 5,
+  qw: 6,
+  vx: 7,
+  vy: 8,
+  vz: 9,
+  wx: 10,
+  wy: 11,
+  wz: 12,
+  fx: 13,
+  fy: 14,
+  fz: 15, // average net force over the last frame (N): m·Δv/Δt
   state: 16, // 0 awake, 1 sleeping, 2 disabled (fell out of the world)
   ke: 17, // kinetic energy (J), linear + rotational
 } as const;
@@ -126,5 +137,4 @@ export type FromWorker =
   | { type: 'error'; message: string };
 
 export type SimEvent =
-  | { kind: 'jointBroken'; id: string; force: number }
-  | { kind: 'impact'; id: string; speed: number };
+  { kind: 'jointBroken'; id: string; force: number } | { kind: 'impact'; id: string; speed: number };

@@ -5,11 +5,14 @@ import { PhysicsWorld } from '../src/physics/world';
 import { qrot, type Vec3 } from '../src/core/math';
 import type { BodyEntity, SceneDocument } from '../src/model/types';
 
-const log = (...a: unknown[]) => process.stderr.write('\n' + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' '));
+const log = (...a: unknown[]) =>
+  process.stderr.write('\n' + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' '));
 
 const byId = (id: string) => TEMPLATES.find((t) => t.id === id)!;
 const nameOf = (doc: SceneDocument, name: string) => doc.entities.find((e) => e.name === name) as BodyEntity;
-const run = (w: PhysicsWorld, s: number) => { for (let i = 0; i < Math.round(s * w.settings.physicsHz); i++) w.stepOnce(); };
+const run = (w: PhysicsWorld, s: number) => {
+  for (let i = 0; i < Math.round(s * w.settings.physicsHz); i++) w.stepOnce();
+};
 
 describe('every example scene', () => {
   for (const t of TEMPLATES) {
@@ -25,7 +28,9 @@ describe('every example scene', () => {
         if (b.kind !== 'body') continue;
         const p = w.getPose(b.id)!;
         expect(p.position.every(Number.isFinite), `${b.name} finite`).toBe(true);
-        expect(Math.abs(p.position[0]) < 400 && Math.abs(p.position[2]) < 400, `${b.name} stays near the origin`).toBe(true);
+        expect(Math.abs(p.position[0]) < 400 && Math.abs(p.position[2]) < 400, `${b.name} stays near the origin`).toBe(
+          true,
+        );
       }
     });
   }
@@ -66,8 +71,13 @@ describe('soft-body scenes', () => {
       if (i % 4) continue;
       const { positions } = w.readSoft();
       for (let k = 0; k < 3; k++) {
-        let lo = 1e9, hi = -1e9;
-        for (let n = 0; n < 125; n++) { const y = positions[3 * (k * 125 + n) + 1]; lo = Math.min(lo, y); hi = Math.max(hi, y); }
+        let lo = 1e9,
+          hi = -1e9;
+        for (let n = 0; n < 125; n++) {
+          const y = positions[3 * (k * 125 + n) + 1];
+          lo = Math.min(lo, y);
+          hi = Math.max(hi, y);
+        }
         if (i > 60) minHeight[k] = Math.min(minHeight[k], hi - lo);
       }
     }
@@ -112,8 +122,10 @@ describe('scene behaviour', () => {
   it("newton's cradle transfers momentum", async () => {
     const doc = byId('cradle').build();
     const w = await PhysicsWorld.create(doc);
-    const first = nameOf(doc, 'Ball 1'), last = nameOf(doc, 'Ball 5');
-    let maxLastX = -9, minFirstAfter = 9;
+    const first = nameOf(doc, 'Ball 1'),
+      last = nameOf(doc, 'Ball 5');
+    let maxLastX = -9,
+      minFirstAfter = 9;
     for (let i = 0; i < 120 * 4; i++) {
       w.stepOnce();
       maxLastX = Math.max(maxLastX, w.getPose(last.id)!.position[0]);
@@ -126,10 +138,17 @@ describe('scene behaviour', () => {
   it('double pendulum conserves energy', async () => {
     const doc = byId('double').build();
     const w = await PhysicsWorld.create(doc);
-    const E = () => { w.readPoses(1); const e = w.stats().energy; return e.kinetic + e.rotational + e.potential; };
+    const E = () => {
+      w.readPoses(1);
+      const e = w.stats().energy;
+      return e.kinetic + e.rotational + e.potential;
+    };
     const e0 = E();
     let worst = 0;
-    for (let i = 0; i < 240 * 6; i++) { w.stepOnce(); if (i % 24 === 0) worst = Math.max(worst, Math.abs(E() - e0)); }
+    for (let i = 0; i < 240 * 6; i++) {
+      w.stepOnce();
+      if (i % 24 === 0) worst = Math.max(worst, Math.abs(E() - e0));
+    }
     log('double pendulum energy drift (J)', worst, 'E0', e0, 'KE+PE ranges');
     // measure relative to the swing of the potential energy
     expect(worst / Math.abs(e0)).toBeLessThan(0.01);
@@ -139,8 +158,14 @@ describe('scene behaviour', () => {
     const doc = byId('lever').build();
     const w = await PhysicsWorld.create(doc);
     const ball = nameOf(doc, 'Payload');
-    let maxX = -99, maxY = 0;
-    for (let i = 0; i < 120 * 5; i++) { w.stepOnce(); const p = w.getPose(ball.id)!.position; maxX = Math.max(maxX, p[0]); maxY = Math.max(maxY, p[1]); }
+    let maxX = -99,
+      maxY = 0;
+    for (let i = 0; i < 120 * 5; i++) {
+      w.stepOnce();
+      const p = w.getPose(ball.id)!.position;
+      maxX = Math.max(maxX, p[0]);
+      maxY = Math.max(maxY, p[1]);
+    }
     log('lever: payload max x', maxX, 'max y', maxY, 'final', w.getPose(ball.id)!.position);
     expect(maxX).toBeGreaterThan(8);
   });
@@ -150,7 +175,10 @@ describe('scene behaviour', () => {
     const w = await PhysicsWorld.create(doc);
     const bricks = doc.entities.filter((e) => e.name === 'Brick') as BodyEntity[];
     run(w, 6);
-    const moved = bricks.filter((b) => { const p = w.getPose(b.id)!.position; return Math.hypot(p[0] - b.position[0], p[1] - b.position[1], p[2] - b.position[2]) > 0.3; }).length;
+    const moved = bricks.filter((b) => {
+      const p = w.getPose(b.id)!.position;
+      return Math.hypot(p[0] - b.position[0], p[1] - b.position[1], p[2] - b.position[2]) > 0.3;
+    }).length;
     log('wrecking ball displaced bricks', moved, 'of', bricks.length);
     expect(moved).toBeGreaterThan(8);
   });
@@ -160,7 +188,12 @@ describe('scene behaviour', () => {
     const w = await PhysicsWorld.create(doc);
     const blocks = doc.entities.filter((e) => e.name === 'Block') as BodyEntity[];
     run(w, 0.5);
-    const drift = Math.max(...blocks.map((b) => { const p = w.getPose(b.id)!.position; return Math.hypot(p[0] - b.position[0], p[1] - b.position[1], p[2] - b.position[2]); }));
+    const drift = Math.max(
+      ...blocks.map((b) => {
+        const p = w.getPose(b.id)!.position;
+        return Math.hypot(p[0] - b.position[0], p[1] - b.position[1], p[2] - b.position[2]);
+      }),
+    );
     log('jenga drift before impact', drift);
     expect(drift).toBeLessThan(0.05);
     run(w, 5);
@@ -173,7 +206,11 @@ describe('scene behaviour', () => {
     const doc = byId('friction').build();
     const w = await PhysicsWorld.create(doc);
     run(w, 2.5);
-    const d = (n: string) => { const b = nameOf(doc, n); const p = w.getPose(b.id)!.position; return Math.hypot(p[0] - b.position[0], p[1] - b.position[1]); };
+    const d = (n: string) => {
+      const b = nameOf(doc, n);
+      const p = w.getPose(b.id)!.position;
+      return Math.hypot(p[0] - b.position[0], p[1] - b.position[1]);
+    };
     const res = { ice: d('Ice block'), steel: d('Steel block'), wood: d('Wood block'), rubber: d('Rubber block') };
     log('friction lab distances', res);
     expect(res.ice).toBeGreaterThan(res.steel);

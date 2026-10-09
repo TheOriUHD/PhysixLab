@@ -1,7 +1,13 @@
 /** Short-lived visual effects (blast shockwaves, placement pings). */
 import { AdditiveBlending, Group, Mesh, MeshBasicMaterial, RingGeometry, SphereGeometry, Vector3 } from 'three';
 
-interface Fx { mesh: Mesh; age: number; life: number; maxScale: number; kind: 'shock' | 'ping' }
+interface Fx {
+  mesh: Mesh;
+  age: number;
+  life: number;
+  maxScale: number;
+  kind: 'shock' | 'ping';
+}
 
 export class Effects {
   private fx: Fx[] = [];
@@ -11,14 +17,30 @@ export class Effects {
   constructor(private group: Group) {}
 
   shockwave(at: Vector3, radius: number): void {
-    const mat = new MeshBasicMaterial({ color: 0xffa347, transparent: true, opacity: 0.55, blending: AdditiveBlending, depthWrite: false, wireframe: true });
+    const mat = new MeshBasicMaterial({
+      color: 0xffa347,
+      transparent: true,
+      opacity: 0.55,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      wireframe: true,
+    });
     const mesh = new Mesh(this.sphere, mat);
     mesh.position.copy(at);
     mesh.scale.setScalar(0.1);
     mesh.renderOrder = 995;
     this.group.add(mesh);
     this.fx.push({ mesh, age: 0, life: 0.55, maxScale: radius, kind: 'shock' });
-    const flash = new Mesh(this.sphere, new MeshBasicMaterial({ color: 0xfff1c9, transparent: true, opacity: 0.9, blending: AdditiveBlending, depthWrite: false }));
+    const flash = new Mesh(
+      this.sphere,
+      new MeshBasicMaterial({
+        color: 0xfff1c9,
+        transparent: true,
+        opacity: 0.9,
+        blending: AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
     flash.position.copy(at);
     flash.scale.setScalar(0.2);
     flash.renderOrder = 996;
@@ -27,7 +49,14 @@ export class Effects {
   }
 
   ping(at: Vector3, color = 0x3ddcff): void {
-    const mat = new MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false, side: 2 });
+    const mat = new MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.9,
+      depthTest: false,
+      depthWrite: false,
+      side: 2,
+    });
     const mesh = new Mesh(this.ring, mat);
     mesh.position.copy(at);
     mesh.position.y += 0.02;

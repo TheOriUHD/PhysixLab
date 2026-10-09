@@ -39,7 +39,12 @@ export class Gizmo {
   mode: GizmoMode = 'translate';
   space: 'world' | 'local' = 'world';
 
-  constructor(camera: PerspectiveCamera, dom: HTMLElement, private cb: GizmoCallbacks, add: (o: Object3D) => void) {
+  constructor(
+    camera: PerspectiveCamera,
+    dom: HTMLElement,
+    private cb: GizmoCallbacks,
+    add: (o: Object3D) => void,
+  ) {
     this.controls = new TransformControls(camera, dom);
     this.controls.size = 0.85;
     add(this.pivot);
@@ -52,8 +57,12 @@ export class Gizmo {
     this.controls.addEventListener('objectChange', () => this.onChange());
   }
 
-  get isDragging(): boolean { return this.dragging; }
-  get hovering(): boolean { return (this.controls as unknown as { axis: string | null }).axis !== null; }
+  get isDragging(): boolean {
+    return this.dragging;
+  }
+  get hovering(): boolean {
+    return (this.controls as unknown as { axis: string | null }).axis !== null;
+  }
 
   setMode(m: GizmoMode): void {
     this.mode = m;
@@ -118,7 +127,12 @@ export class Gizmo {
 
   private beginDrag(): void {
     this.dragging = true;
-    this.start = this.items.map((i) => ({ id: i.id, position: i.position.clone(), quaternion: i.quaternion.clone(), size: i.size.clone() }));
+    this.start = this.items.map((i) => ({
+      id: i.id,
+      position: i.position.clone(),
+      quaternion: i.quaternion.clone(),
+      size: i.size.clone(),
+    }));
     this.startPivot.p.copy(this.pivot.position);
     this.startPivot.q.copy(this.pivot.quaternion);
     this.cb.dragStart();

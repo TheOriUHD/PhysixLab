@@ -2,7 +2,16 @@ import { clamp, type Quat, type Vec3 } from '../core/math';
 import { createBody, createJoint, createSoft, defaultSettings, softDefaults } from './factory';
 import { normalizeSize } from './shapes';
 import type {
-  BodyEntity, Entity, JointEntity, JointType, SceneDocument, SceneSettings, ShapeType, SoftEntity, SoftPin, SoftType,
+  BodyEntity,
+  Entity,
+  JointEntity,
+  JointType,
+  SceneDocument,
+  SceneSettings,
+  ShapeType,
+  SoftEntity,
+  SoftPin,
+  SoftType,
 } from './types';
 
 const SHAPES: ShapeType[] = ['box', 'sphere', 'cylinder', 'capsule', 'cone', 'wedge', 'prism', 'icosahedron'];
@@ -36,14 +45,15 @@ function sanitizeBody(raw: any): BodyEntity {
   const base = createBody({ shape: { type } });
   const mat = raw?.material ?? {};
   const bodyType = ['dynamic', 'static', 'kinematic'].includes(raw?.bodyType) ? raw.bodyType : 'dynamic';
-  const thrust = raw?.thrust && typeof raw.thrust === 'object'
-    ? {
-        force: vec3(raw.thrust.force, [0, 0, 0]),
-        torque: vec3(raw.thrust.torque, [0, 0, 0]),
-        mode: raw.thrust.mode === 'key' ? ('key' as const) : ('always' as const),
-        key: str(raw.thrust.key, ''),
-      }
-    : null;
+  const thrust =
+    raw?.thrust && typeof raw.thrust === 'object'
+      ? {
+          force: vec3(raw.thrust.force, [0, 0, 0]),
+          torque: vec3(raw.thrust.torque, [0, 0, 0]),
+          mode: raw.thrust.mode === 'key' ? ('key' as const) : ('always' as const),
+          key: str(raw.thrust.key, ''),
+        }
+      : null;
   return {
     ...base,
     id: str(raw?.id, base.id),
@@ -186,7 +196,14 @@ export function sanitizeDocument(raw: any): SceneDocument {
   const seen = new Set<string>();
   for (const r of raw.entities) {
     if (!r || typeof r !== 'object') continue;
-    const e = r.kind === 'joint' ? sanitizeJoint(r) : r.kind === 'body' ? sanitizeBody(r) : r.kind === 'soft' ? sanitizeSoft(r) : null;
+    const e =
+      r.kind === 'joint'
+        ? sanitizeJoint(r)
+        : r.kind === 'body'
+          ? sanitizeBody(r)
+          : r.kind === 'soft'
+            ? sanitizeSoft(r)
+            : null;
     if (!e || seen.has(e.id)) continue;
     seen.add(e.id);
     entities.push(e);
@@ -194,7 +211,8 @@ export function sanitizeDocument(raw: any): SceneDocument {
   // Drop joints that reference bodies that do not exist.
   const bodyIds = new Set(entities.filter((e) => e.kind === 'body').map((e) => e.id));
   const clean = entities.filter(
-    (e) => e.kind !== 'joint' || ((e.bodyA === null || bodyIds.has(e.bodyA)) && (e.bodyB === null || bodyIds.has(e.bodyB))),
+    (e) =>
+      e.kind !== 'joint' || ((e.bodyA === null || bodyIds.has(e.bodyA)) && (e.bodyB === null || bodyIds.has(e.bodyB))),
   );
   return {
     format: 'physicslab-scene',
@@ -211,6 +229,10 @@ export function serializeDocument(doc: SceneDocument): string {
 
 export function parseDocument(text: string): SceneDocument {
   let raw: unknown;
-  try { raw = JSON.parse(text); } catch { throw new Error('File is not valid JSON.'); }
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    throw new Error('File is not valid JSON.');
+  }
   return sanitizeDocument(raw);
 }

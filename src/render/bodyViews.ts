@@ -4,8 +4,18 @@
  * (speed / energy / force / sleep / type) for reading the simulation at a glance.
  */
 import {
-  BoxGeometry, BufferGeometry, CapsuleGeometry, Color, ConeGeometry, CylinderGeometry, Group, Mesh,
-  MeshStandardMaterial, SphereGeometry, SRGBColorSpace, Vector3,
+  BoxGeometry,
+  BufferGeometry,
+  CapsuleGeometry,
+  Color,
+  ConeGeometry,
+  CylinderGeometry,
+  Group,
+  Mesh,
+  MeshStandardMaterial,
+  SphereGeometry,
+  SRGBColorSpace,
+  Vector3,
 } from 'three';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { hullPoints } from '../model/shapes';
@@ -23,7 +33,10 @@ export const COLOR_MODE_LABELS: Record<ColorMode, string> = {
   sleep: 'Sleep state',
 };
 
-interface CachedGeo { geo: BufferGeometry; refs: number }
+interface CachedGeo {
+  geo: BufferGeometry;
+  refs: number;
+}
 
 class GeometryCache {
   private map = new Map<string, CachedGeo>();
@@ -31,9 +44,12 @@ class GeometryCache {
   key(shape: ShapeSpec): string {
     const [x, y] = shape.size;
     switch (shape.type) {
-      case 'capsule': return `capsule:${Math.round(((y - x) / x) * 1000)}`;
-      case 'prism': return `prism:${Math.round(shape.sides ?? 6)}`;
-      default: return shape.type;
+      case 'capsule':
+        return `capsule:${Math.round(((y - x) / x) * 1000)}`;
+      case 'prism':
+        return `prism:${Math.round(shape.sides ?? 6)}`;
+      default:
+        return shape.type;
     }
   }
 
@@ -59,10 +75,14 @@ class GeometryCache {
 
   private build(shape: ShapeSpec): BufferGeometry {
     switch (shape.type) {
-      case 'box': return new BoxGeometry(1, 1, 1);
-      case 'sphere': return new SphereGeometry(0.5, 40, 28);
-      case 'cylinder': return new CylinderGeometry(0.5, 0.5, 1, 48, 1);
-      case 'cone': return new ConeGeometry(0.5, 1, 48, 1);
+      case 'box':
+        return new BoxGeometry(1, 1, 1);
+      case 'sphere':
+        return new SphereGeometry(0.5, 40, 28);
+      case 'cylinder':
+        return new CylinderGeometry(0.5, 0.5, 1, 48, 1);
+      case 'cone':
+        return new ConeGeometry(0.5, 1, 48, 1);
       case 'capsule': {
         const [x, y] = shape.size;
         return new CapsuleGeometry(0.5, Math.max(0, (y - x) / x), 10, 32);
@@ -130,13 +150,19 @@ export class BodyView {
 
 const TYPE_COLORS = { dynamic: '#4a8dff', static: '#6b7686', kinematic: '#ffb03a' };
 const HEAT: [number, number, number][] = [
-  [0.10, 0.22, 0.85], [0.08, 0.72, 0.92], [0.55, 0.9, 0.35], [0.98, 0.85, 0.2], [0.95, 0.2, 0.12],
+  [0.1, 0.22, 0.85],
+  [0.08, 0.72, 0.92],
+  [0.55, 0.9, 0.35],
+  [0.98, 0.85, 0.2],
+  [0.95, 0.2, 0.12],
 ];
 
 export function heatColor(t: number, out: Color): Color {
   const x = Math.min(0.9999, Math.max(0, t)) * (HEAT.length - 1);
-  const i = Math.floor(x), f = x - i;
-  const a = HEAT[i], b = HEAT[i + 1];
+  const i = Math.floor(x),
+    f = x - i;
+  const a = HEAT[i],
+    b = HEAT[i + 1];
   return out.setRGB(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, SRGBColorSpace);
 }
 
@@ -151,7 +177,9 @@ export class BodyViews {
 
   constructor(readonly group: Group) {}
 
-  get(id: string): BodyView | undefined { return this.views.get(id); }
+  get(id: string): BodyView | undefined {
+    return this.views.get(id);
+  }
 
   add(def: BodyEntity): BodyView {
     this.remove(def.id);
@@ -177,7 +205,10 @@ export class BodyViews {
   /** Apply an edited definition (shape / material / visibility). */
   update(def: BodyEntity): void {
     const v = this.views.get(def.id);
-    if (!v) { this.add(def); return; }
+    if (!v) {
+      this.add(def);
+      return;
+    }
     const old = v.def;
     v.def = def;
     if (old.shape !== def.shape) {
@@ -212,7 +243,10 @@ export class BodyViews {
   }
 
   resetStates(): void {
-    for (const v of this.views.values()) { v.state = 0; v.mesh.visible = !v.def.hidden; }
+    for (const v of this.views.values()) {
+      v.state = 0;
+      v.mesh.visible = !v.def.hidden;
+    }
   }
 
   /**
@@ -221,7 +255,9 @@ export class BodyViews {
    */
   applyColors(poses: Float32Array | null, indexOf: (id: string) => number | undefined, selected: Set<string>): void {
     const mode = poses ? this.mode : this.mode === 'type' ? 'type' : 'material';
-    let maxSpeed = 0, maxKe = 0, maxF = 0;
+    let maxSpeed = 0,
+      maxKe = 0,
+      maxF = 0;
     if (poses && (mode === 'speed' || mode === 'energy' || mode === 'force')) {
       for (const id of this.views.keys()) {
         const i = indexOf(id);
@@ -275,5 +311,7 @@ export class BodyViews {
     }
   }
 
-  get scales() { return this.scaleMax; }
+  get scales() {
+    return this.scaleMax;
+  }
 }

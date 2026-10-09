@@ -5,8 +5,18 @@
  * stretches and tears), updated every frame from the worker.
  */
 import {
-  BoxGeometry, BufferAttribute, BufferGeometry, Color, DoubleSide, Group, Mesh, MeshPhysicalMaterial,
-  MeshStandardMaterial, Object3D, PlaneGeometry, SphereGeometry,
+  BoxGeometry,
+  BufferAttribute,
+  BufferGeometry,
+  Color,
+  DoubleSide,
+  Group,
+  Mesh,
+  MeshPhysicalMaterial,
+  MeshStandardMaterial,
+  Object3D,
+  PlaneGeometry,
+  SphereGeometry,
 } from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
@@ -26,13 +36,16 @@ class SoftView {
   readonly lineMaterial: LineMaterial | null;
   private proxyGeo: BufferGeometry | null = null;
 
-  constructor(public def: SoftEntity, res: { w: number; h: number }) {
-    this.material = def.type === 'jelly' || def.type === 'balloon'
-      ? new MeshPhysicalMaterial({ clearcoat: 0.8, clearcoatRoughness: 0.25, side: DoubleSide })
-      : new MeshStandardMaterial({ side: DoubleSide });
-    this.lineMaterial = def.type === 'cable'
-      ? new LineMaterial({ color: 0xffffff, linewidth: 5, worldUnits: false })
-      : null;
+  constructor(
+    public def: SoftEntity,
+    res: { w: number; h: number },
+  ) {
+    this.material =
+      def.type === 'jelly' || def.type === 'balloon'
+        ? new MeshPhysicalMaterial({ clearcoat: 0.8, clearcoatRoughness: 0.25, side: DoubleSide })
+        : new MeshStandardMaterial({ side: DoubleSide });
+    this.lineMaterial =
+      def.type === 'cable' ? new LineMaterial({ color: 0xffffff, linewidth: 5, worldUnits: false }) : null;
     this.lineMaterial?.resolution.set(res.w, res.h);
     this.proxy = this.buildProxy();
     this.root.add(this.proxy);
@@ -75,10 +88,18 @@ class SoftView {
     this.root.quaternion.set(...def.rotation);
     const [x, y, z] = def.size;
     switch (def.type) {
-      case 'jelly': this.proxy.scale.set(x, y, z); break;
-      case 'balloon': this.proxy.scale.setScalar(x); break;
-      case 'cloth': this.proxy.scale.set(x, 1, z); break;
-      case 'cable': this.proxy.scale.set(x, 1, 1); break;
+      case 'jelly':
+        this.proxy.scale.set(x, y, z);
+        break;
+      case 'balloon':
+        this.proxy.scale.setScalar(x);
+        break;
+      case 'cloth':
+        this.proxy.scale.set(x, 1, z);
+        break;
+      case 'cable':
+        this.proxy.scale.set(x, 1, 1);
+        break;
     }
     const m = this.material;
     m.color.set(def.color);
@@ -95,7 +116,12 @@ class SoftView {
   setDynamic(positions: Float32Array, indices: Uint32Array, mode: 'tri' | 'line', layoutChanged: boolean): void {
     if (mode === 'tri') {
       let mesh = this.dyn as Mesh | null;
-      if (!mesh || !(mesh instanceof Mesh) || layoutChanged || (mesh.geometry.getAttribute('position')?.count ?? -1) !== positions.length / 3) {
+      if (
+        !mesh ||
+        !(mesh instanceof Mesh) ||
+        layoutChanged ||
+        (mesh.geometry.getAttribute('position')?.count ?? -1) !== positions.length / 3
+      ) {
         this.disposeDyn();
         const g = new BufferGeometry();
         g.setAttribute('position', new BufferAttribute(new Float32Array(positions.length), 3).setUsage(35048));
@@ -118,7 +144,9 @@ class SoftView {
       const arr = new Float32Array(indices.length * 3);
       for (let i = 0; i < indices.length; i++) {
         const p = indices[i] * 3;
-        arr[i * 3] = positions[p]; arr[i * 3 + 1] = positions[p + 1]; arr[i * 3 + 2] = positions[p + 2];
+        arr[i * 3] = positions[p];
+        arr[i * 3 + 1] = positions[p + 1];
+        arr[i * 3 + 2] = positions[p + 2];
       }
       if (!seg || !(seg instanceof LineSegments2)) {
         this.disposeDyn();
@@ -148,7 +176,9 @@ class SoftView {
   }
 
   /** The object that is currently shown (and should be picked / outlined). */
-  get active(): Object3D { return this.dyn ?? this.proxy; }
+  get active(): Object3D {
+    return this.dyn ?? this.proxy;
+  }
 
   dispose(): void {
     this.disposeDyn();
@@ -170,7 +200,9 @@ export class SoftViews {
     for (const v of this.views.values()) v.lineMaterial?.resolution.set(w, h);
   }
 
-  get(id: string): SoftView | undefined { return this.views.get(id); }
+  get(id: string): SoftView | undefined {
+    return this.views.get(id);
+  }
 
   add(def: SoftEntity): void {
     this.remove(def.id);
@@ -182,7 +214,10 @@ export class SoftViews {
   update(def: SoftEntity): void {
     const v = this.views.get(def.id);
     const structural = !v || v.def.type !== def.type || v.def.resolution !== def.resolution;
-    if (structural) { this.add(def); return; }
+    if (structural) {
+      this.add(def);
+      return;
+    }
     v.apply(def);
   }
 
@@ -194,7 +229,9 @@ export class SoftViews {
     this.views.delete(id);
   }
 
-  clear(): void { for (const id of [...this.views.keys()]) this.remove(id); }
+  clear(): void {
+    for (const id of [...this.views.keys()]) this.remove(id);
+  }
 
   /** Visible meshes for picking / outlines. */
   pickables(): Object3D[] {
@@ -211,7 +248,10 @@ export class SoftViews {
   /** Push the latest simulated particle positions into the dynamic meshes. */
   applyFrame(client: SimClient): void {
     if (!client.active || !client.softLayout.length) {
-      if (this.lastLayout !== -2) { for (const v of this.views.values()) v.clearDynamic(); this.lastLayout = -2; }
+      if (this.lastLayout !== -2) {
+        for (const v of this.views.values()) v.clearDynamic();
+        this.lastLayout = -2;
+      }
       return;
     }
     const changed = client.softLayoutNo !== this.lastLayout;

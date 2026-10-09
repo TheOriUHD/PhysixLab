@@ -50,7 +50,10 @@ export function buildLeftPanel(app: App): HTMLElement {
     else if (cur === 'prefabs') body.appendChild(prefabTab(app));
     else body.appendChild(scenesTab(app, render));
   };
-  prefs.on('change', (k) => { if (k.includes('leftTab')) render(); if ((k.includes('jointType') || k.includes('tool')) && prefs.value.leftTab === 'add') render(); });
+  prefs.on('change', (k) => {
+    if (k.includes('leftTab')) render();
+    if ((k.includes('jointType') || k.includes('tool')) && prefs.value.leftTab === 'add') render();
+  });
   render();
   return h('aside', { class: 'panel left' }, tabs, body);
 }
@@ -61,7 +64,17 @@ function addTab(app: App): HTMLElement {
   root.appendChild(h('div', { class: 'group-title' }, 'Shapes'));
   const tiles = h('div', { class: 'tiles' });
   SHAPES.forEach((s, i) => {
-    const t = h('button', { class: 'tile', type: 'button', draggable: true, title: `${SHAPE_LABELS[s]} — click to add, or drag into the scene (${i + 1})` }, icon(s), SHAPE_LABELS[s]);
+    const t = h(
+      'button',
+      {
+        class: 'tile',
+        type: 'button',
+        draggable: true,
+        title: `${SHAPE_LABELS[s]} — click to add, or drag into the scene (${i + 1})`,
+      },
+      icon(s),
+      SHAPE_LABELS[s],
+    );
     t.addEventListener('click', () => app.addShape(s));
     t.addEventListener('dragstart', (e) => {
       e.dataTransfer?.setData('text/x-physicslab-shape', s);
@@ -75,7 +88,12 @@ function addTab(app: App): HTMLElement {
   root.appendChild(h('div', { class: 'group-title' }, 'Soft bodies'));
   const st = h('div', { class: 'tiles' });
   for (const s of SOFTS) {
-    const t = h('button', { class: 'tile', type: 'button', title: `${s.blurb} — click to add` }, icon(s.type), SOFT_LABELS[s.type]);
+    const t = h(
+      'button',
+      { class: 'tile', type: 'button', title: `${s.blurb} — click to add` },
+      icon(s.type),
+      SOFT_LABELS[s.type],
+    );
     t.addEventListener('click', () => app.addSoft(s.type));
     st.appendChild(t);
   }
@@ -85,20 +103,43 @@ function addTab(app: App): HTMLElement {
   const jt = h('div', { class: 'tiles three' });
   for (const j of JOINTS) {
     const on = prefs.value.tool === 'joint' && prefs.value.jointType === j.type;
-    const t = h('button', { class: `tile ${on ? 'on' : ''}`, type: 'button', title: `${j.blurb}\nClick, then click two bodies in the scene (J).` }, icon(({ fixed: 'weld', hinge: 'hinge', slider: 'slider', ball: 'ball', spring: 'spring', rope: 'rope' } as const)[j.type]), JOINT_TYPE_LABELS[j.type]);
+    const t = h(
+      'button',
+      {
+        class: `tile ${on ? 'on' : ''}`,
+        type: 'button',
+        title: `${j.blurb}\nClick, then click two bodies in the scene (J).`,
+      },
+      icon(
+        ({ fixed: 'weld', hinge: 'hinge', slider: 'slider', ball: 'ball', spring: 'spring', rope: 'rope' } as const)[
+          j.type
+        ],
+      ),
+      JOINT_TYPE_LABELS[j.type],
+    );
     t.addEventListener('click', () => app.startJointTool(j.type));
     jt.appendChild(t);
   }
   root.appendChild(jt);
-  root.appendChild(h('p', { class: 'hint-text', style: { padding: '8px 12px 0' } },
-    'Pick a joint, then click the first body, then the second (or empty ground to pin to the world). The joint appears at your first click; select it to add limits, a motor, or spring settings.'));
+  root.appendChild(
+    h(
+      'p',
+      { class: 'hint-text', style: { padding: '8px 12px 0' } },
+      'Pick a joint, then click the first body, then the second (or empty ground to pin to the world). The joint appears at your first click; select it to add limits, a motor, or spring settings.',
+    ),
+  );
 
   root.appendChild(h('div', { class: 'group-title' }, 'Quick tips'));
-  root.appendChild(h('ul', { class: 'hint-text', style: { padding: '0 12px 12px 28px', margin: '0' } },
-    h('li', null, 'Press ', h('kbd', null, '1'), '–', h('kbd', null, '8'), ' to add shapes at the view centre.'),
-    h('li', null, 'Drag a body to move it; hold ', h('kbd', null, 'Shift'), ' to lift it.'),
-    h('li', null, 'Press ', h('kbd', null, 'Space'), ' to simulate — then drag bodies to throw them.'),
-    h('li', null, 'Open ', h('b', null, 'Scenes'), ' for ready-made experiments.')));
+  root.appendChild(
+    h(
+      'ul',
+      { class: 'hint-text', style: { padding: '0 12px 12px 28px', margin: '0' } },
+      h('li', null, 'Press ', h('kbd', null, '1'), '–', h('kbd', null, '8'), ' to add shapes at the view centre.'),
+      h('li', null, 'Drag a body to move it; hold ', h('kbd', null, 'Shift'), ' to lift it.'),
+      h('li', null, 'Press ', h('kbd', null, 'Space'), ' to simulate — then drag bodies to throw them.'),
+      h('li', null, 'Open ', h('b', null, 'Scenes'), ' for ready-made experiments.'),
+    ),
+  );
   return root;
 }
 
@@ -107,8 +148,12 @@ function prefabTab(app: App): HTMLElement {
   root.appendChild(h('div', { class: 'group-title' }, 'Insert an assembly'));
   const cards = h('div', { class: 'cards' });
   for (const p of PREFABS) {
-    const c = h('button', { class: 'card', type: 'button', title: 'Insert at the centre of the view' },
-      h('h4', null, icon(p.icon), p.name), h('p', null, p.blurb));
+    const c = h(
+      'button',
+      { class: 'card', type: 'button', title: 'Insert at the centre of the view' },
+      h('h4', null, icon(p.icon), p.name),
+      h('p', null, p.blurb),
+    );
     c.addEventListener('click', () => app.insertPrefab(p.id));
     cards.appendChild(c);
   }
@@ -121,24 +166,52 @@ function scenesTab(app: App, rerender: () => void): HTMLElement {
   root.appendChild(h('div', { class: 'group-title' }, 'My scenes'));
   const lib = app.persistence.library();
   const mine = h('div', { class: 'cards', style: { paddingBottom: '2px' } });
-  if (!lib.length) mine.appendChild(h('p', { class: 'hint-text', style: { margin: '0' } }, 'Nothing saved yet. Use File → Save to library (Ctrl+S). Your current scene is always autosaved.'));
+  if (!lib.length)
+    mine.appendChild(
+      h(
+        'p',
+        { class: 'hint-text', style: { margin: '0' } },
+        'Nothing saved yet. Use File → Save to library (Ctrl+S). Your current scene is always autosaved.',
+      ),
+    );
   for (const e of lib) {
-    const open = h('button', { class: 'card', type: 'button', style: { flex: '1' } },
-      h('h4', null, icon('folder'), e.name), h('p', null, `${e.bodies} bodies · ${new Date(e.savedAt).toLocaleString()}`));
+    const open = h(
+      'button',
+      { class: 'card', type: 'button', style: { flex: '1' } },
+      h('h4', null, icon('folder'), e.name),
+      h('p', null, `${e.bodies} bodies · ${new Date(e.savedAt).toLocaleString()}`),
+    );
     open.addEventListener('click', () => {
       const doc = app.persistence.openFromLibrary(e.id);
       if (doc) confirmReplace(app, () => app.loadDocument(doc, 'frame'));
     });
     const del = h('button', { class: 'icon-btn', type: 'button', title: 'Delete from library' }, icon('trash'));
-    del.addEventListener('click', () => { app.persistence.deleteFromLibrary(e.id); rerender(); });
+    del.addEventListener('click', () => {
+      app.persistence.deleteFromLibrary(e.id);
+      rerender();
+    });
     mine.appendChild(h('div', { class: 'card-row' }, open, del));
   }
   root.appendChild(mine);
   const actions = h('div', { style: { display: 'flex', gap: '6px', padding: '4px 12px 8px' } });
   const fileIn = h('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' } });
-  fileIn.addEventListener('change', async () => { const f = fileIn.files?.[0]; fileIn.value = ''; if (f) await importDocument(app, f); });
+  fileIn.addEventListener('change', async () => {
+    const f = fileIn.files?.[0];
+    fileIn.value = '';
+    if (f) await importDocument(app, f);
+  });
   actions.append(
-    button('Save current', () => { const e = app.persistence.saveToLibrary(); if (e) { app.toast(`Saved “${e.name}”`, 'success'); rerender(); } }, { icon: 'save', cls: 'small' }),
+    button(
+      'Save current',
+      () => {
+        const e = app.persistence.saveToLibrary();
+        if (e) {
+          app.toast(`Saved “${e.name}”`, 'success');
+          rerender();
+        }
+      },
+      { icon: 'save', cls: 'small' },
+    ),
     button('Import…', () => fileIn.click(), { icon: 'upload', cls: 'small' }),
     fileIn,
   );

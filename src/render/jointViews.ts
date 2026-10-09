@@ -5,8 +5,20 @@
  * broken joints).
  */
 import {
-  BufferGeometry, Color, ConeGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, Object3D, PerspectiveCamera,
-  Quaternion, SphereGeometry, TorusGeometry, Vector3, BoxGeometry,
+  BufferGeometry,
+  Color,
+  ConeGeometry,
+  CylinderGeometry,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  Object3D,
+  PerspectiveCamera,
+  Quaternion,
+  SphereGeometry,
+  TorusGeometry,
+  Vector3,
+  BoxGeometry,
 } from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
@@ -106,8 +118,11 @@ class JointView {
       }
       case 'slider': {
         this.rail = this.add(shared.shaft);
-        const t1 = this.add(shared.cone); t1.position.y = 0.46;
-        const t2 = this.add(shared.cone); t2.position.y = -0.46; t2.rotation.x = Math.PI;
+        const t1 = this.add(shared.cone);
+        t1.position.y = 0.46;
+        const t2 = this.add(shared.cone);
+        t2.position.y = -0.46;
+        t2.rotation.x = Math.PI;
         const knob = this.add(shared.box);
         knob.scale.set(0.12, 0.12, 0.12);
         this.motorRing = this.add(shared.ring2, MOTOR_COLOR);
@@ -136,8 +151,13 @@ class JointView {
         const b = this.add(shared.sphere);
         b.scale.setScalar(0.14);
         const lm = new LineMaterial({
-          color: 0xffffff, linewidth: d.type === 'spring' ? 2.4 : 2.0, transparent: true, depthTest: false, worldUnits: false,
-          opacity: 0.95, toneMapped: false,
+          color: 0xffffff,
+          linewidth: d.type === 'spring' ? 2.4 : 2.0,
+          transparent: true,
+          depthTest: false,
+          worldUnits: false,
+          opacity: 0.95,
+          toneMapped: false,
         });
         lm.resolution.set(res.w, res.h);
         this.lineMat = lm;
@@ -174,7 +194,11 @@ class JointView {
   }
 }
 
-export interface JointFrame { a: Vector3; b: Vector3; axis: Vector3 }
+export interface JointFrame {
+  a: Vector3;
+  b: Vector3;
+  axis: Vector3;
+}
 
 const tmpQ = new Quaternion();
 const tmpV = new Vector3();
@@ -184,7 +208,10 @@ export class JointViews {
   private res = { w: 1, h: 1 };
   visible = true;
 
-  constructor(readonly group: Group, private bodies: BodyViews) {}
+  constructor(
+    readonly group: Group,
+    private bodies: BodyViews,
+  ) {}
 
   setResolution(w: number, h: number): void {
     this.res = { w, h };
@@ -223,7 +250,10 @@ export class JointViews {
   setSelected(ids: Set<string>): void {
     for (const v of this.views.values()) {
       const s = ids.has(v.def.id);
-      if (s !== v.selected) { v.selected = s; v.setColor(); }
+      if (s !== v.selected) {
+        v.selected = s;
+        v.setColor();
+      }
     }
   }
 
@@ -246,7 +276,10 @@ export class JointViews {
     if ((def.bodyA && !A) || (def.bodyB && !Bv)) return null;
     if (A) {
       A.mesh.updateMatrix();
-      out.a.set(...def.anchorA).applyQuaternion(A.mesh.quaternion).add(A.mesh.position);
+      out.a
+        .set(...def.anchorA)
+        .applyQuaternion(A.mesh.quaternion)
+        .add(A.mesh.position);
       out.axis.set(...def.axis).applyQuaternion(A.mesh.quaternion);
     } else {
       out.a.set(...def.anchorA);
@@ -254,7 +287,11 @@ export class JointViews {
     }
     out.axis.normalize();
     if (def.type === 'spring' || def.type === 'rope') {
-      if (Bv) out.b.set(...def.anchorB).applyQuaternion(Bv.mesh.quaternion).add(Bv.mesh.position);
+      if (Bv)
+        out.b
+          .set(...def.anchorB)
+          .applyQuaternion(Bv.mesh.quaternion)
+          .add(Bv.mesh.position);
       else out.b.set(...def.anchorB);
     } else out.b.copy(out.a);
     return out;
@@ -266,7 +303,12 @@ export class JointViews {
    * Per-frame update. `state` is the live joint buffer (or null in edit mode) and `indexOf`
    * maps joint ids into it.
    */
-  updateFrame(camera: PerspectiveCamera, state: Float32Array | null, indexOf: (id: string) => number | undefined, broken: Set<string>): void {
+  updateFrame(
+    camera: PerspectiveCamera,
+    state: Float32Array | null,
+    indexOf: (id: string) => number | undefined,
+    broken: Set<string>,
+  ): void {
     for (const v of this.views.values()) {
       const def = v.def;
       const isBroken = broken.has(def.id);
@@ -312,7 +354,10 @@ export class JointViews {
         v.parts[1].position.copy(tmpV);
         v.parts[1].scale.setScalar(0.1 * s);
         v.hit.scale.setScalar(0.4 * s);
-        if (v.hitB) { v.hitB.position.copy(tmpV); v.hitB.scale.setScalar(0.4 * s); }
+        if (v.hitB) {
+          v.hitB.position.copy(tmpV);
+          v.hitB.scale.setScalar(0.4 * s);
+        }
         const pts = def.type === 'spring' ? this.coil(len, tmpV, def, s) : this.rope(len, tmpV, def);
         v.line.geometry.setPositions(pts);
         v.line.computeLineDistances();
@@ -322,9 +367,15 @@ export class JointViews {
           const idx = indexOf(def.id);
           if (idx !== undefined) {
             const force = state[idx * JOINT_STRIDE + J.force];
-            const ref = def.spring.breakForce > 0 ? def.spring.breakForce : Math.max(1, def.spring.stiffness * Math.max(0.2, def.spring.restLength));
+            const ref =
+              def.spring.breakForce > 0
+                ? def.spring.breakForce
+                : Math.max(1, def.spring.stiffness * Math.max(0.2, def.spring.restLength));
             const t = Math.max(-1, Math.min(1, force / ref));
-            col = t >= 0 ? col.lerp(new Color('#ff3b3b'), Math.min(1, t * 1.4)) : col.lerp(new Color('#3b6bff'), Math.min(1, -t * 1.4));
+            col =
+              t >= 0
+                ? col.lerp(new Color('#ff3b3b'), Math.min(1, t * 1.4))
+                : col.lerp(new Color('#3b6bff'), Math.min(1, -t * 1.4));
           }
         }
         v.lineMat!.color.copy(col);
@@ -337,7 +388,10 @@ export class JointViews {
     const out: number[] = [];
     if (len < 1e-4) return [0, 0, 0, 0, 0, 0];
     const dir = d.clone().normalize();
-    const side = Math.abs(dir.y) < 0.95 ? new Vector3(0, 1, 0).cross(dir).normalize() : new Vector3(1, 0, 0).cross(dir).normalize();
+    const side =
+      Math.abs(dir.y) < 0.95
+        ? new Vector3(0, 1, 0).cross(dir).normalize()
+        : new Vector3(1, 0, 0).cross(dir).normalize();
     const up = dir.clone().cross(side).normalize();
     const turns = Math.max(4, Math.min(16, Math.round(def.spring.restLength * 4 + 4)));
     const segs = turns * 14;
@@ -347,8 +401,12 @@ export class JointViews {
       const t = i / segs;
       let axial = t * len;
       let rad = r;
-      if (axial < lead) { rad *= axial / lead; }
-      if (axial > len - lead) { rad *= (len - axial) / lead; }
+      if (axial < lead) {
+        rad *= axial / lead;
+      }
+      if (axial > len - lead) {
+        rad *= (len - axial) / lead;
+      }
       axial = Math.max(0, Math.min(len, axial));
       const ang = t * turns * Math.PI * 2;
       out.push(

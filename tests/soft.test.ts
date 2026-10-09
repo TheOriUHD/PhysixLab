@@ -4,10 +4,17 @@ import { qfromAxisAngle, vlen } from '../src/core/math';
 import { worldOf } from './helpers';
 import type { PhysicsWorld } from '../src/physics/world';
 
-const run = (w: PhysicsWorld, s: number) => { for (let i = 0; i < Math.round(s * w.settings.physicsHz); i++) w.stepOnce(); };
+const run = (w: PhysicsWorld, s: number) => {
+  for (let i = 0; i < Math.round(s * w.settings.physicsHz); i++) w.stepOnce();
+};
 const bounds = (pos: Float32Array) => {
-  const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
-  for (let i = 0; i < pos.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], pos[i + k]); hi[k] = Math.max(hi[k], pos[i + k]); }
+  const lo = [1e9, 1e9, 1e9],
+    hi = [-1e9, -1e9, -1e9];
+  for (let i = 0; i < pos.length; i += 3)
+    for (let k = 0; k < 3; k++) {
+      lo[k] = Math.min(lo[k], pos[i + k]);
+      hi[k] = Math.max(hi[k], pos[i + k]);
+    }
   return { lo, hi };
 };
 
@@ -41,7 +48,13 @@ describe('soft bodies', () => {
 
   it('rotated soft bodies keep their pins at the rotated positions', async () => {
     // A cloth rotated 90° about Z stands vertically; pin one edge: it must hang from a vertical line.
-    const cloth = createSoft('cloth', { position: [0, 3, 0], pin: 'edge', resolution: 10, size: [2, 0, 2], rotation: qfromAxisAngle([0, 0, 1], Math.PI / 2) });
+    const cloth = createSoft('cloth', {
+      position: [0, 3, 0],
+      pin: 'edge',
+      resolution: 10,
+      size: [2, 0, 2],
+      rotation: qfromAxisAngle([0, 0, 1], Math.PI / 2),
+    });
     const w = await worldOf([cloth]);
     run(w, 2);
     const { positions } = w.readSoft();
@@ -59,17 +72,30 @@ describe('soft bodies', () => {
     expect(layout![0].mode).toBe('line');
     const mid = [positions[3 * 10], positions[3 * 10 + 1]];
     expect(mid[1]).toBeLessThan(3 - 0.02);
-    const first = [positions[0], positions[1], positions[2]], last = [positions[3 * 19], positions[3 * 19 + 1], positions[3 * 19 + 2]];
+    const first = [positions[0], positions[1], positions[2]],
+      last = [positions[3 * 19], positions[3 * 19 + 1], positions[3 * 19 + 2]];
     expect(Math.abs(first[1] - 3)).toBeLessThan(0.02);
     expect(Math.hypot(last[0] - first[0], last[1] - first[1], last[2] - first[2])).toBeGreaterThan(2.8);
   });
 
   it('a heavy ball tears a banner with a tear strain, reported as a topology change', async () => {
     const banner = createSoft('cloth', {
-      position: [0, 3, 0], size: [3, 0, 2.4], resolution: 16, pin: 'edge', tearStrain: 0.25, stiffness: 60, damping: 0.2,
+      position: [0, 3, 0],
+      size: [3, 0, 2.4],
+      resolution: 16,
+      pin: 'edge',
+      tearStrain: 0.25,
+      stiffness: 60,
+      damping: 0.2,
       rotation: qfromAxisAngle([1, 0, 0], Math.PI / 2),
     });
-    const ball = createBody({ shape: { type: 'sphere', size: [0.7, 0.7, 0.7] }, position: [0, 3, 3.5], velocity: [0, 0, -20], ccd: true, material: { preset: 'custom', density: 3000 } });
+    const ball = createBody({
+      shape: { type: 'sphere', size: [0.7, 0.7, 0.7] },
+      position: [0, 3, 3.5],
+      velocity: [0, 0, -20],
+      ccd: true,
+      material: { preset: 'custom', density: 3000 },
+    });
     const w = await worldOf([banner, ball]);
     const first = w.readSoft();
     expect(first.layout).toBeDefined();
@@ -116,7 +142,8 @@ describe('soft bodies', () => {
   it('stays finite and fast enough with several soft bodies', async () => {
     const list = [
       createSoft('cloth', { position: [0, 3, 0], resolution: 16, size: [2, 0, 2] }),
-      createSoft('jelly', { position: [3, 2, 0] }), createSoft('jelly', { position: [3, 3.4, 0] }),
+      createSoft('jelly', { position: [3, 2, 0] }),
+      createSoft('jelly', { position: [3, 3.4, 0] }),
       createSoft('balloon', { position: [-3, 2, 0] }),
     ];
     const w = await worldOf(list);

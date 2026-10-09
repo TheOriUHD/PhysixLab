@@ -19,10 +19,19 @@ export interface LibraryEntry {
 }
 
 function safeGet(key: string): string | null {
-  try { return localStorage.getItem(key); } catch { return null; }
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 function safeSet(key: string, value: string): boolean {
-  try { localStorage.setItem(key, value); return true; } catch { return false; }
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export class Persistence {
@@ -54,7 +63,11 @@ export class Persistence {
   loadAutosave(): SceneDocument | null {
     const raw = safeGet(AUTOSAVE_KEY);
     if (!raw) return null;
-    try { return parseDocument(raw); } catch { return null; }
+    try {
+      return parseDocument(raw);
+    } catch {
+      return null;
+    }
   }
 
   // ---- library -----------------------------------------------------------------------------
@@ -62,7 +75,11 @@ export class Persistence {
   library(): LibraryEntry[] {
     const raw = safeGet(LIBRARY_KEY);
     if (!raw) return [];
-    try { return JSON.parse(raw) as LibraryEntry[]; } catch { return []; }
+    try {
+      return JSON.parse(raw) as LibraryEntry[];
+    } catch {
+      return [];
+    }
   }
 
   saveToLibrary(): LibraryEntry | null {
@@ -91,7 +108,11 @@ export class Persistence {
   openFromLibrary(id: string): SceneDocument | null {
     const e = this.library().find((x) => x.id === id);
     if (!e) return null;
-    try { return parseDocument(e.data); } catch { return null; }
+    try {
+      return parseDocument(e.data);
+    } catch {
+      return null;
+    }
   }
 
   // ---- files -------------------------------------------------------------------------------

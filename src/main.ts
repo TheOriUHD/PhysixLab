@@ -29,35 +29,75 @@ async function boot(): Promise<void> {
   mountToasts(app);
   wireShell(app, shell);
   const input = new InputController(app);
-  app.viewport.controls.addEventListener('change', () => { /* camera moved */ });
+  app.viewport.controls.addEventListener('change', () => {
+    /* camera moved */
+  });
 
   input.onContextMenu = (ev) => {
     const hit = app.pickEntity(ev);
     if (hit && !app.store.selection.includes(hit.entityId)) app.store.setSelection([hit.entityId]);
     const has = app.store.selection.length > 0;
-    openMenu([
-      { label: 'Frame', icon: 'frame', kbd: 'F', action: () => app.frameSelection() },
-      { label: 'Duplicate', icon: 'copy', kbd: 'Ctrl+D', disabled: !has, action: () => app.editor.duplicateSelection() },
-      { label: 'Hide / show', icon: 'eye', kbd: 'H', disabled: !has, action: () => app.editor.toggleFlag(app.store.selection, 'hidden') },
-      { label: 'Lock / unlock', icon: 'lock', kbd: 'L', disabled: !has, action: () => app.editor.toggleFlag(app.store.selection, 'locked') },
-      { sep: true },
-      { label: 'Delete', icon: 'trash', kbd: 'Del', disabled: !has, action: () => app.editor.deleteSelection() },
-      { sep: true },
-      { label: app.sim.active ? 'Reset simulation' : 'Simulate', icon: app.sim.active ? 'reset' : 'play', kbd: app.sim.active ? 'Shift+Space' : 'Space', action: () => (app.sim.active ? app.sim.reset() : app.sim.play()) },
-    ], { x: ev.clientX, y: ev.clientY });
+    openMenu(
+      [
+        { label: 'Frame', icon: 'frame', kbd: 'F', action: () => app.frameSelection() },
+        {
+          label: 'Duplicate',
+          icon: 'copy',
+          kbd: 'Ctrl+D',
+          disabled: !has,
+          action: () => app.editor.duplicateSelection(),
+        },
+        {
+          label: 'Hide / show',
+          icon: 'eye',
+          kbd: 'H',
+          disabled: !has,
+          action: () => app.editor.toggleFlag(app.store.selection, 'hidden'),
+        },
+        {
+          label: 'Lock / unlock',
+          icon: 'lock',
+          kbd: 'L',
+          disabled: !has,
+          action: () => app.editor.toggleFlag(app.store.selection, 'locked'),
+        },
+        { sep: true },
+        { label: 'Delete', icon: 'trash', kbd: 'Del', disabled: !has, action: () => app.editor.deleteSelection() },
+        { sep: true },
+        {
+          label: app.sim.active ? 'Reset simulation' : 'Simulate',
+          icon: app.sim.active ? 'reset' : 'play',
+          kbd: app.sim.active ? 'Shift+Space' : 'Space',
+          action: () => (app.sim.active ? app.sim.reset() : app.sim.play()),
+        },
+      ],
+      { x: ev.clientX, y: ev.clientY },
+    );
   };
 
   // ---- initial scene: shared link > autosave > welcome example ---------------------------------
   let loaded = false;
   let viewSet = false;
   const fromHash = await Persistence.fromHash(location.hash);
-  if (fromHash) { app.store.load(fromHash); loaded = true; app.toast(`Opened shared scene “${fromHash.name}”`, 'success'); history.replaceState(null, '', location.pathname + location.search); }
+  if (fromHash) {
+    app.store.load(fromHash);
+    loaded = true;
+    app.toast(`Opened shared scene “${fromHash.name}”`, 'success');
+    history.replaceState(null, '', location.pathname + location.search);
+  }
   if (!loaded) {
     const auto = app.persistence.loadAutosave();
-    if (auto && auto.entities.length) { app.store.load(auto); loaded = true; }
+    if (auto && auto.entities.length) {
+      app.store.load(auto);
+      loaded = true;
+    }
   }
   const demo = new URLSearchParams(location.search).get('scene');
-  if (demo && TEMPLATE_BY_ID.has(demo)) { app.loadTemplate(demo); loaded = true; viewSet = !!TEMPLATE_BY_ID.get(demo)!.view; }
+  if (demo && TEMPLATE_BY_ID.has(demo)) {
+    app.loadTemplate(demo);
+    loaded = true;
+    viewSet = !!TEMPLATE_BY_ID.get(demo)!.view;
+  }
   if (!loaded) {
     app.loadTemplate('car');
     viewSet = true;
@@ -68,16 +108,22 @@ async function boot(): Promise<void> {
   app.updateToolHint();
 
   // Drag & drop a scene file anywhere to import it.
-  window.addEventListener('dragover', (e) => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault(); });
+  window.addEventListener('dragover', (e) => {
+    if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
+  });
   window.addEventListener('drop', (e) => {
     const f = e.dataTransfer?.files?.[0];
-    if (f && /\.json$/i.test(f.name)) { e.preventDefault(); importDocument(app, f); }
+    if (f && /\.json$/i.test(f.name)) {
+      e.preventDefault();
+      importDocument(app, f);
+    }
   });
 
   app.start();
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
   (window as unknown as { physicslab: App }).physicslab = app;
-  if (!app.prefs.value.seenWelcome && !new URLSearchParams(location.search).has('nowelcome')) setTimeout(() => showWelcome(app), 400);
+  if (!app.prefs.value.seenWelcome && !new URLSearchParams(location.search).has('nowelcome'))
+    setTimeout(() => showWelcome(app), 400);
 }
 
 boot().catch((e) => {

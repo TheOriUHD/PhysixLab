@@ -22,15 +22,26 @@ export function buildRightPanel(app: App): HTMLElement {
     tabs.appendChild(t);
     return t;
   });
-  const host = h('div', { style: { flex: '1', minHeight: '0', display: 'flex', flexDirection: 'column' } }, ...defs.map((d) => d.el));
+  const host = h(
+    'div',
+    { style: { flex: '1', minHeight: '0', display: 'flex', flexDirection: 'column' } },
+    ...defs.map((d) => d.el),
+  );
   const sync = () => {
     const cur = prefs.value.rightTab;
-    defs.forEach((d, i) => { els[i].classList.toggle('on', d.id === cur); d.el.style.display = d.id === cur ? '' : 'none'; });
+    defs.forEach((d, i) => {
+      els[i].classList.toggle('on', d.id === cur);
+      d.el.style.display = d.id === cur ? '' : 'none';
+    });
     if (cur === 'outliner') outliner.activate();
   };
-  prefs.on('change', (k) => { if (k.includes('rightTab')) sync(); });
+  prefs.on('change', (k) => {
+    if (k.includes('rightTab')) sync();
+  });
   // Selecting something while on another tab: jump to the inspector for convenience.
-  app.store.on('selection', () => { if (app.store.selection.length && prefs.value.rightTab === 'world') prefs.set({ rightTab: 'inspector' }); });
+  app.store.on('selection', () => {
+    if (app.store.selection.length && prefs.value.rightTab === 'world') prefs.set({ rightTab: 'inspector' });
+  });
   sync();
   return h('aside', { class: 'panel right' }, tabs, host);
 }

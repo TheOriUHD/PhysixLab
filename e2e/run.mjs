@@ -17,15 +17,30 @@ const outDir = join(root, 'e2e', 'out');
 mkdirSync(outDir, { recursive: true });
 const SHOTS = !!process.env.E2E_SHOTS;
 
-const CHROME = [process.env.CHROME_PATH, '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/usr/bin/chromium', '/usr/bin/google-chrome'].filter(Boolean).find((p) => existsSync(p));
+const CHROME = [
+  process.env.CHROME_PATH,
+  '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  '/usr/bin/chromium',
+  '/usr/bin/google-chrome',
+]
+  .filter(Boolean)
+  .find((p) => existsSync(p));
 
 let server = null;
 async function ensureServer() {
   if (process.env.E2E_URL) return process.env.E2E_URL;
   const port = 5199;
-  server = spawn('npx', ['vite', '--port', String(port), '--host', '127.0.0.1', '--strictPort'], { cwd: root, stdio: 'ignore' });
+  server = spawn('npx', ['vite', '--port', String(port), '--host', '127.0.0.1', '--strictPort'], {
+    cwd: root,
+    stdio: 'ignore',
+  });
   for (let i = 0; i < 60; i++) {
-    try { const r = await fetch(`http://127.0.0.1:${port}/`); if (r.ok) return `http://127.0.0.1:${port}`; } catch { /* retry */ }
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/`);
+      if (r.ok) return `http://127.0.0.1:${port}`;
+    } catch {
+      /* retry */
+    }
     await new Promise((r) => setTimeout(r, 250));
   }
   throw new Error('dev server did not start');
@@ -39,8 +54,19 @@ async function newPage(query = '', viewport = { width: 1600, height: 900 }) {
   const page = await browser.newPage({ viewport });
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(`console.error: ${m.text()}`); });
-  await page.addInitScript(() => { try { if (!sessionStorage.getItem('__e2e_init')) { localStorage.clear(); sessionStorage.setItem('__e2e_init', '1'); } } catch { /* ignore */ } });
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(`console.error: ${m.text()}`);
+  });
+  await page.addInitScript(() => {
+    try {
+      if (!sessionStorage.getItem('__e2e_init')) {
+        localStorage.clear();
+        sessionStorage.setItem('__e2e_init', '1');
+      }
+    } catch {
+      /* ignore */
+    }
+  });
   await page.goto(`${url0}/?nowelcome${query}`);
   await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport, null, { timeout: 30000 });
   await page.waitForTimeout(400);
@@ -49,22 +75,28 @@ async function newPage(query = '', viewport = { width: 1600, height: 900 }) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const assert = (cond, msg) => { if (!cond) throw new Error(`assertion failed: ${msg}`); };
+const assert = (cond, msg) => {
+  if (!cond) throw new Error(`assertion failed: ${msg}`);
+};
 const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg} (got ${a}, expected ${b} ± ${tol})`);
 
 /** Client-space coordinates of a body's centre. */
-const screenOf = (page, id) => page.evaluate((id) => {
-  const a = window.physicslab;
-  const v = a.bodies.get(id);
-  const p = v.position.clone().project(a.camera);
-  const r = a.viewport.dom.getBoundingClientRect();
-  return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height };
-}, id);
+const screenOf = (page, id) =>
+  page.evaluate((id) => {
+    const a = window.physicslab;
+    const v = a.bodies.get(id);
+    const p = v.position.clone().project(a.camera);
+    const r = a.viewport.dom.getBoundingClientRect();
+    return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height };
+  }, id);
 
 const pose = (page, id) => page.evaluate((id) => window.physicslab.sim.poseOf(id), id);
-const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: join(outDir, `${name}.png`) }); };
+const shot = async (page, name) => {
+  if (SHOTS) await page.screenshot({ path: join(outDir, `${name}.png`) });
+};
 /** Wait until the simulation has advanced at least `s` simulated seconds. */
-const simTime = (page, s) => page.waitForFunction((s) => (window.physicslab.sim.client.stats?.simTime ?? 0) >= s, s, { timeout: 60000 });
+const simTime = (page, s) =>
+  page.waitForFunction((s) => (window.physicslab.sim.client.stats?.simTime ?? 0) >= s, s, { timeout: 60000 });
 
 async function test(name, fn) {
   const t0 = Date.now();
@@ -76,7 +108,13 @@ async function test(name, fn) {
   } catch (e) {
     results.push({ name, ok: false, err: e });
     console.log(`  ✗ ${name}\n      ${e.message.split('\n')[0]}`);
-    try { const pgs = browser.contexts().flatMap((c) => c.pages()); if (pgs.length) await pgs[pgs.length - 1].screenshot({ path: join(outDir, `FAIL-${name.replace(/\W+/g, '_')}.png`) }); } catch { /* ignore */ }
+    try {
+      const pgs = browser.contexts().flatMap((c) => c.pages());
+      if (pgs.length)
+        await pgs[pgs.length - 1].screenshot({ path: join(outDir, `FAIL-${name.replace(/\W+/g, '_')}.png`) });
+    } catch {
+      /* ignore */
+    }
   } finally {
     for (const ctx of browser.contexts()) for (const p of ctx.pages()) await p.close().catch(() => {});
   }
@@ -85,14 +123,24 @@ async function test(name, fn) {
 
 browser = await chromium.launch({
   executablePath: CHROME,
-  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--no-sandbox'],
+  args: [
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
+    '--enable-unsafe-swiftshader',
+    '--ignore-gpu-blocklist',
+    '--no-sandbox',
+  ],
 });
 
 console.log('PhysicsLab e2e');
 
 await test('boots with a scene, canvas and no errors', async () => {
   const page = await newPage();
-  const info = await page.evaluate(() => ({ bodies: window.physicslab.store.bodies().length, canvas: !!document.querySelector('canvas.viewport-canvas'), name: window.physicslab.store.name }));
+  const info = await page.evaluate(() => ({
+    bodies: window.physicslab.store.bodies().length,
+    canvas: !!document.querySelector('canvas.viewport-canvas'),
+    name: window.physicslab.store.name,
+  }));
   assert(info.canvas, 'canvas exists');
   assert(info.bodies > 5, 'default scene has bodies');
   await shot(page, '01-boot');
@@ -122,7 +170,12 @@ await test('add shapes with keyboard + palette, undo / redo', async () => {
 
 await test('click selects, inspector edits density and undo reverts', async () => {
   const page = await newPage();
-  await page.evaluate(() => { const a = window.physicslab; a.newScene(); a.editor.addShape('box', [0, 0.5, 0]); a.store.setSelection([]); });
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.editor.addShape('box', [0, 0.5, 0]);
+    a.store.setSelection([]);
+  });
   await page.evaluate(() => window.physicslab.viewport.setView({ position: [4, 3, 5], target: [0, 0.5, 0] }));
   await page.waitForTimeout(300);
   const id = await page.evaluate(() => window.physicslab.store.bodies()[0].id);
@@ -140,7 +193,10 @@ await test('click selects, inspector edits density and undo reverts', async () =
   near(after, 0.9, 1e-6, 'friction edited through the inspector');
   const preset = await page.evaluate((id) => window.physicslab.store.body(id).material.preset, id);
   assert(preset === 'custom', 'editing a property switches the preset to custom');
-  await page.locator('body').click({ position: { x: 5, y: 5 } }).catch(() => {});
+  await page
+    .locator('body')
+    .click({ position: { x: 5, y: 5 } })
+    .catch(() => {});
   await page.keyboard.press('Control+z');
   const undone = await page.evaluate((id) => window.physicslab.store.body(id).material.friction, id);
   near(undone, before, 1e-6, 'undo restores friction');
@@ -149,7 +205,11 @@ await test('click selects, inspector edits density and undo reverts', async () =
 
 await test('simulation: a dropped box falls, settles on the ground, reset restores it', async () => {
   const page = await newPage();
-  const id = await page.evaluate(() => { const a = window.physicslab; a.newScene(); return a.editor.addShape('box', [0, 4, 0]).id; });
+  const id = await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    return a.editor.addShape('box', [0, 4, 0]).id;
+  });
   await page.keyboard.press('Space');
   await simTime(page, 2.2);
   const p = await pose(page, id);
@@ -171,14 +231,23 @@ await test('simulation: a dropped box falls, settles on the ground, reset restor
 
 await test('grabbing and throwing a body while the simulation runs', async () => {
   const page = await newPage();
-  const id = await page.evaluate(() => { const a = window.physicslab; a.newScene(); const b = a.editor.addShape('sphere', [0, 0.5, 0], { material: { preset: 'rubber', density: 300 } }); a.viewport.setView({ position: [0, 4, 9], target: [0, 1, 0] }); return b.id; });
+  const id = await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    const b = a.editor.addShape('sphere', [0, 0.5, 0], { material: { preset: 'rubber', density: 300 } });
+    a.viewport.setView({ position: [0, 4, 9], target: [0, 1, 0] });
+    return b.id;
+  });
   await page.keyboard.press('Space');
   await simTime(page, 0.8);
   await page.waitForTimeout(200);
   const sp = await screenOf(page, id);
   await page.mouse.move(sp.x, sp.y);
   await page.mouse.down();
-  for (let i = 1; i <= 14; i++) { await page.mouse.move(sp.x + i * 14, sp.y - i * 10); await page.waitForTimeout(50); }
+  for (let i = 1; i <= 14; i++) {
+    await page.mouse.move(sp.x + i * 14, sp.y - i * 10);
+    await page.waitForTimeout(50);
+  }
   await page.waitForTimeout(500);
   const held = await pose(page, id);
   assert(held.position[1] > 1.2, `ball was lifted by the grab (y=${held.position[1].toFixed(2)})`);
@@ -190,7 +259,8 @@ await test('grabbing and throwing a body while the simulation runs', async () =>
 await test('joint tool: connect two bodies with a hinge and edit its motor', async () => {
   const page = await newPage();
   const ids = await page.evaluate(() => {
-    const a = window.physicslab; a.newScene();
+    const a = window.physicslab;
+    a.newScene();
     const p = a.editor.addShape('box', [-1.3, 1, 0], { bodyType: 'static', name: 'Post' });
     const q = a.editor.addShape('box', [0.4, 1, 0], { name: 'Arm', material: { preset: 'foam', density: 20 } });
     a.store.setSelection([]);
@@ -203,7 +273,9 @@ await test('joint tool: connect two bodies with a hinge and edit its motor', asy
   const b = await screenOf(page, ids[1]);
   await page.mouse.click(a.x + 20, a.y);
   await page.mouse.click(b.x, b.y);
-  const j = await page.evaluate(() => window.physicslab.store.joints().map((j) => ({ type: j.type, a: j.bodyA, b: j.bodyB })));
+  const j = await page.evaluate(() =>
+    window.physicslab.store.joints().map((j) => ({ type: j.type, a: j.bodyA, b: j.bodyB })),
+  );
   assert(j.length === 1 && j[0].type === 'hinge', `one hinge created (${JSON.stringify(j)})`);
   assert(j[0].a === ids[0] && j[0].b === ids[1], 'joint connects the two clicked bodies');
   const sel = await page.evaluate(() => window.physicslab.store.selection.length);
@@ -219,7 +291,12 @@ await test('joint tool: connect two bodies with a hinge and edit its motor', asy
   let fastest = 0;
   for (let i = 0; i < 12; i++) {
     await sleep(100);
-    const sp = await page.evaluate(() => { const a = window.physicslab; const j = a.store.joints()[0]; const st = a.liveJoint(j.id); return st ? Math.abs(st.speed) : 0; });
+    const sp = await page.evaluate(() => {
+      const a = window.physicslab;
+      const j = a.store.joints()[0];
+      const st = a.liveJoint(j.id);
+      return st ? Math.abs(st.speed) : 0;
+    });
     fastest = Math.max(fastest, sp);
   }
   assert(fastest > 1, `hinge motor turned the arm (peak ${fastest.toFixed(2)} rad/s)`);
@@ -244,7 +321,11 @@ await test('example scenes load from the Scenes tab and simulate', async () => {
   await page.click('.tab:has-text("Scenes")');
   await page.click('.card:has-text("Newton")');
   await page.waitForTimeout(300);
-  const info = await page.evaluate(() => ({ name: window.physicslab.store.name, bodies: window.physicslab.store.bodies().length, joints: window.physicslab.store.joints().length }));
+  const info = await page.evaluate(() => ({
+    name: window.physicslab.store.name,
+    bodies: window.physicslab.store.bodies().length,
+    joints: window.physicslab.store.joints().length,
+  }));
   assert(/Newton/.test(info.name) && info.bodies >= 5 && info.joints >= 10, `cradle loaded ${JSON.stringify(info)}`);
   await page.keyboard.press('Space');
   await simTime(page, 1.5);
@@ -270,18 +351,29 @@ await test('save → export → import round trip and share link', async () => {
 
 await test('overlays, colour modes and trails render without errors while simulating', async () => {
   const page = await newPage('&scene=billiards');
-  await page.evaluate(() => { const a = window.physicslab; a.prefs.set({ colorMode: 'speed' }); a.prefs.setOverlay({ velocity: true, force: true, contacts: true, com: true, trails: 'all' }); });
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.prefs.set({ colorMode: 'speed' });
+    a.prefs.setOverlay({ velocity: true, force: true, contacts: true, com: true, trails: 'all' });
+  });
   await page.keyboard.press('Space');
   await simTime(page, 2);
   await shot(page, '09-overlays');
-  const live = await page.evaluate(() => { const a = window.physicslab; return { tr: a.overlays.options.trails, frames: a.sim.client.frameNo }; });
+  const live = await page.evaluate(() => {
+    const a = window.physicslab;
+    return { tr: a.overlays.options.trails, frames: a.sim.client.frameNo };
+  });
   assert(live.frames > 3 && live.tr === 'all', 'frames are flowing with overlays enabled');
   assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
 });
 
 await test('live edits while running: change gravity and add a body', async () => {
   const page = await newPage();
-  const id = await page.evaluate(() => { const a = window.physicslab; a.newScene(); return a.editor.addShape('sphere', [0, 6, 0]).id; });
+  const id = await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    return a.editor.addShape('sphere', [0, 6, 0]).id;
+  });
   await page.evaluate(() => window.physicslab.store.updateSettings({ gravity: [0, 0, 0] }));
   await page.keyboard.press('Space');
   await simTime(page, 1);
@@ -291,7 +383,10 @@ await test('live edits while running: change gravity and add a body', async () =
   await simTime(page, 2);
   const falling = await pose(page, id);
   assert(falling.position[1] < 5.2, 'gravity switched on live');
-  const added = await page.evaluate(() => { const a = window.physicslab; return a.editor.addShape('box', [2, 3, 0]).id; });
+  const added = await page.evaluate(() => {
+    const a = window.physicslab;
+    return a.editor.addShape('box', [2, 3, 0]).id;
+  });
   await simTime(page, 3.2);
   const nb = await pose(page, added);
   assert(nb && nb.position[1] < 2.6, 'a body added during the simulation joins it');
@@ -302,11 +397,19 @@ await test('live edits while running: change gravity and add a body', async () =
 
 await test('measure tool, blast and projectile tools', async () => {
   const page = await newPage();
-  await page.evaluate(() => { const a = window.physicslab; a.newScene(); a.editor.addShape('box', [0, 0.5, 0]); a.viewport.setView({ position: [0, 3, 8], target: [0, 0.5, 0] }); });
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.editor.addShape('box', [0, 0.5, 0]);
+    a.viewport.setView({ position: [0, 3, 8], target: [0, 0.5, 0] });
+  });
   await page.keyboard.press('m');
   await page.mouse.click(700, 500);
   await page.mouse.click(900, 500);
-  const m = await page.evaluate(() => { const a = window.physicslab; return a.measure && a.measure.b ? a.measure.a.distanceTo(a.measure.b) : -1; });
+  const m = await page.evaluate(() => {
+    const a = window.physicslab;
+    return a.measure && a.measure.b ? a.measure.a.distanceTo(a.measure.b) : -1;
+  });
   assert(m > 0.3, `measured a distance (${m})`);
   await page.keyboard.press('Escape');
   await page.keyboard.press('Space');
@@ -319,19 +422,31 @@ await test('measure tool, blast and projectile tools', async () => {
   await page.keyboard.press('b');
   await page.mouse.click(800, 520);
   await page.keyboard.press('Shift+Space');
-  const after = await page.evaluate(() => ({ eph: window.physicslab.sim.ephemeral.size, bodies: window.physicslab.store.bodies().length }));
+  const after = await page.evaluate(() => ({
+    eph: window.physicslab.sim.ephemeral.size,
+    bodies: window.physicslab.store.bodies().length,
+  }));
   assert(after.eph === 0 && after.bodies === 1, 'projectiles vanish on reset; the document is untouched');
 });
 
 await test('outliner, rename, lock/hide and delete', async () => {
   const page = await newPage();
-  await page.evaluate(() => { const a = window.physicslab; a.newScene(); a.editor.addShape('box', [0, 0.5, 0], { name: 'Alpha' }); a.editor.addShape('sphere', [2, 0.5, 0], { name: 'Beta' }); a.store.setSelection([]); });
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.editor.addShape('box', [0, 0.5, 0], { name: 'Alpha' });
+    a.editor.addShape('sphere', [2, 0.5, 0], { name: 'Beta' });
+    a.store.setSelection([]);
+  });
   await page.click('.tab:has-text("Outliner")');
   assert((await page.locator('.o-item').count()) === 2, 'two outliner rows');
   await page.locator('.o-item:has-text("Beta")').click();
   assert((await page.evaluate(() => window.physicslab.store.selectedBodies()[0].name)) === 'Beta', 'row click selects');
   await page.keyboard.press('h');
-  assert((await page.evaluate(() => window.physicslab.store.bodies().find((b) => b.name === 'Beta').hidden)) === true, 'H hides');
+  assert(
+    (await page.evaluate(() => window.physicslab.store.bodies().find((b) => b.name === 'Beta').hidden)) === true,
+    'H hides',
+  );
   await page.keyboard.press('Delete');
   assert((await page.evaluate(() => window.physicslab.store.bodies().length)) === 1, 'Delete removes the selection');
   await page.keyboard.press('Control+z');
@@ -340,11 +455,21 @@ await test('outliner, rename, lock/hide and delete', async () => {
 
 await test('soft bodies: add from the palette, edit in the inspector, simulate and grab', async () => {
   const page = await newPage();
-  await page.evaluate(() => { const a = window.physicslab; a.newScene(); a.viewport.setView({ position: [0, 3, 7], target: [0, 1, 0] }); });
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.viewport.setView({ position: [0, 3, 7], target: [0, 1, 0] });
+  });
   await page.click('.tile:has-text("Jelly")');
-  const soft = await page.evaluate(() => window.physicslab.store.softs().map((s) => ({ id: s.id, type: s.type, pos: s.position })));
+  const soft = await page.evaluate(() =>
+    window.physicslab.store.softs().map((s) => ({ id: s.id, type: s.type, pos: s.position })),
+  );
   assert(soft.length === 1 && soft[0].type === 'jelly', 'jelly added from the palette');
-  await page.evaluate((id) => { const a = window.physicslab; a.store.updateMany([[id, { position: [0, 2.2, 0] }]]); a.store.setSelection([id]); }, soft[0].id);
+  await page.evaluate((id) => {
+    const a = window.physicslab;
+    a.store.updateMany([[id, { position: [0, 2.2, 0] }]]);
+    a.store.setSelection([id]);
+  }, soft[0].id);
   await page.waitForSelector('.panel.right .section-head:has-text("Soft body")');
   const field = page.locator('.panel.right .row:has(.row-label:text-is("Mass")) .num-input:visible').first();
   await field.fill('12');
@@ -355,30 +480,65 @@ await test('soft bodies: add from the palette, edit in the inspector, simulate a
   await page.keyboard.press('Space');
   await page.waitForFunction(() => (window.physicslab.sim.client.stats?.simTime ?? 0) > 1.6, null, { timeout: 60000 });
   await page.waitForTimeout(300);
-  const top = () => page.evaluate((id) => { const p = window.physicslab.sim.client.softOf(id); let hi = -1e9; for (let i = 1; i < p.length; i += 3) hi = Math.max(hi, p[i]); return hi; }, soft[0].id);
+  const top = () =>
+    page.evaluate((id) => {
+      const p = window.physicslab.sim.client.softOf(id);
+      let hi = -1e9;
+      for (let i = 1; i < p.length; i += 3) hi = Math.max(hi, p[i]);
+      return hi;
+    }, soft[0].id);
   const rest = await top();
   assert(rest < 1.2, `jelly settled on the ground (top at ${rest.toFixed(2)} m)`);
   // grab the jelly by its centre and drag it upward
-  const sp = await page.evaluate((id) => { const a = window.physicslab; const p = a.sim.client.softOf(id); let x = 0, y = 0, z = 0; const n = p.length / 3; for (let i = 0; i < p.length; i += 3) { x += p[i]; y += p[i + 1]; z += p[i + 2]; } const v = new (a.camera.position.constructor)(x / n, y / n + 0.3, z / n).project(a.camera); const r = a.viewport.dom.getBoundingClientRect(); return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height }; }, soft[0].id);
+  const sp = await page.evaluate((id) => {
+    const a = window.physicslab;
+    const p = a.sim.client.softOf(id);
+    let x = 0,
+      y = 0,
+      z = 0;
+    const n = p.length / 3;
+    for (let i = 0; i < p.length; i += 3) {
+      x += p[i];
+      y += p[i + 1];
+      z += p[i + 2];
+    }
+    const v = new a.camera.position.constructor(x / n, y / n + 0.3, z / n).project(a.camera);
+    const r = a.viewport.dom.getBoundingClientRect();
+    return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
+  }, soft[0].id);
   await page.mouse.move(sp.x, sp.y);
   await page.mouse.down();
-  for (let i = 1; i <= 12; i++) { await page.mouse.move(sp.x, sp.y - i * 18); await page.waitForTimeout(60); }
+  for (let i = 1; i <= 12; i++) {
+    await page.mouse.move(sp.x, sp.y - i * 18);
+    await page.waitForTimeout(60);
+  }
   let lifted = await top();
-  for (let i = 0; i < 40 && lifted < rest + 0.5; i++) { await sleep(150); lifted = await top(); }
+  for (let i = 0; i < 40 && lifted < rest + 0.5; i++) {
+    await sleep(150);
+    lifted = await top();
+  }
   assert(lifted > rest + 0.4, `dragging stretched / lifted the jelly (top ${rest.toFixed(2)} → ${lifted.toFixed(2)})`);
   await shot(page, '11-soft-grab');
   await page.mouse.up();
   await page.keyboard.press('Shift+Space');
-  assert((await page.evaluate(() => window.physicslab.store.softs().length)) === 1, 'the soft body is still in the document after reset');
+  assert(
+    (await page.evaluate(() => window.physicslab.store.softs().length)) === 1,
+    'the soft body is still in the document after reset',
+  );
   assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
 });
 
 await test('soft-body scenes (jelly, cloth, tearing banner) render and simulate', async () => {
   const page = await newPage();
   for (const id of ['jelly', 'cloth', 'banner']) {
-    await page.evaluate((id) => { window.physicslab.sim.reset(); window.physicslab.loadTemplate(id); }, id);
+    await page.evaluate((id) => {
+      window.physicslab.sim.reset();
+      window.physicslab.loadTemplate(id);
+    }, id);
     await page.keyboard.press('Space');
-    await page.waitForFunction(() => (window.physicslab.sim.client.stats?.simTime ?? 0) > 1.2, null, { timeout: 60000 });
+    await page.waitForFunction(() => (window.physicslab.sim.client.stats?.simTime ?? 0) > 1.2, null, {
+      timeout: 60000,
+    });
     const parts = await page.evaluate(() => window.physicslab.sim.client.stats.particles);
     assert(parts > 300, `${id}: soft particles are simulated (${parts})`);
     await shot(page, `12-${id}`);
@@ -391,9 +551,14 @@ await test('every example scene loads and runs for a moment without errors', asy
   const page = await newPage();
   const ids = await page.evaluate(async () => (await import('/src/model/templates.ts')).TEMPLATES.map((t) => t.id));
   for (const id of ids) {
-    await page.evaluate((id) => { window.physicslab.sim.reset(); window.physicslab.loadTemplate(id); }, id);
+    await page.evaluate((id) => {
+      window.physicslab.sim.reset();
+      window.physicslab.loadTemplate(id);
+    }, id);
     await page.keyboard.press('Space');
-    await page.waitForFunction(() => (window.physicslab.sim.client.stats?.simTime ?? 0) > 0.25, null, { timeout: 30000 });
+    await page.waitForFunction(() => (window.physicslab.sim.client.stats?.simTime ?? 0) > 0.25, null, {
+      timeout: 30000,
+    });
     await page.keyboard.press('Shift+Space');
   }
   assert(page.errors.length === 0, `no errors across ${ids.length} scenes: ${page.errors.slice(0, 3).join(' | ')}`);

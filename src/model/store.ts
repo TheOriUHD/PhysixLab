@@ -49,7 +49,9 @@ export class SceneStore extends Emitter<StoreEvents> {
 
   // ---- reads --------------------------------------------------------------------------------
 
-  get(id: string): Entity | undefined { return this.entities.get(id); }
+  get(id: string): Entity | undefined {
+    return this.entities.get(id);
+  }
   body(id: string | null | undefined): BodyEntity | undefined {
     const e = id ? this.entities.get(id) : undefined;
     return isBody(e) ? e : undefined;
@@ -58,16 +60,28 @@ export class SceneStore extends Emitter<StoreEvents> {
     const e = this.entities.get(id);
     return isJoint(e) ? e : undefined;
   }
-  all(): Entity[] { return [...this.entities.values()]; }
-  bodies(): BodyEntity[] { return this.all().filter(isBody); }
-  joints(): JointEntity[] { return this.all().filter(isJoint); }
-  softs(): SoftEntity[] { return this.all().filter(isSoft); }
+  all(): Entity[] {
+    return [...this.entities.values()];
+  }
+  bodies(): BodyEntity[] {
+    return this.all().filter(isBody);
+  }
+  joints(): JointEntity[] {
+    return this.all().filter(isJoint);
+  }
+  softs(): SoftEntity[] {
+    return this.all().filter(isSoft);
+  }
   soft(id: string | null | undefined): SoftEntity | undefined {
     const e = id ? this.entities.get(id) : undefined;
     return isSoft(e) ? e : undefined;
   }
-  get size(): number { return this.entities.size; }
-  has(id: string): boolean { return this.entities.has(id); }
+  get size(): number {
+    return this.entities.size;
+  }
+  has(id: string): boolean {
+    return this.entities.has(id);
+  }
   jointsOf(bodyId: string): JointEntity[] {
     return this.joints().filter((j) => j.bodyA === bodyId || j.bodyB === bodyId);
   }
@@ -111,7 +125,11 @@ export class SceneStore extends Emitter<StoreEvents> {
 
   transact<T>(label: string, fn: () => T): T {
     this.begin(label);
-    try { return fn(); } finally { this.end(); }
+    try {
+      return fn();
+    } finally {
+      this.end();
+    }
   }
 
   private pushHistory(base: Snapshot): void {
@@ -131,10 +149,18 @@ export class SceneStore extends Emitter<StoreEvents> {
     }
   }
 
-  get canUndo(): boolean { return this.past.length > 0; }
-  get canRedo(): boolean { return this.future.length > 0; }
-  get undoLabel(): string { return this.past[this.past.length - 1]?.label ?? ''; }
-  get redoLabel(): string { return this.future[this.future.length - 1]?.label ?? ''; }
+  get canUndo(): boolean {
+    return this.past.length > 0;
+  }
+  get canRedo(): boolean {
+    return this.future.length > 0;
+  }
+  get undoLabel(): string {
+    return this.past[this.past.length - 1]?.label ?? '';
+  }
+  get redoLabel(): string {
+    return this.future[this.future.length - 1]?.label ?? '';
+  }
 
   undo(): string | null {
     const prev = this.past.pop();
@@ -186,7 +212,10 @@ export class SceneStore extends Emitter<StoreEvents> {
     if (added.length) this.emit('change', { type: 'add', ids: added });
     if (updated.length) this.emit('change', { type: 'update', ids: updated, keys });
     if (settingsChanged) this.emit('change', { type: 'settings', keys: settingsKeys });
-    this.setSelection(s.selection.filter((id) => this.entities.has(id)), true);
+    this.setSelection(
+      s.selection.filter((id) => this.entities.has(id)),
+      true,
+    );
     this.emit('meta', undefined);
   }
 
@@ -208,7 +237,9 @@ export class SceneStore extends Emitter<StoreEvents> {
     this.emit('meta', undefined);
   }
 
-  clear(): void { this.load(newDocument(this.name)); }
+  clear(): void {
+    this.load(newDocument(this.name));
+  }
 
   setName(name: string): void {
     if (name === this.name) return;
@@ -256,7 +287,10 @@ export class SceneStore extends Emitter<StoreEvents> {
       if (!cur) continue;
       let changed = false;
       for (const k of Object.keys(patch)) {
-        if ((cur as any)[k] !== (patch as any)[k]) { changed = true; keys.add(k); }
+        if ((cur as any)[k] !== (patch as any)[k]) {
+          changed = true;
+          keys.add(k);
+        }
       }
       if (!changed) continue;
       next.push([id, { ...cur, ...patch } as Entity]);

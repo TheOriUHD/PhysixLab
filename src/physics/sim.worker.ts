@@ -74,9 +74,11 @@ async function handle(m: ToWorker): Promise<void> {
 }
 
 ctx.onmessage = (e: MessageEvent<ToWorker>) => {
-  chain = chain.then(() => handle(e.data)).catch((err) => {
-    post({ type: 'error', message: String(err?.stack ?? err) });
-  });
+  chain = chain
+    .then(() => handle(e.data))
+    .catch((err) => {
+      post({ type: 'error', message: String(err?.stack ?? err) });
+    });
 };
 
 post({ type: 'ready' });

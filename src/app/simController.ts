@@ -48,7 +48,9 @@ export class SimController extends Emitter<Events> {
     });
   }
 
-  get active(): boolean { return this.mode !== 'edit'; }
+  get active(): boolean {
+    return this.mode !== 'edit';
+  }
 
   // ---- state machine -----------------------------------------------------------------------
 
@@ -156,7 +158,9 @@ export class SimController extends Emitter<Events> {
     this.emit('layout', undefined);
   }
 
-  get bodyCountInSim(): number { return this.client.poses.length / BODY_STRIDE; }
+  get bodyCountInSim(): number {
+    return this.client.poses.length / BODY_STRIDE;
+  }
 
   // ---- document → live world sync ----------------------------------------------------------
 

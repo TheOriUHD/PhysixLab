@@ -1,8 +1,15 @@
 import { Emitter } from '../core/events';
 import type { SceneDocument } from '../model/types';
 import {
-  BODY_STRIDE, JOINT_STRIDE, type BuiltInfo, type FromWorker, type SimEvent, type SimOp,
-  type SimStats, type SoftLayoutEntry, type ToWorker,
+  BODY_STRIDE,
+  JOINT_STRIDE,
+  type BuiltInfo,
+  type FromWorker,
+  type SimEvent,
+  type SimOp,
+  type SimStats,
+  type SoftLayoutEntry,
+  type ToWorker,
 } from './protocol';
 
 export interface TickOptions {
@@ -89,7 +96,11 @@ export class SimClient extends Emitter<ClientEvents> {
           this.softLayout = m.softLayout;
           this.softIndex = new Map(m.softLayout.map((e, i) => [e.id, i]));
           let o = 0;
-          this.softOffsets = m.softLayout.map((e) => { const at = o; o += e.count; return at; });
+          this.softOffsets = m.softLayout.map((e) => {
+            const at = o;
+            o += e.count;
+            return at;
+          });
           this.softLayoutNo++;
         }
         this.softPositions = m.softPositions ?? new Float32Array(0);

@@ -8,14 +8,37 @@
  */
 import RAPIER from '@dimforge/rapier3d-compat';
 import {
-  clamp, qconj, qfromUnitVectors, qmul, qrot, qrotInv, qslerp, qtwist, vadd, vcross, vdot, vlen,
-  vnorm, vscale, vsub, type Quat, type Vec3,
+  clamp,
+  qconj,
+  qfromUnitVectors,
+  qmul,
+  qrot,
+  qrotInv,
+  qslerp,
+  qtwist,
+  vadd,
+  vcross,
+  vdot,
+  vlen,
+  vnorm,
+  vscale,
+  vsub,
+  type Quat,
+  type Vec3,
 } from '../core/math';
 import { hullPoints, primitiveParams, softParticleRadius } from '../model/shapes';
 import type { BodyEntity, JointEntity, SceneDocument, SceneSettings, SoftEntity } from '../model/types';
 import {
-  BODY_STRIDE, CONTACT_STRIDE, J, JOINT_STRIDE, type BuiltInfo, type EnergyStats, type SimEvent,
-  type SimOp, type SimStats, type SoftLayoutEntry,
+  BODY_STRIDE,
+  CONTACT_STRIDE,
+  J,
+  JOINT_STRIDE,
+  type BuiltInfo,
+  type EnergyStats,
+  type SimEvent,
+  type SimOp,
+  type SimStats,
+  type SoftLayoutEntry,
 } from './protocol';
 
 let rapierReady: Promise<void> | null = null;
@@ -130,7 +153,9 @@ export class PhysicsWorld {
     this.world.free();
   }
 
-  get fixedDt(): number { return 1 / this.settings.physicsHz; }
+  get fixedDt(): number {
+    return 1 / this.settings.physicsHz;
+  }
 
   // ------------------------------------------------------------------------------------------
   // construction
@@ -140,11 +165,21 @@ export class PhysicsWorld {
     const { radius, halfHeight, half } = primitiveParams(def.shape);
     let desc: RAPIER.ColliderDesc | null = null;
     switch (def.shape.type) {
-      case 'box': desc = RAPIER.ColliderDesc.cuboid(half[0], half[1], half[2]); break;
-      case 'sphere': desc = RAPIER.ColliderDesc.ball(radius); break;
-      case 'cylinder': desc = RAPIER.ColliderDesc.cylinder(halfHeight, radius); break;
-      case 'capsule': desc = RAPIER.ColliderDesc.capsule(halfHeight, radius); break;
-      case 'cone': desc = RAPIER.ColliderDesc.cone(halfHeight, radius); break;
+      case 'box':
+        desc = RAPIER.ColliderDesc.cuboid(half[0], half[1], half[2]);
+        break;
+      case 'sphere':
+        desc = RAPIER.ColliderDesc.ball(radius);
+        break;
+      case 'cylinder':
+        desc = RAPIER.ColliderDesc.cylinder(halfHeight, radius);
+        break;
+      case 'capsule':
+        desc = RAPIER.ColliderDesc.capsule(halfHeight, radius);
+        break;
+      case 'cone':
+        desc = RAPIER.ColliderDesc.cone(halfHeight, radius);
+        break;
       default: {
         const pts = hullPoints(def.shape);
         if (pts) desc = RAPIER.ColliderDesc.convexHull(new Float32Array(pts.flat()));
@@ -163,12 +198,12 @@ export class PhysicsWorld {
   addBody(def: BodyEntity, ephemeral: boolean): BodyRec {
     const isDyn = def.bodyType === 'dynamic';
     let desc =
-      def.bodyType === 'static' ? RAPIER.RigidBodyDesc.fixed()
-      : def.bodyType === 'kinematic' ? RAPIER.RigidBodyDesc.kinematicVelocityBased()
-      : RAPIER.RigidBodyDesc.dynamic();
-    desc = desc
-      .setTranslation(def.position[0], def.position[1], def.position[2])
-      .setRotation(rq(def.rotation));
+      def.bodyType === 'static'
+        ? RAPIER.RigidBodyDesc.fixed()
+        : def.bodyType === 'kinematic'
+          ? RAPIER.RigidBodyDesc.kinematicVelocityBased()
+          : RAPIER.RigidBodyDesc.dynamic();
+    desc = desc.setTranslation(def.position[0], def.position[1], def.position[2]).setRotation(rq(def.rotation));
     if (isDyn) {
       desc = desc
         .setLinearDamping(def.linearDamping + this.settings.airDrag)
@@ -186,8 +221,18 @@ export class PhysicsWorld {
     const rb = this.world.createRigidBody(desc);
     const col = this.world.createCollider(this.makeCollider(def), rb);
     const rec: BodyRec = {
-      id: def.id, def, rb, col, mass: isDyn ? rb.mass() : 0, ephemeral, disabled: false,
-      prev: new Float64Array(7), hasPrev: false, vPrev: [...def.velocity] as Vec3, force: [0, 0, 0], forced: false,
+      id: def.id,
+      def,
+      rb,
+      col,
+      mass: isDyn ? rb.mass() : 0,
+      ephemeral,
+      disabled: false,
+      prev: new Float64Array(7),
+      hasPrev: false,
+      vPrev: [...def.velocity] as Vec3,
+      force: [0, 0, 0],
+      forced: false,
     };
     this.bodies.set(def.id, rec);
     this.order.push(rec);
@@ -196,8 +241,8 @@ export class PhysicsWorld {
   }
 
   addJoint(def: JointEntity): JointRec | null {
-    const A = def.bodyA ? this.bodies.get(def.bodyA) ?? null : null;
-    const B = def.bodyB ? this.bodies.get(def.bodyB) ?? null : null;
+    const A = def.bodyA ? (this.bodies.get(def.bodyA) ?? null) : null;
+    const B = def.bodyB ? (this.bodies.get(def.bodyB) ?? null) : null;
     if ((def.bodyA && !A) || (def.bodyB && !B)) return null;
     const qA = A ? this.rot(A.rb) : QI;
     const qB = B ? this.rot(B.rb) : QI;
@@ -225,12 +270,24 @@ export class PhysicsWorld {
 
     let jd: RAPIER.JointData;
     switch (def.type) {
-      case 'fixed': jd = RAPIER.JointData.fixed(rv(aA), rq(frameA), rv(aB), rq(frameB)); break;
-      case 'hinge': jd = RAPIER.JointData.revolute(rv(aA), rv(aB), rv(X_AXIS)); break;
-      case 'slider': jd = RAPIER.JointData.prismatic(rv(aA), rv(aB), rv(X_AXIS)); break;
-      case 'ball': jd = RAPIER.JointData.spherical(rv(aA), rv(aB)); break;
-      case 'spring': jd = RAPIER.JointData.spring(def.spring.restLength, def.spring.stiffness, def.spring.damping, rv(aA), rv(aB)); break;
-      case 'rope': jd = RAPIER.JointData.rope(def.ropeLength, rv(aA), rv(aB)); break;
+      case 'fixed':
+        jd = RAPIER.JointData.fixed(rv(aA), rq(frameA), rv(aB), rq(frameB));
+        break;
+      case 'hinge':
+        jd = RAPIER.JointData.revolute(rv(aA), rv(aB), rv(X_AXIS));
+        break;
+      case 'slider':
+        jd = RAPIER.JointData.prismatic(rv(aA), rv(aB), rv(X_AXIS));
+        break;
+      case 'ball':
+        jd = RAPIER.JointData.spherical(rv(aA), rv(aB));
+        break;
+      case 'spring':
+        jd = RAPIER.JointData.spring(def.spring.restLength, def.spring.stiffness, def.spring.damping, rv(aA), rv(aB));
+        break;
+      case 'rope':
+        jd = RAPIER.JointData.rope(def.ropeLength, rv(aA), rv(aB));
+        break;
     }
     const joint = this.world.createImpulseJoint(jd, A ? A.rb : this.worldBody, B ? B.rb : this.worldBody, true);
     if (def.type === 'hinge' || def.type === 'slider') {
@@ -240,8 +297,23 @@ export class PhysicsWorld {
     joint.setContactsEnabled(def.collideConnected);
 
     const rec: JointRec = {
-      id: def.id, def, joint, A, B, aA, aB, frameA, frameB, broken: false,
-      angle: 0, lastTwist: 0, value: 0, speed: 0, force: 0, motorTarget: 0, cache: [NaN, NaN, NaN],
+      id: def.id,
+      def,
+      joint,
+      A,
+      B,
+      aA,
+      aB,
+      frameA,
+      frameB,
+      broken: false,
+      angle: 0,
+      lastTwist: 0,
+      value: 0,
+      speed: 0,
+      force: 0,
+      motorTarget: 0,
+      cache: [NaN, NaN, NaN],
     };
     this.configureUnitJoint(rec, true);
     this.joints.set(def.id, rec);
@@ -249,7 +321,6 @@ export class PhysicsWorld {
     this.layoutVersion++;
     return rec;
   }
-
 
   // ------------------------------------------------------------------------------------------
   // soft bodies
@@ -268,9 +339,16 @@ export class PhysicsWorld {
         desc = RAPIER.SoftBodyDesc.sphere(rv(c), def.size[0] / 2, n);
         break;
       case 'cloth': {
-        const w = def.size[0], d = def.size[2];
+        const w = def.size[0],
+          d = def.size[2];
         // Particle index = i·n + j with i along the width (x) and j along the depth (z).
-        desc = RAPIER.SoftBodyDesc.cloth(rv([c[0] - w / 2, c[1], c[2] - d / 2]), rv([w / (n - 1), 0, 0]), rv([0, 0, d / (n - 1)]), n, n);
+        desc = RAPIER.SoftBodyDesc.cloth(
+          rv([c[0] - w / 2, c[1], c[2] - d / 2]),
+          rv([w / (n - 1), 0, 0]),
+          rv([0, 0, d / (n - 1)]),
+          n,
+          n,
+        );
         // The pinned "edge" is the back edge (local z = −depth/2): j = 0 for every i. Stand the cloth
         // up by rotating +90° about X and that edge becomes its top, like a hanging banner.
         if (def.pin === 'edge') pins = Array.from({ length: n }, (_, i) => i * n);
@@ -288,7 +366,13 @@ export class PhysicsWorld {
     }
     const mat = RAPIER.SoftBodyMaterial.uniform(def.stiffness, def.damping);
     if (def.tearStrain > 0) mat.tearStrain = def.tearStrain;
-    desc = desc.setMass(def.mass).setMaterial(mat).setParticleRadius(softParticleRadius(def)).setLinearDamping(def.linearDamping).setGravityScale(def.gravityScale).setSelfContacts(def.selfCollide);
+    desc = desc
+      .setMass(def.mass)
+      .setMaterial(mat)
+      .setParticleRadius(softParticleRadius(def))
+      .setLinearDamping(def.linearDamping)
+      .setGravityScale(def.gravityScale)
+      .setSelfContacts(def.selfCollide);
     if (pins.length) desc = desc.setPinnedParticles(pins);
     return desc;
   }
@@ -341,7 +425,11 @@ export class PhysicsWorld {
     let k = index;
     for (const b of blocks) {
       const n = b.numParticles();
-      if (k < n) { b.wakeUp(); this.softGrab = { body: b, local: k, target }; return; }
+      if (k < n) {
+        b.wakeUp();
+        this.softGrab = { body: b, local: k, target };
+        return;
+      }
       k -= n;
     }
   }
@@ -351,16 +439,23 @@ export class PhysicsWorld {
    * (spawn, removal, tearing); positions are always returned.
    */
   readSoft(): { layout?: SoftLayoutEntry[]; positions: Float32Array } {
-    if (!this.softOrder.length) { this.softBlocks = []; this.softParticles = 0; return { positions: new Float32Array(0) }; }
+    if (!this.softOrder.length) {
+      this.softBlocks = [];
+      this.softParticles = 0;
+      return { positions: new Float32Array(0) };
+    }
     const all = this.world.softBodies.getAll();
     const byRoot = new Map<number, RAPIER.SoftBody[]>();
     for (const s of all) {
       const key = s.origin() ?? s.handle;
       const list = byRoot.get(key);
-      if (list) list.push(s); else byRoot.set(key, [s]);
+      if (list) list.push(s);
+      else byRoot.set(key, [s]);
     }
     this.softBlocks = this.softOrder.map((r) => byRoot.get(r.root.handle) ?? [r.root]);
-    const sig = this.softBlocks.map((bs) => bs.map((b) => `${b.handle}:${b.topologyVersion()}:${b.numParticles()}`).join(',')).join('|');
+    const sig = this.softBlocks
+      .map((bs) => bs.map((b) => `${b.handle}:${b.topologyVersion()}:${b.numParticles()}`).join(','))
+      .join('|');
     let layout: SoftLayoutEntry[] | undefined;
     if (sig !== this.softSig) {
       this.softSig = sig;
@@ -381,7 +476,8 @@ export class PhysicsWorld {
     this.softParticles = total;
     const positions = new Float32Array(total * 3);
     const g = this.settings.gravity;
-    let kin = 0, pot = 0;
+    let kin = 0,
+      pot = 0;
     const mom: Vec3 = [0, 0, 0];
     let o = 0;
     for (let ei = 0; ei < this.softBlocks.length; ei++) {
@@ -392,10 +488,23 @@ export class PhysicsWorld {
         o += np;
         const m = b.mass();
         const v = b.particleVelocities();
-        let vv = 0, vx = 0, vy = 0, vz = 0;
-        for (let i = 0; i < np; i++) { const x = v[3 * i], y = v[3 * i + 1], z = v[3 * i + 2]; vv += x * x + y * y + z * z; vx += x; vy += y; vz += z; }
+        let vv = 0,
+          vx = 0,
+          vy = 0,
+          vz = 0;
+        for (let i = 0; i < np; i++) {
+          const x = v[3 * i],
+            y = v[3 * i + 1],
+            z = v[3 * i + 2];
+          vv += x * x + y * y + z * z;
+          vx += x;
+          vy += y;
+          vz += z;
+        }
         kin += 0.5 * (m / Math.max(1, np)) * vv;
-        mom[0] += (m * vx) / Math.max(1, np); mom[1] += (m * vy) / Math.max(1, np); mom[2] += (m * vz) / Math.max(1, np);
+        mom[0] += (m * vx) / Math.max(1, np);
+        mom[1] += (m * vy) / Math.max(1, np);
+        mom[2] += (m * vz) / Math.max(1, np);
         const com = b.centerOfMass();
         pot += -m * gs * (g[0] * com.x + g[1] * com.y + g[2] * com.z);
       }
@@ -404,7 +513,11 @@ export class PhysicsWorld {
       ...this.lastEnergy,
       kinetic: this.lastEnergy.kinetic + kin,
       potential: this.lastEnergy.potential + pot,
-      momentum: [this.lastEnergy.momentum[0] + mom[0], this.lastEnergy.momentum[1] + mom[1], this.lastEnergy.momentum[2] + mom[2]],
+      momentum: [
+        this.lastEnergy.momentum[0] + mom[0],
+        this.lastEnergy.momentum[1] + mom[1],
+        this.lastEnergy.momentum[2] + mom[2],
+      ],
     };
     return { layout, positions };
   }
@@ -413,7 +526,10 @@ export class PhysicsWorld {
   private applySoftGrab(): void {
     const g = this.softGrab;
     if (!g) return;
-    if (!g.body.isValid()) { this.softGrab = null; return; }
+    if (!g.body.isValid()) {
+      this.softGrab = null;
+      return;
+    }
     const p = g.body.particlePosition(g.local);
     const v = g.body.particleVelocity(g.local);
     const err = vsub(g.target, [p.x, p.y, p.z]);
@@ -436,10 +552,12 @@ export class PhysicsWorld {
     if (!joint || (def.type !== 'hinge' && def.type !== 'slider')) return;
     const u = joint as RAPIER.UnitImpulseJoint;
     if (initial) {
-      if (def.limit.enabled) u.setLimits(Math.min(def.limit.min, def.limit.max), Math.max(def.limit.min, def.limit.max));
+      if (def.limit.enabled)
+        u.setLimits(Math.min(def.limit.min, def.limit.max), Math.max(def.limit.min, def.limit.max));
       u.configureMotorModel(RAPIER.MotorModel.ForceBased);
       u.setMotorMaxForce(def.motor.mode === 'off' ? 0 : def.motor.maxForce);
-      rec.motorTarget = def.motor.mode === 'position' && !(def.motor.keyPos || def.motor.keyNeg) ? def.motor.targetPosition : 0;
+      rec.motorTarget =
+        def.motor.mode === 'position' && !(def.motor.keyPos || def.motor.keyNeg) ? def.motor.targetPosition : 0;
     }
     this.driveMotor(rec, 0);
   }
@@ -451,11 +569,17 @@ export class PhysicsWorld {
     const m = def.motor;
     const u = joint as RAPIER.UnitImpulseJoint;
     if (m.mode === 'off') {
-      if (rec.cache[0] !== 0) { u.configureMotorVelocity(0, 0); u.setMotorMaxForce(0); rec.cache = [0, 0, 0]; }
+      if (rec.cache[0] !== 0) {
+        u.configureMotorVelocity(0, 0);
+        u.setMotorMaxForce(0);
+        rec.cache = [0, 0, 0];
+      }
       return;
     }
     const hasKeys = !!(m.keyPos || m.keyNeg);
-    const input = hasKeys ? (this.keys.has(m.keyPos) && m.keyPos ? 1 : 0) - (this.keys.has(m.keyNeg) && m.keyNeg ? 1 : 0) : 1;
+    const input = hasKeys
+      ? (this.keys.has(m.keyPos) && m.keyPos ? 1 : 0) - (this.keys.has(m.keyNeg) && m.keyNeg ? 1 : 0)
+      : 1;
     if (m.mode === 'velocity') {
       const target = m.targetVelocity * input;
       const gain = hasKeys && input === 0 && !m.brake ? 0 : m.damping;
@@ -487,7 +611,9 @@ export class PhysicsWorld {
   applySettings(s: SceneSettings, initial = false): void {
     const prev = this.settings;
     this.settings = s;
-    const gravityChanged = !initial && (prev.gravity[0] !== s.gravity[0] || prev.gravity[1] !== s.gravity[1] || prev.gravity[2] !== s.gravity[2]);
+    const gravityChanged =
+      !initial &&
+      (prev.gravity[0] !== s.gravity[0] || prev.gravity[1] !== s.gravity[1] || prev.gravity[2] !== s.gravity[2]);
     this.world.gravity = rv(s.gravity);
     // Sleeping bodies would otherwise ignore the new gravity until something touches them.
     if (gravityChanged) {
@@ -498,7 +624,8 @@ export class PhysicsWorld {
     this.world.integrationParameters.numSolverIterations = s.solverIterations;
     if (initial || prev.ground !== s.ground) this.buildGround();
     if (prev.airDrag !== s.airDrag) {
-      for (const r of this.order) if (r.def.bodyType === 'dynamic') r.rb.setLinearDamping(r.def.linearDamping + s.airDrag);
+      for (const r of this.order)
+        if (r.def.bodyType === 'dynamic') r.rb.setLinearDamping(r.def.linearDamping + s.airDrag);
     }
   }
 
@@ -557,8 +684,11 @@ export class PhysicsWorld {
     const structural =
       old.bodyType !== next.bodyType ||
       (old.shape !== next.shape && JSON.stringify(old.shape) !== JSON.stringify(next.shape)) ||
-      old.material.density !== next.material.density || old.ccd !== next.ccd || old.ghost !== next.ghost ||
-      old.lockPosition.some((v, i) => v !== next.lockPosition[i]) || old.lockRotation.some((v, i) => v !== next.lockRotation[i]);
+      old.material.density !== next.material.density ||
+      old.ccd !== next.ccd ||
+      old.ghost !== next.ghost ||
+      old.lockPosition.some((v, i) => v !== next.lockPosition[i]) ||
+      old.lockRotation.some((v, i) => v !== next.lockRotation[i]);
     if (structural) {
       this.rebuildBody(rec, next);
       return;
@@ -579,15 +709,19 @@ export class PhysicsWorld {
   }
 
   private rebuildBody(rec: BodyRec, next: BodyEntity): void {
-    const pos = this.pos(rec.rb), rot = this.rot(rec.rb);
-    const lv = rec.rb.linvel(), av = rec.rb.angvel();
+    const pos = this.pos(rec.rb),
+      rot = this.rot(rec.rb);
+    const lv = rec.rb.linvel(),
+      av = rec.rb.angvel();
     const attached = this.jointOrder.filter((j) => j.A === rec || j.B === rec).map((j) => j.def);
     const ephemeral = rec.ephemeral;
     this.removeEntities([rec.id]);
     const moved: BodyEntity = {
       ...next,
-      position: pos, rotation: rot,
-      velocity: [lv.x, lv.y, lv.z], angularVelocity: [av.x, av.y, av.z],
+      position: pos,
+      rotation: rot,
+      velocity: [lv.x, lv.y, lv.z],
+      angularVelocity: [av.x, av.y, av.z],
     };
     // Keep the original initial-velocity fields on the stored definition.
     const nr = this.addBody(moved, ephemeral);
@@ -615,7 +749,10 @@ export class PhysicsWorld {
       rec.vPrev = [0, 0, 0];
     }
     rec.hasPrev = false;
-    if (rec.disabled) { rec.disabled = false; rec.rb.setEnabled(true); }
+    if (rec.disabled) {
+      rec.disabled = false;
+      rec.rb.setEnabled(true);
+    }
   }
 
   setVelocity(id: string, lin: Vec3, ang: Vec3): void {
@@ -628,23 +765,60 @@ export class PhysicsWorld {
 
   applyOp(op: SimOp): void {
     switch (op.op) {
-      case 'addBody': this.addBody(op.body, !!op.ephemeral); break;
-      case 'addJoint': this.addJoint(op.joint); break;
-      case 'remove': this.removeEntities(op.ids); break;
-      case 'updateBody': this.updateBody(op.body); break;
-      case 'updateJoint': this.updateJoint(op.joint); break;
-      case 'settings': this.applySettings(op.settings); break;
-      case 'teleport': this.teleport(op.id, op.position, op.rotation, op.keepVelocity); break;
-      case 'setVelocity': this.setVelocity(op.id, op.linvel, op.angvel); break;
-      case 'grab': this.beginGrab(op.id, op.point, op.target); break;
-      case 'grabMove': if (this.grab) this.grab.target = op.target; if (this.softGrab) this.softGrab.target = op.target; break;
-      case 'release': this.grab = null; this.releaseSoftGrab(); break;
-      case 'impulse': this.impulse(op.id, op.impulse, op.point); break;
-      case 'explode': this.explode(op.center, op.strength, op.radius); break;
-      case 'addSoft': this.addSoft(op.soft); break;
-      case 'updateSoft': this.removeSoft(op.soft.id); this.addSoft(op.soft); break;
-      case 'grabSoft': this.beginSoftGrab(op.id, op.index, op.target); break;
-      case 'wakeAll': for (const r of this.order) r.rb.wakeUp(); break;
+      case 'addBody':
+        this.addBody(op.body, !!op.ephemeral);
+        break;
+      case 'addJoint':
+        this.addJoint(op.joint);
+        break;
+      case 'remove':
+        this.removeEntities(op.ids);
+        break;
+      case 'updateBody':
+        this.updateBody(op.body);
+        break;
+      case 'updateJoint':
+        this.updateJoint(op.joint);
+        break;
+      case 'settings':
+        this.applySettings(op.settings);
+        break;
+      case 'teleport':
+        this.teleport(op.id, op.position, op.rotation, op.keepVelocity);
+        break;
+      case 'setVelocity':
+        this.setVelocity(op.id, op.linvel, op.angvel);
+        break;
+      case 'grab':
+        this.beginGrab(op.id, op.point, op.target);
+        break;
+      case 'grabMove':
+        if (this.grab) this.grab.target = op.target;
+        if (this.softGrab) this.softGrab.target = op.target;
+        break;
+      case 'release':
+        this.grab = null;
+        this.releaseSoftGrab();
+        break;
+      case 'impulse':
+        this.impulse(op.id, op.impulse, op.point);
+        break;
+      case 'explode':
+        this.explode(op.center, op.strength, op.radius);
+        break;
+      case 'addSoft':
+        this.addSoft(op.soft);
+        break;
+      case 'updateSoft':
+        this.removeSoft(op.soft.id);
+        this.addSoft(op.soft);
+        break;
+      case 'grabSoft':
+        this.beginSoftGrab(op.id, op.index, op.target);
+        break;
+      case 'wakeAll':
+        for (const r of this.order) r.rb.wakeUp();
+        break;
     }
   }
 
@@ -687,8 +861,14 @@ export class PhysicsWorld {
     this.keys = new Set(keys);
   }
 
-  private pos(rb: RAPIER.RigidBody): Vec3 { const t = rb.translation(); return [t.x, t.y, t.z]; }
-  private rot(rb: RAPIER.RigidBody): Quat { const q = rb.rotation(); return [q.x, q.y, q.z, q.w]; }
+  private pos(rb: RAPIER.RigidBody): Vec3 {
+    const t = rb.translation();
+    return [t.x, t.y, t.z];
+  }
+  private rot(rb: RAPIER.RigidBody): Quat {
+    const q = rb.rotation();
+    return [q.x, q.y, q.z, q.w];
+  }
 
   /** Apply thrusters, the grab spring and motors before a step. */
   private preStep(dt: number): void {
@@ -832,10 +1012,20 @@ export class PhysicsWorld {
 
   private snapshotPrev(): void {
     for (const r of this.order) {
-      if (r.def.bodyType === 'static' || r.disabled) { r.hasPrev = false; continue; }
-      const t = r.rb.translation(), q = r.rb.rotation();
+      if (r.def.bodyType === 'static' || r.disabled) {
+        r.hasPrev = false;
+        continue;
+      }
+      const t = r.rb.translation(),
+        q = r.rb.rotation();
       const p = r.prev;
-      p[0] = t.x; p[1] = t.y; p[2] = t.z; p[3] = q.x; p[4] = q.y; p[5] = q.z; p[6] = q.w;
+      p[0] = t.x;
+      p[1] = t.y;
+      p[2] = t.z;
+      p[3] = q.x;
+      p[4] = q.y;
+      p[5] = q.z;
+      p[6] = q.w;
       r.hasPrev = true;
     }
   }
@@ -845,10 +1035,16 @@ export class PhysicsWorld {
   // ------------------------------------------------------------------------------------------
 
   /** Fixed-step interpolation factor for the current accumulator. */
-  get alpha(): number { return clamp(this.acc / this.fixedDt, 0, 1); }
+  get alpha(): number {
+    return clamp(this.acc / this.fixedDt, 0, 1);
+  }
 
-  get bodyIds(): string[] { return this.order.map((r) => r.id); }
-  get jointIds(): string[] { return this.jointOrder.map((r) => r.id); }
+  get bodyIds(): string[] {
+    return this.order.map((r) => r.id);
+  }
+  get jointIds(): string[] {
+    return this.jointOrder.map((r) => r.id);
+  }
 
   readPoses(alpha: number, out?: Float32Array): Float32Array {
     const frameDt = this.simSinceRead;
@@ -856,7 +1052,9 @@ export class PhysicsWorld {
     const n = this.order.length;
     const buf = out && out.length >= n * BODY_STRIDE ? out : new Float32Array(n * BODY_STRIDE);
     const g = this.settings.gravity;
-    let kinT = 0, kinR = 0, pot = 0;
+    let kinT = 0,
+      kinR = 0,
+      pot = 0;
     const mom: Vec3 = [0, 0, 0];
     let awake = 0;
     for (let i = 0; i < n; i++) {
@@ -864,22 +1062,40 @@ export class PhysicsWorld {
       const o = i * BODY_STRIDE;
       const t = r.rb.translation();
       const q = r.rb.rotation();
-      let px = t.x, py = t.y, pz = t.z;
-      let qx = q.x, qy = q.y, qz = q.z, qw = q.w;
+      let px = t.x,
+        py = t.y,
+        pz = t.z;
+      let qx = q.x,
+        qy = q.y,
+        qz = q.z,
+        qw = q.w;
       if (alpha < 1 && r.hasPrev && !r.disabled) {
         const p = r.prev;
         px = p[0] + (px - p[0]) * alpha;
         py = p[1] + (py - p[1]) * alpha;
         pz = p[2] + (pz - p[2]) * alpha;
         const s = qslerp([p[3], p[4], p[5], p[6]], [qx, qy, qz, qw], alpha);
-        qx = s[0]; qy = s[1]; qz = s[2]; qw = s[3];
+        qx = s[0];
+        qy = s[1];
+        qz = s[2];
+        qw = s[3];
       }
-      buf[o] = px; buf[o + 1] = py; buf[o + 2] = pz;
-      buf[o + 3] = qx; buf[o + 4] = qy; buf[o + 5] = qz; buf[o + 6] = qw;
+      buf[o] = px;
+      buf[o + 1] = py;
+      buf[o + 2] = pz;
+      buf[o + 3] = qx;
+      buf[o + 4] = qy;
+      buf[o + 5] = qz;
+      buf[o + 6] = qw;
       const isDyn = r.def.bodyType === 'dynamic';
-      const lv = r.rb.linvel(), av = r.rb.angvel();
-      buf[o + 7] = lv.x; buf[o + 8] = lv.y; buf[o + 9] = lv.z;
-      buf[o + 10] = av.x; buf[o + 11] = av.y; buf[o + 12] = av.z;
+      const lv = r.rb.linvel(),
+        av = r.rb.angvel();
+      buf[o + 7] = lv.x;
+      buf[o + 8] = lv.y;
+      buf[o + 9] = lv.z;
+      buf[o + 10] = av.x;
+      buf[o + 11] = av.y;
+      buf[o + 12] = av.z;
       const sleeping = r.disabled ? 2 : isDyn && r.rb.isSleeping() ? 1 : 0;
       buf[o + 16] = sleeping;
       let ke = 0;
@@ -902,9 +1118,12 @@ export class PhysicsWorld {
         const rot = 0.5 * (pi.x * wl[0] * wl[0] + pi.y * wl[1] * wl[1] + pi.z * wl[2] * wl[2]);
         const tr = 0.5 * r.mass * v2;
         ke = tr + rot;
-        kinT += tr; kinR += rot;
+        kinT += tr;
+        kinR += rot;
         pot += -r.mass * r.def.gravityScale * (g[0] * com.x + g[1] * com.y + g[2] * com.z);
-        mom[0] += r.mass * lv.x; mom[1] += r.mass * lv.y; mom[2] += r.mass * lv.z;
+        mom[0] += r.mass * lv.x;
+        mom[1] += r.mass * lv.y;
+        mom[2] += r.mass * lv.z;
         if (!sleeping) awake++;
       } else {
         buf[o + 13] = buf[o + 14] = buf[o + 15] = 0;
@@ -912,10 +1131,11 @@ export class PhysicsWorld {
       buf[o + 17] = ke;
     }
     let elastic = 0;
-    for (const j of this.jointOrder) if (j.def.type === 'spring' && !j.broken) {
-      const x = j.value - j.def.spring.restLength;
-      elastic += 0.5 * j.def.spring.stiffness * x * x;
-    }
+    for (const j of this.jointOrder)
+      if (j.def.type === 'spring' && !j.broken) {
+        const x = j.value - j.def.spring.restLength;
+        elastic += 0.5 * j.def.spring.stiffness * x * x;
+      }
     this.lastEnergy = { kinetic: kinT, rotational: kinR, potential: pot, elastic, momentum: mom };
     this.awakeCount = awake;
     return buf;
@@ -1041,8 +1261,14 @@ export class PhysicsWorld {
   getPose(id: string): { position: Vec3; rotation: Quat; linvel: Vec3; angvel: Vec3 } | null {
     const r = this.bodies.get(id);
     if (!r) return null;
-    const lv = r.rb.linvel(), av = r.rb.angvel();
-    return { position: this.pos(r.rb), rotation: this.rot(r.rb), linvel: [lv.x, lv.y, lv.z], angvel: [av.x, av.y, av.z] };
+    const lv = r.rb.linvel(),
+      av = r.rb.angvel();
+    return {
+      position: this.pos(r.rb),
+      rotation: this.rot(r.rb),
+      linvel: [lv.x, lv.y, lv.z],
+      angvel: [av.x, av.y, av.z],
+    };
   }
 
   getJointRec(id: string): { value: number; speed: number; force: number; broken: boolean } | null {

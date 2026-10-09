@@ -75,10 +75,14 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
         this.value = { ...this.value, ...saved, overlays: { ...DEFAULT_OVERLAYS, ...(saved.overlays ?? {}) } };
         this.value.tool = 'select';
       }
-    } catch { /* storage unavailable */ }
+    } catch {
+      /* storage unavailable */
+    }
   }
 
-  get<K extends keyof Prefs>(k: K): Prefs[K] { return this.value[k]; }
+  get<K extends keyof Prefs>(k: K): Prefs[K] {
+    return this.value[k];
+  }
 
   set(patch: Partial<Prefs>): void {
     const keys: (keyof Prefs)[] = [];
@@ -88,7 +92,11 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
     if (!keys.length) return;
     this.value = { ...this.value, ...patch };
     this.emit('change', keys);
-    try { localStorage.setItem(KEY, JSON.stringify(this.value)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(this.value));
+    } catch {
+      /* ignore */
+    }
   }
 
   setOverlay(patch: Partial<OverlayOptions>): void {

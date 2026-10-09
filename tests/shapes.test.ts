@@ -9,11 +9,18 @@ const TYPES: ShapeType[] = ['box', 'sphere', 'cylinder', 'capsule', 'cone', 'wed
 describe('shape volumes', () => {
   it('analytic volume × density matches the engine-integrated mass for every shape', async () => {
     for (const type of TYPES) {
-      const body = createBody({ shape: { type, size: defaultSize(type) }, position: [0, 5, 0], material: { preset: 'custom', density: 1000 } });
+      const body = createBody({
+        shape: { type, size: defaultSize(type) },
+        position: [0, 5, 0],
+        material: { preset: 'custom', density: 1000 },
+      });
       const w = await worldOf([body]);
       const mass = w.builtInfo().mass[body.id];
       const expected = shapeVolume(body.shape) * 1000;
-      expect(Math.abs(mass - expected) / expected, `${type}: engine ${mass.toFixed(2)} kg vs analytic ${expected.toFixed(2)} kg`).toBeLessThan(0.02);
+      expect(
+        Math.abs(mass - expected) / expected,
+        `${type}: engine ${mass.toFixed(2)} kg vs analytic ${expected.toFixed(2)} kg`,
+      ).toBeLessThan(0.02);
     }
   });
 

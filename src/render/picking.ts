@@ -15,7 +15,10 @@ export class Picker {
   private ndc = new Vector2();
   private plane = new Plane();
 
-  constructor(private dom: HTMLElement, private camera: Camera) {
+  constructor(
+    private dom: HTMLElement,
+    private camera: Camera,
+  ) {
     this.ray.params.Line = { threshold: 0.1 };
     (this.ray.params as unknown as { Line2: { threshold: number } }).Line2 = { threshold: 10 };
   }

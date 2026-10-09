@@ -9,6 +9,9 @@ export function mountToasts(app: App): void {
     host.appendChild(t);
     while (host.children.length > 3) host.firstElementChild?.remove();
     const ms = Math.min(9000, 2600 + text.length * 45);
-    setTimeout(() => { t.classList.add('leaving'); setTimeout(() => t.remove(), 300); }, ms);
+    setTimeout(() => {
+      t.classList.add('leaving');
+      setTimeout(() => t.remove(), 300);
+    }, ms);
   });
 }

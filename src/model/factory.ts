@@ -2,15 +2,27 @@ import { qident, type Quat, type Vec3 } from '../core/math';
 import { materialFromPreset } from './materials';
 import { defaultSize, SHAPE_LABELS } from './shapes';
 import type {
-  BodyEntity, GroundSettings, JointEntity, JointType, MaterialSpec, MotorSpec, SceneDocument,
-  SceneSettings, ShapeSpec, ShapeType, SoftEntity, SoftType,
+  BodyEntity,
+  GroundSettings,
+  JointEntity,
+  JointType,
+  MaterialSpec,
+  MotorSpec,
+  SceneDocument,
+  SceneSettings,
+  ShapeSpec,
+  ShapeType,
+  SoftEntity,
+  SoftType,
 } from './types';
 
 let counter = 0;
 /** Short, collision-resistant id. */
 export function uid(prefix: string): string {
   counter = (counter + 1) % 1679616;
-  const r = Math.floor(Math.random() * 46656).toString(36).padStart(3, '0');
+  const r = Math.floor(Math.random() * 46656)
+    .toString(36)
+    .padStart(3, '0');
   return `${prefix}_${Date.now().toString(36).slice(-4)}${counter.toString(36)}${r}`;
 }
 
@@ -48,7 +60,7 @@ export function createBody(init: BodyInit): BodyEntity {
   const type = init.shape?.type ?? 'box';
   const shape: ShapeSpec = {
     type,
-    size: init.shape?.size ? [...init.shape.size] as Vec3 : defaultSize(type),
+    size: init.shape?.size ? ([...init.shape.size] as Vec3) : defaultSize(type),
     ...(type === 'prism' ? { sides: init.shape?.sides ?? 6 } : {}),
   };
   const matInit = init.material;
@@ -62,8 +74,8 @@ export function createBody(init: BodyInit): BodyEntity {
     id: uid('b'),
     name: name ?? SHAPE_LABELS[type],
     shape,
-    position: position ? [...position] as Vec3 : [0, 0, 0],
-    rotation: rotation ? [...rotation] as Quat : qident(),
+    position: position ? ([...position] as Vec3) : [0, 0, 0],
+    rotation: rotation ? ([...rotation] as Quat) : qident(),
     bodyType: bodyType ?? 'dynamic',
     material,
     linearDamping: 0.01,
@@ -129,8 +141,8 @@ export function createJoint(init: JointInit): JointEntity {
     bodyA,
     bodyB,
     anchorA: [...anchorA] as Vec3,
-    anchorB: anchorB ? [...anchorB] as Vec3 : [...anchorA] as Vec3,
-    axis: axis ? [...axis] as Vec3 : [0, 0, 1],
+    anchorB: anchorB ? ([...anchorB] as Vec3) : ([...anchorA] as Vec3),
+    axis: axis ? ([...axis] as Vec3) : [0, 0, 1],
     limit: { enabled: false, min: -Math.PI / 2, max: Math.PI / 2 },
     motor: defaultMotor(),
     spring: { restLength: 1, stiffness: 400, damping: 12, breakForce: 0 },
@@ -143,15 +155,79 @@ export function createJoint(init: JointInit): JointEntity {
 
 // ---- soft bodies -------------------------------------------------------------------------------
 
-export const SOFT_LABELS: Record<SoftType, string> = { jelly: 'Jelly', balloon: 'Balloon', cloth: 'Cloth', cable: 'Cable' };
+export const SOFT_LABELS: Record<SoftType, string> = {
+  jelly: 'Jelly',
+  balloon: 'Balloon',
+  cloth: 'Cloth',
+  cable: 'Cable',
+};
 
 export function softDefaults(type: SoftType): Omit<SoftEntity, 'kind' | 'id' | 'name' | 'position' | 'rotation'> {
-  const base = { gravityScale: 1, linearDamping: 0.05, tearStrain: 0, selfCollide: false, locked: false, hidden: false };
+  const base = {
+    gravityScale: 1,
+    linearDamping: 0.05,
+    tearStrain: 0,
+    selfCollide: false,
+    locked: false,
+    hidden: false,
+  };
   switch (type) {
-    case 'jelly': return { ...base, type, size: [1, 1, 1], resolution: 5, mass: 20, stiffness: 12, damping: 0.15, pin: 'none', color: '#ff6fae', roughness: 0.25, opacity: 0.92 };
-    case 'balloon': return { ...base, type, size: [1, 1, 1], resolution: 2, mass: 1.2, stiffness: 25, damping: 0.2, pin: 'none', color: '#4fc3f7', roughness: 0.2, opacity: 0.9 };
-    case 'cloth': return { ...base, type, size: [2.4, 0, 2.4], resolution: 16, mass: 1.2, stiffness: 40, damping: 0.3, pin: 'none', color: '#ff9d4d', roughness: 0.85, opacity: 1 };
-    case 'cable': return { ...base, type, size: [3, 0, 0], resolution: 24, mass: 1.2, stiffness: 60, damping: 0.3, pin: 'ends', color: '#d7a86e', roughness: 0.7, opacity: 1 };
+    case 'jelly':
+      return {
+        ...base,
+        type,
+        size: [1, 1, 1],
+        resolution: 5,
+        mass: 20,
+        stiffness: 12,
+        damping: 0.15,
+        pin: 'none',
+        color: '#ff6fae',
+        roughness: 0.25,
+        opacity: 0.92,
+      };
+    case 'balloon':
+      return {
+        ...base,
+        type,
+        size: [1, 1, 1],
+        resolution: 2,
+        mass: 1.2,
+        stiffness: 25,
+        damping: 0.2,
+        pin: 'none',
+        color: '#4fc3f7',
+        roughness: 0.2,
+        opacity: 0.9,
+      };
+    case 'cloth':
+      return {
+        ...base,
+        type,
+        size: [2.4, 0, 2.4],
+        resolution: 16,
+        mass: 1.2,
+        stiffness: 40,
+        damping: 0.3,
+        pin: 'none',
+        color: '#ff9d4d',
+        roughness: 0.85,
+        opacity: 1,
+      };
+    case 'cable':
+      return {
+        ...base,
+        type,
+        size: [3, 0, 0],
+        resolution: 24,
+        mass: 1.2,
+        stiffness: 60,
+        damping: 0.3,
+        pin: 'ends',
+        color: '#d7a86e',
+        roughness: 0.7,
+        opacity: 1,
+      };
   }
 }
 

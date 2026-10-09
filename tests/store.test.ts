@@ -11,7 +11,8 @@ describe('SceneStore history', () => {
     const s = new SceneStore();
     const events: SceneChange[] = [];
     s.on('change', (c) => events.push(c));
-    const a = box('A'), b = box('B', 2);
+    const a = box('A'),
+      b = box('B', 2);
     s.add([a], 'Add A');
     s.add([b], 'Add B');
     s.update(a.id, { name: 'Alpha' } as Partial<BodyEntity>, 'Rename');
@@ -46,7 +47,8 @@ describe('SceneStore history', () => {
 
   it('removing a body also removes its joints (and undo restores both)', () => {
     const s = new SceneStore();
-    const a = box('A'), b = box('B', 2);
+    const a = box('A'),
+      b = box('B', 2);
     const j = createJoint({ type: 'hinge', bodyA: a.id, bodyB: b.id, anchorA: [1, 0, 0] });
     s.add([a, b, j]);
     s.remove([a.id]);
@@ -69,7 +71,8 @@ describe('SceneStore history', () => {
 
   it('duplicates assemblies with their internal joints re-linked', () => {
     const s = new SceneStore();
-    const a = box('A'), b = box('B', 2);
+    const a = box('A'),
+      b = box('B', 2);
     const joint = createJoint({ type: 'ball', bodyA: a.id, bodyB: b.id, anchorA: [1, 0, 0] });
     const worldJoint = createJoint({ type: 'ball', bodyA: null, bodyB: a.id, anchorA: [0, 5, 0] });
     s.add([a, b, joint, worldJoint]);
@@ -79,7 +82,9 @@ describe('SceneStore history', () => {
     const copyBodies = copies.filter((e) => e.kind === 'body') as BodyEntity[];
     expect(copyBodies.every((c) => c.position[2] === 3)).toBe(true);
     const joints = copies.filter((e) => e.kind === 'joint');
-    expect(joints.every((j) => j.kind === 'joint' && (j.bodyA === null || copyBodies.some((b2) => b2.id === j.bodyA)))).toBe(true);
+    expect(
+      joints.every((j) => j.kind === 'joint' && (j.bodyA === null || copyBodies.some((b2) => b2.id === j.bodyA))),
+    ).toBe(true);
     // the world-anchored side moved with the copy
     const wj = joints.find((j) => j.kind === 'joint' && j.bodyB && !j.bodyA);
     expect(wj && wj.kind === 'joint' && wj.anchorA[2]).toBe(3);
@@ -101,7 +106,10 @@ describe('serialization', () => {
     doc.entities.push(box('A'));
     const back = parseDocument(serializeDocument(doc));
     expect(back.entities).toHaveLength(1);
-    const sparse = sanitizeDocument({ format: 'physicslab-scene', entities: [{ kind: 'body', id: 'x', shape: { type: 'sphere', size: [2, 2, 2] } }] });
+    const sparse = sanitizeDocument({
+      format: 'physicslab-scene',
+      entities: [{ kind: 'body', id: 'x', shape: { type: 'sphere', size: [2, 2, 2] } }],
+    });
     const b = sparse.entities[0] as BodyEntity;
     expect(b.material.density).toBeGreaterThan(0);
     expect(b.rotation).toEqual([0, 0, 0, 1]);

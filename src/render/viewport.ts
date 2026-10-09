@@ -4,10 +4,34 @@
  * modules into the exposed groups.
  */
 import {
-  ACESFilmicToneMapping, AmbientLight, BackSide, BoxGeometry, Color, DirectionalLight, DoubleSide,
-  Fog, Group, HalfFloatType, MathUtils, Mesh, MeshBasicMaterial, MeshStandardMaterial, MOUSE,
-  PCFShadowMap, PerspectiveCamera, PlaneGeometry, PMREMGenerator, Scene, ShaderMaterial,
-  ShadowMaterial, SphereGeometry, Vector2, Vector3, WebGLRenderer, WebGLRenderTarget, type Object3D,
+  ACESFilmicToneMapping,
+  AmbientLight,
+  BackSide,
+  BoxGeometry,
+  Color,
+  DirectionalLight,
+  DoubleSide,
+  Fog,
+  Group,
+  HalfFloatType,
+  MathUtils,
+  Mesh,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
+  MOUSE,
+  PCFShadowMap,
+  PerspectiveCamera,
+  PlaneGeometry,
+  PMREMGenerator,
+  Scene,
+  ShaderMaterial,
+  ShadowMaterial,
+  SphereGeometry,
+  Vector2,
+  Vector3,
+  WebGLRenderer,
+  WebGLRenderTarget,
+  type Object3D,
 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -110,7 +134,14 @@ export class Viewport {
   private quality: Quality = 'medium';
   private width = 1;
   private height = 1;
-  private tween: { t: number; dur: number; fromPos: Vector3; toPos: Vector3; fromTarget: Vector3; toTarget: Vector3 } | null = null;
+  private tween: {
+    t: number;
+    dur: number;
+    fromPos: Vector3;
+    toPos: Vector3;
+    fromTarget: Vector3;
+    toTarget: Vector3;
+  } | null = null;
   private lastTime = performance.now();
   private resizeObserver: ResizeObserver;
   private shadowsOn = true;
@@ -120,7 +151,11 @@ export class Viewport {
   needsRender = true;
 
   constructor(readonly container: HTMLElement) {
-    this.renderer = new WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+    this.renderer = new WebGLRenderer({
+      antialias: false,
+      powerPreference: 'high-performance',
+      preserveDrawingBuffer: false,
+    });
     this.dom = this.renderer.domElement;
     this.dom.className = 'viewport-canvas';
     this.dom.tabIndex = 0;
@@ -146,7 +181,9 @@ export class Viewport {
         uHorizon: { value: new Color('#27344a') },
         uGround: { value: new Color('#10151d') },
       },
-      side: BackSide, depthWrite: false, fog: false,
+      side: BackSide,
+      depthWrite: false,
+      fog: false,
     });
     this.skyMesh = new Mesh(new SphereGeometry(900, 32, 16), skyMat);
     this.skyMesh.frustumCulled = false;
@@ -171,14 +208,23 @@ export class Viewport {
     );
     this.slab.receiveShadow = true;
     this.gridMat = new ShaderMaterial({
-      vertexShader: GRID_VERT, fragmentShader: GRID_FRAG, transparent: true, depthWrite: false, side: DoubleSide,
+      vertexShader: GRID_VERT,
+      fragmentShader: GRID_FRAG,
+      transparent: true,
+      depthWrite: false,
+      side: DoubleSide,
       uniforms: { uCamPos: { value: new Vector3() }, uFadeDist: { value: 90 }, uHalf: { value: 60 } },
-      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     });
     this.grid = new Mesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), this.gridMat);
     this.grid.position.y = 0.003;
     this.grid.renderOrder = 1;
-    this.shadowCatcher = new Mesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new ShadowMaterial({ opacity: 0.42, color: 0x000000 }));
+    this.shadowCatcher = new Mesh(
+      new PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+      new ShadowMaterial({ opacity: 0.42, color: 0x000000 }),
+    );
     this.shadowCatcher.position.y = 0.002;
     this.shadowCatcher.receiveShadow = true;
     this.scene.add(this.slab, this.grid, this.shadowCatcher);
@@ -197,9 +243,13 @@ export class Viewport {
     this.controls.target.set(0, 1.2, 0);
     this.controls.addEventListener('change', () => (this.needsRender = true));
     // Alt + left drag also orbits (trackpads without a right button).
-    this.dom.addEventListener('pointerdown', (e) => {
-      this.controls.mouseButtons.LEFT = (e.altKey ? MOUSE.ROTATE : null) as unknown as MOUSE;
-    }, true);
+    this.dom.addEventListener(
+      'pointerdown',
+      (e) => {
+        this.controls.mouseButtons.LEFT = (e.altKey ? MOUSE.ROTATE : null) as unknown as MOUSE;
+      },
+      true,
+    );
     this.dom.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // ---- post-processing --------------------------------------------------------------------
@@ -265,7 +315,10 @@ export class Viewport {
     );
     env.add(sky);
     const panel = (w: number, h: number, pos: Vector3, intensity: number, tint: number) => {
-      const m = new Mesh(new PlaneGeometry(w, h), new MeshBasicMaterial({ color: new Color(tint).multiplyScalar(intensity), side: DoubleSide }));
+      const m = new Mesh(
+        new PlaneGeometry(w, h),
+        new MeshBasicMaterial({ color: new Color(tint).multiplyScalar(intensity), side: DoubleSide }),
+      );
       m.position.copy(pos);
       m.lookAt(0, 0, 0);
       env.add(m);
@@ -306,11 +359,16 @@ export class Viewport {
     this.rebuildPasses();
     this.resize();
     // materials must recompile when shadows are toggled
-    this.scene.traverse((o) => { const m = (o as Mesh).material as any; if (m && !Array.isArray(m)) m.needsUpdate = true; });
+    this.scene.traverse((o) => {
+      const m = (o as Mesh).material as any;
+      if (m && !Array.isArray(m)) m.needsUpdate = true;
+    });
     this.needsRender = true;
   }
 
-  get currentQuality(): Quality { return this.quality; }
+  get currentQuality(): Quality {
+    return this.quality;
+  }
 
   setOutlineTargets(objects: Object3D[], hover: Object3D[] = []): void {
     this.outline.selectedObjects = objects.concat(hover);
@@ -344,12 +402,20 @@ export class Viewport {
   }
 
   flyTo(pos: Vector3, target: Vector3, dur = 0.45): void {
-    this.tween = { t: 0, dur, fromPos: this.camera.position.clone(), toPos: pos, fromTarget: this.controls.target.clone(), toTarget: target };
+    this.tween = {
+      t: 0,
+      dur,
+      fromPos: this.camera.position.clone(),
+      toPos: pos,
+      fromTarget: this.controls.target.clone(),
+      toTarget: target,
+    };
   }
 
   /** Camera position + target, for persistence. */
   getView(): { position: [number, number, number]; target: [number, number, number] } {
-    const p = this.camera.position, t = this.controls.target;
+    const p = this.camera.position,
+      t = this.controls.target;
     return { position: [p.x, p.y, p.z], target: [t.x, t.y, t.z] };
   }
 
@@ -400,7 +466,12 @@ export class Viewport {
     const ext = MathUtils.clamp(dist * 0.9 + 14, 22, 70);
     const sc = this.sun.shadow.camera;
     if (sc.right !== ext) {
-      sc.left = -ext; sc.right = ext; sc.top = ext; sc.bottom = -ext; sc.near = 1; sc.far = 220;
+      sc.left = -ext;
+      sc.right = ext;
+      sc.top = ext;
+      sc.bottom = -ext;
+      sc.near = 1;
+      sc.far = 220;
       sc.updateProjectionMatrix();
     }
     const texel = (ext * 2) / this.sun.shadow.mapSize.x;

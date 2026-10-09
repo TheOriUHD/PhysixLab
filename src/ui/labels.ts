@@ -1,7 +1,10 @@
 import { Vector3, type PerspectiveCamera } from 'three';
 import { h } from './dom';
 
-interface Label { el: HTMLElement; at: Vector3 }
+interface Label {
+  el: HTMLElement;
+  at: Vector3;
+}
 
 /** HTML labels pinned to world positions (measurements, selection tags). */
 export class Labels {

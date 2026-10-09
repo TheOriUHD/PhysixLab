@@ -17,15 +17,29 @@ describe('free motion', () => {
   });
 
   it('conserves linear momentum in zero gravity', async () => {
-    const a = createBody({ shape: { type: 'sphere', size: [1, 1, 1] }, position: [-3, 5, 0], velocity: [4, 0, 0], ...noDamp, material: { preset: 'steel', restitution: 1 } });
-    const b = createBody({ shape: { type: 'sphere', size: [1, 1, 1] }, position: [3, 5, 0], velocity: [-1, 0, 0], ...noDamp, material: { preset: 'steel', restitution: 1 } });
+    const a = createBody({
+      shape: { type: 'sphere', size: [1, 1, 1] },
+      position: [-3, 5, 0],
+      velocity: [4, 0, 0],
+      ...noDamp,
+      material: { preset: 'steel', restitution: 1 },
+    });
+    const b = createBody({
+      shape: { type: 'sphere', size: [1, 1, 1] },
+      position: [3, 5, 0],
+      velocity: [-1, 0, 0],
+      ...noDamp,
+      material: { preset: 'steel', restitution: 1 },
+    });
     const w = await worldOf([a, b], { gravity: [0, 0, 0] });
     const p0 = 4 * w.getPose(a.id)!.linvel[0] * 0 + 0; // placeholder to keep types simple
     void p0;
-    const ma = w.builtInfo().mass[a.id], mb = w.builtInfo().mass[b.id];
+    const ma = w.builtInfo().mass[a.id],
+      mb = w.builtInfo().mass[b.id];
     const before = ma * 4 + mb * -1;
     run(w, 3);
-    const va = w.getPose(a.id)!.linvel[0], vb = w.getPose(b.id)!.linvel[0];
+    const va = w.getPose(a.id)!.linvel[0],
+      vb = w.getPose(b.id)!.linvel[0];
     expect(ma * va + mb * vb).toBeCloseTo(before, 0);
     // elastic equal-mass collision exchanges velocities
     expect(va).toBeLessThan(0);
@@ -36,11 +50,17 @@ describe('free motion', () => {
 describe('contacts', () => {
   it('bounces with the material restitution', async () => {
     const ball = createBody({
-      shape: { type: 'sphere', size: [0.4, 0.4, 0.4] }, position: [0, 3.2, 0], ...noDamp,
+      shape: { type: 'sphere', size: [0.4, 0.4, 0.4] },
+      position: [0, 3.2, 0],
+      ...noDamp,
       material: materialFromPreset('rubber', { restitution: 0.6 }),
     });
-    const w = await worldOf([ball], { ground: { enabled: true, friction: 0.8, restitution: 0, halfSize: 50, color: '#000' } });
-    let maxAfter = 0, hit = false, lastVy = 0;
+    const w = await worldOf([ball], {
+      ground: { enabled: true, friction: 0.8, restitution: 0, halfSize: 50, color: '#000' },
+    });
+    let maxAfter = 0,
+      hit = false,
+      lastVy = 0;
     for (let i = 0; i < 600; i++) {
       w.stepOnce();
       const p = w.getPose(ball.id)!;
@@ -60,11 +80,23 @@ describe('contacts', () => {
     for (const deg of [15, 40]) {
       const ang = (deg * Math.PI) / 180;
       const q = qfromAxisAngle([0, 0, 1], ang);
-      const ramp = createBody({ shape: { type: 'box', size: [20, 0.4, 4] }, bodyType: 'static', rotation: q, material: { preset: 'custom', friction: mu, restitution: 0 } });
+      const ramp = createBody({
+        shape: { type: 'box', size: [20, 0.4, 4] },
+        bodyType: 'static',
+        rotation: q,
+        material: { preset: 'custom', friction: mu, restitution: 0 },
+      });
       const up = qrot(q, [0, 0.7, 0]); // half ramp thickness + half box height
-      const box = createBody({ shape: { type: 'box', size: [1, 1, 1] }, position: [up[0] - 0.0, up[1] + 0.0, 0], rotation: q, material: { preset: 'custom', density: 500, friction: mu, restitution: 0 } });
+      const box = createBody({
+        shape: { type: 'box', size: [1, 1, 1] },
+        position: [up[0] - 0.0, up[1] + 0.0, 0],
+        rotation: q,
+        material: { preset: 'custom', density: 500, friction: mu, restitution: 0 },
+      });
       box.position = [up[0], up[1] + 0.001, 0];
-      const w = await worldOf([ramp, box], { ground: { enabled: false, friction: 0.5, restitution: 0, halfSize: 50, color: '#000' } });
+      const w = await worldOf([ramp, box], {
+        ground: { enabled: false, friction: 0.5, restitution: 0, halfSize: 50, color: '#000' },
+      });
       const p0 = w.getPose(box.id)!.position;
       run(w, 2);
       const p1 = w.getPose(box.id)!.position;
@@ -88,28 +120,51 @@ describe('contacts', () => {
 describe('joints', () => {
   it('ball-joint pendulum has the physical-pendulum period', async () => {
     const L = 2;
-    const bob = createBody({ shape: { type: 'sphere', size: [0.2, 0.2, 0.2] }, position: [Math.sin(0.1) * L, 6 - Math.cos(0.1) * L, 0], ...noDamp });
+    const bob = createBody({
+      shape: { type: 'sphere', size: [0.2, 0.2, 0.2] },
+      position: [Math.sin(0.1) * L, 6 - Math.cos(0.1) * L, 0],
+      ...noDamp,
+    });
     const j = createJoint({ type: 'ball', bodyA: null, bodyB: bob.id, anchorA: [0, 6, 0] });
     const w = await worldOf([bob, j], { physicsHz: 240 });
     const xs: number[] = [];
-    for (let i = 0; i < 240 * 6; i++) { w.stepOnce(); xs.push(w.getPose(bob.id)!.position[0]); }
+    for (let i = 0; i < 240 * 6; i++) {
+      w.stepOnce();
+      xs.push(w.getPose(bob.id)!.position[0]);
+    }
     // measure time between successive upward zero-crossings
     const t: number[] = [];
     for (let i = 1; i < xs.length; i++) if (xs[i - 1] < 0 && xs[i] >= 0) t.push(i / 240);
     expect(t.length).toBeGreaterThanOrEqual(2);
     const period = t[1] - t[0];
     const r = 0.1;
-    const expected = 2 * Math.PI * Math.sqrt((L / 9.81) * (1 + 0.4 * (r * r) / (L * L)));
+    const expected = 2 * Math.PI * Math.sqrt((L / 9.81) * (1 + (0.4 * (r * r)) / (L * L)));
     expect(Math.abs(period - expected) / expected).toBeLessThan(0.02);
   });
 
   it('spring-mass oscillator matches 2π√(m/k)', async () => {
-    const m = createBody({ shape: { type: 'box', size: [0.5, 0.5, 0.5] }, position: [2, 5, 0], material: { preset: 'custom', density: 80 }, ...noDamp, gravityScale: 0 });
-    const sp = createJoint({ type: 'spring', bodyA: null, bodyB: m.id, anchorA: [0, 5, 0], anchorB: [0, 0, 0], spring: { restLength: 1, stiffness: 800, damping: 0, breakForce: 0 } });
+    const m = createBody({
+      shape: { type: 'box', size: [0.5, 0.5, 0.5] },
+      position: [2, 5, 0],
+      material: { preset: 'custom', density: 80 },
+      ...noDamp,
+      gravityScale: 0,
+    });
+    const sp = createJoint({
+      type: 'spring',
+      bodyA: null,
+      bodyB: m.id,
+      anchorA: [0, 5, 0],
+      anchorB: [0, 0, 0],
+      spring: { restLength: 1, stiffness: 800, damping: 0, breakForce: 0 },
+    });
     const w = await worldOf([m, sp], { gravity: [0, 0, 0] });
     const mass = w.builtInfo().mass[m.id];
     const xs: number[] = [];
-    for (let i = 0; i < 240; i++) { w.stepOnce(); xs.push(w.getPose(m.id)!.position[0]); }
+    for (let i = 0; i < 240; i++) {
+      w.stepOnce();
+      xs.push(w.getPose(m.id)!.position[0]);
+    }
     const t: number[] = [];
     for (let i = 1; i < xs.length; i++) if (xs[i - 1] - 1 > 0 && xs[i] - 1 <= 0) t.push(i / 120);
     expect(t.length).toBeGreaterThanOrEqual(2);
@@ -118,10 +173,30 @@ describe('joints', () => {
   });
 
   it('a velocity motor spins a hinge at the target speed and honours limits', async () => {
-    const wheel = createBody({ shape: { type: 'cylinder', size: [1, 0.2, 1] }, position: [0, 3, 0], rotation: qfromAxisAngle([1, 0, 0], Math.PI / 2), ...noDamp });
+    const wheel = createBody({
+      shape: { type: 'cylinder', size: [1, 0.2, 1] },
+      position: [0, 3, 0],
+      rotation: qfromAxisAngle([1, 0, 0], Math.PI / 2),
+      ...noDamp,
+    });
     const hinge = createJoint({
-      type: 'hinge', bodyA: null, bodyB: wheel.id, anchorA: [0, 3, 0], axis: [0, 0, 1],
-      motor: { mode: 'velocity', targetVelocity: 8, targetPosition: 0, stiffness: 0, damping: 100, maxForce: 5000, keyPos: '', keyNeg: '', slewRate: 1, brake: true },
+      type: 'hinge',
+      bodyA: null,
+      bodyB: wheel.id,
+      anchorA: [0, 3, 0],
+      axis: [0, 0, 1],
+      motor: {
+        mode: 'velocity',
+        targetVelocity: 8,
+        targetPosition: 0,
+        stiffness: 0,
+        damping: 100,
+        maxForce: 5000,
+        keyPos: '',
+        keyNeg: '',
+        slewRate: 1,
+        brake: true,
+      },
     });
     const w = await worldOf([wheel, hinge]);
     run(w, 2);
@@ -138,8 +213,23 @@ describe('joints', () => {
   it('a position motor drives a slider to its target', async () => {
     const block = createBody({ shape: { type: 'box', size: [0.5, 0.5, 0.5] }, position: [0, 3, 0], gravityScale: 0 });
     const slider = createJoint({
-      type: 'slider', bodyA: null, bodyB: block.id, anchorA: [0, 3, 0], axis: [1, 0, 0],
-      motor: { mode: 'position', targetVelocity: 0, targetPosition: 1.5, stiffness: 8000, damping: 800, maxForce: 1e5, keyPos: '', keyNeg: '', slewRate: 1, brake: true },
+      type: 'slider',
+      bodyA: null,
+      bodyB: block.id,
+      anchorA: [0, 3, 0],
+      axis: [1, 0, 0],
+      motor: {
+        mode: 'position',
+        targetVelocity: 0,
+        targetPosition: 1.5,
+        stiffness: 8000,
+        damping: 800,
+        maxForce: 1e5,
+        keyPos: '',
+        keyNeg: '',
+        slewRate: 1,
+        brake: true,
+      },
     });
     const w = await worldOf([block, slider], { gravity: [0, 0, 0] });
     run(w, 3);
@@ -147,10 +237,30 @@ describe('joints', () => {
   });
 
   it('keyboard input drives a keyed motor', async () => {
-    const wheel = createBody({ shape: { type: 'cylinder', size: [1, 0.2, 1] }, position: [0, 3, 0], rotation: qfromAxisAngle([1, 0, 0], Math.PI / 2), ...noDamp });
+    const wheel = createBody({
+      shape: { type: 'cylinder', size: [1, 0.2, 1] },
+      position: [0, 3, 0],
+      rotation: qfromAxisAngle([1, 0, 0], Math.PI / 2),
+      ...noDamp,
+    });
     const hinge = createJoint({
-      type: 'hinge', bodyA: null, bodyB: wheel.id, anchorA: [0, 3, 0], axis: [0, 0, 1],
-      motor: { mode: 'velocity', targetVelocity: 5, targetPosition: 0, stiffness: 0, damping: 100, maxForce: 5000, keyPos: 'KeyW', keyNeg: 'KeyS', slewRate: 1, brake: true },
+      type: 'hinge',
+      bodyA: null,
+      bodyB: wheel.id,
+      anchorA: [0, 3, 0],
+      axis: [0, 0, 1],
+      motor: {
+        mode: 'velocity',
+        targetVelocity: 5,
+        targetPosition: 0,
+        stiffness: 0,
+        damping: 100,
+        maxForce: 5000,
+        keyPos: 'KeyW',
+        keyNeg: 'KeyS',
+        slewRate: 1,
+        brake: true,
+      },
     });
     const w = await worldOf([wheel, hinge]);
     run(w, 1);
@@ -165,17 +275,32 @@ describe('joints', () => {
 
   it('weld joints hold heavy loads and breakable springs snap', async () => {
     const anchor = createBody({ shape: { type: 'box', size: [1, 1, 1] }, bodyType: 'static', position: [0, 10, 0] });
-    const load = createBody({ shape: { type: 'box', size: [1, 1, 1] }, position: [0, 8.0, 0], material: { preset: 'custom', density: 8000 } });
+    const load = createBody({
+      shape: { type: 'box', size: [1, 1, 1] },
+      position: [0, 8.0, 0],
+      material: { preset: 'custom', density: 8000 },
+    });
     const weld = createJoint({ type: 'fixed', bodyA: anchor.id, bodyB: load.id, anchorA: [0, -0.75, 0] });
     const w = await worldOf([anchor, load, weld]);
     run(w, 3);
     expect(w.getPose(load.id)!.position[1]).toBeCloseTo(8.0, 2);
 
-    const cable = createJoint({ type: 'spring', bodyA: anchor.id, bodyB: load.id, anchorA: [0, -0.5, 0], anchorB: [0, 0.5, 0], spring: { restLength: 1, stiffness: 1e6, damping: 1000, breakForce: 20000 } });
+    const cable = createJoint({
+      type: 'spring',
+      bodyA: anchor.id,
+      bodyB: load.id,
+      anchorA: [0, -0.5, 0],
+      anchorB: [0, 0.5, 0],
+      spring: { restLength: 1, stiffness: 1e6, damping: 1000, breakForce: 20000 },
+    });
     const w2 = await worldOf([anchor, load, cable]);
     run(w2, 1);
     expect(w2.getJointRec(cable.id)!.broken).toBe(true); // 8000 kg × 9.81 = 78 kN > 20 kN
-    const w3 = await worldOf([anchor, load, { ...cable, spring: { ...cable.spring, damping: 1e5, breakForce: 200000 } }]);
+    const w3 = await worldOf([
+      anchor,
+      load,
+      { ...cable, spring: { ...cable.spring, damping: 1e5, breakForce: 200000 } },
+    ]);
     run(w3, 3);
     expect(w3.getJointRec(cable.id)!.broken).toBe(false);
     expect(w3.getJointRec(cable.id)!.force).toBeGreaterThan(70000);
@@ -184,23 +309,45 @@ describe('joints', () => {
 
 describe('energy', () => {
   it('conserves mechanical energy for an elastic bounce', async () => {
-    const ball = createBody({ shape: { type: 'sphere', size: [0.5, 0.5, 0.5] }, position: [0, 4, 0], ...noDamp, material: { preset: 'custom', density: 500, restitution: 1, friction: 0 } });
-    const w = await worldOf([ball], { ground: { enabled: true, friction: 0, restitution: 1, halfSize: 50, color: '#000' } });
-    const total = () => { w.readPoses(1); const e = w.stats().energy; return e.kinetic + e.rotational + e.potential + e.elastic; };
+    const ball = createBody({
+      shape: { type: 'sphere', size: [0.5, 0.5, 0.5] },
+      position: [0, 4, 0],
+      ...noDamp,
+      material: { preset: 'custom', density: 500, restitution: 1, friction: 0 },
+    });
+    const w = await worldOf([ball], {
+      ground: { enabled: true, friction: 0, restitution: 1, halfSize: 50, color: '#000' },
+    });
+    const total = () => {
+      w.readPoses(1);
+      const e = w.stats().energy;
+      return e.kinetic + e.rotational + e.potential + e.elastic;
+    };
     const e0 = total();
     let worst = 0;
-    for (let i = 0; i < 600; i++) { w.stepOnce(); worst = Math.max(worst, Math.abs(total() - e0) / Math.abs(e0)); }
+    for (let i = 0; i < 600; i++) {
+      w.stepOnce();
+      worst = Math.max(worst, Math.abs(total() - e0) / Math.abs(e0));
+    }
     expect(worst).toBeLessThan(0.08);
   });
 });
 
 describe('determinism and live edits', () => {
   it('replays identically', async () => {
-    const mk = () => Array.from({ length: 12 }, (_, i) => createBody({ id: `fixed${i}`, shape: { type: i % 2 ? 'box' : 'sphere', size: [0.6, 0.6, 0.6] }, position: [(i % 3) * 0.7, 2 + i * 0.8, (i % 2) * 0.3] }));
+    const mk = () =>
+      Array.from({ length: 12 }, (_, i) =>
+        createBody({
+          id: `fixed${i}`,
+          shape: { type: i % 2 ? 'box' : 'sphere', size: [0.6, 0.6, 0.6] },
+          position: [(i % 3) * 0.7, 2 + i * 0.8, (i % 2) * 0.3],
+        }),
+      );
     const ents = mk().map((e, i) => ({ ...e, id: `b${i}` }));
     const w1 = await worldOf(ents);
     const w2 = await worldOf(ents);
-    run(w1, 3); run(w2, 3);
+    run(w1, 3);
+    run(w2, 3);
     for (const e of ents) expect(w1.getPose(e.id)!.position).toEqual(w2.getPose(e.id)!.position);
   });
 
@@ -225,7 +372,11 @@ describe('determinism and live edits', () => {
 describe('performance', () => {
   it('steps 400 bodies comfortably in real time', async () => {
     const boxes = Array.from({ length: 400 }, (_, i) =>
-      createBody({ shape: { type: i % 3 === 0 ? 'sphere' : 'box', size: [0.5, 0.5, 0.5] }, position: [(i % 8) * 0.6, 1 + Math.floor(i / 64) * 0.7, (Math.floor(i / 8) % 8) * 0.6] }));
+      createBody({
+        shape: { type: i % 3 === 0 ? 'sphere' : 'box', size: [0.5, 0.5, 0.5] },
+        position: [(i % 8) * 0.6, 1 + Math.floor(i / 64) * 0.7, (Math.floor(i / 8) % 8) * 0.6],
+      }),
+    );
     const w = await worldOf(boxes);
     const t0 = performance.now();
     run(w, 2);

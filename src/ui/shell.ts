@@ -28,11 +28,27 @@ export function createShell(root: HTMLElement): ShellDom {
   const hintBar = h('div', { class: 'hint-bar hidden' });
   const dropHint = h('div', { class: 'drop-hint' }, 'Drop to place the shape');
   const stage = h('div', { class: 'stage' }, viewportHost, floatSlot, hintBar, dropHint);
-  const workspace = h('div', { class: 'workspace' }, leftSlot, h('div', { class: 'stage-col' }, stage, dockSlot), rightSlot);
+  const workspace = h(
+    'div',
+    { class: 'workspace' },
+    leftSlot,
+    h('div', { class: 'stage-col' }, stage, dockSlot),
+    rightSlot,
+  );
   root.append(topSlot, workspace, footSlot);
   return {
-    root, topSlot, leftSlot, rightSlot, dockSlot, footSlot, floatSlot, hintBar, dropHint, fpsBadge: h('div'),
-    viewportHost, stage,
+    root,
+    topSlot,
+    leftSlot,
+    rightSlot,
+    dockSlot,
+    footSlot,
+    floatSlot,
+    hintBar,
+    dropHint,
+    fpsBadge: h('div'),
+    viewportHost,
+    stage,
   };
 }
 
@@ -44,7 +60,9 @@ export function wireShell(app: App, shell: ShellDom): void {
     shell.root.classList.toggle('no-right', !p.showRight);
     requestAnimationFrame(() => app.viewport.resize());
   };
-  app.prefs.on('change', (k) => { if (k.some((x) => x === 'showLeft' || x === 'showRight' || x === 'showBottom')) sync(); });
+  app.prefs.on('change', (k) => {
+    if (k.some((x) => x === 'showLeft' || x === 'showRight' || x === 'showBottom')) sync();
+  });
   sync();
 
   app.on('hint', (t) => {
@@ -55,9 +73,24 @@ export function wireShell(app: App, shell: ShellDom): void {
   // Drag a shape tile from the library into the viewport.
   const host = shell.stage;
   let depth = 0;
-  host.addEventListener('dragenter', (e) => { if (e.dataTransfer?.types.includes('text/x-physicslab-shape')) { depth++; shell.dropHint.classList.add('show'); } });
-  host.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; shell.dropHint.classList.remove('show'); } });
-  host.addEventListener('dragover', (e) => { if (e.dataTransfer?.types.includes('text/x-physicslab-shape')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
+  host.addEventListener('dragenter', (e) => {
+    if (e.dataTransfer?.types.includes('text/x-physicslab-shape')) {
+      depth++;
+      shell.dropHint.classList.add('show');
+    }
+  });
+  host.addEventListener('dragleave', () => {
+    if (--depth <= 0) {
+      depth = 0;
+      shell.dropHint.classList.remove('show');
+    }
+  });
+  host.addEventListener('dragover', (e) => {
+    if (e.dataTransfer?.types.includes('text/x-physicslab-shape')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  });
   host.addEventListener('drop', (e) => {
     depth = 0;
     shell.dropHint.classList.remove('show');
