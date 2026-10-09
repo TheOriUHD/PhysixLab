@@ -1,0 +1,46 @@
+/** Scene settings applied to the live world: gravity, step rate, solver iterations, air drag, ground. */
+import RAPIER from '@dimforge/rapier3d-compat';
+import type { SceneSettings } from '../../model/types';
+import { piecesOf } from './soft';
+import type { WorldState } from './state';
+import { rv } from './util';
+
+export function applySettings(s: WorldState, next: SceneSettings, initial = false): void {
+  const prev = s.settings;
+  s.settings = next;
+  const gravityChanged =
+    !initial &&
+    (prev.gravity[0] !== next.gravity[0] || prev.gravity[1] !== next.gravity[1] || prev.gravity[2] !== next.gravity[2]);
+  s.world.gravity = rv(next.gravity);
+  // Sleeping bodies would otherwise ignore the new gravity until something touches them.
+  if (gravityChanged) {
+    for (const r of s.order) r.rb.wakeUp();
+    for (const r of s.softOrder) for (const b of piecesOf(s, r)) b.wakeUp();
+  }
+  s.world.integrationParameters.dt = 1 / next.physicsHz;
+  s.world.integrationParameters.numSolverIterations = next.solverIterations;
+  if (initial || prev.ground !== next.ground) buildGround(s);
+  if (prev.airDrag !== next.airDrag) {
+    for (const r of s.order)
+      if (r.def.bodyType === 'dynamic') r.rb.setLinearDamping(r.def.linearDamping + next.airDrag);
+  }
+}
+
+function buildGround(s: WorldState): void {
+  if (s.ground) {
+    s.world.removeRigidBody(s.ground.body);
+    s.ground = null;
+  }
+  const g = s.settings.ground;
+  if (!g.enabled) return;
+  const body = s.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, -1, 0));
+  const col = s.world.createCollider(
+    RAPIER.ColliderDesc.cuboid(g.halfSize, 1, g.halfSize)
+      .setFriction(g.friction)
+      .setRestitution(g.restitution)
+      .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Average)
+      .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max),
+    body,
+  );
+  s.ground = { body, col };
+}

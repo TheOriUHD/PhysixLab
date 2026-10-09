@@ -1,0 +1,108 @@
+/** Live edits of the running world: removal, in-place or rebuilt body updates, teleport, set velocity. */
+import type { Quat, Vec3 } from '../../core/math';
+import type { BodyEntity } from '../../model/types';
+import { addBody } from './bodies';
+import { addJoint, dropJoint } from './joints';
+import { removeSoft } from './soft';
+import type { BodyRec, WorldState } from './state';
+import { pos, rot, rq, rv, ZERO } from './util';
+
+export function removeEntities(s: WorldState, ids: string[]): void {
+  for (const id of ids) removeSoft(s, id);
+  for (const id of ids) {
+    const j = s.joints.get(id);
+    if (j) {
+      if (j.joint && j.joint.isValid()) s.world.removeImpulseJoint(j.joint, true);
+      dropJoint(s, id);
+    }
+  }
+  for (const id of ids) {
+    const b = s.bodies.get(id);
+    if (!b) continue;
+    if (s.grab?.rec === b) s.grab = null;
+    // Rapier deletes attached joints with the body; mirror that in our bookkeeping.
+    for (const jr of [...s.jointOrder]) if (jr.A === b || jr.B === b) dropJoint(s, jr.id);
+    s.world.removeRigidBody(b.rb);
+    s.bodies.delete(id);
+    s.order = s.order.filter((r) => r !== b);
+  }
+  s.layoutVersion++;
+}
+
+/** Apply the edited body definition, in place when possible, otherwise by rebuilding the body. */
+export function updateBody(s: WorldState, next: BodyEntity): void {
+  const rec = s.bodies.get(next.id);
+  if (!rec) return;
+  const old = rec.def;
+  const structural =
+    old.bodyType !== next.bodyType ||
+    (old.shape !== next.shape && JSON.stringify(old.shape) !== JSON.stringify(next.shape)) ||
+    old.material.density !== next.material.density ||
+    old.ccd !== next.ccd ||
+    old.ghost !== next.ghost ||
+    old.lockPosition.some((v, i) => v !== next.lockPosition[i]) ||
+    old.lockRotation.some((v, i) => v !== next.lockRotation[i]);
+  if (structural) {
+    rebuildBody(s, rec, next);
+    return;
+  }
+  rec.def = next;
+  if (next.bodyType === 'dynamic') {
+    rec.rb.setLinearDamping(next.linearDamping + s.settings.airDrag);
+    rec.rb.setAngularDamping(next.angularDamping);
+    rec.rb.setGravityScale(next.gravityScale, true);
+  }
+  if (next.bodyType === 'kinematic') {
+    rec.rb.setLinvel(rv(next.velocity), true);
+    rec.rb.setAngvel(rv(next.angularVelocity), true);
+  }
+  rec.col.setFriction(next.material.friction);
+  rec.col.setRestitution(next.material.restitution);
+  rec.rb.wakeUp();
+}
+
+function rebuildBody(s: WorldState, rec: BodyRec, next: BodyEntity): void {
+  const p = pos(rec.rb),
+    q = rot(rec.rb);
+  const lv = rec.rb.linvel(),
+    av = rec.rb.angvel();
+  const attached = s.jointOrder.filter((j) => j.A === rec || j.B === rec).map((j) => j.def);
+  const ephemeral = rec.ephemeral;
+  removeEntities(s, [rec.id]);
+  const moved: BodyEntity = {
+    ...next,
+    position: p,
+    rotation: q,
+    velocity: [lv.x, lv.y, lv.z],
+    angularVelocity: [av.x, av.y, av.z],
+  };
+  // Keep the original initial-velocity fields on the stored definition.
+  const nr = addBody(s, moved, ephemeral);
+  nr.def = next;
+  for (const jd of attached) addJoint(s, jd);
+}
+
+export function teleport(s: WorldState, id: string, position: Vec3, rotation: Quat, keepVelocity = false): void {
+  const rec = s.bodies.get(id);
+  if (!rec) return;
+  rec.rb.setTranslation(rv(position), true);
+  rec.rb.setRotation(rq(rotation), true);
+  if (!keepVelocity) {
+    rec.rb.setLinvel(rv(ZERO), true);
+    rec.rb.setAngvel(rv(ZERO), true);
+    rec.vPrev = [0, 0, 0];
+  }
+  rec.hasPrev = false;
+  if (rec.disabled) {
+    rec.disabled = false;
+    rec.rb.setEnabled(true);
+  }
+}
+
+export function setVelocity(s: WorldState, id: string, lin: Vec3, ang: Vec3): void {
+  const rec = s.bodies.get(id);
+  if (!rec) return;
+  rec.rb.setLinvel(rv(lin), true);
+  rec.rb.setAngvel(rv(ang), true);
+  rec.vPrev = [...lin] as Vec3;
+}
