@@ -19,7 +19,7 @@ export interface TemplateInfo {
 
 // ---- tiny builder DSL ---------------------------------------------------------------------------
 
-type BodyOpts = Partial<BodyEntity> & { material?: string | Partial<MaterialSpec> };
+type BodyOpts = Omit<Partial<BodyEntity>, 'material'> & { material?: string | Partial<MaterialSpec> };
 
 class Builder {
   doc = newDocument();
