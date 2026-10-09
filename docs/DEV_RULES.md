@@ -23,11 +23,13 @@ npm run lint             # eslint (flat config, type-aware typescript-eslint)
 npm run format:check     # prettier; `npm run format` rewrites (new code only: see rule 9 on not reformatting)
 npm test                 # vitest: real Rapier engine in Node
 npm run build            # tsc + vite build
-E2E_PORT=5201 npm run test:e2e              # headless Chromium drives the real UI (own vite server)
+E2E_PORT=5201 npm run test:e2e              # headless Chromium drives the real UI (own vite server, default port 5199)
 E2E_PORT=5201 E2E_SHOTS=1 npm run test:e2e  # + screenshots into e2e/out/
+E2E_PORT=5201 E2E_FILTER=joint npm run test:e2e   # only tests whose name contains "joint"
+E2E_URL=http://127.0.0.1:5173 npm run test:e2e    # use an already running dev server instead of starting one
 ```
 
-* UI features must be exercised in the browser: add an e2e test (see `e2e/run.mjs`) or at least take and **look at** a screenshot (Read the PNG) to confirm it renders sensibly. Headless Chromium uses software WebGL (swiftshader); heavy post-processing will be slow there — keep tests short.
+* UI features must be exercised in the browser: add an e2e test (a new file `e2e/tests/<package>.mjs` exporting `tests = [{ name, fn }]`, picked up automatically by `e2e/run.mjs`; helpers such as `newPage`, `simTime`, `screenOf`, `assert` live in `e2e/helpers.mjs`) or at least take and **look at** a screenshot (Read the PNG) to confirm it renders sensibly. Headless Chromium uses software WebGL (swiftshader); heavy post-processing will be slow there — keep tests short.
 * Use your own `E2E_PORT` (and Vite dev port) when working in a worktree so parallel packages do not collide. Never edit `src/` while an e2e run against the same dev server is in progress (HMR reloads break the run).
 * Vitest swallows `console.log`; use `process.stderr.write` for debugging. Do not `pkill -f` with a pattern that matches your own shell.
 * If you work in a git worktree: run `ln -s <main-checkout>/node_modules node_modules` (it is git-ignored), create a branch named after your package (`git checkout -b wp/<id>`), commit there with clear messages, and report the branch name and head SHA. Do not push; the integrator merges.
