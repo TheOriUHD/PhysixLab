@@ -308,32 +308,7 @@ export class SceneStore extends Emitter<StoreEvents> {
    * set (or attached to the world), so duplicated assemblies keep their mechanisms intact.
    */
   clone(ids: string[], offset: Vec3 = [0, 0, 0]): Entity[] {
-    const idSet = new Set(ids);
-    const bodies = this.all().filter((e): e is BodyEntity => isBody(e) && idSet.has(e.id));
-    const bodyIds = new Set(bodies.map((b) => b.id));
-    const map = new Map<string, string>();
-    const out: Entity[] = [];
-    for (const b of bodies) {
-      const nid = uid('b');
-      map.set(b.id, nid);
-      out.push({ ...b, id: nid, position: vadd(b.position, offset) });
-    }
-    for (const j of this.joints()) {
-      const aOk = j.bodyA === null || bodyIds.has(j.bodyA);
-      const bOk = j.bodyB === null || bodyIds.has(j.bodyB);
-      const wanted = idSet.has(j.id) || (bodyIds.has(j.bodyA ?? '') || bodyIds.has(j.bodyB ?? ''));
-      if (!(aOk && bOk && wanted)) continue;
-      // World-anchored sides carry world coordinates — shift them with the copy.
-      out.push({
-        ...j,
-        id: uid('j'),
-        bodyA: j.bodyA ? map.get(j.bodyA)! : null,
-        bodyB: j.bodyB ? map.get(j.bodyB)! : null,
-        anchorA: j.bodyA ? j.anchorA : vadd(j.anchorA, offset),
-        anchorB: j.bodyB ? j.anchorB : vadd(j.anchorB, offset),
-      });
-    }
-    return out;
+    return cloneEntities(this.all(), ids, offset);
   }
 
   duplicate(ids: string[], offset: Vec3 = [0.5, 0, 0.5]): string[] {
@@ -350,4 +325,38 @@ export class SceneStore extends Emitter<StoreEvents> {
     while (names.has(`${base} ${i}`)) i++;
     return `${base} ${i}`;
   }
+}
+
+/**
+ * Clone entities. Joints are cloned only when every body they connect is part of the clone
+ * set (or the joint attaches to the world), so duplicated assemblies keep their mechanisms.
+ */
+export function cloneEntities(all: Entity[], ids: string[], offset: Vec3 = [0, 0, 0]): Entity[] {
+  const idSet = new Set(ids);
+  const bodies = all.filter((e): e is BodyEntity => isBody(e) && idSet.has(e.id));
+  const bodyIds = new Set(bodies.map((b) => b.id));
+  const map = new Map<string, string>();
+  const out: Entity[] = [];
+  for (const b of bodies) {
+    const nid = uid('b');
+    map.set(b.id, nid);
+    out.push({ ...b, id: nid, position: vadd(b.position, offset) });
+  }
+  for (const j of all) {
+    if (!isJoint(j)) continue;
+    const aOk = j.bodyA === null || bodyIds.has(j.bodyA);
+    const bOk = j.bodyB === null || bodyIds.has(j.bodyB);
+    const touches = bodyIds.has(j.bodyA ?? '') || bodyIds.has(j.bodyB ?? '');
+    if (!(aOk && bOk && (idSet.has(j.id) || touches))) continue;
+    // World-anchored sides carry world coordinates — shift them with the copy.
+    out.push({
+      ...j,
+      id: uid('j'),
+      bodyA: j.bodyA ? map.get(j.bodyA)! : null,
+      bodyB: j.bodyB ? map.get(j.bodyB)! : null,
+      anchorA: j.bodyA ? j.anchorA : vadd(j.anchorA, offset),
+      anchorB: j.bodyB ? j.anchorB : vadd(j.anchorB, offset),
+    });
+  }
+  return out;
 }

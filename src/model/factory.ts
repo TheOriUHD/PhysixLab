@@ -76,6 +76,7 @@ export function createBody(init: BodyInit): BodyEntity {
     lockPosition: [false, false, false],
     lockRotation: [false, false, false],
     thrust: null,
+    ghost: false,
     locked: false,
     hidden: false,
     ...(rest as Partial<BodyEntity>),

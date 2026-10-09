@@ -74,6 +74,7 @@ function sanitizeBody(raw: any): BodyEntity {
     lockPosition: bool3(raw?.lockPosition),
     lockRotation: bool3(raw?.lockRotation),
     thrust,
+    ghost: bool(raw?.ghost, false),
     locked: bool(raw?.locked, false),
     hidden: bool(raw?.hidden, false),
   };

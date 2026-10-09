@@ -141,7 +141,8 @@ export class PhysicsWorld {
       .setFriction(def.material.friction)
       .setRestitution(def.material.restitution)
       .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Average)
-      .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max);
+      .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max)
+      .setSensor(def.ghost);
   }
 
   addBody(def: BodyEntity, ephemeral: boolean): BodyRec {
@@ -353,7 +354,7 @@ export class PhysicsWorld {
     const structural =
       old.bodyType !== next.bodyType ||
       (old.shape !== next.shape && JSON.stringify(old.shape) !== JSON.stringify(next.shape)) ||
-      old.material.density !== next.material.density || old.ccd !== next.ccd ||
+      old.material.density !== next.material.density || old.ccd !== next.ccd || old.ghost !== next.ghost ||
       old.lockPosition.some((v, i) => v !== next.lockPosition[i]) || old.lockRotation.some((v, i) => v !== next.lockRotation[i]);
     if (structural) {
       this.rebuildBody(rec, next);

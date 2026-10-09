@@ -81,6 +81,8 @@ export interface BodyEntity {
   lockPosition: [boolean, boolean, boolean];
   lockRotation: [boolean, boolean, boolean];
   thrust: ThrustSpec | null;
+  /** Ghost bodies keep their mass but pass through everything (no collisions). */
+  ghost: boolean;
   /** Editor-only flags. */
   locked: boolean;
   hidden: boolean;
