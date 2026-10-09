@@ -1,0 +1,13 @@
+# 10 · Soft body upgrades (package SF)
+
+Depends on: foundation, shapes (meshes), joints. Engine soft-body API: `SoftBodyDesc` (cuboid/sphere/cloth/rope/volumetric/trimesh/clothTube), pinned particles, `attachParticle(i, body)`, tear strain, `addParticleForce`.
+
+- [ ] SF-1 — Attach soft bodies to rigid bodies and joints: attach tool (click cloth/cable particle region then a rigid body), attachment points stored in the document by particle index/region + body id + local offset; follow the body (rotating, being dragged), release on break; sail on a mast, net between posts, curtain on a rail, cable hanging a weight (tension matches m·g), cloth over a moving vehicle; tests
+- [ ] SF-2 — Cutting tool for cloth/cable (drag a line to cut particles' edges; cuts propagate as tears), plus tear-on-demand command; tests (cut a hanging cloth, pieces separate)
+- [ ] SF-3 — Ropes and chains carrying loads: rope/chain generator between two bodies/points with N rigid links (capsule/ring) joined by cone-twist/hinges **or** soft cable with attached bodies; selectable by tool, sags correctly, supports a heavy body, stable with mass ratio guard; examples: crane hook, hanging lamp, tug of war
+- [ ] SF-4 — Pressure bodies and tyres: balloon with pressure/volume parameter (target volume or internal pressure, air leaks via puncture), airless/pneumatic tyre soft-body wheels that carry a vehicle; test (inflated tyre supports mass & rolls)
+- [ ] SF-5 — Volumetric soft meshes from any shape or imported mesh (tetrahedralisation or engine volumetric/trimesh builder), with resolution control and material stiffness; jelly versions of sphere/cylinder/gear/dice/bunny-like imported mesh; skinned render mesh follows particles
+- [ ] SF-6 — Soft vehicle (jelly car with rigid wheels/axles attached) and soft-rigid friction/collision tuning exposed (surface friction, particle radius)
+- [ ] SF-7 — Soft material model upgrade: Young's-modulus-style display (Pa) derived honestly from the Hz stiffness + density (documented mapping), Poisson/volume preservation slider where the engine supports it, damping, plasticity-like option (permanent set via rest-length update) where feasible
+- [ ] SF-8 — Elastic strain energy included in the energy chart (soft bodies) with a conservation test for an undamped jelly drop; stability warnings in the inspector (too soft / too few particles / too heavy) with one-click fixes
+- [ ] SF-9 — Soft body perf: particle budget readout, adaptive resolution suggestion, option to run soft bodies at a lower update rate; soft bodies compatible with time travel snapshots (package TM) or the limitation documented

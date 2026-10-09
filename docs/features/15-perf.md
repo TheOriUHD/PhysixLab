@@ -1,0 +1,13 @@
+# 15 · Performance, scale, benchmarking (package PF)
+
+Depends on: foundation (protocol), visuals (instancing VZ-30), FX (GPU particles). All numbers are measured and recorded in `docs/PERFORMANCE.md` with the machine description.
+
+- [ ] PF-1 — Benchmark panel (Tools/Diagnostics): standard suites (ball pit N, box stacks, pyramids, ragdoll pile, soft cloth grid, joint chains, vehicle on terrain) reporting physics ms/step, steps/s, FPS, frame ms breakdown (physics readback / JS / render), draw calls, triangles, memory; export results JSON/CSV; compare against stored baselines
+- [ ] PF-2 — Stress-test generator: parametric "spawn N bodies" (spheres/boxes/mixed/compound/jelly/cloth), pyramid/wall/avalanche/pit presets with counts up to 20 000 rigid bodies, seeded
+- [ ] PF-3 — Thousands of bodies: sustained ≥ 30 FPS with 5 000 awake dynamic bodies and ≥ 60 FPS with 2 000 on a mid-range machine budget (document measured numbers on this CI-class machine with software GL excluded); achieved via instanced rendering integration, compact pose transfer (only awake/changed, quantised option), sleeping, worker-side broadphase tuning, throttled non-visible updates
+- [ ] PF-4 — Culling & scaling: frustum + distance culling for rendering and labels, off-screen body update throttling (display only; physics unchanged), pixel-ratio governor, large-world precision (floating origin / camera-relative rendering for worlds beyond ±5 km)
+- [ ] PF-5 — Chunked/streamed large worlds: terrain/props defined as sectors that activate (build in the physics world) near the focus and deactivate (freeze/unload with state preserved) far away; a 4 km × 4 km procedural demo world with thousands of props runs smoothly
+- [ ] PF-6 — Multi-threading: soft-body simulation (and optionally fluid/particle jobs) in a **second worker**; rigid + soft synchronised each frame; SharedArrayBuffer pose buffers when cross-origin isolation is available (COOP/COEP headers provided in `public/_headers`/`netlify.toml`/dev server) with seamless transfer-based fallback; measured win documented
+- [ ] PF-7 — GPU particles: effects particles simulated on the GPU (transform feedback or texture-based, WebGL2) for ≥ 100 000 particles of weather/smoke/sparks; CPU fallback; (cloth/soft GPU simulation is **not** done — documented)
+- [ ] PF-8 — Physics step profiling: per-stage timing from the engine (`world.timing*`), displayed in the diagnostics panel; automatic warnings and suggestions when a scene is slow (e.g. "4 000 awake bodies; enable sleeping / reduce solver iterations")
+- [ ] PF-9 — Memory hygiene: no leaks across scene loads (geometry/material/texture disposal verified by a test counting three.js resources), worker restart on build failure, bounded history/recorder memory
