@@ -20,6 +20,10 @@ npm run build      # type-check + production build into dist/
 npm run preview    # serve the production build
 ```
 
+### Hosting
+
+It is a fully static site (no server): `npm run build` produces `dist/`, which can be dropped on any static host. The included workflow `.github/workflows/pages.yml` deploys it to **GitHub Pages** on every push to `main` — enable it once under *Settings → Pages → Source: GitHub Actions*; it will be served at `https://<user>.github.io/PhysicsSandbox/`.
+
 Requires a modern desktop browser with WebGL 2 and WebAssembly (Chrome, Edge, Firefox, Safari).
 
 ## Using it
