@@ -49,6 +49,7 @@ async function boot(): Promise<void> {
 
   // ---- initial scene: shared link > autosave > welcome example ---------------------------------
   let loaded = false;
+  let viewSet = false;
   const fromHash = await Persistence.fromHash(location.hash);
   if (fromHash) { app.store.load(fromHash); loaded = true; app.toast(`Opened shared scene “${fromHash.name}”`, 'success'); history.replaceState(null, '', location.pathname + location.search); }
   if (!loaded) {
@@ -56,12 +57,14 @@ async function boot(): Promise<void> {
     if (auto && auto.entities.length) { app.store.load(auto); loaded = true; }
   }
   const demo = new URLSearchParams(location.search).get('scene');
-  if (demo && TEMPLATE_BY_ID.has(demo)) { app.loadTemplate(demo); loaded = true; }
+  if (demo && TEMPLATE_BY_ID.has(demo)) { app.loadTemplate(demo); loaded = true; viewSet = !!TEMPLATE_BY_ID.get(demo)!.view; }
   if (!loaded) {
     app.loadTemplate('car');
+    viewSet = true;
   }
   const tv = demo ? TEMPLATE_BY_ID.get(demo)?.view : undefined;
-  if (tv) app.viewport.setView(tv); else app.frameAll(false);
+  if (tv) app.viewport.setView(tv);
+  else if (!viewSet) app.frameAll(false);
   app.updateToolHint();
 
   // Drag & drop a scene file anywhere to import it.

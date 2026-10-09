@@ -48,7 +48,7 @@ export function showWelcome(app: App): void {
   };
   const body = [
     h('h2', { class: 'big-title' }, 'Welcome to PhysicsLab'),
-    h('p', { class: 'sub' }, 'A real rigid-body physics sandbox — gravity, friction, restitution, joints, motors and springs are simulated by a WebAssembly physics engine running in a worker. Build something, press Simulate, and grab things while they move.'),
+    h('p', { class: 'sub' }, 'A real physics sandbox — rigid bodies with gravity, friction and restitution; joints, motors and springs; plus soft bodies (jelly, cloth, cables that tear) — all simulated by a WebAssembly physics engine running in a worker. Build something, press Simulate, and grab things while they move.'),
     h('div', { class: 'welcome' },
       card('Drive the car', 'Suspension, steering and a motor — press Simulate and use W A S D.', 'car', () => start('car')),
       card('Wreck a wall', 'A chained ball on a crane. Drag bodies around while it runs.', 'blast', () => start('wreck')),

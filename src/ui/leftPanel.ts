@@ -144,7 +144,8 @@ function scenesTab(app: App, rerender: () => void): HTMLElement {
   );
   root.appendChild(actions);
 
-  const cats = [...new Set(TEMPLATES.map((t) => t.category))];
+  const order = ['Vehicles', 'Mechanisms', 'Soft bodies', 'Physics labs', 'Structures', 'Playground'];
+  const cats = [...new Set(TEMPLATES.map((t) => t.category))].sort((a, b) => order.indexOf(a) - order.indexOf(b));
   for (const cat of cats) {
     root.appendChild(h('div', { class: 'group-title' }, cat));
     const cards = h('div', { class: 'cards' });

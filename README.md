@@ -7,6 +7,7 @@ An advanced 3D physics sandbox that runs entirely in your browser. Build mechani
 * **A real physics engine.** [Rapier](https://rapier.rs) (Rust → WebAssembly) running in a dedicated Web Worker, with a fixed timestep, render interpolation, continuous collision detection and sleeping. Mass comes from *density × volume* with real-world material densities.
 * **A construction workflow, not a toy.** Eight primitive shapes (box, sphere, cylinder, capsule, cone, ramp, N-gon prism, icosahedron), move / rotate / scale gizmos with grid and angle snapping, multi-select, duplicate, copy/paste, lock/hide, drag-and-drop placement, full undo/redo.
 * **Real mechanisms.** Six joint types — weld, hinge, slider, ball, spring-damper, rope — with limits, **motors** (velocity or position mode, force-capped, bindable to keyboard keys) and **springs with break force**. The bundled car is built from nothing but these: independent spring-damper suspension (slider + position motor), steered front wheels (hinge + keyed position motor), rear-wheel drive (keyed velocity motors).
+* **Soft bodies.** Jelly lattices, balloons, cloth (pin an edge, two corners or four corners) and cables, from the engine's particle/constraint soft-body solver — deformable, drag-able with the mouse, and **tearable**: give a cloth a tear strain and a wrecking ball rips it, the torn pieces simulate on independently.
 * **A lab, not just a viewport.** Live energy chart (kinetic, rotational, gravitational, spring, total), per-object plots (speed, height, joint angle, spring force…), velocity / net-force / contact / centre-of-mass overlays, motion trails, a ruler, colour-by-speed / energy / force / sleep state, adjustable time scale (0.1×–4×), single-stepping, adjustable gravity (Moon, Mars, Jupiter, zero-g, any vector), air drag, solver quality.
 * **Safe to experiment.** Every edit is undoable. *Reset* always returns to the layout you built. Your scene is autosaved; scenes can be saved to a library, exported/imported as JSON, or shared as a link (the whole scene is compressed into the URL — no server involved).
 
@@ -34,7 +35,7 @@ Requires a modern desktop browser with WebGL 2 and WebAssembly (Chrome, Edge, Fi
 | **Camera** | right-drag orbit · middle-drag pan · scroll zoom · `F` frame selection · `Home` frame all · `C` follow selection |
 | **Undo** | `Ctrl+Z` / `Ctrl+Shift+Z` |
 
-Press the keyboard icon in the top bar for the full list. The **Scenes** tab has 13 worked examples (drivable car, wrecking ball, lever launcher, piston press, double pendulum, Newton's cradle, springs & dampers, friction lab, zero-g billiards, domino run, Jenga, rope bridge, 300-ball pit) and **Prefabs** has 12 insertable assemblies.
+Press the keyboard icon in the top bar for the full list. The **Scenes** tab has 16 worked examples (drivable car, wrecking ball, lever launcher, piston press, double pendulum, Newton's cradle, springs & dampers, friction lab, zero-g billiards, domino run, Jenga, rope bridge, 300-ball pit, jelly playground, cloth drape & hammock, tearing banner) and **Prefabs** has 12 insertable assemblies.
 
 ### Driving the car
 
@@ -64,9 +65,9 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design decisions (why a w
 ## Tests
 
 ```bash
-npm test            # 40+ unit/physics tests (Vitest, runs the real Rapier engine in Node)
+npm test            # 65+ unit/physics tests (Vitest, runs the real Rapier engine in Node)
 npm run test:e2e    # drives the real UI in headless Chromium (starts its own dev server)
 E2E_SHOTS=1 npm run test:e2e   # …and writes screenshots to e2e/out/
 ```
 
-The physics tests check the engine against analytic results: free fall, momentum conservation, restitution, friction-angle thresholds, pendulum and spring-mass periods, motor torque and speed, joint limits, spring breaking, energy conservation (double pendulum to 0.2 % over 4 s), determinism, and live add / edit / remove of bodies. Every example scene has a behavioural test (the car drives, steers and reverses; the cradle transfers momentum; the tower stands until it is hit; …).
+The physics tests check the engine against analytic results: free fall, momentum conservation, restitution, friction-angle thresholds, pendulum and spring-mass periods, motor torque and speed, joint limits, spring breaking, energy conservation (double pendulum to 0.2 % over 4 s), determinism, and live add / edit / remove of bodies. Every example scene has a behavioural test (the car drives, steers and reverses; the cradle transfers momentum; the tower stands until it is hit; the banner tears; cloth drapes over a sphere without penetrating it; …).

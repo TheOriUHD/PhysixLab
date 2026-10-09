@@ -545,11 +545,11 @@ export class Inspector {
       rows.push(rowStack('Axis (unit vector)', bind(axis, (j) => j.axis), 'Local to body A (world if A is the world)'));
       const axes = h('div', { class: 'chips' });
       for (const [label, w] of [['X', [1, 0, 0]], ['Y', [0, 1, 0]], ['Z', [0, 0, 1]]] as [string, Vec3][]) {
-        const b = h('button', { class: 'chip', type: 'button', title: `Align the axis with world ${label}` }, `World ${label}`);
+        const b = h('button', { class: 'chip', type: 'button', title: `Align the axis with world ${label}` }, label);
         b.addEventListener('click', () => edit('Set joint axis', (j) => ({ axis: app.editor.worldAxisToLocal(j.bodyA, w) })));
         axes.appendChild(b);
       }
-      rows.push(row('Align to', axes));
+      rows.push(row('Align to world', axes));
     }
     out.push(section('Anchors', rows, { id: 'joint-anchor' }));
 

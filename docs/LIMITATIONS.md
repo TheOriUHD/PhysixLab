@@ -5,7 +5,8 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 ## Physics
 
 * **Rigid joints are not breakable.** The engine does not expose constraint impulses for rigid joints, so a weld/hinge/slider cannot report how loaded it is. Springs *are* breakable (their force is measured exactly) — stiff springs with a break force make breakable struts for trusses. Estimating rigid-joint loads (e.g. by instrumenting the solver or resolving per-island momentum balances) is the main item on the destruction roadmap.
-* **No deformable bodies, fluids, cloth or fracture.** The engine build includes soft-body support; it is not wired into the editor yet.
+* **Soft bodies** (jelly, balloon, cloth, cable) are simulated as particle lattices and are **not attachable to rigid bodies or joints** — they can only be pinned in space. Their cost grows with particle count (a 24×24 cloth is ≈ 3 ms/step; self-collisions roughly double it, so keep those for small cloths). The *elastic* energy stored in a deformed soft body is not included in the energy chart (its kinetic and gravitational energy are). Changing a soft body's parameters while simulating rebuilds it at its starting pose. No fluids; rigid-body fracture is not implemented (cloth and cable tearing is).
+* **Softness is a frequency, not a modulus.** The stiffness control is the material's natural frequency: ~7 Hz is very squishy, ≈ 40 Hz and above is nearly rigid. Below ~4 Hz a jelly stops conserving volume and collapses.
 * **No compound/concave colliders.** Each body has exactly one convex (or primitive) collider. Concave shapes must be built from several bodies and welded together.
 * **Large mass ratios across a joint chain** (a 1 kg link carrying a 1000 kg mass) converge slowly with the iterative solver. Raise *Solver iterations* in the World tab, or keep ratios moderate (the car's suspension hubs are deliberately heavy for this reason).
 * **Pair material model**: friction is averaged and restitution is the maximum of the two surfaces. There is no per-pair material table or rolling resistance.
@@ -29,7 +30,7 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 ## Ideas on the roadmap
 
 1. Rigid-joint load estimation + breakable welds/hinges; fracture templates.
-2. Soft bodies and tearable cloth using the engine's soft-body solver.
+2. Attach soft bodies to rigid bodies and joints (sails, nets, hanging cloth), cutting tools for cloth, volumetric soft meshes from imported shapes.
 3. Vehicle presets with tunable suspension geometry; tyre friction curves.
 4. Timeline: record a run, scrub it, compare two runs side by side.
 5. Instanced rendering and GPU-side picking for very large scenes.

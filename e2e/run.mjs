@@ -338,6 +338,55 @@ await test('outliner, rename, lock/hide and delete', async () => {
   assert((await page.evaluate(() => window.physicslab.store.bodies().length)) === 2, 'undo brings it back');
 });
 
+await test('soft bodies: add from the palette, edit in the inspector, simulate and grab', async () => {
+  const page = await newPage();
+  await page.evaluate(() => { const a = window.physicslab; a.newScene(); a.viewport.setView({ position: [0, 3, 7], target: [0, 1, 0] }); });
+  await page.click('.tile:has-text("Jelly")');
+  const soft = await page.evaluate(() => window.physicslab.store.softs().map((s) => ({ id: s.id, type: s.type, pos: s.position })));
+  assert(soft.length === 1 && soft[0].type === 'jelly', 'jelly added from the palette');
+  await page.evaluate((id) => { const a = window.physicslab; a.store.updateMany([[id, { position: [0, 2.2, 0] }]]); a.store.setSelection([id]); }, soft[0].id);
+  await page.waitForSelector('.panel.right .section-head:has-text("Soft body")');
+  const field = page.locator('.panel.right .row:has(.row-label:text-is("Mass")) .num-input:visible').first();
+  await field.fill('12');
+  await field.press('Enter');
+  const mass = await page.evaluate((id) => window.physicslab.store.soft(id).mass, soft[0].id);
+  near(mass, 12, 1e-6, 'soft-body mass edited in the inspector');
+  await shot(page, '10-soft-inspector');
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.simTime ?? 0) > 1.6, null, { timeout: 60000 });
+  await page.waitForTimeout(300);
+  const top = () => page.evaluate((id) => { const p = window.physicslab.sim.client.softOf(id); let hi = -1e9; for (let i = 1; i < p.length; i += 3) hi = Math.max(hi, p[i]); return hi; }, soft[0].id);
+  const rest = await top();
+  assert(rest < 1.2, `jelly settled on the ground (top at ${rest.toFixed(2)} m)`);
+  // grab the jelly by its centre and drag it upward
+  const sp = await page.evaluate((id) => { const a = window.physicslab; const p = a.sim.client.softOf(id); let x = 0, y = 0, z = 0; const n = p.length / 3; for (let i = 0; i < p.length; i += 3) { x += p[i]; y += p[i + 1]; z += p[i + 2]; } const v = new (a.camera.position.constructor)(x / n, y / n + 0.3, z / n).project(a.camera); const r = a.viewport.dom.getBoundingClientRect(); return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height }; }, soft[0].id);
+  await page.mouse.move(sp.x, sp.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 12; i++) { await page.mouse.move(sp.x, sp.y - i * 18); await page.waitForTimeout(60); }
+  await page.waitForTimeout(500);
+  const lifted = await top();
+  assert(lifted > rest + 0.8, `dragging stretched / lifted the jelly (top ${rest.toFixed(2)} → ${lifted.toFixed(2)})`);
+  await shot(page, '11-soft-grab');
+  await page.mouse.up();
+  await page.keyboard.press('Shift+Space');
+  assert((await page.evaluate(() => window.physicslab.store.softs().length)) === 1, 'the soft body is still in the document after reset');
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});
+
+await test('soft-body scenes (jelly, cloth, tearing banner) render and simulate', async () => {
+  const page = await newPage();
+  for (const id of ['jelly', 'cloth', 'banner']) {
+    await page.evaluate((id) => { window.physicslab.sim.reset(); window.physicslab.loadTemplate(id); }, id);
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => (window.physicslab.sim.client.stats?.simTime ?? 0) > 1.2, null, { timeout: 60000 });
+    const parts = await page.evaluate(() => window.physicslab.sim.client.stats.particles);
+    assert(parts > 300, `${id}: soft particles are simulated (${parts})`);
+    await shot(page, `12-${id}`);
+    await page.keyboard.press('Shift+Space');
+  }
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});
+
 await test('every example scene loads and runs for a moment without errors', async () => {
   const page = await newPage();
   const ids = await page.evaluate(async () => (await import('/src/model/templates.ts')).TEMPLATES.map((t) => t.id));
