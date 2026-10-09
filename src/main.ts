@@ -18,7 +18,6 @@ async function boot(): Promise<void> {
   const root = document.getElementById('app')!;
   const shell = createShell(root);
   const app = new App(shell);
-  (window as unknown as { physicslab: App }).physicslab = app; // handy for debugging & tests
 
   shell.topSlot.replaceWith(buildTopbar(app));
   shell.leftSlot.replaceWith(buildLeftPanel(app));
@@ -73,6 +72,8 @@ async function boot(): Promise<void> {
   });
 
   app.start();
+  // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
+  (window as unknown as { physicslab: App }).physicslab = app;
   if (!app.prefs.value.seenWelcome && !new URLSearchParams(location.search).has('nowelcome')) setTimeout(() => showWelcome(app), 400);
 }
 

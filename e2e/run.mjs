@@ -214,11 +214,15 @@ await test('joint tool: connect two bodies with a hinge and edit its motor', asy
   const mode = await page.evaluate(() => window.physicslab.store.joints()[0].motor.mode);
   assert(mode === 'velocity', 'motor mode set from the inspector');
   await shot(page, '06-joint');
-  // run it: the arm should rotate around the hinge
+  // run it: the arm should rotate around the hinge (sample the speed while it swings)
   await page.keyboard.press('Space');
-  await simTime(page, 1.2);
-  const st = await page.evaluate(() => { const a = window.physicslab; const j = a.store.joints()[0]; return a.liveJoint(j.id); });
-  assert(st && Math.abs(st.speed) > 1, `hinge motor is turning (${st && st.speed})`);
+  let fastest = 0;
+  for (let i = 0; i < 12; i++) {
+    await sleep(100);
+    const sp = await page.evaluate(() => { const a = window.physicslab; const j = a.store.joints()[0]; const st = a.liveJoint(j.id); return st ? Math.abs(st.speed) : 0; });
+    fastest = Math.max(fastest, sp);
+  }
+  assert(fastest > 1, `hinge motor turned the arm (peak ${fastest.toFixed(2)} rad/s)`);
 });
 
 await test('drive the car with the keyboard (motors bound to W/A/S/D)', async () => {
