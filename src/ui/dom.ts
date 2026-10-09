@@ -26,6 +26,8 @@ export function h<K extends keyof HTMLElementTagNameMap>(
       else if (k.startsWith('on') && typeof v === 'function')
         el.addEventListener(k.slice(2).toLowerCase(), v as EventListener);
       else if (k in el && k !== 'list') (el as unknown as Record<string, unknown>)[k] = v;
+      // Attribute values are strings / numbers / true by construction (objects are handled above).
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
       else el.setAttribute(k, v === true ? '' : String(v));
     }
   }

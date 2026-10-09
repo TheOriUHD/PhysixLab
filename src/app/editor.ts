@@ -158,7 +158,7 @@ export class Editor {
   /** Set a body's pose from an inspector field. */
   setPose(id: string, position: Vec3, rotation: Quat): void {
     if (this.sim.active && !this.store.soft(id)) this.sim.teleport(id, position, rotation);
-    else if (!this.sim.active) this.store.update(id, { position, rotation } as Partial<Entity>, 'Transform');
+    else if (!this.sim.active) this.store.update(id, { position, rotation }, 'Transform');
   }
 
   translate(ids: string[], delta: Vec3): void {
@@ -172,7 +172,7 @@ export class Editor {
     const patches: [string, Partial<Entity>][] = [];
     for (const id of ids) {
       const e = this.store.body(id) ?? this.store.soft(id);
-      if (e && !e.locked) patches.push([id, { position: vadd(e.position, delta) } as Partial<Entity>]);
+      if (e && !e.locked) patches.push([id, { position: vadd(e.position, delta) }]);
     }
     this.store.updateMany(patches, 'Move');
   }
@@ -188,7 +188,7 @@ export class Editor {
     const copies = this.store.clone(ids, [0.6, 0, 0.6]);
     if (!copies.length) return;
     // Give copies fresh names.
-    const renamed = copies.map((c) => ({ ...c, name: this.nameForCopy(c.name) }) as Entity);
+    const renamed = copies.map((c) => ({ ...c, name: this.nameForCopy(c.name) }));
     this.store.add(renamed, 'Duplicate');
   }
 
@@ -217,7 +217,7 @@ export class Editor {
       this.clipboard,
       this.clipboard.map((e) => e.id),
       offset,
-    ).map((c) => ({ ...c, name: this.nameForCopy(c.name) }) as Entity);
+    ).map((c) => ({ ...c, name: this.nameForCopy(c.name) }));
     this.store.add(copies, 'Paste');
   }
 
@@ -227,7 +227,7 @@ export class Editor {
 
   setBodyType(ids: string[], bodyType: BodyEntity['bodyType']): void {
     this.store.updateMany(
-      ids.filter((id) => this.store.body(id)).map((id) => [id, { bodyType } as Partial<BodyEntity>]),
+      ids.filter((id) => this.store.body(id)).map((id) => [id, { bodyType }]),
       'Change body type',
     );
   }
@@ -239,7 +239,7 @@ export class Editor {
     if (!es.length) return;
     const value = !es.every((e) => (e as unknown as Record<string, boolean>)[flag]);
     this.store.updateMany(
-      es.map((e) => [e.id, { [flag]: value } as Partial<Entity>]),
+      es.map((e) => [e.id, { [flag]: value }]),
       value ? (flag === 'locked' ? 'Lock' : 'Hide') : flag === 'locked' ? 'Unlock' : 'Show',
     );
   }
@@ -250,8 +250,7 @@ export class Editor {
     const patches: [string, Partial<Entity>][] = [];
     for (const b of this.store.bodies()) {
       const p = this.sim.poseOf(b.id);
-      if (p && b.bodyType !== 'static')
-        patches.push([b.id, { position: p.position, rotation: p.rotation } as Partial<BodyEntity>]);
+      if (p && b.bodyType !== 'static') patches.push([b.id, { position: p.position, rotation: p.rotation }]);
     }
     // Joint frames are body-relative, so they follow automatically.
     this.store.updateMany(patches, 'Capture simulation state');
@@ -269,7 +268,7 @@ export class Editor {
       bodies.map((b) => {
         const rel = qrot(q, [b.position[0] - cx, 0, b.position[2] - cz]);
         const pos: Vec3 = [cx + rel[0], b.position[1], cz + rel[2]];
-        return [b.id, { position: pos, rotation: qmul(q, b.rotation) } as Partial<BodyEntity>];
+        return [b.id, { position: pos, rotation: qmul(q, b.rotation) }];
       }),
       'Rotate 90°',
     );

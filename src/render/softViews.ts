@@ -4,6 +4,7 @@
  * replaced by a *dynamic* mesh whose vertices are the engine's particles (so it deforms,
  * stretches and tears), updated every frame from the worker.
  */
+import type { Object3D } from 'three';
 import {
   BoxGeometry,
   BufferAttribute,
@@ -14,7 +15,6 @@ import {
   Mesh,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
-  Object3D,
   PlaneGeometry,
   SphereGeometry,
 } from 'three';
@@ -115,7 +115,7 @@ class SoftView {
   /** Update the dynamic particle mesh from live positions. */
   setDynamic(positions: Float32Array, indices: Uint32Array, mode: 'tri' | 'line', layoutChanged: boolean): void {
     if (mode === 'tri') {
-      let mesh = this.dyn as Mesh | null;
+      let mesh = this.dyn;
       if (
         !mesh ||
         !(mesh instanceof Mesh) ||

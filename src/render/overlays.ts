@@ -2,17 +2,16 @@
  * Diagnostic overlays: velocity / net-force vectors, contact points, centres of mass and
  * motion trails. All of them read the live simulation frame — nothing here is decorative.
  */
+import type { Group, PerspectiveCamera } from 'three';
 import {
   AdditiveBlending,
   BufferAttribute,
   BufferGeometry,
   Color,
   Float32BufferAttribute,
-  Group,
   Line,
   LineBasicMaterial,
   LineSegments,
-  PerspectiveCamera,
   Points,
   PointsMaterial,
   Vector3,

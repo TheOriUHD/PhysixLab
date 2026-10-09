@@ -4,7 +4,7 @@ import { icon } from './icons';
 export type MenuItem =
   | {
       label: string;
-      action: () => void;
+      action: () => void | Promise<void>;
       icon?: string;
       kbd?: string;
       checked?: boolean;
@@ -55,7 +55,7 @@ export function openMenu(
         it.kbd ? h('span', { class: 'kb' }, it.kbd) : null,
       );
       b.addEventListener('click', () => {
-        it.action();
+        void it.action();
         if (it.keepOpen)
           build(
             list.map((x) => ('label' in x && x === it && x.checked !== undefined ? { ...x, checked: !x.checked } : x)),

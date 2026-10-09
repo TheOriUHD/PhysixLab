@@ -28,6 +28,9 @@ interface Snapshot {
 
 const HISTORY_LIMIT = 200;
 
+/** Dynamic-key property read used for shallow change detection (entities / settings are plain objects). */
+const prop = (o: object, k: string): unknown => (o as Record<string, unknown>)[k];
+
 /**
  * Holds the scene document. All entity objects are treated as immutable: every edit
  * replaces the entity (and any nested array it touches), so a history snapshot is just a
@@ -192,7 +195,7 @@ export class SceneStore extends Emitter<StoreEvents> {
       else if (n !== e) {
         updated.push(id);
         for (const k of Object.keys(n) as (keyof Entity)[]) {
-          if ((n as any)[k] !== (e as any)[k]) keys.add(k as string);
+          if (prop(n, k) !== prop(e, k)) keys.add(k);
         }
       }
     }
@@ -201,7 +204,7 @@ export class SceneStore extends Emitter<StoreEvents> {
     const settingsKeys = new Set<string>();
     if (settingsChanged) {
       for (const k of Object.keys(s.settings) as (keyof SceneSettings)[]) {
-        if ((s.settings as any)[k] !== (this.settings as any)[k]) settingsKeys.add(k);
+        if (prop(s.settings, k) !== prop(this.settings, k)) settingsKeys.add(k);
       }
     }
     this.revision++;
@@ -275,6 +278,8 @@ export class SceneStore extends Emitter<StoreEvents> {
   }
 
   update<T extends Entity>(id: string, patch: Partial<T>, label = 'Edit'): void {
+    // The assertion is needed: `Partial<T>` for a generic `T` is not assignable to `Partial<Entity>`.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     this.updateMany([[id, patch as Partial<Entity>]], label);
   }
 
@@ -287,7 +292,7 @@ export class SceneStore extends Emitter<StoreEvents> {
       if (!cur) continue;
       let changed = false;
       for (const k of Object.keys(patch)) {
-        if ((cur as any)[k] !== (patch as any)[k]) {
+        if (prop(cur, k) !== prop(patch, k)) {
           changed = true;
           keys.add(k);
         }
@@ -304,7 +309,7 @@ export class SceneStore extends Emitter<StoreEvents> {
 
   updateSettings(patch: Partial<SceneSettings>, label = 'Change settings'): void {
     const keys = new Set<string>();
-    for (const k of Object.keys(patch)) if ((this.settings as any)[k] !== (patch as any)[k]) keys.add(k);
+    for (const k of Object.keys(patch)) if (prop(this.settings, k) !== prop(patch, k)) keys.add(k);
     if (!keys.size) return;
     this.touch(label);
     this.settings = { ...this.settings, ...patch };

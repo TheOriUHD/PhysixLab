@@ -16,6 +16,10 @@ jobs:
       - run: npm ci
       - name: Type-check
         run: npm run typecheck
+      - name: Lint (ESLint, type-aware)
+        run: npm run lint
+      - name: Formatting (Prettier)
+        run: npm run format:check
       - name: Unit & physics tests (real Rapier engine in Node)
         run: npm test
       - name: Production build

@@ -1,5 +1,6 @@
 /** Short-lived visual effects (blast shockwaves, placement pings). */
-import { AdditiveBlending, Group, Mesh, MeshBasicMaterial, RingGeometry, SphereGeometry, Vector3 } from 'three';
+import type { Group, Vector3 } from 'three';
+import { AdditiveBlending, Mesh, MeshBasicMaterial, RingGeometry, SphereGeometry } from 'three';
 
 interface Fx {
   mesh: Mesh;

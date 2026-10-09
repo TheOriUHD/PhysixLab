@@ -183,7 +183,7 @@ function scenesTab(app: App, rerender: () => void): HTMLElement {
     );
     open.addEventListener('click', () => {
       const doc = app.persistence.openFromLibrary(e.id);
-      if (doc) confirmReplace(app, () => app.loadDocument(doc, 'frame'));
+      if (doc) void confirmReplace(app, () => app.loadDocument(doc, 'frame'));
     });
     const del = h('button', { class: 'icon-btn', type: 'button', title: 'Delete from library' }, icon('trash'));
     del.addEventListener('click', () => {
@@ -195,10 +195,10 @@ function scenesTab(app: App, rerender: () => void): HTMLElement {
   root.appendChild(mine);
   const actions = h('div', { style: { display: 'flex', gap: '6px', padding: '4px 12px 8px' } });
   const fileIn = h('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' } });
-  fileIn.addEventListener('change', async () => {
+  fileIn.addEventListener('change', () => {
     const f = fileIn.files?.[0];
     fileIn.value = '';
-    if (f) await importDocument(app, f);
+    if (f) void importDocument(app, f);
   });
   actions.append(
     button(
@@ -224,7 +224,7 @@ function scenesTab(app: App, rerender: () => void): HTMLElement {
     const cards = h('div', { class: 'cards' });
     for (const t of TEMPLATES.filter((x) => x.category === cat)) {
       const c = h('button', { class: 'card', type: 'button' }, h('h4', null, t.name), h('p', null, t.blurb));
-      c.addEventListener('click', () => confirmReplace(app, () => app.loadTemplate(t.id)));
+      c.addEventListener('click', () => void confirmReplace(app, () => app.loadTemplate(t.id)));
       cards.appendChild(c);
     }
     root.appendChild(cards);

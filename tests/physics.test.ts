@@ -381,7 +381,7 @@ describe('performance', () => {
     const t0 = performance.now();
     run(w, 2);
     const ms = (performance.now() - t0) / (2 * 120);
-    console.log(`400 bodies: ${ms.toFixed(2)} ms / step`);
+    process.stderr.write(`400 bodies: ${ms.toFixed(2)} ms / step\n`);
     expect(ms).toBeLessThan(8.3); // fits a 120 Hz budget
   });
 });

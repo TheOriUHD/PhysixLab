@@ -156,7 +156,7 @@ export class Outliner {
       input.focus();
       input.select();
       const done = (save: boolean) => {
-        if (save && input.value.trim()) store.update(e.id, { name: input.value.trim() } as Partial<Entity>, 'Rename');
+        if (save && input.value.trim()) store.update(e.id, { name: input.value.trim() }, 'Rename');
         else this.render();
       };
       input.addEventListener('keydown', (k) => {

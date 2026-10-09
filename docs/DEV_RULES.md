@@ -19,7 +19,8 @@ Read this before touching code. The product bar is **premium**: every feature mu
 
 ```bash
 npm run typecheck        # tsc --noEmit
-npm run lint             # eslint (after the foundation lands)
+npm run lint             # eslint (flat config, type-aware typescript-eslint)
+npm run format:check     # prettier; `npm run format` rewrites (new code only: see rule 9 on not reformatting)
 npm test                 # vitest: real Rapier engine in Node
 npm run build            # tsc + vite build
 E2E_PORT=5201 npm run test:e2e              # headless Chromium drives the real UI (own vite server)

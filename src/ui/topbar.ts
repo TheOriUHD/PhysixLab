@@ -42,10 +42,10 @@ export function buildTopbar(app: App): HTMLElement {
 
   // ---- menus -----------------------------------------------------------------------------------
   const importFile = h('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' } });
-  importFile.addEventListener('change', async () => {
+  importFile.addEventListener('change', () => {
     const f = importFile.files?.[0];
     importFile.value = '';
-    if (f) await importDocument(app, f);
+    if (f) void importDocument(app, f);
   });
 
   const menus: [string, () => MenuItem[]][] = [

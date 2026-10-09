@@ -12,12 +12,13 @@ import {
   Quaternion,
   Vector3,
 } from 'three';
+import type { Object3D } from 'three';
 import { Emitter } from '../core/events';
 import { qfromEuler, type Vec3 } from '../core/math';
 import { createBody } from '../model/factory';
 import { PREFABS } from '../model/prefabs';
 import { newDocument } from '../model/factory';
-import { cloneEntities, SceneStore } from '../model/store';
+import { cloneEntities, SceneStore, type SceneChange } from '../model/store';
 import { TEMPLATE_BY_ID } from '../model/templates';
 import { translateEntities } from '../model/builder';
 import type { BodyEntity, Entity, JointEntity, JointType, SceneDocument, ShapeType, SoftType } from '../model/types';
@@ -274,7 +275,7 @@ export class App extends Emitter<AppEvents> {
     this.emit('scene', undefined);
   }
 
-  private onStoreChange(c: import('../model/store').SceneChange): void {
+  private onStoreChange(c: SceneChange): void {
     switch (c.type) {
       case 'reset':
         this.rebuildAllViews();
@@ -353,7 +354,7 @@ export class App extends Emitter<AppEvents> {
   }
 
   private refreshOutline(): void {
-    const meshes: import('three').Object3D[] = [];
+    const meshes: Object3D[] = [];
     for (const id of this.store.selection) {
       const v = this.bodies.get(id);
       if (v) meshes.push(v.mesh);
@@ -642,7 +643,7 @@ export class App extends Emitter<AppEvents> {
       list,
       list.map((e) => e.id),
       [0, 0, 0],
-    ).map((e) => ({ ...e, name: this.store.uniqueName(e.name) }) as Entity);
+    ).map((e) => ({ ...e, name: this.store.uniqueName(e.name) }));
     this.store.add(copies, `Insert ${pf.name}`);
     this.frameSelection();
     this.toast(`${pf.name} inserted`, 'success');

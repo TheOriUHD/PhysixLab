@@ -33,6 +33,7 @@ import {
   WebGLRenderTarget,
   type Object3D,
 } from 'three';
+import type { Material } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -239,14 +240,14 @@ export class Viewport {
     this.controls.minDistance = 0.4;
     this.controls.maxDistance = 400;
     this.controls.maxPolarAngle = Math.PI * 0.499;
-    this.controls.mouseButtons = { LEFT: null as unknown as MOUSE, MIDDLE: MOUSE.PAN, RIGHT: MOUSE.ROTATE };
+    this.controls.mouseButtons = { LEFT: null, MIDDLE: MOUSE.PAN, RIGHT: MOUSE.ROTATE };
     this.controls.target.set(0, 1.2, 0);
     this.controls.addEventListener('change', () => (this.needsRender = true));
     // Alt + left drag also orbits (trackpads without a right button).
     this.dom.addEventListener(
       'pointerdown',
       (e) => {
-        this.controls.mouseButtons.LEFT = (e.altKey ? MOUSE.ROTATE : null) as unknown as MOUSE;
+        this.controls.mouseButtons.LEFT = e.altKey ? MOUSE.ROTATE : null;
       },
       true,
     );
@@ -266,7 +267,7 @@ export class Viewport {
 
     this.viewHelper = new ViewHelper(this.camera, this.dom);
     this.viewHelper.center = this.controls.target;
-    this.viewHelper.location = { top: 12, right: 12, bottom: 0, left: null } as ViewHelper['location'];
+    this.viewHelper.location = { top: 12, right: 12, bottom: 0, left: null };
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
@@ -360,7 +361,7 @@ export class Viewport {
     this.resize();
     // materials must recompile when shadows are toggled
     this.scene.traverse((o) => {
-      const m = (o as Mesh).material as any;
+      const m: Material | Material[] = (o as Mesh).material;
       if (m && !Array.isArray(m)) m.needsUpdate = true;
     });
     this.needsRender = true;
@@ -480,7 +481,7 @@ export class Viewport {
     this.sun.position.set(this.sun.target.position.x - 38, 62, this.sun.target.position.z + 26);
 
     this.skyMesh.position.copy(this.camera.position);
-    this.gridMat.uniforms.uCamPos.value.copy(this.camera.position);
+    (this.gridMat.uniforms.uCamPos.value as Vector3).copy(this.camera.position);
 
     this.composer.render(dt);
     this.renderer.autoClear = false;

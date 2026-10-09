@@ -4,16 +4,14 @@
  * assemblies, scale with camera distance and react to the live simulation (spring tension,
  * broken joints).
  */
+import type { BufferGeometry, Object3D, PerspectiveCamera } from 'three';
 import {
-  BufferGeometry,
   Color,
   ConeGeometry,
   CylinderGeometry,
   Group,
   Mesh,
   MeshBasicMaterial,
-  Object3D,
-  PerspectiveCamera,
   Quaternion,
   SphereGeometry,
   TorusGeometry,

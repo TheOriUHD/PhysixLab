@@ -1,0 +1,4 @@
+# Mechanical, repo-wide Prettier reformat (no behaviour change). Enable locally with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# GitHub's blame view honours this file automatically.
+975009bdbf3e45fb16040ce39d53dc5b0eeb62d3

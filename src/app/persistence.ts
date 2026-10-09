@@ -122,7 +122,7 @@ export class Persistence {
     const blob = new Blob([JSON.stringify(doc, null, 1)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${(doc.name || 'scene').replace(/[^\w\-]+/g, '_')}.physicslab.json`;
+    a.download = `${(doc.name || 'scene').replace(/[^\w-]+/g, '_')}.physicslab.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();

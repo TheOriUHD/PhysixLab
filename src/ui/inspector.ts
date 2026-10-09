@@ -80,8 +80,8 @@ export class Inspector {
       this.el.appendChild(this.empty());
       return;
     }
-    if (sel.every(isBody)) this.el.append(...this.bodyInspector(sel as BodyEntity[]));
-    else if (sel.every(isSoft)) this.el.append(...this.softInspector(sel as SoftEntity[]));
+    if (sel.every(isBody)) this.el.append(...this.bodyInspector(sel));
+    else if (sel.every(isSoft)) this.el.append(...this.softInspector(sel));
     else if (sel.length === 1 && isJoint(sel[0])) this.el.append(...this.jointInspector(sel[0]));
     else this.el.append(...this.summary(sel));
     this.refresh();
@@ -134,7 +134,7 @@ export class Inspector {
       if (e.key === 'Enter') nameInput.blur();
     });
     nameInput.addEventListener('change', () =>
-      store.update(first.id, { name: nameInput.value.trim() || first.name } as Partial<Entity>, 'Rename'),
+      store.update(first.id, { name: nameInput.value.trim() || first.name }, 'Rename'),
     );
     this.updaters.push(() => {
       const e = this.selection()[0];
@@ -207,6 +207,8 @@ export class Inspector {
     const patches: [string, Partial<Entity>][] = [];
     for (const id of ids) {
       const e = store.get(id) as T | undefined;
+      // The assertion is needed: `Partial<T>` for a generic `T` is not assignable to `Partial<Entity>`.
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       if (e) patches.push([id, fn(e) as Partial<Entity>]);
     }
     store.updateMany(patches, label);
@@ -902,11 +904,7 @@ export class Inspector {
       if (type === 'sphere') {
         next[0] = next[1] = next[2] = v;
       }
-      app.store.update(
-        id,
-        { shape: { ...b.shape, size: normalizeSize(type, next, b.shape.size) } } as Partial<BodyEntity>,
-        'Resize',
-      );
+      app.store.update(id, { shape: { ...b.shape, size: normalizeSize(type, next, b.shape.size) } }, 'Resize');
     };
     const mk = (label: string, axis: number, hint?: string) => {
       const f = numberField({
@@ -942,12 +940,7 @@ export class Inspector {
           ...this.grouped('Prism sides'),
           onChange: (v) => {
             const b = get();
-            if (b)
-              app.store.update(
-                id,
-                { shape: { ...b.shape, sides: Math.round(v) } } as Partial<BodyEntity>,
-                'Prism sides',
-              );
+            if (b) app.store.update(id, { shape: { ...b.shape, sides: Math.round(v) } }, 'Prism sides');
           },
         });
         this.updaters.push(() => {
@@ -1427,14 +1420,14 @@ export class Inspector {
     return out;
   }
 
-  private motorSection(id: string, type: 'hinge' | 'slider' | string): HTMLElement {
+  private motorSection(id: string, type: string): HTMLElement {
     const { app } = this;
     const get = () => app.store.joint(id)!;
     const hinge = type === 'hinge';
     const uv = hinge ? 'rad/s' : 'm/s';
     const up = hinge ? '°' : 'm';
     const setM = (label: string, p: Partial<JointEntity['motor']>) =>
-      app.store.update(id, { motor: { ...get().motor, ...p } } as Partial<JointEntity>, label);
+      app.store.update(id, { motor: { ...get().motor, ...p } }, label);
     const mode = segmented<MotorMode>({
       options: [
         { value: 'off', label: 'Off', title: 'Joint moves freely' },

@@ -115,7 +115,7 @@ async function boot(): Promise<void> {
     const f = e.dataTransfer?.files?.[0];
     if (f && /\.json$/i.test(f.name)) {
       e.preventDefault();
-      importDocument(app, f);
+      void importDocument(app, f);
     }
   });
 
@@ -126,8 +126,8 @@ async function boot(): Promise<void> {
     setTimeout(() => showWelcome(app), 400);
 }
 
-boot().catch((e) => {
+boot().catch((e: unknown) => {
   console.error(e);
   const root = document.getElementById('app')!;
-  root.innerHTML = `<div style="padding:40px;max-width:640px;margin:auto;color:#dbe3ef;font:15px system-ui"><h2>PhysicsLab couldn’t start</h2><p>${String(e?.message ?? e)}</p><p style="color:#98a5b9">PhysicsLab needs a modern desktop browser with WebGL 2 and WebAssembly.</p></div>`;
+  root.innerHTML = `<div style="padding:40px;max-width:640px;margin:auto;color:#dbe3ef;font:15px system-ui"><h2>PhysicsLab couldn’t start</h2><p>${String((e as { message?: unknown } | null)?.message ?? e)}</p><p style="color:#98a5b9">PhysicsLab needs a modern desktop browser with WebGL 2 and WebAssembly.</p></div>`;
 });

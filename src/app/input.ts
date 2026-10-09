@@ -385,6 +385,8 @@ export class InputController {
       case 'grab':
         app.sim.client.op({ op: 'release' });
         break;
+      case 'none':
+        break;
     }
   }
 

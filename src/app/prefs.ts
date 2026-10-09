@@ -71,7 +71,7 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
-        const saved = JSON.parse(raw);
+        const saved = JSON.parse(raw) as Partial<Prefs>;
         this.value = { ...this.value, ...saved, overlays: { ...DEFAULT_OVERLAYS, ...(saved.overlays ?? {}) } };
         this.value.tool = 'select';
       }

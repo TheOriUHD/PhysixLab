@@ -240,5 +240,5 @@ export function createSoft(type: SoftType, over: Partial<SoftEntity> = {}): Soft
     rotation: qident(),
     ...softDefaults(type),
     ...over,
-  } as SoftEntity;
+  };
 }

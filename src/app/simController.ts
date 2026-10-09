@@ -12,7 +12,7 @@
  */
 import { Emitter } from '../core/events';
 import type { Quat, Vec3 } from '../core/math';
-import type { SceneStore } from '../model/store';
+import type { SceneChange, SceneStore } from '../model/store';
 import type { BodyEntity } from '../model/types';
 import { isBody, isJoint, isSoft } from '../model/types';
 import { SimClient } from '../physics/client';
@@ -164,7 +164,7 @@ export class SimController extends Emitter<Events> {
 
   // ---- document → live world sync ----------------------------------------------------------
 
-  private onStoreChange(c: import('../model/store').SceneChange): void {
+  private onStoreChange(c: SceneChange): void {
     if (!this.client.active) return;
     switch (c.type) {
       case 'reset':

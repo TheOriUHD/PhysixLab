@@ -3,14 +3,13 @@
  * size, PBR materials from the entity's material spec, and analytical colour modes
  * (speed / energy / force / sleep / type) for reading the simulation at a glance.
  */
+import type { BufferGeometry, Group } from 'three';
 import {
   BoxGeometry,
-  BufferGeometry,
   CapsuleGeometry,
   Color,
   ConeGeometry,
   CylinderGeometry,
-  Group,
   Mesh,
   MeshStandardMaterial,
   SphereGeometry,

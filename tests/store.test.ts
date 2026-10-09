@@ -3,6 +3,7 @@ import { createBody, createJoint, newDocument } from '../src/model/factory';
 import { SceneStore, type SceneChange } from '../src/model/store';
 import { parseDocument, sanitizeDocument, serializeDocument } from '../src/model/serialize';
 import type { BodyEntity } from '../src/model/types';
+import { isBody } from '../src/model/types';
 
 const box = (name: string, x = 0) => createBody({ name, shape: { type: 'box' }, position: [x, 0.5, 0] });
 
@@ -15,7 +16,7 @@ describe('SceneStore history', () => {
       b = box('B', 2);
     s.add([a], 'Add A');
     s.add([b], 'Add B');
-    s.update(a.id, { name: 'Alpha' } as Partial<BodyEntity>, 'Rename');
+    s.update(a.id, { name: 'Alpha' }, 'Rename');
     expect(s.body(a.id)!.name).toBe('Alpha');
     s.remove([b.id]);
     expect(s.size).toBe(1);
@@ -35,7 +36,7 @@ describe('SceneStore history', () => {
     const a = box('A');
     s.add([a]);
     s.begin('Drag');
-    for (let i = 1; i <= 20; i++) s.update(a.id, { position: [i, 0.5, 0] } as Partial<BodyEntity>);
+    for (let i = 1; i <= 20; i++) s.update(a.id, { position: [i, 0.5, 0] });
     s.end();
     expect(s.body(a.id)!.position[0]).toBe(20);
     s.undo();
@@ -63,7 +64,7 @@ describe('SceneStore history', () => {
     const a = box('A');
     s.add([a]);
     const before = s.canUndo;
-    s.update(a.id, { name: 'A' } as Partial<BodyEntity>);
+    s.update(a.id, { name: 'A' });
     s.undo();
     expect(before).toBe(true);
     expect(s.size).toBe(0); // the no-op created no extra history entry
@@ -79,7 +80,7 @@ describe('SceneStore history', () => {
     const ids = s.duplicate([a.id, b.id], [0, 0, 3]);
     expect(ids.length).toBe(4); // two bodies + the internal joint + the world joint
     const copies = ids.map((id) => s.get(id)!);
-    const copyBodies = copies.filter((e) => e.kind === 'body') as BodyEntity[];
+    const copyBodies = copies.filter(isBody);
     expect(copyBodies.every((c) => c.position[2] === 3)).toBe(true);
     const joints = copies.filter((e) => e.kind === 'joint');
     expect(

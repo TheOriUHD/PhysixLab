@@ -40,7 +40,7 @@ export class Picker {
         entityId: id,
         point: h.point.clone(),
         normal: h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld) : null,
-        end: h.object.userData.end,
+        end: h.object.userData.end as 'A' | 'B' | undefined,
         distance: h.distance,
       };
     }
