@@ -22,7 +22,10 @@ npm run preview    # serve the production build
 
 ### Hosting
 
-It is a fully static site (no server): `npm run build` produces `dist/`, which can be dropped on any static host. The included workflow `.github/workflows/pages.yml` deploys it to **GitHub Pages** on every push to `main` — enable it once under *Settings → Pages → Source: GitHub Actions*; it will be served at `https://<user>.github.io/PhysicsSandbox/`.
+It is a fully static site (no server): `npm run build` produces `dist/`, which any static host can serve.
+
+* **Netlify / Cloudflare Pages / Vercel** work with private repos on free plans: import the repo (build command `npm run build`, output directory `dist` — `netlify.toml` already says so), or drag the built `dist/` folder onto [Netlify Drop](https://app.netlify.com/drop).
+* **GitHub Pages**: `.github/workflows/pages.yml` is a manual workflow for when Pages is available (public repo or paid plan; set *Settings → Pages → Source* to *GitHub Actions*, then run it from the Actions tab).
 
 Requires a modern desktop browser with WebGL 2 and WebAssembly (Chrome, Edge, Firefox, Safari).
 
