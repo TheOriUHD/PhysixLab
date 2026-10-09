@@ -193,7 +193,7 @@ export class Editor {
   }
 
   toggleFlag(ids: string[], flag: 'locked' | 'hidden'): void {
-    const es = ids.map((id) => this.store.get(id)).filter((e): e is Entity => !!e && (flag === 'hidden' || isBody(e)));
+    const es = ids.map((id) => this.store.get(id)).filter((e): e is Entity => !!e && (flag === 'hidden' || isBody(e) || isSoft(e)));
     if (!es.length) return;
     const value = !es.every((e) => (e as unknown as Record<string, boolean>)[flag]);
     this.store.updateMany(es.map((e) => [e.id, { [flag]: value } as Partial<Entity>]), value ? (flag === 'locked' ? 'Lock' : 'Hide') : flag === 'locked' ? 'Unlock' : 'Show');

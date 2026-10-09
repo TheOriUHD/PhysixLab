@@ -143,6 +143,7 @@ export class InputController {
     const ground = app.picker.groundPoint(e, 0);
     const type = app.prefs.value.jointType;
     let end: { body: string | null; point: Vector3 } | null = null;
+    if (hit && app.store.soft(hit.entityId)) { app.toast('Joints can’t attach to soft bodies — they can only be pinned in space', 'warn'); return; }
     if (hit) end = { body: hit.entityId, point: hit.point };
     else if (ground && ground.distanceTo(this.cam.position) < 400) end = { body: null, point: ground };
     if (!end) return;
