@@ -291,7 +291,10 @@ export class PhysicsWorld {
   applySettings(s: SceneSettings, initial = false): void {
     const prev = this.settings;
     this.settings = s;
+    const gravityChanged = !initial && (prev.gravity[0] !== s.gravity[0] || prev.gravity[1] !== s.gravity[1] || prev.gravity[2] !== s.gravity[2]);
     this.world.gravity = rv(s.gravity);
+    // Sleeping bodies would otherwise ignore the new gravity until something touches them.
+    if (gravityChanged) for (const r of this.order) r.rb.wakeUp();
     this.world.integrationParameters.dt = 1 / s.physicsHz;
     this.world.integrationParameters.numSolverIterations = s.solverIterations;
     if (initial || prev.ground !== s.ground) this.buildGround();

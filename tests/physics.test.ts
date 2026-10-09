@@ -234,3 +234,25 @@ describe('performance', () => {
     expect(ms).toBeLessThan(8.3); // fits a 120 Hz budget
   });
 });
+
+describe('settings', () => {
+  it('changing gravity wakes sleeping bodies', async () => {
+    const ball = createBody({ shape: { type: 'sphere', size: [0.5, 0.5, 0.5] }, position: [0, 5, 0] });
+    const w = await worldOf([ball], { gravity: [0, 0, 0] });
+    run(w, 3); // falls asleep in zero-g
+    expect(w.getPose(ball.id)!.position[1]).toBeCloseTo(5, 3);
+    w.applyOp({ op: 'settings', settings: { ...w.settings, gravity: [0, -9.81, 0] } });
+    run(w, 1);
+    expect(w.getPose(ball.id)!.position[1]).toBeLessThan(0.7 * 5);
+  });
+
+  it('ghost bodies keep their mass but do not collide', async () => {
+    const ghost = createBody({ shape: { type: 'box', size: [1, 1, 1] }, position: [0, 3, 0], ghost: true });
+    const solid = createBody({ shape: { type: 'box', size: [1, 1, 1] }, position: [0, 3, 0] });
+    const w = await worldOf([ghost, solid]);
+    expect(w.builtInfo().mass[ghost.id]).toBeGreaterThan(0);
+    run(w, 2);
+    expect(w.getPose(ghost.id)!.position[1]).toBeLessThan(-5); // fell through the floor
+    expect(w.getPose(solid.id)!.position[1]).toBeCloseTo(0.5, 1); // the solid one stands on it
+  });
+});

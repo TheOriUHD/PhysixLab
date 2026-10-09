@@ -6,7 +6,7 @@
 import {
   ACESFilmicToneMapping, AmbientLight, BackSide, BoxGeometry, Color, DirectionalLight, DoubleSide,
   Fog, Group, HalfFloatType, MathUtils, Mesh, MeshBasicMaterial, MeshStandardMaterial, MOUSE,
-  PCFSoftShadowMap, PerspectiveCamera, PlaneGeometry, PMREMGenerator, Scene, ShaderMaterial,
+  PCFShadowMap, PerspectiveCamera, PlaneGeometry, PMREMGenerator, Scene, ShaderMaterial,
   ShadowMaterial, SphereGeometry, Vector2, Vector3, WebGLRenderer, WebGLRenderTarget, type Object3D,
 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -126,7 +126,7 @@ export class Viewport {
     container.appendChild(this.dom);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = PCFSoftShadowMap;
+    this.renderer.shadowMap.type = PCFShadowMap;
     this.renderer.toneMapping = ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
 
@@ -353,6 +353,7 @@ export class Viewport {
   }
 
   setView(v: { position: [number, number, number]; target: [number, number, number] }): void {
+    this.tween = null;
     this.camera.position.set(...v.position);
     this.controls.target.set(...v.target);
     this.controls.update();

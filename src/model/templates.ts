@@ -3,9 +3,9 @@
  * user has in the editor — nothing here is scripted behaviour — so every one of them can be
  * taken apart, modified and extended.
  */
-import { DEG, qfromAxisAngle, qfromEuler, qrotInv, vsub, type Quat, type Vec3 } from '../core/math';
-import { createBody, createJoint, newDocument } from './factory';
-import type { BodyEntity, JointEntity, JointType, MaterialSpec, MotorSpec, SceneDocument, ShapeType } from './types';
+import { DEG, qfromAxisAngle, qfromEuler, type Vec3 } from '../core/math';
+import { Builder, idleMotor, noKeys, rotX, rotY, rotZ } from './builder';
+import type { BodyEntity, SceneDocument } from './types';
 
 export interface TemplateInfo {
   id: string;
@@ -14,60 +14,12 @@ export interface TemplateInfo {
   blurb: string;
   /** Short hint shown after loading. */
   hint: string;
+  /** Optional opening camera. */
+  view?: { position: [number, number, number]; target: [number, number, number] };
+  /** Name of a body to select and follow with the camera while simulating. */
+  follow?: string;
   build(): SceneDocument;
 }
-
-// ---- tiny builder DSL ---------------------------------------------------------------------------
-
-type BodyOpts = Omit<Partial<BodyEntity>, 'material'> & { material?: string | Partial<MaterialSpec> };
-
-class Builder {
-  doc = newDocument();
-
-  constructor(name: string) { this.doc.name = name; }
-
-  body(name: string, type: ShapeType, size: Vec3, position: Vec3, o: BodyOpts = {}): BodyEntity {
-    const { material, ...rest } = o;
-    const b = createBody({
-      name, shape: { type, size, ...(type === 'prism' ? { sides: 6 } : {}) }, position, material: material ?? 'plastic', ...rest,
-    });
-    this.doc.entities.push(b);
-    return b;
-  }
-
-  /** Joint at a world point; `axis` is a world-space axis (hinge / slider). */
-  joint(type: JointType, a: BodyEntity | null, b: BodyEntity | null, point: Vec3, axis: Vec3 = [0, 0, 1], o: Partial<JointEntity> = {}): JointEntity {
-    const anchorA = a ? qrotInv(a.rotation, vsub(point, a.position)) : point;
-    const anchorB = b ? qrotInv(b.rotation, vsub(point, b.position)) : point;
-    const ax = a ? qrotInv(a.rotation, axis) : axis;
-    const j = createJoint({ type, bodyA: a?.id ?? null, bodyB: b?.id ?? null, anchorA, anchorB, axis: ax, ...o });
-    this.doc.entities.push(j);
-    return j;
-  }
-
-  /** Spring / rope between two world points (rest length / rope length = their distance by default). */
-  tether(type: 'spring' | 'rope', a: BodyEntity | null, pa: Vec3, b: BodyEntity | null, pb: Vec3, o: Partial<JointEntity> = {}): JointEntity {
-    const anchorA = a ? qrotInv(a.rotation, vsub(pa, a.position)) : pa;
-    const anchorB = b ? qrotInv(b.rotation, vsub(pb, b.position)) : pb;
-    const len = Math.hypot(pa[0] - pb[0], pa[1] - pb[1], pa[2] - pb[2]);
-    const j = createJoint({
-      type, bodyA: a?.id ?? null, bodyB: b?.id ?? null, anchorA, anchorB, ropeLength: len,
-      spring: { restLength: len, stiffness: 500, damping: 15, breakForce: 0 }, ...o,
-    });
-    this.doc.entities.push(j);
-    return j;
-  }
-
-  done(): SceneDocument { return this.doc; }
-}
-
-const rotY = (deg: number): Quat => qfromAxisAngle([0, 1, 0], deg * DEG);
-const rotZ = (deg: number): Quat => qfromAxisAngle([0, 0, 1], deg * DEG);
-const rotX = (deg: number): Quat => qfromAxisAngle([1, 0, 0], deg * DEG);
-const noKeys = { keyPos: '', keyNeg: '' };
-const idleMotor = (): MotorSpec => ({
-  mode: 'off', targetVelocity: 0, targetPosition: 0, stiffness: 0, damping: 0, maxForce: 0, ...noKeys, slewRate: 1, brake: false,
-});
 
 // ---- scenes -------------------------------------------------------------------------------------
 
@@ -130,7 +82,7 @@ function doublePendulum(): SceneDocument {
   return b.done();
 }
 
-function car(): SceneDocument {
+export function buildCar(withTrack = true): SceneDocument {
   const b = new Builder('Drivable car');
   b.doc.settings.solverIterations = 10;
   const y = 0.62; // chassis centre height
@@ -181,6 +133,7 @@ function car(): SceneDocument {
     });
   }
 
+  if (!withTrack) return b.done();
   // Test track: a ramp, a landing pad, a slalom and a wall of crates to smash.
   b.body('Ramp', 'wedge', [4, 1.2, 4], [10, 0.6, 0], { bodyType: 'static', rotation: rotY(90), material: 'concrete' });
   b.body('Landing pad', 'box', [8, 0.3, 6], [22, 0.15, 0], { bodyType: 'static', material: 'concrete' });
@@ -376,8 +329,8 @@ function springsLab(): SceneDocument {
 }
 
 export const TEMPLATES: TemplateInfo[] = [
-  { id: 'car', name: 'Drivable car', category: 'Vehicles', blurb: 'Independent spring-damper suspension, steered front wheels and rear-wheel drive — all joints and motors.', hint: 'Press Play, then drive with W / S (throttle, reverse) and A / D (steer). Select a joint to tune its motor.', build: car },
-  { id: 'wreck', name: 'Wrecking ball', category: 'Playground', blurb: 'A chain of ball-jointed links swings a dense ball into a brick wall.', hint: 'Press Play and watch the wall go. You can drag objects with the mouse while it runs.', build: wreckingBall },
+  { id: 'car', name: 'Drivable car', category: 'Vehicles', blurb: 'Independent spring-damper suspension, steered front wheels and rear-wheel drive — all joints and motors.', hint: 'Press Play, then drive with W / S (throttle, reverse) and A / D (steer). Select a joint to tune its motor.', view: { position: [6.5, 3.2, 7.5], target: [1, 0.5, 0] }, follow: 'Chassis', build: () => buildCar(true) },
+  { id: 'wreck', name: 'Wrecking ball', category: 'Playground', blurb: 'A chain of ball-jointed links swings a dense ball into a brick wall.', hint: 'Press Play and watch the wall go. You can drag objects with the mouse while it runs.', view: { position: [-3, 5, 13], target: [-1, 3, 0] }, build: wreckingBall },
   { id: 'lever', name: 'Lever launcher', category: 'Mechanisms', blurb: 'A counterweight drops onto a hinged lever and fires a ball at a crate tower.', hint: 'Press Play. Try a different counterweight material, or slide the fulcrum.', build: leverLauncher },
   { id: 'piston', name: 'Piston press', category: 'Mechanisms', blurb: 'A motorised slider crushes whatever is underneath it.', hint: 'Press Play, then hold the Down arrow to lower the ram and Up to raise it.', build: pistonPress },
   { id: 'double', name: 'Double pendulum', category: 'Physics labs', blurb: 'Two hinged arms — deterministic, yet chaotic. Tiny changes give wildly different motion.', hint: 'Turn on Trails (View menu) and press Play. Nudge an angle slightly and compare the paths.', build: doublePendulum },

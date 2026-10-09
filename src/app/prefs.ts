@@ -25,7 +25,7 @@ export interface Prefs {
   shootSpeed: number;
   shootSize: number;
   leftTab: 'add' | 'prefabs' | 'scenes';
-  rightTab: 'inspector' | 'scene';
+  rightTab: 'inspector' | 'outliner' | 'world';
   showLeft: boolean;
   showRight: boolean;
   showBottom: boolean;

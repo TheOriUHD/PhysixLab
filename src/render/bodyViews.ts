@@ -145,6 +145,7 @@ export class BodyViews {
   private cache = new GeometryCache();
   private tmpColor = new Color();
   mode: ColorMode = 'material';
+  hoverId: string | null = null;
   /** Auto-ranging scale for the analytic colour modes. */
   private scaleMax: Record<string, number> = { speed: 3, energy: 50, force: 100 };
 
@@ -269,6 +270,7 @@ export class BodyViews {
       }
       v.material.emissive.setRGB(0, 0, 0);
       if (sel) v.material.emissive.setRGB(0.02, 0.05, 0.09);
+      else if (d.id === this.hoverId) v.material.emissive.setRGB(0.05, 0.1, 0.14);
       void em;
     }
   }

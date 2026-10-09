@@ -276,7 +276,7 @@ export class JointViews {
       if (!f || !v.root.visible) continue;
       v.root.position.copy(f.a);
       const dist = camera.position.distanceTo(f.a);
-      const s = Math.min(6, Math.max(0.35, dist * 0.085)) * (v.selected ? 1.15 : 1);
+      const s = Math.min(4, Math.max(0.22, dist * 0.05)) * (v.selected ? 1.2 : 1);
       v.scale = s;
 
       if (def.type === 'hinge' || def.type === 'slider') {
