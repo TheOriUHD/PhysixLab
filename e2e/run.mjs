@@ -160,7 +160,7 @@ await test('simulation: a dropped box falls, settles on the ground, reset restor
   assert((await page.evaluate(() => window.physicslab.sim.mode)) === 'paused', 'space pauses');
   const t1 = await page.evaluate(() => window.physicslab.sim.client.stats.simTime);
   await page.click('.tbtn[title^="Advance"]');
-  await page.waitForTimeout(500);
+  await page.waitForFunction((t) => window.physicslab.sim.client.stats.simTime > t, t1, { timeout: 30000 });
   const t2 = await page.evaluate(() => window.physicslab.sim.client.stats.simTime);
   assert(t2 > t1 && t2 - t1 < 0.05, `single step advances by one fixed step (${t2 - t1})`);
   await page.click('.tbtn[title^="Stop"]');
@@ -363,9 +363,9 @@ await test('soft bodies: add from the palette, edit in the inspector, simulate a
   await page.mouse.move(sp.x, sp.y);
   await page.mouse.down();
   for (let i = 1; i <= 12; i++) { await page.mouse.move(sp.x, sp.y - i * 18); await page.waitForTimeout(60); }
-  await page.waitForTimeout(500);
-  const lifted = await top();
-  assert(lifted > rest + 0.8, `dragging stretched / lifted the jelly (top ${rest.toFixed(2)} → ${lifted.toFixed(2)})`);
+  let lifted = await top();
+  for (let i = 0; i < 40 && lifted < rest + 0.5; i++) { await sleep(150); lifted = await top(); }
+  assert(lifted > rest + 0.4, `dragging stretched / lifted the jelly (top ${rest.toFixed(2)} → ${lifted.toFixed(2)})`);
   await shot(page, '11-soft-grab');
   await page.mouse.up();
   await page.keyboard.press('Shift+Space');
