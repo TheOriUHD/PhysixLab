@@ -11,11 +11,11 @@ import {
   clamp, qconj, qfromUnitVectors, qmul, qrot, qrotInv, qslerp, qtwist, vadd, vcross, vdot, vlen,
   vnorm, vscale, vsub, type Quat, type Vec3,
 } from '../core/math';
-import { hullPoints, primitiveParams } from '../model/shapes';
-import type { BodyEntity, JointEntity, SceneDocument, SceneSettings } from '../model/types';
+import { hullPoints, primitiveParams, softParticleRadius } from '../model/shapes';
+import type { BodyEntity, JointEntity, SceneDocument, SceneSettings, SoftEntity } from '../model/types';
 import {
   BODY_STRIDE, CONTACT_STRIDE, J, JOINT_STRIDE, type BuiltInfo, type EnergyStats, type SimEvent,
-  type SimOp, type SimStats,
+  type SimOp, type SimStats, type SoftLayoutEntry,
 } from './protocol';
 
 let rapierReady: Promise<void> | null = null;
@@ -32,6 +32,8 @@ const KILL_Y = -400;
 /** Grab spring natural frequency (rad/s) and acceleration cap (m/s²). */
 const GRAB_OMEGA = 15;
 const GRAB_MAX_ACCEL = 400;
+const SOFT_GRAB_OMEGA = 10;
+const SOFT_GRAB_MAX_ACCEL = 250;
 
 const rv = (v: Vec3) => ({ x: v[0], y: v[1], z: v[2] });
 const rq = (q: Quat) => ({ x: q[0], y: q[1], z: q[2], w: q[3] });
@@ -50,6 +52,12 @@ interface BodyRec {
   vPrev: Vec3;
   force: Vec3;
   forced: boolean;
+}
+
+interface SoftRec {
+  id: string;
+  def: SoftEntity;
+  root: RAPIER.SoftBody;
 }
 
 interface JointRec {
@@ -86,6 +94,12 @@ export class PhysicsWorld {
   private jointOrder: JointRec[] = [];
   private worldBody: RAPIER.RigidBody;
   private ground: { body: RAPIER.RigidBody; col: RAPIER.Collider } | null = null;
+  private softs = new Map<string, SoftRec>();
+  private softOrder: SoftRec[] = [];
+  private softBlocks: RAPIER.SoftBody[][] = [];
+  private softSig = '';
+  private softGrab: { body: RAPIER.SoftBody; local: number; target: Vec3 } | null = null;
+  private softParticles = 0;
   private acc = 0;
   private keys = new Set<string>();
   private grab: { rec: BodyRec; local: Vec3; target: Vec3 } | null = null;
@@ -108,6 +122,7 @@ export class PhysicsWorld {
     this.applySettings(doc.settings, true);
     for (const e of doc.entities) if (e.kind === 'body') this.addBody(e, false);
     for (const e of doc.entities) if (e.kind === 'joint') this.addJoint(e);
+    for (const e of doc.entities) if (e.kind === 'soft') this.addSoft(e);
     this.layoutVersion++;
   }
 
@@ -235,6 +250,187 @@ export class PhysicsWorld {
     return rec;
   }
 
+
+  // ------------------------------------------------------------------------------------------
+  // soft bodies
+  // ------------------------------------------------------------------------------------------
+
+  private makeSoftDesc(def: SoftEntity): RAPIER.SoftBodyDesc {
+    const c = def.position;
+    const n = def.resolution;
+    let desc: RAPIER.SoftBodyDesc;
+    let pins: number[] = [];
+    switch (def.type) {
+      case 'jelly':
+        desc = RAPIER.SoftBodyDesc.cuboid(rv(c), rv([def.size[0] / 2, def.size[1] / 2, def.size[2] / 2]), n, n, n);
+        break;
+      case 'balloon':
+        desc = RAPIER.SoftBodyDesc.sphere(rv(c), def.size[0] / 2, n);
+        break;
+      case 'cloth': {
+        const w = def.size[0], d = def.size[2];
+        // Particle index = i·n + j with i along the width (x) and j along the depth (z).
+        desc = RAPIER.SoftBodyDesc.cloth(rv([c[0] - w / 2, c[1], c[2] - d / 2]), rv([w / (n - 1), 0, 0]), rv([0, 0, d / (n - 1)]), n, n);
+        // The pinned "edge" is the back edge (local z = −depth/2): j = 0 for every i. Stand the cloth
+        // up by rotating +90° about X and that edge becomes its top, like a hanging banner.
+        if (def.pin === 'edge') pins = Array.from({ length: n }, (_, i) => i * n);
+        else if (def.pin === 'corners') pins = [0, (n - 1) * n];
+        else if (def.pin === 'corners4') pins = [0, n - 1, (n - 1) * n, n * n - 1];
+        break;
+      }
+      case 'cable': {
+        const L = def.size[0];
+        desc = RAPIER.SoftBodyDesc.rope(rv([c[0] - L / 2, c[1], c[2]]), rv([c[0] + L / 2, c[1], c[2]]), n);
+        if (def.pin === 'ends') pins = [0, n - 1];
+        else if (def.pin === 'one-end') pins = [0];
+        break;
+      }
+    }
+    const mat = RAPIER.SoftBodyMaterial.uniform(def.stiffness, def.damping);
+    if (def.tearStrain > 0) mat.tearStrain = def.tearStrain;
+    desc = desc.setMass(def.mass).setMaterial(mat).setParticleRadius(softParticleRadius(def)).setLinearDamping(def.linearDamping).setGravityScale(def.gravityScale).setSelfContacts(def.selfCollide);
+    if (pins.length) desc = desc.setPinnedParticles(pins);
+    return desc;
+  }
+
+  addSoft(def: SoftEntity): void {
+    const root = this.world.createSoftBody(this.makeSoftDesc(def));
+    const q = def.rotation;
+    if (q[0] !== 0 || q[1] !== 0 || q[2] !== 0) {
+      // The generators are axis-aligned: rotate the freshly built particles about the entity centre.
+      const p = root.particlePositions();
+      for (let i = 0; i < root.numParticles(); i++) {
+        const rel: Vec3 = [p[3 * i] - def.position[0], p[3 * i + 1] - def.position[1], p[3 * i + 2] - def.position[2]];
+        const r = qrot(q, rel);
+        root.setParticlePosition(i, rv([def.position[0] + r[0], def.position[1] + r[1], def.position[2] + r[2]]));
+      }
+    }
+    const rec: SoftRec = { id: def.id, def, root };
+    this.softs.set(def.id, rec);
+    this.softOrder.push(rec);
+    this.softSig = '';
+    this.layoutVersion++;
+  }
+
+  /** All engine bodies (root + tear pieces) that belong to a soft entity. */
+  private piecesOf(rec: SoftRec): RAPIER.SoftBody[] {
+    const out: RAPIER.SoftBody[] = [];
+    for (const s of this.world.softBodies.getAll()) {
+      const origin = s.origin();
+      if (s.handle === rec.root.handle || origin === rec.root.handle) out.push(s);
+    }
+    return out.length ? out : [rec.root];
+  }
+
+  private removeSoft(id: string): void {
+    const rec = this.softs.get(id);
+    if (!rec) return;
+    if (this.softGrab && this.piecesOf(rec).includes(this.softGrab.body)) this.softGrab = null;
+    for (const s of this.piecesOf(rec)) if (s.isValid()) this.world.removeSoftBody(s);
+    this.softs.delete(id);
+    this.softOrder = this.softOrder.filter((r) => r !== rec);
+    this.softSig = '';
+    this.layoutVersion++;
+  }
+
+  private beginSoftGrab(id: string, index: number, target: Vec3): void {
+    if (!this.softs.has(id)) return;
+    const ei = this.softOrder.findIndex((r) => r.id === id);
+    const blocks = this.softBlocks[ei];
+    if (!blocks) return;
+    let k = index;
+    for (const b of blocks) {
+      const n = b.numParticles();
+      if (k < n) { b.wakeUp(); this.softGrab = { body: b, local: k, target }; return; }
+      k -= n;
+    }
+  }
+
+  /**
+   * Snapshot of every soft body's particles. `layout` is returned only when the topology changed
+   * (spawn, removal, tearing); positions are always returned.
+   */
+  readSoft(): { layout?: SoftLayoutEntry[]; positions: Float32Array } {
+    if (!this.softOrder.length) { this.softBlocks = []; this.softParticles = 0; return { positions: new Float32Array(0) }; }
+    const all = this.world.softBodies.getAll();
+    const byRoot = new Map<number, RAPIER.SoftBody[]>();
+    for (const s of all) {
+      const key = s.origin() ?? s.handle;
+      const list = byRoot.get(key);
+      if (list) list.push(s); else byRoot.set(key, [s]);
+    }
+    this.softBlocks = this.softOrder.map((r) => byRoot.get(r.root.handle) ?? [r.root]);
+    const sig = this.softBlocks.map((bs) => bs.map((b) => `${b.handle}:${b.topologyVersion()}:${b.numParticles()}`).join(',')).join('|');
+    let layout: SoftLayoutEntry[] | undefined;
+    if (sig !== this.softSig) {
+      this.softSig = sig;
+      layout = this.softOrder.map((rec, ei) => {
+        const mode = rec.def.type === 'cable' ? 'line' : 'tri';
+        const idx: number[] = [];
+        let offset = 0;
+        for (const b of this.softBlocks[ei]) {
+          const src = mode === 'tri' ? b.boundary() : b.edges();
+          for (let i = 0; i < src.length; i++) idx.push(src[i] + offset);
+          offset += b.numParticles();
+        }
+        return { id: rec.id, mode, count: offset, indices: new Uint32Array(idx) };
+      });
+    }
+    let total = 0;
+    for (const bs of this.softBlocks) for (const b of bs) total += b.numParticles();
+    this.softParticles = total;
+    const positions = new Float32Array(total * 3);
+    const g = this.settings.gravity;
+    let kin = 0, pot = 0;
+    const mom: Vec3 = [0, 0, 0];
+    let o = 0;
+    for (let ei = 0; ei < this.softBlocks.length; ei++) {
+      const gs = this.softOrder[ei].def.gravityScale;
+      for (const b of this.softBlocks[ei]) {
+        const np = b.numParticles();
+        positions.set(b.particlePositions(), o * 3);
+        o += np;
+        const m = b.mass();
+        const v = b.particleVelocities();
+        let vv = 0, vx = 0, vy = 0, vz = 0;
+        for (let i = 0; i < np; i++) { const x = v[3 * i], y = v[3 * i + 1], z = v[3 * i + 2]; vv += x * x + y * y + z * z; vx += x; vy += y; vz += z; }
+        kin += 0.5 * (m / Math.max(1, np)) * vv;
+        mom[0] += (m * vx) / Math.max(1, np); mom[1] += (m * vy) / Math.max(1, np); mom[2] += (m * vz) / Math.max(1, np);
+        const com = b.centerOfMass();
+        pot += -m * gs * (g[0] * com.x + g[1] * com.y + g[2] * com.z);
+      }
+    }
+    this.lastEnergy = {
+      ...this.lastEnergy,
+      kinetic: this.lastEnergy.kinetic + kin,
+      potential: this.lastEnergy.potential + pot,
+      momentum: [this.lastEnergy.momentum[0] + mom[0], this.lastEnergy.momentum[1] + mom[1], this.lastEnergy.momentum[2] + mom[2]],
+    };
+    return { layout, positions };
+  }
+
+  /** Spring force that drags the grabbed soft particle (and, through the lattice, its body) to the cursor. */
+  private applySoftGrab(): void {
+    const g = this.softGrab;
+    if (!g) return;
+    if (!g.body.isValid()) { this.softGrab = null; return; }
+    const p = g.body.particlePosition(g.local);
+    const v = g.body.particleVelocity(g.local);
+    const err = vsub(g.target, [p.x, p.y, p.z]);
+    let acc = vsub(vscale(err, SOFT_GRAB_OMEGA * SOFT_GRAB_OMEGA), vscale([v.x, v.y, v.z], 2 * SOFT_GRAB_OMEGA));
+    const al = vlen(acc);
+    if (al > SOFT_GRAB_MAX_ACCEL) acc = vscale(acc, SOFT_GRAB_MAX_ACCEL / al);
+    const grav = vscale(this.settings.gravity, -1);
+    const f = vscale(vadd(acc, grav), g.body.mass() * 0.4);
+    g.body.resetForces(false);
+    g.body.addParticleForce(g.local, rv(f), true);
+  }
+
+  private releaseSoftGrab(): void {
+    if (this.softGrab && this.softGrab.body.isValid()) this.softGrab.body.resetForces(false);
+    this.softGrab = null;
+  }
+
   private configureUnitJoint(rec: JointRec, initial: boolean): void {
     const { def, joint } = rec;
     if (!joint || (def.type !== 'hinge' && def.type !== 'slider')) return;
@@ -294,7 +490,10 @@ export class PhysicsWorld {
     const gravityChanged = !initial && (prev.gravity[0] !== s.gravity[0] || prev.gravity[1] !== s.gravity[1] || prev.gravity[2] !== s.gravity[2]);
     this.world.gravity = rv(s.gravity);
     // Sleeping bodies would otherwise ignore the new gravity until something touches them.
-    if (gravityChanged) for (const r of this.order) r.rb.wakeUp();
+    if (gravityChanged) {
+      for (const r of this.order) r.rb.wakeUp();
+      for (const r of this.softOrder) for (const b of this.piecesOf(r)) b.wakeUp();
+    }
     this.world.integrationParameters.dt = 1 / s.physicsHz;
     this.world.integrationParameters.numSolverIterations = s.solverIterations;
     if (initial || prev.ground !== s.ground) this.buildGround();
@@ -323,6 +522,7 @@ export class PhysicsWorld {
   }
 
   removeEntities(ids: string[]): void {
+    for (const id of ids) this.removeSoft(id);
     for (const id of ids) {
       const j = this.joints.get(id);
       if (j) {
@@ -437,10 +637,13 @@ export class PhysicsWorld {
       case 'teleport': this.teleport(op.id, op.position, op.rotation, op.keepVelocity); break;
       case 'setVelocity': this.setVelocity(op.id, op.linvel, op.angvel); break;
       case 'grab': this.beginGrab(op.id, op.point, op.target); break;
-      case 'grabMove': if (this.grab) this.grab.target = op.target; break;
-      case 'release': this.grab = null; break;
+      case 'grabMove': if (this.grab) this.grab.target = op.target; if (this.softGrab) this.softGrab.target = op.target; break;
+      case 'release': this.grab = null; this.releaseSoftGrab(); break;
       case 'impulse': this.impulse(op.id, op.impulse, op.point); break;
       case 'explode': this.explode(op.center, op.strength, op.radius); break;
+      case 'addSoft': this.addSoft(op.soft); break;
+      case 'updateSoft': this.removeSoft(op.soft.id); this.addSoft(op.soft); break;
+      case 'grabSoft': this.beginSoftGrab(op.id, op.index, op.target); break;
       case 'wakeAll': for (const r of this.order) r.rb.wakeUp(); break;
     }
   }
@@ -506,6 +709,8 @@ export class PhysicsWorld {
         r.forced = true;
       }
     }
+
+    this.applySoftGrab();
 
     const g = this.grab;
     if (g && !g.rec.disabled) {
@@ -807,6 +1012,7 @@ export class PhysicsWorld {
   builtInfo(): BuiltInfo {
     const mass: Record<string, number> = {};
     const com: Record<string, Vec3> = {};
+    for (const r of this.softOrder) mass[r.id] = r.def.mass;
     for (const r of this.order) {
       mass[r.id] = r.mass;
       const c = r.rb.localCom();
@@ -824,6 +1030,7 @@ export class PhysicsWorld {
       stepMs: this.stepMsEma,
       bodies: this.order.length,
       awake,
+      particles: this.softParticles,
       contacts: this.lastContacts,
       realtimeFactor: this.rtf,
       energy: this.lastEnergy,

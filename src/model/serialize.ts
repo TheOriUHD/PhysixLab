@@ -1,11 +1,13 @@
 import { clamp, type Quat, type Vec3 } from '../core/math';
-import { createBody, createJoint, defaultSettings } from './factory';
+import { createBody, createJoint, createSoft, defaultSettings, softDefaults } from './factory';
 import { normalizeSize } from './shapes';
 import type {
-  BodyEntity, Entity, JointEntity, JointType, SceneDocument, SceneSettings, ShapeType,
+  BodyEntity, Entity, JointEntity, JointType, SceneDocument, SceneSettings, ShapeType, SoftEntity, SoftPin, SoftType,
 } from './types';
 
 const SHAPES: ShapeType[] = ['box', 'sphere', 'cylinder', 'capsule', 'cone', 'wedge', 'prism', 'icosahedron'];
+const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable'];
+const PINS: SoftPin[] = ['none', 'edge', 'corners', 'corners4', 'one-end', 'ends'];
 const JOINTS: JointType[] = ['fixed', 'hinge', 'slider', 'ball', 'spring', 'rope'];
 
 const num = (x: unknown, d: number): number => (typeof x === 'number' && Number.isFinite(x) ? x : d);
@@ -126,6 +128,37 @@ function sanitizeJoint(raw: any): JointEntity {
   };
 }
 
+function sanitizeSoft(raw: any): SoftEntity {
+  const type: SoftType = SOFTS.includes(raw?.type) ? raw.type : 'jelly';
+  const base = createSoft(type);
+  const d = softDefaults(type);
+  const size = vec3(raw?.size, d.size).map((v, i) => (v <= 0 && d.size[i] === 0 ? 0 : Math.max(0.05, v))) as Vec3;
+  const maxRes = type === 'jelly' ? 10 : type === 'balloon' ? 3 : type === 'cloth' ? 40 : 100;
+  const minRes = type === 'balloon' ? 1 : type === 'cable' ? 4 : type === 'cloth' ? 4 : 3;
+  return {
+    ...base,
+    id: str(raw?.id, base.id),
+    name: str(raw?.name, base.name),
+    position: vec3(raw?.position, [0, 1, 0]),
+    rotation: quat(raw?.rotation),
+    size,
+    resolution: clamp(Math.round(num(raw?.resolution, d.resolution)), minRes, maxRes),
+    mass: Math.max(0.01, num(raw?.mass, d.mass)),
+    stiffness: clamp(num(raw?.stiffness, d.stiffness), 1, 400),
+    damping: clamp(num(raw?.damping, d.damping), 0, 2),
+    pin: PINS.includes(raw?.pin) ? raw.pin : 'none',
+    tearStrain: Math.max(0, num(raw?.tearStrain, 0)),
+    selfCollide: bool(raw?.selfCollide, false),
+    gravityScale: num(raw?.gravityScale, 1),
+    linearDamping: Math.max(0, num(raw?.linearDamping, d.linearDamping)),
+    color: str(raw?.color, d.color),
+    roughness: clamp(num(raw?.roughness, d.roughness), 0, 1),
+    opacity: clamp(num(raw?.opacity, d.opacity), 0.05, 1),
+    locked: bool(raw?.locked, false),
+    hidden: bool(raw?.hidden, false),
+  };
+}
+
 function sanitizeSettings(raw: any): SceneSettings {
   const d = defaultSettings();
   const g = raw?.ground ?? {};
@@ -153,7 +186,7 @@ export function sanitizeDocument(raw: any): SceneDocument {
   const seen = new Set<string>();
   for (const r of raw.entities) {
     if (!r || typeof r !== 'object') continue;
-    const e = r.kind === 'joint' ? sanitizeJoint(r) : r.kind === 'body' ? sanitizeBody(r) : null;
+    const e = r.kind === 'joint' ? sanitizeJoint(r) : r.kind === 'body' ? sanitizeBody(r) : r.kind === 'soft' ? sanitizeSoft(r) : null;
     if (!e || seen.has(e.id)) continue;
     seen.add(e.id);
     entities.push(e);
@@ -161,7 +194,7 @@ export function sanitizeDocument(raw: any): SceneDocument {
   // Drop joints that reference bodies that do not exist.
   const bodyIds = new Set(entities.filter((e) => e.kind === 'body').map((e) => e.id));
   const clean = entities.filter(
-    (e) => e.kind === 'body' || ((e.bodyA === null || bodyIds.has(e.bodyA)) && (e.bodyB === null || bodyIds.has(e.bodyB))),
+    (e) => e.kind !== 'joint' || ((e.bodyA === null || bodyIds.has(e.bodyA)) && (e.bodyB === null || bodyIds.has(e.bodyB))),
   );
   return {
     format: 'physicslab-scene',

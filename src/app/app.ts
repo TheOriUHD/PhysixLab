@@ -11,10 +11,11 @@ import { newDocument } from '../model/factory';
 import { cloneEntities, SceneStore } from '../model/store';
 import { TEMPLATE_BY_ID } from '../model/templates';
 import { translateEntities } from '../model/builder';
-import type { BodyEntity, Entity, JointEntity, JointType, SceneDocument, ShapeType } from '../model/types';
-import { isBody, isJoint } from '../model/types';
+import type { BodyEntity, Entity, JointEntity, JointType, SceneDocument, ShapeType, SoftType } from '../model/types';
+import { isBody, isJoint, isSoft } from '../model/types';
 import { halfHeight } from '../model/shapes';
 import { BodyViews } from '../render/bodyViews';
+import { SoftViews } from '../render/softViews';
 import { Effects } from '../render/effects';
 import { Gizmo, type GizmoItem, type GizmoUpdate } from '../render/gizmo';
 import { JointViews } from '../render/jointViews';
@@ -51,6 +52,7 @@ export class App extends Emitter<AppEvents> {
   readonly persistence: Persistence;
   readonly viewport: Viewport;
   readonly bodies: BodyViews;
+  readonly softs: SoftViews;
   readonly joints: JointViews;
   readonly overlays: Overlays;
   readonly picker: Picker;
@@ -64,6 +66,7 @@ export class App extends Emitter<AppEvents> {
   measure: { a: Vector3; b: Vector3 | null } | null = null;
   private measureLine: LineSegments;
   private lastLayout = -1;
+  private lastSoftLayout = -1;
   private fps = 60;
   private fpsAcc = 0;
   private fpsFrames = 0;
@@ -78,6 +81,7 @@ export class App extends Emitter<AppEvents> {
 
     this.viewport = new Viewport(shell.viewportHost);
     this.bodies = new BodyViews(this.viewport.bodies);
+    this.softs = new SoftViews(this.viewport.softs);
     this.joints = new JointViews(this.viewport.joints, this.bodies);
     this.overlays = new Overlays(this.viewport.overlays);
     this.effects = new Effects(this.viewport.helpers);
@@ -225,8 +229,10 @@ export class App extends Emitter<AppEvents> {
   private rebuildAllViews(): void {
     this.bodies.clear();
     this.joints.clear();
+    this.softs.clear();
     for (const e of this.store.all()) {
       if (isBody(e)) this.bodies.add(e);
+      else if (isSoft(e)) this.softs.add(e);
     }
     for (const e of this.store.all()) if (isJoint(e)) this.joints.add(e);
     this.viewport.setGround(this.store.settings.ground);
@@ -243,6 +249,7 @@ export class App extends Emitter<AppEvents> {
         for (const id of c.ids) {
           const e = this.store.get(id);
           if (isBody(e)) this.bodies.add(e);
+          else if (isSoft(e)) this.softs.add(e);
         }
         for (const id of c.ids) {
           const e = this.store.get(id);
@@ -252,6 +259,7 @@ export class App extends Emitter<AppEvents> {
       case 'remove':
         for (const e of c.removed) {
           if (isBody(e)) this.bodies.remove(e.id);
+          else if (isSoft(e)) this.softs.remove(e.id);
           else this.joints.remove(e.id);
         }
         break;
@@ -264,6 +272,8 @@ export class App extends Emitter<AppEvents> {
             // Document poses only drive the view when no live world owns the body.
             if (view && !(this.sim.client.active && this.sim.client.bodyIndex.has(id))) view.setPoseFromDef(e);
           } else if (isJoint(e)) this.joints.update(e);
+          else if (isSoft(e) && !this.sim.client.softIndex.has(id)) this.softs.update(e);
+          else if (isSoft(e)) this.softs.get(id)?.apply(e);
         }
         break;
       case 'settings':
@@ -282,6 +292,8 @@ export class App extends Emitter<AppEvents> {
     }
     for (const [id, def] of this.sim.ephemeral) if (!this.bodies.get(id)) this.bodies.add(def);
     if (!this.sim.active) {
+      this.softs.endSim();
+      this.lastSoftLayout = -1;
       this.bodies.resetStates();
       for (const e of this.store.bodies()) {
         const v = this.bodies.get(e.id);
@@ -299,16 +311,22 @@ export class App extends Emitter<AppEvents> {
 
   private onSelectionChanged(): void {
     const ids = new Set(this.store.selection);
-    const meshes = [];
-    for (const id of ids) {
-      const v = this.bodies.get(id);
-      if (v) meshes.push(v.mesh);
-    }
-    this.viewport.setOutlineTargets(meshes);
+    this.refreshOutline();
     this.joints.setSelected(ids);
     this.jointEnd = 'A';
     this.refreshGizmo();
     this.dirtyColors = true;
+  }
+
+  private refreshOutline(): void {
+    const meshes: import('three').Object3D[] = [];
+    for (const id of this.store.selection) {
+      const v = this.bodies.get(id);
+      if (v) meshes.push(v.mesh);
+      const sm = this.softs.meshOf(id);
+      if (sm) meshes.push(sm);
+    }
+    this.viewport.setOutlineTargets(meshes);
   }
 
   private updateGizmoMode(): void {
@@ -332,6 +350,14 @@ export class App extends Emitter<AppEvents> {
       return items;
     }
     for (const id of sel) {
+      const sf = this.store.soft(id);
+      if (sf) {
+        // Soft bodies are positioned in the editor only; once simulating their particles are free.
+        if (!sf.locked && !sf.hidden && !this.sim.active) {
+          items.push({ id, position: new Vector3(...sf.position), quaternion: new Quaternion(...sf.rotation), size: new Vector3(...sf.size) });
+        }
+        continue;
+      }
       const b = this.store.body(id);
       if (!b || b.locked || b.hidden) continue;
       const pose = this.sim.poseOf(id);
@@ -486,7 +512,7 @@ export class App extends Emitter<AppEvents> {
       }
     }
     if (opts.bodies === false) return null;
-    return this.picker.pick(ev, this.bodies.pickables());
+    return this.picker.pick(ev, [...this.bodies.pickables(), ...this.softs.pickables()]);
   }
 
   /** Point where something new should be placed when the user clicks "add" (centre of the view). */
@@ -525,6 +551,13 @@ export class App extends Emitter<AppEvents> {
     const body = this.editor.addShape(type, at ?? this.viewCenterPlacement(type, createBody({ shape: { type } }).shape.size));
     this.effects.ping(new Vector3(body.position[0], Math.max(0, body.position[1] - halfHeight(body.shape)), body.position[2]));
     return body;
+  }
+
+  addSoft(type: SoftType): void {
+    const t = this.viewport.controls.target;
+    const s = this.prefs.value.snap ? this.prefs.value.snapGrid : 0.01;
+    const sf = this.editor.addSoft(type, undefined, { position: [Math.round(t.x / s) * s, type === 'jelly' ? 0.56 : type === 'balloon' ? 0.55 : 2.4, Math.round(t.z / s) * s] });
+    this.effects.ping(new Vector3(sf.position[0], 0, sf.position[2]));
   }
 
   startJointTool(type: JointType): void {
@@ -585,6 +618,8 @@ export class App extends Emitter<AppEvents> {
     for (const id of ids) {
       const v = this.bodies.get(id);
       if (v) { box.expandByObject(v.mesh); any = true; continue; }
+      const sm = this.softs.meshOf(id);
+      if (sm) { box.expandByObject(sm); any = true; continue; }
       const j = this.store.joint(id);
       if (j) {
         const f = this.joints.frameOf(j, { a: new Vector3(), b: new Vector3(), axis: new Vector3() });
@@ -602,6 +637,11 @@ export class App extends Emitter<AppEvents> {
     for (const v of this.bodies.views.values()) {
       if (v.def.hidden) continue;
       box.expandByObject(v.mesh);
+      any = true;
+    }
+    for (const sv of this.softs.views.values()) {
+      if (sv.def.hidden) continue;
+      box.expandByObject(sv.active);
       any = true;
     }
     if (!any) { this.viewport.flyTo(new Vector3(9, 7, 11), new Vector3(0, 1.2, 0)); return; }
@@ -658,6 +698,13 @@ export class App extends Emitter<AppEvents> {
       }
       this.keepGizmoInSync();
     }
+
+    this.softs.applyFrame(client);
+    if (client.softLayoutNo !== this.lastSoftLayout) {
+      this.lastSoftLayout = client.softLayoutNo;
+      this.refreshOutline();
+    }
+    for (const id of this.softs.views.keys()) this.softs.tint(id, this.store.selection.includes(id));
 
     this.bodies.hoverId = this.hoverId;
     if (live || this.dirtyColors || this.bodies.mode !== 'material') {
@@ -737,6 +784,19 @@ export class App extends Emitter<AppEvents> {
     const p = this.prefs.value;
     this.sim.client.op({ op: 'explode', center: [at.x, at.y, at.z], strength: p.blastStrength, radius: 7 });
     this.effects.shockwave(at, 7);
+  }
+
+  /** Index (within the entity's particle block) of the soft particle closest to a world point. */
+  softParticleAt(id: string, point: Vector3): number {
+    const pos = this.sim.client.softOf(id);
+    if (!pos) return -1;
+    let best = -1, bd = Infinity;
+    for (let i = 0; i < pos.length; i += 3) {
+      const dx = pos[i] - point.x, dy = pos[i + 1] - point.y, dz = pos[i + 2] - point.z;
+      const d = dx * dx + dy * dy + dz * dz;
+      if (d < bd) { bd = d; best = i / 3; }
+    }
+    return best;
   }
 
   /** Net force readout helpers for the inspector. */

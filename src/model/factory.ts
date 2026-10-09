@@ -3,7 +3,7 @@ import { materialFromPreset } from './materials';
 import { defaultSize, SHAPE_LABELS } from './shapes';
 import type {
   BodyEntity, GroundSettings, JointEntity, JointType, MaterialSpec, MotorSpec, SceneDocument,
-  SceneSettings, ShapeSpec, ShapeType,
+  SceneSettings, ShapeSpec, ShapeType, SoftEntity, SoftType,
 } from './types';
 
 let counter = 0;
@@ -139,4 +139,30 @@ export function createJoint(init: JointInit): JointEntity {
     hidden: false,
     ...(rest as Partial<JointEntity>),
   };
+}
+
+// ---- soft bodies -------------------------------------------------------------------------------
+
+export const SOFT_LABELS: Record<SoftType, string> = { jelly: 'Jelly', balloon: 'Balloon', cloth: 'Cloth', cable: 'Cable' };
+
+export function softDefaults(type: SoftType): Omit<SoftEntity, 'kind' | 'id' | 'name' | 'position' | 'rotation'> {
+  const base = { gravityScale: 1, linearDamping: 0.05, tearStrain: 0, selfCollide: false, locked: false, hidden: false };
+  switch (type) {
+    case 'jelly': return { ...base, type, size: [1, 1, 1], resolution: 5, mass: 20, stiffness: 12, damping: 0.15, pin: 'none', color: '#ff6fae', roughness: 0.25, opacity: 0.92 };
+    case 'balloon': return { ...base, type, size: [1, 1, 1], resolution: 2, mass: 1.2, stiffness: 25, damping: 0.2, pin: 'none', color: '#4fc3f7', roughness: 0.2, opacity: 0.9 };
+    case 'cloth': return { ...base, type, size: [2.4, 0, 2.4], resolution: 16, mass: 1.2, stiffness: 40, damping: 0.3, pin: 'none', color: '#ff9d4d', roughness: 0.85, opacity: 1 };
+    case 'cable': return { ...base, type, size: [3, 0, 0], resolution: 24, mass: 1.2, stiffness: 60, damping: 0.3, pin: 'ends', color: '#d7a86e', roughness: 0.7, opacity: 1 };
+  }
+}
+
+export function createSoft(type: SoftType, over: Partial<SoftEntity> = {}): SoftEntity {
+  return {
+    kind: 'soft',
+    id: uid('s'),
+    name: SOFT_LABELS[type],
+    position: [0, 1, 0],
+    rotation: qident(),
+    ...softDefaults(type),
+    ...over,
+  } as SoftEntity;
 }

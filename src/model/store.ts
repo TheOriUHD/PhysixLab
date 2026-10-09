@@ -1,8 +1,8 @@
 import { Emitter } from '../core/events';
 import { vadd, type Vec3 } from '../core/math';
 import { newDocument, uid } from './factory';
-import type { BodyEntity, Entity, JointEntity, SceneDocument, SceneSettings } from './types';
-import { isBody, isJoint } from './types';
+import type { BodyEntity, Entity, JointEntity, SceneDocument, SceneSettings, SoftEntity } from './types';
+import { isBody, isJoint, isSoft } from './types';
 
 export type SceneChange =
   | { type: 'add'; ids: string[] }
@@ -61,6 +61,11 @@ export class SceneStore extends Emitter<StoreEvents> {
   all(): Entity[] { return [...this.entities.values()]; }
   bodies(): BodyEntity[] { return this.all().filter(isBody); }
   joints(): JointEntity[] { return this.all().filter(isJoint); }
+  softs(): SoftEntity[] { return this.all().filter(isSoft); }
+  soft(id: string | null | undefined): SoftEntity | undefined {
+    const e = id ? this.entities.get(id) : undefined;
+    return isSoft(e) ? e : undefined;
+  }
   get size(): number { return this.entities.size; }
   has(id: string): boolean { return this.entities.has(id); }
   jointsOf(bodyId: string): JointEntity[] {
@@ -341,6 +346,9 @@ export function cloneEntities(all: Entity[], ids: string[], offset: Vec3 = [0, 0
     const nid = uid('b');
     map.set(b.id, nid);
     out.push({ ...b, id: nid, position: vadd(b.position, offset) });
+  }
+  for (const s of all) {
+    if (isSoft(s) && idSet.has(s.id)) out.push({ ...s, id: uid('s'), position: vadd(s.position, offset) });
   }
   for (const j of all) {
     if (!isJoint(j)) continue;

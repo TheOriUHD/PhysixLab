@@ -14,7 +14,7 @@ import { Emitter } from '../core/events';
 import type { Quat, Vec3 } from '../core/math';
 import type { SceneStore } from '../model/store';
 import type { BodyEntity } from '../model/types';
-import { isBody, isJoint } from '../model/types';
+import { isBody, isJoint, isSoft } from '../model/types';
 import { SimClient } from '../physics/client';
 import { B, BODY_STRIDE } from '../physics/protocol';
 
@@ -128,7 +128,7 @@ export class SimController extends Emitter<Events> {
         };
       }
     }
-    const e = this.store.body(id) ?? this.ephemeral.get(id);
+    const e = this.store.body(id) ?? this.store.soft(id) ?? this.ephemeral.get(id);
     return e ? { position: e.position, rotation: e.rotation } : null;
   }
 
@@ -177,6 +177,7 @@ export class SimController extends Emitter<Events> {
         for (const id of c.ids) {
           const e = this.store.get(id);
           if (isJoint(e)) this.client.op({ op: 'addJoint', joint: e });
+          else if (isSoft(e)) this.client.op({ op: 'addSoft', soft: e });
         }
         break;
       case 'remove':
@@ -192,6 +193,10 @@ export class SimController extends Emitter<Events> {
             const onlyPose = [...c.keys].every((k) => EDITOR_ONLY.has(k) || k === 'position' || k === 'rotation');
             if (!onlyPose) this.client.op({ op: 'updateBody', body: e });
           } else if (isJoint(e)) this.client.op({ op: 'updateJoint', joint: e });
+          else if (isSoft(e)) {
+            const onlyPose = [...c.keys].every((k) => EDITOR_ONLY.has(k) || k === 'position' || k === 'rotation');
+            if (!onlyPose) this.client.op({ op: 'updateSoft', soft: e });
+          }
         }
         break;
       }

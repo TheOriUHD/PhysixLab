@@ -1,7 +1,7 @@
 /** Tiny builder DSL shared by the example scenes and the prefab library. */
 import { DEG, qfromAxisAngle, qrotInv, vsub, type Quat, type Vec3 } from '../core/math';
-import { createBody, createJoint, newDocument } from './factory';
-import type { BodyEntity, Entity, JointEntity, JointType, MaterialSpec, MotorSpec, SceneDocument, ShapeType } from './types';
+import { createBody, createJoint, createSoft, newDocument } from './factory';
+import type { BodyEntity, Entity, JointEntity, JointType, MaterialSpec, MotorSpec, SceneDocument, ShapeType, SoftEntity, SoftType } from './types';
 
 export type BodyOpts = Omit<Partial<BodyEntity>, 'material'> & { material?: string | Partial<MaterialSpec> };
 
@@ -17,6 +17,12 @@ export class Builder {
     });
     this.doc.entities.push(b);
     return b;
+  }
+
+  soft(name: string, type: SoftType, position: Vec3, over: Partial<SoftEntity> = {}): SoftEntity {
+    const s = createSoft(type, { name, position, ...over });
+    this.doc.entities.push(s);
+    return s;
   }
 
   /** Joint at a world point; `axis` is a world-space axis (hinge / slider). */
@@ -56,7 +62,7 @@ export const idleMotor = (): MotorSpec => ({
 
 export function translateEntities(list: Entity[], d: Vec3): Entity[] {
   return list.map((e) => {
-    if (e.kind === 'body') return { ...e, position: [e.position[0] + d[0], e.position[1] + d[1], e.position[2] + d[2]] as Vec3 };
+    if (e.kind !== 'joint') return { ...e, position: [e.position[0] + d[0], e.position[1] + d[1], e.position[2] + d[2]] as Vec3 };
     return {
       ...e,
       anchorA: e.bodyA ? e.anchorA : ([e.anchorA[0] + d[0], e.anchorA[1] + d[1], e.anchorA[2] + d[2]] as Vec3),

@@ -155,8 +155,47 @@ export interface JointEntity {
   hidden: boolean;
 }
 
-export type Entity = BodyEntity | JointEntity;
+/**
+ * Deformable bodies (engine soft-body solver): jelly lattices, balloons, cloth and cables.
+ * Particles live in the physics worker; the document only stores the recipe.
+ */
+export type SoftType = 'jelly' | 'balloon' | 'cloth' | 'cable';
+export type SoftPin = 'none' | 'edge' | 'corners' | 'corners4' | 'one-end' | 'ends';
 
+export interface SoftEntity {
+  kind: 'soft';
+  id: string;
+  name: string;
+  type: SoftType;
+  position: Vec3;
+  rotation: Quat;
+  /**
+   * jelly: box extents · balloon: diameter (x) · cloth: width (x) × depth (z) · cable: length (x).
+   * Cloth lies in its local XZ plane, cables run along local X.
+   */
+  size: Vec3;
+  /** Lattice density: particles per side (jelly), subdivisions (balloon), per side (cloth) or per cable. */
+  resolution: number;
+  /** Total mass in kg. */
+  mass: number;
+  /** Material stiffness as a natural frequency (Hz): higher = stiffer. */
+  stiffness: number;
+  /** Damping ratio of the material (0 = bouncy, 1 = heavily damped). */
+  damping: number;
+  pin: SoftPin;
+  /** Edges tear beyond this strain (0 = cannot tear). */
+  tearStrain: number;
+  selfCollide: boolean;
+  gravityScale: number;
+  linearDamping: number;
+  color: string;
+  roughness: number;
+  opacity: number;
+  locked: boolean;
+  hidden: boolean;
+}
+
+export type Entity = BodyEntity | JointEntity | SoftEntity;
 export interface GroundSettings {
   enabled: boolean;
   friction: number;
@@ -186,3 +225,4 @@ export interface SceneDocument {
 
 export const isBody = (e: Entity | undefined | null): e is BodyEntity => !!e && e.kind === 'body';
 export const isJoint = (e: Entity | undefined | null): e is JointEntity => !!e && e.kind === 'joint';
+export const isSoft = (e: Entity | undefined | null): e is SoftEntity => !!e && e.kind === 'soft';

@@ -6,12 +6,12 @@
 import {
   qconj, qmul, qrot, qrotInv, vadd, vlen, vnorm, vsub, type Quat, type Vec3,
 } from '../core/math';
-import { createBody, createJoint } from '../model/factory';
+import { createBody, createJoint, createSoft, SOFT_LABELS } from '../model/factory';
 import { MATERIAL_PRESETS } from '../model/materials';
 import { defaultSize, normalizeSize, SHAPE_LABELS } from '../model/shapes';
 import { cloneEntities, type SceneStore } from '../model/store';
-import type { BodyEntity, Entity, JointEntity, JointType, ShapeType } from '../model/types';
-import { isBody } from '../model/types';
+import type { BodyEntity, Entity, JointEntity, JointType, ShapeType, SoftEntity, SoftType } from '../model/types';
+import { isBody, isSoft } from '../model/types';
 import type { GizmoUpdate } from '../render/gizmo';
 import type { SimController } from './simController';
 
@@ -46,6 +46,16 @@ export class Editor {
     });
     this.store.add([body], `Add ${SHAPE_LABELS[type]}`);
     return body;
+  }
+
+  /** Add a soft body (jelly, balloon, cloth, cable) at a position, or in front of the view. */
+  addSoft(type: SoftType, at?: Vec3, over: Partial<SoftEntity> = {}): SoftEntity {
+    const proto = createSoft(type);
+    const h = type === 'jelly' ? proto.size[1] / 2 + 0.06 : type === 'balloon' ? proto.size[0] / 2 + 0.05 : type === 'cloth' ? 2.2 : 2.2;
+    const pos: Vec3 = at ?? [0, h, 0];
+    const soft = createSoft(type, { name: this.store.uniqueName(SOFT_LABELS[type]), position: pos, ...over });
+    this.store.add([soft], `Add ${SOFT_LABELS[type]}`);
+    return soft;
   }
 
   /** Create a joint between two endpoints, deriving local anchors from current poses. */
@@ -92,12 +102,18 @@ export class Editor {
   /** Apply gizmo output. While simulating, poses go to the live world and are not saved. */
   applyGizmo(updates: GizmoUpdate[]): void {
     if (this.sim.active) {
-      for (const u of updates) this.sim.teleport(u.id, u.position, u.rotation);
+      for (const u of updates) if (this.store.body(u.id)) this.sim.teleport(u.id, u.position, u.rotation);
       return;
     }
     const patches: [string, Partial<Entity>][] = [];
     for (const u of updates) {
       const e = this.store.get(u.id);
+      if (isSoft(e)) {
+        const patch: Partial<SoftEntity> = { position: u.position, rotation: u.rotation };
+        if (u.scale) patch.size = softSizeFromScale(e, u.scale);
+        patches.push([u.id, patch]);
+        continue;
+      }
       if (!isBody(e)) continue;
       const patch: Partial<BodyEntity> = { position: u.position, rotation: u.rotation };
       if (u.scale) patch.shape = { ...e.shape, size: normalizeSize(e.shape.type, u.scale, e.shape.size) };
@@ -108,8 +124,8 @@ export class Editor {
 
   /** Set a body's pose from an inspector field. */
   setPose(id: string, position: Vec3, rotation: Quat): void {
-    if (this.sim.active) this.sim.teleport(id, position, rotation);
-    else this.store.update(id, { position, rotation } as Partial<BodyEntity>, 'Transform');
+    if (this.sim.active && !this.store.soft(id)) this.sim.teleport(id, position, rotation);
+    else if (!this.sim.active) this.store.update(id, { position, rotation } as Partial<Entity>, 'Transform');
   }
 
   translate(ids: string[], delta: Vec3): void {
@@ -122,8 +138,8 @@ export class Editor {
     }
     const patches: [string, Partial<Entity>][] = [];
     for (const id of ids) {
-      const e = this.store.body(id);
-      if (e && !e.locked) patches.push([id, { position: vadd(e.position, delta) } as Partial<BodyEntity>]);
+      const e = this.store.body(id) ?? this.store.soft(id);
+      if (e && !e.locked) patches.push([id, { position: vadd(e.position, delta) } as Partial<Entity>]);
     }
     this.store.updateMany(patches, 'Move');
   }
@@ -222,5 +238,21 @@ export class Editor {
 
   nextPreset(): string {
     return MATERIAL_PRESETS[this.spawnCounter % MATERIAL_PRESETS.length].id;
+  }
+}
+
+/** Map a gizmo scale (new size) onto the dimensions a soft body actually has. */
+function softSizeFromScale(e: SoftEntity, s: Vec3): Vec3 {
+  const m = (v: number) => Math.max(0.1, v);
+  switch (e.type) {
+    case 'jelly': return [m(s[0]), m(s[1]), m(s[2])];
+    case 'balloon': {
+      // Uniform: follow whichever axis the user dragged the most.
+      const k = [0, 1, 2].reduce((best, i) => (Math.abs(s[i] - e.size[0]) > Math.abs(s[best] - e.size[0]) ? i : best), 0);
+      const d = m(s[k]);
+      return [d, d, d];
+    }
+    case 'cloth': return [m(s[0]), 0, m(s[2])];
+    case 'cable': return [m(s[0]), 0, 0];
   }
 }

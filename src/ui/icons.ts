@@ -54,6 +54,11 @@ const PATHS: Record<string, string> = {
   wedge: '<path d="M3 18h18L21 8z"/><path d="M3 18l4-3h14M21 8l-4 3.5"/>',
   prism: '<path d="M12 3l7 4v8l-7 4-7-4V7z"/><path d="M12 3v8M5 7l7 4 7-4"/>',
   icosahedron: '<path d="M12 2l8.5 5v10L12 22l-8.5-5V7z"/><path d="M12 2L7 10l5 3 5-3zM7 10l-3.5-3M17 10l3.5-3M7 10l5 12M17 10l-5 12M7 10v0"/>',
+  // soft bodies
+  jelly: '<path d="M5 8c0-2 1.5-3 3.5-3h7C17.5 5 19 6 19 8v8c0 2-1.5 3-3.5 3h-7C6.5 19 5 18 5 16z"/><path d="M8 11c1.3-1 2.7-1 4 0s2.7 1 4 0M8 14.5c1.3-1 2.7-1 4 0s2.7 1 4 0"/>',
+  balloon: '<path d="M12 3a6.5 6.5 0 0 0-6.5 6.5c0 4 3.5 7 6.5 8.5 3-1.5 6.5-4.5 6.5-8.5A6.5 6.5 0 0 0 12 3z"/><path d="M12 18l-1.5 3h3z"/><path d="M9 7.5c.5-1 1.3-1.6 2.3-1.8"/>',
+  cloth: '<path d="M3 6c3-2 6 2 9 0s6 2 9 0v10c-3 2-6-2-9 0s-6-2-9 0z"/><path d="M3 11c3-2 6 2 9 0s6 2 9 0" opacity=".55"/>',
+  cable: '<path d="M3 5c0 7 18 7 18 0"/><circle cx="3" cy="5" r="1.6" fill="currentColor"/><circle cx="21" cy="5" r="1.6" fill="currentColor"/>',
   // joints
   hinge: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3"/><path d="M5.6 8.2a7.5 7.5 0 0 1 12.8 0"/><path d="M18.4 8.2l.4-3M18.4 8.2l-3-.4"/>',
   slider: '<path d="M3 12h18"/><rect x="9" y="8" width="6" height="8" rx="1.5"/><path d="M3 9v6M21 9v6"/>',

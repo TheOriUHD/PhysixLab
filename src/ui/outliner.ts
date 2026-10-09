@@ -1,7 +1,7 @@
 import type { App } from '../app/app';
-import { JOINT_TYPE_LABELS } from '../model/factory';
+import { JOINT_TYPE_LABELS, SOFT_LABELS } from '../model/factory';
 import type { Entity } from '../model/types';
-import { isBody } from '../model/types';
+import { isBody, isSoft } from '../model/types';
 import { clear, h } from './dom';
 import { icon } from './icons';
 
@@ -41,13 +41,13 @@ export class Outliner {
     clear(this.list);
     const { store } = this.app;
     const all = store.all().filter((e) => !this.filter || e.name.toLowerCase().includes(this.filter));
-    const bodies = all.filter(isBody), joints = all.filter((e) => !isBody(e));
+    const bodies = all.filter((e) => isBody(e) || isSoft(e)), joints = all.filter((e) => !isBody(e) && !isSoft(e));
     if (!all.length) {
       this.list.appendChild(h('div', { class: 'empty-state' }, h('p', null, this.filter ? 'No matches.' : 'The scene is empty.')));
       return;
     }
     if (bodies.length) {
-      this.list.appendChild(h('div', { class: 'o-group' }, h('span', null, 'Bodies'), h('span', null, String(bodies.length))));
+      this.list.appendChild(h('div', { class: 'o-group' }, h('span', null, 'Bodies & soft bodies'), h('span', null, String(bodies.length))));
       for (const b of bodies) this.list.appendChild(this.item(b));
     }
     if (joints.length) {
@@ -60,10 +60,12 @@ export class Outliner {
   private item(e: Entity): HTMLElement {
     const { store, editor } = this.app;
     const sel = store.selection.includes(e.id);
-    const ic = isBody(e) ? icon(e.shape.type) : icon(JOINT_ICON[e.type]);
-    const name = h('span', { class: 'o-name', title: isBody(e) ? `${e.name} — ${e.bodyType}` : `${e.name} — ${JOINT_TYPE_LABELS[e.type]}` }, e.name);
-    const tools = h('span', { class: `o-tools ${e.hidden || (isBody(e) && e.locked) ? 'has' : ''}` });
-    if (isBody(e)) {
+    const ic = isBody(e) ? icon(e.shape.type) : isSoft(e) ? icon(e.type) : icon(JOINT_ICON[e.type]);
+    const title = isBody(e) ? `${e.name} — ${e.bodyType}` : isSoft(e) ? `${e.name} — soft ${SOFT_LABELS[e.type].toLowerCase()}` : `${e.name} — ${JOINT_TYPE_LABELS[e.type]}`;
+    const name = h('span', { class: 'o-name', title }, e.name);
+    const lockable = isBody(e) || isSoft(e);
+    const tools = h('span', { class: `o-tools ${e.hidden || (lockable && e.locked) ? 'has' : ''}` });
+    if (lockable) {
       const lock = h('button', { class: `o-tool ${e.locked ? 'active' : ''}`, type: 'button', title: e.locked ? 'Unlock' : 'Lock in the editor' }, icon(e.locked ? 'lock' : 'unlock'));
       lock.addEventListener('click', (ev) => { ev.stopPropagation(); editor.toggleFlag([e.id], 'locked'); });
       tools.appendChild(lock);
@@ -72,7 +74,7 @@ export class Outliner {
     vis.addEventListener('click', (ev) => { ev.stopPropagation(); editor.toggleFlag([e.id], 'hidden'); });
     tools.appendChild(vis);
     const row = h('div', { class: `o-item ${sel ? 'sel' : ''} ${e.hidden ? 'hidden-item' : ''}`, dataset: { id: e.id } },
-      ic, isBody(e) ? h('span', { class: 'o-swatch', style: { background: e.material.color } }) : null, name, tools);
+      ic, isBody(e) ? h('span', { class: 'o-swatch', style: { background: e.material.color } }) : isSoft(e) ? h('span', { class: 'o-swatch', style: { background: e.color } }) : null, name, tools);
     row.addEventListener('click', (ev) => {
       if (ev.shiftKey && this.anchor) {
         const ids = [...this.list.querySelectorAll<HTMLElement>('.o-item')].map((x) => x.dataset.id!);

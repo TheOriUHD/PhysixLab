@@ -3,13 +3,20 @@ import { JOINT_TYPE_LABELS } from '../model/factory';
 import { PREFABS } from '../model/prefabs';
 import { SHAPE_LABELS } from '../model/shapes';
 import { TEMPLATES } from '../model/templates';
-import type { JointType, ShapeType } from '../model/types';
+import { SOFT_LABELS } from '../model/factory';
+import type { JointType, ShapeType, SoftType } from '../model/types';
 import { button } from './controls';
 import { h, clear } from './dom';
 import { icon } from './icons';
 import { confirmReplace, importDocument } from './topbar';
 
 const SHAPES: ShapeType[] = ['box', 'sphere', 'cylinder', 'capsule', 'cone', 'wedge', 'prism', 'icosahedron'];
+const SOFTS: { type: SoftType; blurb: string }[] = [
+  { type: 'jelly', blurb: 'Squishy volumetric block' },
+  { type: 'balloon', blurb: 'Inflated elastic shell' },
+  { type: 'cloth', blurb: 'Drapes and tears. Pin an edge or corners to hang it' },
+  { type: 'cable', blurb: 'Flexible rope or cable. Pinned at both ends by default' },
+];
 const JOINTS: { type: JointType; blurb: string }[] = [
   { type: 'fixed', blurb: 'Locks two bodies together rigidly' },
   { type: 'hinge', blurb: 'Rotation about one axis — doors, wheels, arms. Add limits and a motor.' },
@@ -64,6 +71,15 @@ function addTab(app: App): HTMLElement {
     tiles.appendChild(t);
   });
   root.appendChild(tiles);
+
+  root.appendChild(h('div', { class: 'group-title' }, 'Soft bodies'));
+  const st = h('div', { class: 'tiles' });
+  for (const s of SOFTS) {
+    const t = h('button', { class: 'tile', type: 'button', title: `${s.blurb} — click to add` }, icon(s.type), SOFT_LABELS[s.type]);
+    t.addEventListener('click', () => app.addSoft(s.type));
+    st.appendChild(t);
+  }
+  root.appendChild(st);
 
   root.appendChild(h('div', { class: 'group-title' }, 'Connect & constrain'));
   const jt = h('div', { class: 'tiles three' });

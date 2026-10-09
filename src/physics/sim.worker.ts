@@ -41,16 +41,19 @@ async function handle(m: ToWorker): Promise<void> {
       }
       const poses = sim.readPoses(alpha);
       const joints = sim.readJoints();
+      const soft = sim.readSoft(); // after readPoses: adds soft-body energy to the totals
       const contacts = m.wantContacts ? sim.readContacts() : undefined;
       const layoutChanged = sim.layoutVersion !== announcedLayout;
       announcedLayout = sim.layoutVersion;
-      const transfer: Transferable[] = [poses.buffer, joints.buffer];
+      const transfer: Transferable[] = [poses.buffer, joints.buffer, soft.positions.buffer];
       if (contacts) transfer.push(contacts.buffer);
       post(
         {
           type: 'frame',
           poses,
           joints,
+          softLayout: soft.layout,
+          softPositions: soft.positions,
           contacts,
           bodyIds: layoutChanged ? sim.bodyIds : undefined,
           jointIds: layoutChanged ? sim.jointIds : undefined,

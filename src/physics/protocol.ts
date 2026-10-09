@@ -3,7 +3,7 @@
  * The worker owns the Rapier world; the main thread owns the scene document.
  */
 import type { Quat, Vec3 } from '../core/math';
-import type { BodyEntity, JointEntity, SceneDocument, SceneSettings } from '../model/types';
+import type { BodyEntity, JointEntity, SceneDocument, SceneSettings, SoftEntity } from '../model/types';
 
 /** Floats per body in the pose buffer. */
 export const BODY_STRIDE = 18;
@@ -44,6 +44,9 @@ export type SimOp =
   | { op: 'release' }
   | { op: 'impulse'; id: string; impulse: Vec3; point: Vec3 }
   | { op: 'explode'; center: Vec3; strength: number; radius: number }
+  | { op: 'addSoft'; soft: SoftEntity }
+  | { op: 'updateSoft'; soft: SoftEntity }
+  | { op: 'grabSoft'; id: string; index: number; target: Vec3 }
   | { op: 'wakeAll' };
 
 export type ToWorker =
@@ -70,6 +73,15 @@ export interface EnergyStats {
   momentum: Vec3;
 }
 
+/** Triangle (jelly, balloon, cloth) or line-segment (cable) topology of one soft body. */
+export interface SoftLayoutEntry {
+  id: string;
+  mode: 'tri' | 'line';
+  /** Total particles (all pieces after tearing); positions are concatenated in this order. */
+  count: number;
+  indices: Uint32Array;
+}
+
 export interface SimStats {
   simTime: number;
   stepCount: number;
@@ -77,6 +89,8 @@ export interface SimStats {
   stepMs: number;
   bodies: number;
   awake: number;
+  /** Soft-body particle count (all soft bodies). */
+  particles: number;
   contacts: number;
   /** Simulated seconds advanced per wall-clock second divided by the requested time scale. */
   realtimeFactor: number;
@@ -100,6 +114,10 @@ export type FromWorker =
       bodyIds?: string[];
       jointIds?: string[];
       joints: Float32Array;
+      /** Present when a soft body was added / removed / torn. */
+      softLayout?: SoftLayoutEntry[];
+      /** xyz per particle, entities concatenated in `softLayout` order. */
+      softPositions?: Float32Array;
       contacts?: Float32Array;
       stats: SimStats;
       events: SimEvent[];

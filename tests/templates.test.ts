@@ -19,6 +19,8 @@ describe('every example scene', () => {
       expect(clean.entities.length).toBe(doc.entities.length);
       const w = await PhysicsWorld.create(clean);
       run(w, 4);
+      const soft = w.readSoft();
+      expect(soft.positions.every(Number.isFinite), 'soft particles are finite').toBe(true);
       for (const b of doc.entities) {
         if (b.kind !== 'body') continue;
         const p = w.getPose(b.id)!;
@@ -27,6 +29,51 @@ describe('every example scene', () => {
       }
     });
   }
+});
+
+describe('soft-body scenes', () => {
+  it('banner tears under the wrecking ball', async () => {
+    const doc = byId('banner').build();
+    const w = await PhysicsWorld.create(doc);
+    const n0 = w.readSoft().layout![0].count;
+    run(w, 3);
+    const r = w.readSoft();
+    log('banner particles', n0, '→', r.positions.length / 3, 'layout changed', !!r.layout);
+    expect(r.layout).toBeDefined();
+    expect(r.positions.length / 3).toBeGreaterThan(n0);
+  });
+
+  it('cloth drapes over the sphere instead of falling through it', async () => {
+    const doc = byId('cloth').build();
+    const w = await PhysicsWorld.create(doc);
+    run(w, 4);
+    const { positions } = w.readSoft();
+    // Particles of the first (free) cloth: the first 22×22. None may be inside the sphere (centre y 1.3, r 0.8, x −3).
+    let inside = 0;
+    for (let i = 0; i < 22 * 22; i++) {
+      const d = Math.hypot(positions[3 * i] + 3, positions[3 * i + 1] - 1.3, positions[3 * i + 2]);
+      if (d < 0.78) inside++;
+    }
+    expect(inside).toBe(0);
+  });
+
+  it('jelly cubes of different stiffness deform differently', async () => {
+    const doc = byId('jelly').build();
+    const w = await PhysicsWorld.create(doc);
+    const minHeight = [1e9, 1e9, 1e9];
+    for (let i = 0; i < 120 * 3; i++) {
+      w.stepOnce();
+      if (i % 4) continue;
+      const { positions } = w.readSoft();
+      for (let k = 0; k < 3; k++) {
+        let lo = 1e9, hi = -1e9;
+        for (let n = 0; n < 125; n++) { const y = positions[3 * (k * 125 + n) + 1]; lo = Math.min(lo, y); hi = Math.max(hi, y); }
+        if (i > 60) minHeight[k] = Math.min(minHeight[k], hi - lo);
+      }
+    }
+    log('jelly min heights stiff/medium/soft', minHeight);
+    expect(minHeight[2]).toBeLessThan(minHeight[0] - 0.05); // the soft cube squashes much more than the stiff one
+  });
 });
 
 describe('scene behaviour', () => {

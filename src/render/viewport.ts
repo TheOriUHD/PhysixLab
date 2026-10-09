@@ -90,6 +90,7 @@ export class Viewport {
 
   /** Parent groups for the other render modules. */
   readonly bodies = new Group();
+  readonly softs = new Group();
   readonly joints = new Group();
   readonly overlays = new Group();
   readonly helpers = new Group();
@@ -134,7 +135,7 @@ export class Viewport {
     this.camera.position.set(9, 7, 11);
 
     this.scene.fog = new Fog(0x1b2330, 60, 260);
-    this.scene.add(this.bodies, this.joints, this.overlays, this.helpers);
+    this.scene.add(this.bodies, this.softs, this.joints, this.overlays, this.helpers);
 
     // ---- sky + environment ------------------------------------------------------------------
     const skyMat = new ShaderMaterial({

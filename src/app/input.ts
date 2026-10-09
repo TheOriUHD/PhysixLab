@@ -97,6 +97,26 @@ export class InputController {
     if (hit.end) app.setJointEnd(hit.end);
     if (additive) store.toggleSelection(id);
     else if (!store.selection.includes(id)) store.setSelection([id]);
+    const soft = store.soft(id);
+    if (soft) {
+      if (app.sim.active) {
+        // Drag the nearest particle: the lattice follows, so cloth drapes and jelly wobbles.
+        const idx = app.softParticleAt(id, hit.point);
+        if (idx >= 0) {
+          const n = this.cam.getWorldDirection(new Vector3()).negate();
+          const plane = new Plane().setFromNormalAndCoplanarPoint(n, hit.point);
+          app.sim.client.op({ op: 'grabSoft', id, index: idx, target: [hit.point.x, hit.point.y, hit.point.z] });
+          this.g = { kind: 'grab', plane, id };
+          app.viewport.dom.classList.add('grabbing');
+        }
+        return;
+      }
+      if (soft.locked) return;
+      const sids = store.selection.filter((s) => (store.body(s) ?? store.soft(s)) && !(store.body(s) ?? store.soft(s))!.locked);
+      const sstarts = new Map<string, Vec3>(sids.map((s) => [s, (store.body(s) ?? store.soft(s))!.position]));
+      this.g = { kind: 'dragMove', ids: sids, starts: sstarts, p0: hit.point.clone(), plane: e.shiftKey ? 'vertical' : 'ground', startClient: [e.clientX, e.clientY], moved: false, primary: id };
+      return;
+    }
     const body = store.body(id);
     if (!body) return;
 
@@ -111,8 +131,9 @@ export class InputController {
       return;
     }
     if (body.locked) return;
-    const ids = store.selection.filter((s) => store.body(s) && !store.body(s)!.locked);
-    const starts = new Map<string, Vec3>(ids.map((s) => [s, store.body(s)!.position]));
+    const movable = (s: string) => store.body(s) ?? store.soft(s);
+    const ids = store.selection.filter((s) => movable(s) && !movable(s)!.locked);
+    const starts = new Map<string, Vec3>(ids.map((s) => [s, movable(s)!.position]));
     this.g = { kind: 'dragMove', ids, starts, p0: hit.point.clone(), plane: e.shiftKey ? 'vertical' : 'ground', startClient: [e.clientX, e.clientY], moved: false, primary: id };
   }
 

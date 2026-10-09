@@ -3,7 +3,7 @@
  * and the renderer (visual meshes). Everything here is pure maths on ShapeSpec.
  */
 import type { Vec3 } from '../core/math';
-import type { ShapeSpec, ShapeType } from './types';
+import type { ShapeSpec, ShapeType, SoftEntity } from './types';
 
 export const SHAPE_LABELS: Record<ShapeType, string> = {
   box: 'Box',
@@ -145,4 +145,18 @@ export function boundingRadius(shape: ShapeSpec): number {
 /** Half height of the shape along local Y (used to rest new objects on the ground). */
 export function halfHeight(shape: ShapeSpec): number {
   return shape.size[1] / 2;
+}
+
+/**
+ * Collision radius of one soft-body particle. It also sets how far the visible surface hovers
+ * above whatever it rests on, so it is kept small relative to the lattice spacing.
+ */
+export function softParticleRadius(def: Pick<SoftEntity, 'type' | 'size' | 'resolution'>): number {
+  const n = Math.max(2, def.resolution);
+  switch (def.type) {
+    case 'jelly': return Math.min(0.05, Math.max(0.012, (Math.min(...def.size) / (n - 1)) * 0.2));
+    case 'balloon': return 0.02;
+    case 'cloth': return Math.min(0.03, Math.max(0.01, (Math.min(def.size[0], def.size[2]) / (n - 1)) * 0.15));
+    case 'cable': return 0.03;
+  }
 }

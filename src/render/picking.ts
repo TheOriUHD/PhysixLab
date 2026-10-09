@@ -17,6 +17,7 @@ export class Picker {
 
   constructor(private dom: HTMLElement, private camera: Camera) {
     this.ray.params.Line = { threshold: 0.1 };
+    (this.ray.params as unknown as { Line2: { threshold: number } }).Line2 = { threshold: 10 };
   }
 
   private setRay(ev: { clientX: number; clientY: number }): void {

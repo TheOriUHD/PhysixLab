@@ -10,7 +10,7 @@ import type { BodyEntity, SceneDocument } from './types';
 export interface TemplateInfo {
   id: string;
   name: string;
-  category: 'Vehicles' | 'Mechanisms' | 'Structures' | 'Physics labs' | 'Playground';
+  category: 'Vehicles' | 'Mechanisms' | 'Structures' | 'Physics labs' | 'Soft bodies' | 'Playground';
   blurb: string;
   /** Short hint shown after loading. */
   hint: string;
@@ -328,7 +328,53 @@ function springsLab(): SceneDocument {
   return b.done();
 }
 
+function jellyPlayground(): SceneDocument {
+  const b = new Builder('Jelly playground');
+  b.body('Platform', 'box', [7, 0.5, 4], [0, 0.25, 0], { bodyType: 'static', material: 'concrete' });
+  b.body('Ramp', 'wedge', [3, 1.2, 4], [4.6, 0.6, 0], { bodyType: 'static', rotation: rotY(-90), material: 'concrete' });
+  const kinds: [string, number, string, number][] = [['Stiff jelly', 45, '#5be3a1', -2.3], ['Medium jelly', 14, '#ffb347', 0], ['Soft jelly', 7, '#ff6fae', 2.3]];
+  for (const [name, k, color, x] of kinds) {
+    b.soft(name, 'jelly', [x, 3.2, 0], { stiffness: k, color, damping: 0.12, mass: 20, size: [0.9, 0.9, 0.9], resolution: 5 });
+  }
+  b.soft('Balloon', 'balloon', [-3.4, 4.6, 1.2], { color: '#4fc3f7', size: [1, 1, 1], mass: 1.5, stiffness: 25 });
+  b.soft('Balloon 2', 'balloon', [3.4, 5.2, -1.1], { color: '#c792ff', size: [0.9, 0.9, 0.9], mass: 1.2, stiffness: 25 });
+  b.body('Rubber ball', 'sphere', [0.4, 0.4, 0.4], [-0.05, 7.5, 0.05], { material: 'rubber' });
+  b.body('Foam ball', 'sphere', [0.7, 0.7, 0.7], [2.3, 9, 0], { material: 'foam' });
+  return b.done();
+}
+
+function clothDrape(): SceneDocument {
+  const b = new Builder('Cloth drape & hammock');
+  b.body('Pedestal', 'cylinder', [1.5, 0.5, 1.5], [-3, 0.25, 0], { bodyType: 'static', material: 'concrete' });
+  b.body('Sphere', 'sphere', [1.6, 1.6, 1.6], [-3, 1.3, 0], { bodyType: 'static', material: 'ceramic' });
+  b.soft('Cloth', 'cloth', [-3, 3.4, 0], { size: [3, 0, 3], resolution: 22, stiffness: 45, damping: 0.4, color: '#e8553d' });
+  // Hammock: four pinned corners, loaded with balls.
+  for (const [x, z] of [[2, -1.1], [5.2, -1.1], [2, 1.1], [5.2, 1.1]]) b.body('Post', 'cylinder', [0.18, 3, 0.18], [x, 1.5, z], { bodyType: 'static', material: 'steel' });
+  b.soft('Hammock', 'cloth', [3.6, 2.9, 0], { size: [3.2, 0, 2.2], resolution: 16, pin: 'corners4', stiffness: 30, damping: 0.5, color: '#3d8bff' });
+  b.body('Ball', 'sphere', [0.6, 0.6, 0.6], [3.2, 4.5, 0], { material: 'foam' });
+  b.body('Heavy ball', 'sphere', [0.4, 0.4, 0.4], [4.2, 6, 0.2], { material: 'wood' });
+  return b.done();
+}
+
+function tearingBanner(): SceneDocument {
+  const b = new Builder('Tearing banner');
+  b.body('Post L', 'box', [0.25, 4.4, 0.25], [-2.1, 2.2, 0], { bodyType: 'static', material: 'steel' });
+  b.body('Post R', 'box', [0.25, 4.4, 0.25], [2.1, 2.2, 0], { bodyType: 'static', material: 'steel' });
+  b.body('Cross bar', 'box', [4.5, 0.18, 0.18], [0, 4.4, 0], { bodyType: 'static', material: 'steel' });
+  // Cloth plane rotated to stand vertically; its first row (local −z edge) hangs from the bar.
+  b.soft('Banner', 'cloth', [0, 2.1, 0], {
+    size: [3.8, 0, 4.6], resolution: 22, pin: 'edge', stiffness: 60, damping: 0.25, tearStrain: 0.35, color: '#ff9d4d',
+    rotation: qfromAxisAngle([1, 0, 0], Math.PI / 2),
+  });
+  b.body('Wrecking ball', 'sphere', [0.8, 0.8, 0.8], [0, 2.4, 9], { material: { preset: 'steel', density: 700 }, velocity: [0, 1.2, -11], ccd: true });
+  b.body('Crate', 'box', [0.7, 0.7, 0.7], [0.4, 0.35, -2.5], { material: 'wood' });
+  return b.done();
+}
+
 export const TEMPLATES: TemplateInfo[] = [
+  { id: 'jelly', name: 'Jelly playground', category: 'Soft bodies', blurb: 'Jelly cubes of three stiffnesses, balloons and balls — deformable bodies from a lattice solver.', hint: 'Press Play, then drag a jelly cube with the mouse. Change a cube’s stiffness in the inspector.', view: { position: [0, 4.5, 11], target: [0, 2, 0] }, build: jellyPlayground },
+  { id: 'cloth', name: 'Cloth drape & hammock', category: 'Soft bodies', blurb: 'A cloth settles over a sphere; a four-corner hammock catches falling balls.', hint: 'Press Play. Grab the cloth by a corner and shake it.', view: { position: [0.5, 5, 11], target: [0.5, 2, 0] }, build: clothDrape },
+  { id: 'banner', name: 'Tearing banner', category: 'Soft bodies', blurb: 'A banner with a tear strain: rip it with the wrecking ball, or fire your own projectiles.', hint: 'Press Play and watch the tear. Select the banner and change its tear strain; use the Fire tool (T) for more shots.', view: { position: [-5, 3.5, 10], target: [0, 2.4, 0] }, build: tearingBanner },
   { id: 'car', name: 'Drivable car', category: 'Vehicles', blurb: 'Independent spring-damper suspension, steered front wheels and rear-wheel drive — all joints and motors.', hint: 'Press Play, then drive with W / S (throttle, reverse) and A / D (steer). Select a joint to tune its motor.', view: { position: [6.5, 3.2, 7.5], target: [1, 0.5, 0] }, follow: 'Chassis', build: () => buildCar(true) },
   { id: 'wreck', name: 'Wrecking ball', category: 'Playground', blurb: 'A chain of ball-jointed links swings a dense ball into a brick wall.', hint: 'Press Play and watch the wall go. You can drag objects with the mouse while it runs.', view: { position: [-3, 5, 13], target: [-1, 3, 0] }, build: wreckingBall },
   { id: 'lever', name: 'Lever launcher', category: 'Mechanisms', blurb: 'A counterweight drops onto a hinged lever and fires a ball at a crate tower.', hint: 'Press Play. Try a different counterweight material, or slide the fulcrum.', build: leverLauncher },
