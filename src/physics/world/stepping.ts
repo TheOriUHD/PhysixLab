@@ -16,6 +16,16 @@ export function fixedDt(s: WorldState): number {
   return 1 / s.settings.physicsHz;
 }
 
+/** Engine sub-steps per fixed step (`settings.substeps`, at least 1). */
+export function substepCount(s: WorldState): number {
+  return Math.max(1, Math.round(s.settings.substeps));
+}
+
+/** Length of one engine step: the fixed step divided into `substeps` equal parts. */
+export function engineDt(s: WorldState): number {
+  return fixedDt(s) / substepCount(s);
+}
+
 /** Apply motors, thrusters and the grab springs before a step. */
 function preStep(s: WorldState, dt: number): void {
   for (const j of s.jointOrder) if (j.def.motor.mode !== 'off' || j.cache[0] !== 0) driveMotor(s, j, dt);
@@ -39,11 +49,15 @@ function postStep(s: WorldState): void {
   }
 }
 
-/** Advance the simulation by exactly one fixed step. */
+/**
+ * Advance the simulation by exactly one fixed step: the pre-step hooks run once, then the engine takes
+ * `settings.substeps` equal steps (its integration `dt` is `engineDt`, see `applySettings`) so stiff
+ * contacts and joints converge better without changing the fixed-step bookkeeping or the interpolation.
+ */
 export function stepOnce(s: WorldState): void {
   const dt = fixedDt(s);
   preStep(s, dt);
-  s.world.step();
+  for (let i = substepCount(s); i > 0; i--) s.world.step();
   s.simTime += dt;
   s.simSinceRead += dt;
   s.stepCount++;

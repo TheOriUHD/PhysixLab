@@ -1,44 +1,54 @@
-import { clamp, type Quat, type Vec3 } from '../core/math';
-import { createBody, createJoint, createSoft, defaultSettings, softDefaults } from './factory';
+import { clamp, type Vec3 } from '../core/math';
+import { SceneFormatError, type LoadReport } from './errors';
+import {
+  createBody,
+  createJoint,
+  createSoft,
+  defaultBounds,
+  defaultEnvironment,
+  defaultSettings,
+  defaultUnits,
+  softDefaults,
+} from './factory';
+import { LIMITS, formatBytes, formatCount } from './limits';
+import { SCENE_FORMAT, SCENE_VERSION, migrateDocument } from './migrations';
+import {
+  bool,
+  bool3,
+  hexColor,
+  idStr,
+  int,
+  nameStr,
+  num,
+  oneOf,
+  position3,
+  quat,
+  str,
+  vec3,
+} from './sanitize/primitives';
 import { normalizeSize } from './shapes';
 import type {
   BodyEntity,
+  BoundsSettings,
+  EnvironmentSettings,
   Entity,
   JointEntity,
   JointType,
   SceneDocument,
   SceneSettings,
   ShapeType,
+  SkyPreset,
   SoftEntity,
   SoftPin,
   SoftType,
+  UnitsSettings,
 } from './types';
 
 const SHAPES: ShapeType[] = ['box', 'sphere', 'cylinder', 'capsule', 'cone', 'wedge', 'prism', 'icosahedron'];
 const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable'];
 const PINS: SoftPin[] = ['none', 'edge', 'corners', 'corners4', 'one-end', 'ends'];
 const JOINTS: JointType[] = ['fixed', 'hinge', 'slider', 'ball', 'spring', 'rope'];
-
-const num = (x: unknown, d: number): number => (typeof x === 'number' && Number.isFinite(x) ? x : d);
-const bool = (x: unknown, d: boolean): boolean => (typeof x === 'boolean' ? x : d);
-const str = (x: unknown, d: string): string => (typeof x === 'string' ? x : d);
-function vec3(x: unknown, d: Vec3): Vec3 {
-  if (Array.isArray(x) && x.length === 3 && x.every((n) => typeof n === 'number' && Number.isFinite(n))) {
-    return [x[0], x[1], x[2]];
-  }
-  return [...d] as Vec3;
-}
-function bool3(x: unknown): [boolean, boolean, boolean] {
-  if (Array.isArray(x) && x.length === 3) return [!!x[0], !!x[1], !!x[2]];
-  return [false, false, false];
-}
-function quat(x: unknown): Quat {
-  if (Array.isArray(x) && x.length === 4 && x.every((n) => typeof n === 'number' && Number.isFinite(n))) {
-    const l = Math.hypot(x[0], x[1], x[2], x[3]);
-    if (l > 1e-9) return [x[0] / l, x[1] / l, x[2] / l, x[3] / l];
-  }
-  return [0, 0, 0, 1];
-}
+const SKIES: SkyPreset[] = ['studio', 'day', 'sunset', 'night', 'overcast'];
 
 function sanitizeBody(raw: any): BodyEntity {
   const type: ShapeType = SHAPES.includes(raw?.shape?.type) ? raw.shape.type : 'box';
@@ -56,14 +66,14 @@ function sanitizeBody(raw: any): BodyEntity {
       : null;
   return {
     ...base,
-    id: str(raw?.id, base.id),
-    name: str(raw?.name, base.name),
+    id: idStr(raw?.id, base.id),
+    name: nameStr(raw?.name, base.name),
     shape: {
       type,
       size: normalizeSize(type, vec3(raw?.shape?.size, base.shape.size)),
       ...(type === 'prism' ? { sides: clamp(Math.round(num(raw?.shape?.sides, 6)), 3, 32) } : {}),
     },
-    position: vec3(raw?.position, [0, 0, 0]),
+    position: position3(raw?.position, [0, 0, 0]),
     rotation: quat(raw?.rotation),
     bodyType,
     material: {
@@ -101,8 +111,8 @@ function sanitizeJoint(raw: any): JointEntity {
   const s = raw?.spring ?? {};
   return {
     ...base,
-    id: str(raw?.id, base.id),
-    name: str(raw?.name, base.name),
+    id: idStr(raw?.id, base.id),
+    name: nameStr(raw?.name, base.name),
     bodyA: typeof raw?.bodyA === 'string' ? raw.bodyA : null,
     bodyB: typeof raw?.bodyB === 'string' ? raw.bodyB : null,
     anchorA,
@@ -147,9 +157,9 @@ function sanitizeSoft(raw: any): SoftEntity {
   const minRes = type === 'balloon' ? 1 : type === 'cable' ? 4 : type === 'cloth' ? 4 : 3;
   return {
     ...base,
-    id: str(raw?.id, base.id),
-    name: str(raw?.name, base.name),
-    position: vec3(raw?.position, [0, 1, 0]),
+    id: idStr(raw?.id, base.id),
+    name: nameStr(raw?.name, base.name),
+    position: position3(raw?.position, [0, 1, 0]),
     rotation: quat(raw?.rotation),
     size,
     resolution: clamp(Math.round(num(raw?.resolution, d.resolution)), minRes, maxRes),
@@ -169,6 +179,46 @@ function sanitizeSoft(raw: any): SoftEntity {
   };
 }
 
+function sanitizeEnvironment(raw: any): EnvironmentSettings {
+  const d = defaultEnvironment();
+  const f = raw?.fog ?? {};
+  return {
+    sky: oneOf(raw?.sky, SKIES, d.sky),
+    timeOfDay: clamp(num(raw?.timeOfDay, d.timeOfDay), 0, 24),
+    fog: {
+      enabled: bool(f.enabled, d.fog.enabled),
+      color: hexColor(f.color, d.fog.color),
+      density: clamp(num(f.density, d.fog.density), 0, 1),
+    },
+    exposure: clamp(num(raw?.exposure, d.exposure), 0.1, 8),
+  };
+}
+
+function sanitizeBounds(raw: any): BoundsSettings {
+  const d = defaultBounds();
+  const lo = position3(raw?.min, d.min);
+  const hi = position3(raw?.max, d.max);
+  // Opposite corners may arrive in any order; a degenerate (zero-thickness) axis is opened up by a metre.
+  const min = lo.map((v, i) => Math.min(v, hi[i])) as BoundsSettings['min'];
+  const max = lo.map((v, i) => Math.max(v, hi[i])) as BoundsSettings['max'];
+  for (let i = 0; i < 3; i++) if (max[i] - min[i] < 1e-3) max[i] = min[i] + 1;
+  return {
+    enabled: bool(raw?.enabled, d.enabled),
+    min,
+    max,
+    policy: oneOf(raw?.policy, ['kill', 'respawn'], d.policy),
+  };
+}
+
+function sanitizeUnits(raw: any): UnitsSettings {
+  const d = defaultUnits();
+  return {
+    length: oneOf(raw?.length, ['m', 'cm', 'ft', 'in'], d.length),
+    mass: oneOf(raw?.mass, ['kg', 'g', 'lb'], d.mass),
+    angle: oneOf(raw?.angle, ['deg', 'rad'], d.angle),
+  };
+}
+
 function sanitizeSettings(raw: any): SceneSettings {
   const d = defaultSettings();
   const g = raw?.ground ?? {};
@@ -184,13 +234,29 @@ function sanitizeSettings(raw: any): SceneSettings {
     physicsHz: [60, 120, 240, 480].includes(raw?.physicsHz) ? raw.physicsHz : d.physicsHz,
     solverIterations: clamp(Math.round(num(raw?.solverIterations, d.solverIterations)), 1, 32),
     airDrag: Math.max(0, num(raw?.airDrag, 0)),
+    seed: Math.floor(clamp(num(raw?.seed, d.seed), 0, 0xffffffff)),
+    substeps: int(raw?.substeps, d.substeps, 1, 16),
+    environment: sanitizeEnvironment(raw?.environment),
+    bounds: sanitizeBounds(raw?.bounds),
+    units: sanitizeUnits(raw?.units),
   };
 }
 
-/** Validate + upgrade arbitrary parsed JSON into a well-formed SceneDocument. Throws on garbage. */
-export function sanitizeDocument(raw: any): SceneDocument {
-  if (!raw || typeof raw !== 'object' || raw.format !== 'physicslab-scene' || !Array.isArray(raw.entities)) {
-    throw new Error('Not a PhysicsLab scene file.');
+/**
+ * Validate + upgrade arbitrary parsed JSON into a well-formed SceneDocument. This is the single entry for
+ * every way a scene reaches the app (file, autosave, library, share link, templates in tests).
+ *
+ * It runs the migration chain, enforces the size limits in `limits.ts` (throwing a `SceneFormatError` with
+ * a user-facing message) and repairs everything else: unknown fields dropped, missing fields defaulted,
+ * bad numbers clamped, joints referring to missing bodies removed. Pass a `report` to learn what was repaired.
+ */
+export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument {
+  const raw = migrateDocument(input) as any;
+  if (raw.entities.length > LIMITS.maxEntities) {
+    throw new SceneFormatError(
+      'limit',
+      `This scene has ${formatCount(raw.entities.length)} objects; PhysicsLab opens scenes of up to ${formatCount(LIMITS.maxEntities)}. Split it into several scenes.`,
+    );
   }
   const entities: Entity[] = [];
   const seen = new Set<string>();
@@ -214,12 +280,14 @@ export function sanitizeDocument(raw: any): SceneDocument {
     (e) =>
       e.kind !== 'joint' || ((e.bodyA === null || bodyIds.has(e.bodyA)) && (e.bodyB === null || bodyIds.has(e.bodyB))),
   );
+  void report;
   return {
-    format: 'physicslab-scene',
-    version: 1,
-    name: str(raw.name, 'Untitled scene'),
+    format: SCENE_FORMAT,
+    version: SCENE_VERSION,
+    name: nameStr(raw.name, 'Untitled scene'),
     settings: sanitizeSettings(raw.settings),
     entities: clean,
+    assets: {},
   };
 }
 
@@ -227,12 +295,18 @@ export function serializeDocument(doc: SceneDocument): string {
   return JSON.stringify(doc);
 }
 
-export function parseDocument(text: string): SceneDocument {
+export function parseDocument(text: string, report?: LoadReport): SceneDocument {
+  if (text.length > LIMITS.maxDocumentChars) {
+    throw new SceneFormatError(
+      'limit',
+      `This file is ${formatBytes(text.length)}; PhysicsLab opens scene files of up to ${formatBytes(LIMITS.maxDocumentChars)}.`,
+    );
+  }
   let raw: unknown;
   try {
     raw = JSON.parse(text);
   } catch {
-    throw new Error('File is not valid JSON.');
+    throw new SceneFormatError('invalid-json', 'File is not valid JSON.');
   }
-  return sanitizeDocument(raw);
+  return sanitizeDocument(raw, report);
 }

@@ -1,7 +1,8 @@
 import { Emitter } from '../core/events';
 import { vadd, type Vec3 } from '../core/math';
 import { newDocument, uid } from './factory';
-import type { BodyEntity, Entity, JointEntity, SceneDocument, SceneSettings, SoftEntity } from './types';
+import { SCENE_FORMAT, SCENE_VERSION } from './migrations';
+import type { Asset, BodyEntity, Entity, JointEntity, SceneDocument, SceneSettings, SoftEntity } from './types';
 import { isBody, isJoint, isSoft } from './types';
 
 export type SceneChange =
@@ -39,6 +40,8 @@ const prop = (o: object, k: string): unknown => (o as Record<string, unknown>)[k
 export class SceneStore extends Emitter<StoreEvents> {
   private entities = new Map<string, Entity>();
   settings: SceneSettings = newDocument().settings;
+  /** Binary payloads (see the asset store section of types.ts); replaced, never mutated, so history can share it. */
+  assets: Record<string, Asset> = {};
   name = 'Untitled scene';
   selection: string[] = [];
   /** Increments on every document mutation (used for autosave / dirty tracking). */
@@ -91,11 +94,12 @@ export class SceneStore extends Emitter<StoreEvents> {
 
   toDocument(): SceneDocument {
     return {
-      format: 'physicslab-scene',
-      version: 1,
+      format: SCENE_FORMAT,
+      version: SCENE_VERSION,
       name: this.name,
       settings: this.settings,
       entities: this.all(),
+      assets: this.assets,
     };
   }
 
@@ -229,6 +233,7 @@ export class SceneStore extends Emitter<StoreEvents> {
     this.entities = new Map();
     for (const e of doc.entities) this.entities.set(e.id, e);
     this.settings = doc.settings;
+    this.assets = doc.assets;
     this.name = doc.name;
     this.selection = [];
     this.past = [];

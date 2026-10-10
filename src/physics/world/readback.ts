@@ -8,7 +8,7 @@
 import { qslerp } from '../../core/math';
 import { BODY_STRIDE, CONTACT_STRIDE, J, JOINT_STRIDE, type SimEvent } from '../protocol';
 import { springElasticEnergy } from './energy';
-import { fixedDt } from './stepping';
+import { engineDt } from './stepping';
 import { measureJoint } from './joints';
 import type { WorldState } from './state';
 
@@ -103,7 +103,8 @@ export function readJoints(s: WorldState, out?: Float32Array): Float32Array {
 export function readContacts(s: WorldState, max = 800): Float32Array {
   const out: number[] = [];
   let total = 0;
-  const dt = fixedDt(s);
+  // Contact impulses belong to the last engine (sub-)step, so the force estimate divides by its length.
+  const dt = engineDt(s);
   for (const r of s.order) {
     if (r.def.bodyType !== 'dynamic' || r.disabled || r.rb.isSleeping()) continue;
     const c = r.col;

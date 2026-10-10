@@ -1,8 +1,11 @@
 import { qident, type Quat, type Vec3 } from '../core/math';
 import { materialFromPreset } from './materials';
+import { SCENE_FORMAT, SCENE_VERSION } from './migrations';
 import { defaultSize, SHAPE_LABELS } from './shapes';
 import type {
   BodyEntity,
+  BoundsSettings,
+  EnvironmentSettings,
   GroundSettings,
   JointEntity,
   JointType,
@@ -14,6 +17,7 @@ import type {
   ShapeType,
   SoftEntity,
   SoftType,
+  UnitsSettings,
 } from './types';
 
 let counter = 0;
@@ -32,6 +36,18 @@ export function defaultGround(): GroundSettings {
   return { enabled: true, friction: 0.8, restitution: 0.1, halfSize: 60, color: '#2b3038' };
 }
 
+export function defaultEnvironment(): EnvironmentSettings {
+  return { sky: 'studio', timeOfDay: 12, fog: { enabled: false, color: '#9db4cc', density: 0.01 }, exposure: 1 };
+}
+
+export function defaultBounds(): BoundsSettings {
+  return { enabled: false, min: [-100, -50, -100], max: [100, 100, 100], policy: 'kill' };
+}
+
+export function defaultUnits(): UnitsSettings {
+  return { length: 'm', mass: 'kg', angle: 'deg' };
+}
+
 export function defaultSettings(): SceneSettings {
   return {
     gravity: [...DEFAULT_GRAVITY],
@@ -39,11 +55,16 @@ export function defaultSettings(): SceneSettings {
     physicsHz: 120,
     solverIterations: 6,
     airDrag: 0,
+    seed: 1,
+    substeps: 1,
+    environment: defaultEnvironment(),
+    bounds: defaultBounds(),
+    units: defaultUnits(),
   };
 }
 
 export function newDocument(name = 'Untitled scene'): SceneDocument {
-  return { format: 'physicslab-scene', version: 1, name, settings: defaultSettings(), entities: [] };
+  return { format: SCENE_FORMAT, version: SCENE_VERSION, name, settings: defaultSettings(), entities: [], assets: {} };
 }
 
 export interface BodyInit {

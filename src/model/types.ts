@@ -205,7 +205,141 @@ export interface SceneSettings {
   solverIterations: number;
   /** Global linear air resistance (adds to every body's own damping), 1/s. */
   airDrag: number;
+
+  // ── FB-11: seed, substeps, environment, bounds, units ──────────────────────────────────────────
+  /** Seed of the world's random number generator (unsigned 32-bit). Stored now; stochastic features use it. */
+  seed: number;
+  /** Engine sub-steps per fixed step (1–16): the fixed step is divided into this many equal engine steps. */
+  substeps: number;
+  /** Sky / light / fog look of the scene — storage only, the renderer applies it in a later package. */
+  environment: EnvironmentSettings;
+  /** World bounds and what happens to bodies that leave them — storage only. */
+  bounds: BoundsSettings;
+  /** Display units — storage only (the engine always works in m, kg, s, rad). */
+  units: UnitsSettings;
 }
+
+export type SkyPreset = 'studio' | 'day' | 'sunset' | 'night' | 'overcast';
+
+export interface EnvironmentSettings {
+  sky: SkyPreset;
+  /** Solar time in hours, 0–24. */
+  timeOfDay: number;
+  fog: { enabled: boolean; color: string; /** Exponential density, 1/m. */ density: number };
+  /** Tone-mapping exposure multiplier. */
+  exposure: number;
+}
+
+export type BoundsPolicy = 'kill' | 'respawn';
+
+export interface BoundsSettings {
+  enabled: boolean;
+  /** Opposite corners of the allowed box, world space. */
+  min: Vec3;
+  max: Vec3;
+  /** 'kill' switches a body that leaves the box off; 'respawn' returns it to its starting pose. */
+  policy: BoundsPolicy;
+}
+
+export type LengthUnit = 'm' | 'cm' | 'ft' | 'in';
+export type MassUnit = 'kg' | 'g' | 'lb';
+export type AngleUnit = 'deg' | 'rad';
+
+export interface UnitsSettings {
+  length: LengthUnit;
+  mass: MassUnit;
+  angle: AngleUnit;
+}
+
+// ── FB-4: asset store ───────────────────────────────────────────────────────────────────────────────
+// Large binary payloads (meshes, textures, heightmaps, audio, opaque blobs) live once in `doc.assets`
+// and are referenced by id. Typed arrays are stored as base64 strings so the document stays plain JSON.
+
+export type AssetKind = 'mesh' | 'texture' | 'heightmap' | 'audio' | 'blob';
+
+interface AssetBase {
+  id: string;
+  kind: AssetKind;
+  /** Display name (file name, "Imported mesh", …). */
+  name: string;
+  /** Content hash of the payload — equal hashes mean identical content (used to dedupe). */
+  hash: string;
+  /** Decoded payload size in bytes (counts towards the asset size caps). */
+  bytes: number;
+}
+
+export interface MeshMaterialSlot {
+  name: string;
+  color: string;
+  metalness: number;
+  roughness: number;
+  opacity: number;
+}
+
+/** A run of triangles that uses one entry of `MeshAsset.materials`. */
+export interface MeshGroup {
+  /** First index in `indices`. */
+  start: number;
+  /** Number of indices (a multiple of 3). */
+  count: number;
+  materialIndex: number;
+}
+
+export interface MeshAsset extends AssetBase {
+  kind: 'mesh';
+  vertexCount: number;
+  indexCount: number;
+  /** base64 Float32Array, xyz per vertex. */
+  positions: string;
+  /** base64 Uint32Array, three vertex indices per triangle. */
+  indices: string;
+  /** base64 Float32Array, xyz per vertex. */
+  normals?: string;
+  /** base64 Float32Array, uv per vertex. */
+  uvs?: string;
+  materials?: MeshMaterialSlot[];
+  groups?: MeshGroup[];
+}
+
+export interface TextureAsset extends AssetBase {
+  kind: 'texture';
+  /** `data:image/png|jpeg|webp|gif;base64,…` */
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
+export interface HeightmapAsset extends AssetBase {
+  kind: 'heightmap';
+  /** Samples along x and z. */
+  width: number;
+  height: number;
+  /** base64 Float32Array, `width × height` heights in 0–1, row-major along x. */
+  heights: string;
+  /** World size of the terrain: x extent, height of sample value 1, z extent (metres). */
+  scale: Vec3;
+}
+
+export interface AudioAsset extends AssetBase {
+  kind: 'audio';
+  sampleRate: number;
+  channels: number;
+  /** base64 Float32Array, interleaved samples in −1…1. */
+  samples: string;
+}
+
+export interface BlobAsset extends AssetBase {
+  kind: 'blob';
+  mime: string;
+  /** base64 bytes. */
+  data: string;
+}
+
+export type Asset = MeshAsset | TextureAsset | HeightmapAsset | AudioAsset | BlobAsset;
+
+/** What callers hand to `SceneStore.addAsset`: the store assigns `id`, `hash` and `bytes`. */
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+export type AssetInput = DistributiveOmit<Asset, 'id' | 'hash' | 'bytes'>;
 
 export interface SceneDocument {
   format: 'physicslab-scene';
@@ -213,6 +347,8 @@ export interface SceneDocument {
   name: string;
   settings: SceneSettings;
   entities: Entity[];
+  /** Binary payloads referenced by entities (see the asset store section above). */
+  assets: Record<string, Asset>;
 }
 
 export const isBody = (e: Entity | undefined | null): e is BodyEntity => !!e && e.kind === 'body';

@@ -1,8 +1,9 @@
-/** Scene settings applied to the live world: gravity, step rate, solver iterations, air drag, ground. */
+/** Scene settings applied to the live world: gravity, step rate and sub-steps, solver iterations, air drag, ground. */
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { SceneSettings } from '../../model/types';
 import { piecesOf } from './soft';
 import type { WorldState } from './state';
+import { engineDt } from './stepping';
 import { rv } from './util';
 
 export function applySettings(s: WorldState, next: SceneSettings, initial = false): void {
@@ -17,7 +18,7 @@ export function applySettings(s: WorldState, next: SceneSettings, initial = fals
     for (const r of s.order) r.rb.wakeUp();
     for (const r of s.softOrder) for (const b of piecesOf(s, r)) b.wakeUp();
   }
-  s.world.integrationParameters.dt = 1 / next.physicsHz;
+  s.world.integrationParameters.dt = engineDt(s);
   s.world.integrationParameters.numSolverIterations = next.solverIterations;
   if (initial || prev.ground !== next.ground) buildGround(s);
   if (prev.airDrag !== next.airDrag) {

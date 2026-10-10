@@ -10,3 +10,6 @@ physicslab-dist.zip
 *.css
 *.html
 *.md
+
+# scene fixtures are kept byte-exact as the app that wrote them produced them
+tests/fixtures
