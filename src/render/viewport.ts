@@ -50,6 +50,7 @@ import { DEFAULT_HIGHLIGHT, PALETTES, SelectionDecor, type HighlightOptions } fr
 import { PostStack } from './postStack';
 import { DualCamera } from './dualCamera'; // -- CM-A --
 import { ViewGrid, type ViewPlane } from './viewGrid'; // -- CM-A --
+import { Weather } from './weather'; // -- VZ-B: weather (VZ-23) --
 
 export type Quality = QualityChoice;
 
@@ -147,6 +148,8 @@ export class Viewport {
   private highlight: HighlightOptions = DEFAULT_HIGHLIGHT;
   private multiSelect = false;
   readonly decor = new SelectionDecor();
+  // -- VZ-B: weather --
+  readonly weather: Weather;
   private graphics: GraphicsOptions = DEFAULT_GRAPHICS;
   private governor: Governor | null = null;
   private probedTier: QualityTier = 'high';
@@ -269,6 +272,7 @@ export class Viewport {
     this.shadowCatcher.receiveShadow = true;
     this.scene.add(this.slab, this.grid, this.shadowCatcher, this.viewGrid.mesh);
     this.setGround({ enabled: true, friction: 0.8, restitution: 0.1, halfSize: 60, color: '#2b3038' });
+    this.weather = new Weather(this.scene, container, this.bodies, this.slab.material as Material); // -- VZ-B: weather --
 
     // ---- controls ---------------------------------------------------------------------------
     this.controls = new OrbitControls(this.camera, this.dom);
@@ -636,6 +640,7 @@ export class Viewport {
     this.updateViewGrid();
 
     this.post.focusDistance = this.camera.position.distanceTo(this.controls.target);
+    this.weather.update(dt, this.camera, this.controls.target, this.activeTier); // -- VZ-B: weather --
     this.post.render(dt);
     this.renderer.autoClear = false;
     this.viewHelper.render(this.renderer);
@@ -720,6 +725,7 @@ export class Viewport {
     this.viewGrid.dispose();
     this.resizeObserver.disconnect();
     this.controls.dispose();
+    this.weather.dispose(); // -- VZ-B: weather --
     this.post.dispose();
     this.renderer.dispose();
   }

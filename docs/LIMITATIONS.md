@@ -162,3 +162,11 @@ The pin tool nails rigid bodies to the world with a hinge, ball or fixed joint, 
 * **Assets (meshes, textures) are not synchronised**; entities referring to an asset the receiver lacks lose that reference.
 * **Undo is local** and not collaborative (see `docs/COLLAB.md`). Conflicts are per-field last-writer-wins.
 * Joining replaces the guest's scene. Each remote batch re-sanitises the whole document, so very large shared scenes feel heavy.
+
+## Weather (VZ-23)
+
+* Rain, snow, leaves and dust are camera-following instanced billboards: they fall through everything (no occlusion under roofs or bodies, no splashes or ripples, nothing settles on the ground), and clip at the ground plane y = 0.
+* The "puddle-wet look" is lowered roughness plus a slightly darker colour on the ground and on standard materials, swept about every 0.75 s; there are no actual puddles or extra reflections. Custom shader materials and skins with their own materials are not wetted.
+* Lightning is a capped screen flash plus brighter particles, not a real light: it does not light the scene or cast shadows, and there is no thunder sound. With "reduce motion" the flash is dimmed to 25 %.
+* The scene wind is stored in the weather block (the project had none); it drives weather particles and the effects package's particles, but does not push physics bodies (use a constant-force component for that).
+

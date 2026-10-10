@@ -15,6 +15,7 @@ import { LIMITS, formatBytes, formatCount } from './limits';
 import { pruneAssets, remapAssetRefs } from './assets';
 import { sanitizeAssetMap } from './sanitize/assets';
 import { sanitizeCameras } from './sanitize/cameras'; // -- CM-A --
+import { sanitizeWeatherField } from './sanitize/weather'; // -- VZ-B: weather --
 import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
 import { dedupeComponentIds, repairComponentRefs, sanitizeComponents } from './componentRegistry';
 import { outlinerMetaFields, sanitizeSelectionSets } from './sanitize/outlinerMeta'; // -- UI-A --
@@ -380,6 +381,7 @@ function sanitizeSettings(raw: any): SceneSettings {
     bounds: sanitizeBounds(raw?.bounds),
     units: sanitizeUnits(raw?.units),
     selectionSets: sanitizeSelectionSets(raw?.selectionSets), // -- UI-A --
+    ...sanitizeWeatherField(raw?.weather), // -- VZ-B: weather --
   };
 }
 

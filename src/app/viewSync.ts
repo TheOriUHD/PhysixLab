@@ -11,6 +11,7 @@ import type { SceneChange } from '../model/store';
 import type { Entity } from '../model/types';
 import type { SimClient } from '../physics/client';
 import type { App } from './app';
+import { applyWeather } from './weatherSync'; // -- VZ-B: weather --
 
 export class ViewSync {
   private lastLayout = -1;
@@ -33,6 +34,7 @@ export class ViewSync {
     }
     for (const e of app.store.all()) if (isJoint(e)) app.joints.add(e);
     app.viewport.setGround(app.store.settings.ground);
+    applyWeather(app); // -- VZ-B: weather --
     this.onSelectionChanged();
     app.emit('scene', undefined);
   }
@@ -81,6 +83,7 @@ export class ViewSync {
         break;
       case 'settings':
         if (c.keys.has('ground')) app.viewport.setGround(app.store.settings.ground);
+        if (c.keys.has('weather') || c.keys.has('seed')) applyWeather(app); // -- VZ-B: weather --
         break;
       case 'assets':
         break; // nothing is drawn from assets yet

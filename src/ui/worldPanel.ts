@@ -14,6 +14,7 @@ import { GRAVITY_PRESETS } from '../model/gravityPresets';
 import { h } from './dom';
 import { buildBoundsSection } from './boundsSection'; // -- ZN
 import { buildGraphicsSection } from './graphicsSection'; // -- VZ-B: graphics (VZ-20..22)
+import { buildWeatherSection } from './weatherSection'; // -- VZ-B: weather --
 
 /** Scene-wide physics + environment settings. */
 export function buildWorldPanel(app: App): HTMLElement {
@@ -174,6 +175,10 @@ export function buildWorldPanel(app: App): HTMLElement {
   upd.push(bounds.refresh);
   // -- VZ-B: graphics quality, anti-aliasing, shadows and the post-processing stack (VZ-20..22) --
   el.append(buildGraphicsSection(app).el);
+  // -- VZ-B: weather (VZ-23)
+  const weather = buildWeatherSection(app);
+  el.append(weather.el);
+  upd.push(weather.refresh);
 
   const refresh = () => upd.forEach((u) => u());
   store.on('change', refresh);

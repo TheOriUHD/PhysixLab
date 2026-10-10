@@ -512,12 +512,33 @@ export interface SceneSettings {
   // -- UI-A: named selection sets (UI-21) --
   /** Named groups of entity ids the outliner saves and recalls. */
   selectionSets: SelectionSet[];
+  // -- VZ-B: weather --
+  /** Per-scene weather (VZ-23). Absent = clear. */
+  weather?: WeatherSettings;
 }
 
 /** A named, saved selection (UI-21). Ids of removed entities are skipped when it is recalled. */
 export interface SelectionSet {
   name: string;
   ids: string[];
+}
+
+// -- VZ-B: weather --
+export type WeatherKind = 'none' | 'rain' | 'snow' | 'leaves' | 'dust';
+
+/** Weather of a scene: GPU particles, the wind they (and the effects package) feel, wet surfaces, lightning. */
+export interface WeatherSettings {
+  kind: WeatherKind;
+  /** 0–1: scales the particle count (and the lightning rate). */
+  intensity: number;
+  /** Random lightning flashes (a brief screen flash; gentler with "reduce motion"). */
+  lightning: boolean;
+  /** 0–1: how wet the surfaces look (roughness down, darker ground). Rain wets at least as much as its intensity. */
+  wet: number;
+  /** Wind speed, m/s (0–40). The one scene wind: weather particles and the effects package both drift with it. */
+  windSpeed: number;
+  /** Direction the wind blows towards, degrees clockwise from −Z (0 = −Z, 90 = +X). */
+  windDir: number;
 }
 
 export type SkyPreset = 'studio' | 'day' | 'sunset' | 'night' | 'overcast';
