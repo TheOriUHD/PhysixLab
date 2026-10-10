@@ -113,3 +113,7 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 5. Instanced rendering and GPU-side picking for very large scenes.
 6. Community gallery on top of the existing share-link format.
 7. Challenges/objectives (reach a target, hold a load) evaluated by the same telemetry.
+
+## Share links v2 (DT-20)
+
+The compact share link stores non-integer numbers with 6 significant digits and renames entity ids to `e0`, `e1` … when opened, so a scene opened from a link is physically equivalent to the original but not bit-identical (chaotic scenes can diverge over a long run). Use *Export file* for exact transfer. Old `#scene=` (v1) links keep working.
