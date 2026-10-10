@@ -603,6 +603,11 @@ describe('menus resolve from the registry', () => {
       'Frame selection',
       '---',
       'Use current simulation state as the starting layout',
+      '---',
+      'Copy joint settings to selected joints',
+      'Mirror joints with bodies: X = 0',
+      'Mirror joints with bodies: Y = 0',
+      'Mirror joints with bodies: Z = 0',
     ]);
     expect(find(edit, 'Undo').disabled).toBe(true);
     expect(find(edit, 'Undo').kbd).toBe('Ctrl+Z');

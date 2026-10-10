@@ -15,6 +15,9 @@ import { isJoint } from '../../model/types';
 import { clear, h } from '../dom';
 import { icon } from '../icons';
 import { InspectorContext } from './shared';
+// -- UI-A: inspector upgrades (toolbar, filter, resets, label scrubbing) --
+import { onUiModeChange } from '../uiMode';
+import { enhanceInspector } from './upgrades/enhance';
 
 export class Inspector {
   readonly el: HTMLElement = h('div', { class: 'panel-body' });
@@ -42,6 +45,8 @@ export class Inspector {
     app.on('pathPoint', () => this.refresh());
     // A section registered (or removed) later shows up at once.
     inspectorSectionRegistry.onChange(() => this.render());
+    // -- UI-A: Simple / Advanced mode rewords the labels --
+    onUiModeChange(() => this.render());
     this.render();
   }
 
@@ -63,6 +68,8 @@ export class Inspector {
       return;
     }
     for (const section of sectionsFor(sel, this.app)) this.el.append(...section.build(ctx, sel));
+    // -- UI-A: toolbar / filter / reset buttons / label scrubbing --
+    enhanceInspector(this.app, ctx, this.el, sel);
     this.refresh();
     ctx.live.forEach((f) => f());
   }

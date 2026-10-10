@@ -581,10 +581,8 @@ export interface SceneSettings {
   bounds: BoundsSettings;
   /** Display units — storage only (the engine always works in m, kg, s, rad). */
   units: UnitsSettings;
-  // -- JT-B: named collision layers + matrix (absent = every layer collides with every layer) and a steady wind --
+  // -- JT-B: named collision layers + matrix (absent = every layer collides with every layer) --
   layers?: CollisionLayers;
-  /** Wind velocity (m/s, world frame). Quadratic drag acts on the velocity relative to it. Absent = still air. */
-  wind?: Vec3;
 
   // -- UI-A: named selection sets (UI-21) --
   /** Named groups of entity ids the outliner saves and recalls. */

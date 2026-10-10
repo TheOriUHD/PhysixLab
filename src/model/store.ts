@@ -211,6 +211,20 @@ export class SceneStore extends Emitter<StoreEvents> {
     this.emit('history', undefined);
   }
 
+  // ── JT-A: fold the newest undo step into the one below it (a joint chain built click by click is one step) ──
+  /** Number of steps on the undo stack. */
+  get undoDepth(): number {
+    return this.past.length;
+  }
+
+  /** Merge the newest undo step into the previous one, so both undo together. No-op inside a `begin` batch. */
+  foldLastUndo(label: string): void {
+    if (this.batchDepth > 0 || this.past.length < 2) return;
+    this.past.pop();
+    this.past[this.past.length - 1] = { ...this.past[this.past.length - 1], label };
+    this.emit('history', undefined);
+  }
+
   /** Called before every mutation. */
   private touch(label: string): void {
     this.revision++;

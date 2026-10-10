@@ -13,14 +13,17 @@ import {
   createLight,
   createPath,
   createSoft,
+  JOINT_TYPE_LABELS,
   LIGHT_LABELS,
   SOFT_LABELS,
 } from '../model/factory';
+import { AXIS_TYPES, hasIndependentAnchors } from '../model/jointParams';
+import { typeDefaults, type EndInfo } from '../model/jointDefaults';
 import { descendantIds, childIndex, groupTransformPatches, topLevel } from '../model/groups';
 import { MATERIAL_PRESETS } from '../model/materials';
 import { makeShapeSpec, shapeDef, shapeLabel } from '../model/shapeRegistry';
 import { normalizeSize } from '../model/shapes';
-import { cloneEntities, type SceneStore } from '../model/store';
+import type { SceneStore } from '../model/store';
 import type {
   BodyEntity,
   Entity,
@@ -37,6 +40,9 @@ import type {
 } from '../model/types';
 import { isBody, isGroup, isLight, isPath, isPosed, isSoft, parentOf } from '../model/types';
 import type { GizmoUpdate } from '../render/gizmo';
+// -- ED-A hierarchy: group scale + clipboard live in new files --
+import { copyToClipboard, pasteAnchor, pasteStored } from './edit/clipboard';
+import { scaleGroupDrag } from './edit/groupOps';
 import type { SimController } from './simController';
 
 const SPAWN_MATERIALS = ['plastic', 'wood', 'rubber', 'steel', 'ceramic', 'aluminum', 'concrete'];
@@ -49,7 +55,6 @@ export interface JointEndpoint {
 }
 
 export class Editor {
-  private clipboard: Entity[] = [];
   private spawnCounter = 0;
 
   constructor(
@@ -92,7 +97,11 @@ export class Editor {
     return soft;
   }
 
-  /** Create a joint between two endpoints, deriving local anchors from current poses. */
+  /**
+   * Create a joint between two endpoints, deriving local anchors from current poses. Each type starts with settings
+   * derived from its endpoints (`typeDefaults`: pulley points above the bodies, gear radii and ratio from the bodies …);
+   * `over` wins over all of them. Types with independent anchors keep both clicked points, the others derive B from A.
+   */
   addJoint(
     type: JointType,
     a: JointEndpoint,
@@ -104,12 +113,14 @@ export class Editor {
     const poseA = a.body ? this.sim.poseOf(a.body) : null;
     const poseB = b.body ? this.sim.poseOf(b.body) : null;
     if ((a.body && !poseA) || (b.body && !poseB)) return null;
+    const bPoint: Vec3 = hasIndependentAnchors(type) ? b.point : a.point;
     const anchorA: Vec3 = poseA ? qrotInv(poseA.rotation, vsub(a.point, poseA.position)) : a.point;
-    const anchorB: Vec3 = poseB ? qrotInv(poseB.rotation, vsub(b.point, poseB.position)) : b.point;
+    const anchorB: Vec3 = poseB ? qrotInv(poseB.rotation, vsub(bPoint, poseB.position)) : bPoint;
     const ax = axisWorld ?? this.defaultAxis(type, a.body, b.body);
     const axis: Vec3 = poseA ? qrotInv(poseA.rotation, ax) : ax;
     const dist = vlen(vsub(a.point, b.point));
     const spring = { restLength: Math.max(0.1, dist), stiffness: 500, damping: 15, breakForce: 0 };
+    const defaults = typeDefaults(type, this.endInfo(a, poseA), this.endInfo(b, poseB), ax);
     const joint = createJoint({
       type,
       bodyA: a.body,
@@ -117,13 +128,12 @@ export class Editor {
       anchorA,
       anchorB,
       axis,
-      name: this.store.uniqueName(
-        type === 'fixed' ? 'Weld' : type === 'ball' ? 'Ball joint' : type[0].toUpperCase() + type.slice(1),
-      ),
+      name: this.store.uniqueName(JOINT_TYPE_LABELS[type]),
       ropeLength: Math.max(0.2, dist),
       spring,
       ...over,
     });
+    if (!over.params) joint.params = { ...joint.params, ...defaults.params };
     if (type === 'slider')
       joint.motor = {
         ...joint.motor,
@@ -133,20 +143,33 @@ export class Editor {
         damping: 400,
         maxForce: 8000,
       };
+    if (defaults.motor && !over.motor) joint.motor = { ...joint.motor, ...defaults.motor };
     this.store.add([joint], `Add ${joint.name}`);
     return joint;
   }
 
-  /** Axis chosen when a joint is created: cylinders get their own axle, otherwise the horizontal axis facing the camera. */
+  /** What `typeDefaults` needs to know about one end: its pose and shape (identity and none for the world). */
+  private endInfo(e: JointEndpoint, pose: { position: Vec3; rotation: Quat } | null): EndInfo {
+    const body = e.body ? this.store.body(e.body) : undefined;
+    return {
+      body: e.body,
+      point: e.point,
+      position: pose?.position ?? e.point,
+      rotation: pose?.rotation ?? [0, 0, 0, 1],
+      shape: body?.shape ?? null,
+    };
+  }
+
+  /** Axis chosen when a joint is created: bodies with their own axle (cylinders …) give it, otherwise the horizontal axis facing the camera. */
   defaultAxis(type: JointType, bodyA: string | null, bodyB: string | null): Vec3 {
     for (const id of [bodyA, bodyB]) {
       const b = id ? this.store.body(id) : undefined;
-      if (b && shapeDef(b.shape.type).axial && (type === 'hinge' || type === 'slider')) {
+      if (b && shapeDef(b.shape.type).axial && AXIS_TYPES.includes(type)) {
         const pose = this.sim.poseOf(b.id);
         return qrot(pose?.rotation ?? b.rotation, [0, 1, 0]);
       }
     }
-    return type === 'slider' ? [0, 1, 0] : (this.cameraHorizontalAxis?.() ?? [0, 0, 1]);
+    return type === 'slider' || type === 'screw' ? [0, 1, 0] : (this.cameraHorizontalAxis?.() ?? [0, 0, 1]);
   }
 
   /** Injected by the app: horizontal world axis most aligned with the camera's viewing direction. */
@@ -175,7 +198,9 @@ export class Editor {
       if (!roots.has(u.id)) continue;
       const e = this.store.get(u.id);
       if (isGroup(e)) {
-        this.store.transformGroup(u.id, { position: u.position, rotation: u.rotation }, 'Move group');
+        // -- ED-A hierarchy: the scale gizmo on a group scales its members about the pivot --
+        if (u.scale) scaleGroupDrag(this.store, u.id, u.scale);
+        else this.store.transformGroup(u.id, { position: u.position, rotation: u.rotation }, 'Move group');
         continue;
       }
       if (isLight(e) || isPath(e)) {
@@ -272,31 +297,13 @@ export class Editor {
     return this.store.uniqueName(base.replace(/ \d+$/, ''));
   }
 
+  // -- ED-A hierarchy: copy / paste are the persisted clipboard (src/app/edit/clipboard.ts) --
   copy(): void {
-    const ids = this.store.selection;
-    this.clipboard = this.store.clone(ids, [0, 0, 0]);
+    copyToClipboard(this);
   }
 
   paste(at?: Vec3): void {
-    if (!this.clipboard.length) return;
-    // Re-clone with new ids on every paste and shift away from the originals.
-    // Centre on the bodies; a clipboard of lights, paths or groups alone is centred on those instead.
-    const bodies = this.clipboard.filter(isBody);
-    const anchors: PosedEntity[] = bodies.length ? bodies : this.clipboard.filter(isPosed);
-    const center: Vec3 = anchors.length
-      ? [
-          anchors.reduce((s, b) => s + b.position[0], 0) / anchors.length,
-          anchors.reduce((s, b) => s + b.position[1], 0) / anchors.length,
-          anchors.reduce((s, b) => s + b.position[2], 0) / anchors.length,
-        ]
-      : [0, 0, 0];
-    const offset: Vec3 = at ? [at[0] - center[0], 0, at[2] - center[2]] : [0.8, 0, 0.8];
-    const copies = cloneEntities(
-      this.clipboard,
-      this.clipboard.map((e) => e.id),
-      offset,
-    ).map((c) => ({ ...c, name: this.nameForCopy(c.name) }));
-    this.store.add(copies, 'Paste');
+    pasteStored(this, { at: at ?? pasteAnchor() ?? undefined });
   }
 
   selectAll(): void {

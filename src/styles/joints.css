@@ -1,0 +1,41 @@
+/* JT-A: joint inspector sections, 6-DOF table and the joint type picker */
+
+/* ---- picker --------------------------------------------------------------------------------------- */
+.jt-picker { position: fixed; z-index: 110; width: 312px; max-height: calc(100vh - 16px); overflow-y: auto; padding: 10px 10px 4px; background: var(--panel-2); border: 1px solid var(--border-2); border-radius: 10px; box-shadow: var(--shadow); }
+.jt-picker-title { font-weight: 600; font-size: 13px; margin: 0 2px 4px; }
+.jt-group { margin: 8px 2px 4px; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.jt-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.jt-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px 5px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-s); color: var(--text-2); min-width: 0; }
+.jt-tile:hover:not(:disabled) { background: var(--hover); border-color: var(--border-2); color: var(--text); }
+.jt-tile:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 1px; }
+.jt-tile.current { border-color: var(--accent-line); background: var(--accent-bg); color: var(--text); }
+.jt-tile:disabled { opacity: 0.38; cursor: not-allowed; }
+.jt-name { font-size: 11.5px; line-height: 1.2; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.jt-dia { width: 100%; height: 40px; }
+.jt-dia .b { stroke: currentColor; fill: none; }
+.jt-dia .j { stroke: var(--accent); }
+.jt-dia .t { stroke: currentColor; opacity: 0.6; stroke-width: 1.1; }
+.jt-dia .w { stroke: var(--text-3); stroke-width: 1.3; }
+.jt-dia .d { fill: var(--accent); stroke: none; }
+.jt-tile.current .jt-dia .b { stroke: var(--text); }
+.jt-type-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.jt-type-row .jt-dia { width: 52px; height: 36px; flex: none; color: var(--text-2); }
+.jt-type-row .readout { flex: 1; min-width: 0; }
+
+/* ---- 6-DOF table ---------------------------------------------------------------------------------- */
+.dof-card { border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--panel); padding: 6px 7px 7px; margin: 0 0 6px; }
+.dof-card[data-mode="free"], .dof-card[data-mode="limited"] { border-color: var(--border-2); }
+.dof-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 0; }
+.dof-name { font-weight: 600; font-size: 12px; white-space: nowrap; }
+.dof-name small { color: var(--text-3); font-weight: 400; margin-left: 4px; }
+.dof-card[data-mode="locked"] .dof-grid { display: none; }
+.dof-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 8px; margin-top: 7px; }
+.dof-f { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dof-f > span { font-size: 10.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dof-card[data-mode="free"] .dof-limit { display: none; }
+.dof-note { color: var(--text-3); font-size: 11px; margin: 0 0 8px; }
+
+/* ---- small helpers -------------------------------------------------------------------------------- */
+.jt-info { color: var(--text-3); font-size: 11.5px; line-height: 1.45; padding: 2px 0 6px; }
+.jt-info b { color: var(--text-2); font-weight: 600; font-family: var(--mono); font-size: 11.5px; }
+.jt-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }

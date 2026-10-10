@@ -141,6 +141,12 @@
   // Everything a mode prelude can use. It receives (api) and returns { scope: {name: value}, finish(): result }.
   const api = { call, cb, log, console: consoleShim, setTimeout: realSetTimeout, clearTimeout: realClearTimeout };
 
+  g.addEventListener('unhandledrejection', (ev) => {
+    log('error', [
+      'Unhandled promise rejection: ' + (ev.reason && ev.reason.message ? ev.reason.message : String(ev.reason)),
+    ]);
+  });
+
   // ── 3. messages from the host ──────────────────────────────────────────────────────────────────
   async function onMessage(ev) {
     const m = ev.data;

@@ -6,6 +6,7 @@ import type { ColorMode } from '../render/bodyViews';
 import { DEFAULT_OVERLAYS, type OverlayOptions } from '../render/overlays';
 import type { Quality } from '../render/viewport';
 import type { JointType } from '../model/types';
+import type { AxisChoice, ConnectMode } from '../model/jointDefaults';
 // ── FX: visual-effects settings live in the preferences ──
 import { DEFAULT_FX_SETTINGS, sanitizeFxSettings, type FxSettings } from '../render/fx/settings';
 // ── FX: sound settings live in the preferences too ──
@@ -40,6 +41,19 @@ export interface Prefs {
   showJoints: boolean;
   quality: Quality;
   jointType: JointType;
+  // ── JT-21: joint tool options (validated where they are read: src/app/jointTool.ts) ──
+  /** Axis of a new joint: from the first click's face normal (auto / normal), or a fixed world axis. */
+  jointAxis: AxisChoice;
+  /** Quick limit preset id for new hinges / sliders (see `limitPresetsFor`), 'off' = none. */
+  jointLimit: string;
+  /** Snap anchors to body centre, face centres, edge midpoints and corners. */
+  jointSnap: boolean;
+  /** New joints let their two bodies collide with each other. */
+  jointCollide: boolean;
+  /** After each joint the second body becomes the first end of the next one. */
+  jointChain: boolean;
+  /** How "Connect all" pairs the selected bodies. */
+  jointConnect: ConnectMode;
   followSelection: boolean;
   blastStrength: number;
   shootSpeed: number;
@@ -108,6 +122,12 @@ export const DEFAULT_PREFS: Prefs = {
   showJoints: true,
   quality: 'auto', // -- VZ-B: Auto governor (VZ-22) --
   jointType: 'hinge',
+  jointAxis: 'auto',
+  jointLimit: 'off',
+  jointSnap: true,
+  jointCollide: false,
+  jointChain: false,
+  jointConnect: 'chain',
   followSelection: false,
   blastStrength: 60,
   shootSpeed: 28,

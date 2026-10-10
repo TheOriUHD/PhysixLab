@@ -70,6 +70,39 @@ export function registerBuiltinMenus(): (() => void)[] {
     { id: 'menu.edit.rotate90', menu: 'edit', group: 'select', order: 330, command: 'edit.rotate90' },
     { id: 'menu.edit.frame', menu: 'edit', group: 'select', order: 340, command: 'view.frameSelection', icon: 'frame' },
     { id: 'menu.edit.capture', menu: 'edit', group: 'sim', order: 400, command: 'edit.capture' },
+    // -- JT-A: joint editing --
+    {
+      id: 'menu.edit.copySettings',
+      menu: 'edit',
+      group: 'joints',
+      order: 500,
+      command: 'joint.copySettings',
+      label: 'Copy joint settings to selected joints',
+    },
+    {
+      id: 'menu.edit.mirrorX',
+      menu: 'edit',
+      group: 'joints',
+      order: 510,
+      command: 'joint.mirror',
+      label: 'Mirror joints with bodies: X = 0',
+    },
+    {
+      id: 'menu.edit.mirrorY',
+      menu: 'edit',
+      group: 'joints',
+      order: 520,
+      command: 'joint.mirror.y',
+      label: 'Mirror joints with bodies: Y = 0',
+    },
+    {
+      id: 'menu.edit.mirrorZ',
+      menu: 'edit',
+      group: 'joints',
+      order: 530,
+      command: 'joint.mirror.z',
+      label: 'Mirror joints with bodies: Z = 0',
+    },
 
     // ── View ──
     { id: 'menu.view.colorHeading', menu: 'view', group: 'color', order: 100, heading: 'Colour bodies by' },

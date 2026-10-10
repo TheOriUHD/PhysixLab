@@ -1,6 +1,7 @@
 import type { App, Shell } from '../app/app';
 import { DropController } from '../app/edit/dropController';
 import { h } from './dom';
+import { mountJointOptionsBar } from './jointOptionsBar';
 
 export interface ShellDom extends Shell {
   root: HTMLElement;
@@ -63,6 +64,8 @@ export function wireShell(app: App, shell: ShellDom): void {
     if (k.some((x) => x === 'showLeft' || x === 'showRight' || x === 'showBottom')) sync();
   });
   sync();
+
+  mountJointOptionsBar(app, shell.stage); // JT-21: options bar of the joint tool
 
   app.on('hint', (t) => {
     shell.hintBar.classList.toggle('hidden', !t);

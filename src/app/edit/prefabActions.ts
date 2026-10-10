@@ -12,9 +12,11 @@ import {
   type StoredPrefab,
   type VariableValue,
 } from '../../model/edit/userPrefab';
+import { selectionBounds } from '../../model/edit/bounds';
 import { LIMITS } from '../../model/limits';
 import { isLight, type Asset, type AssetInput, type Entity } from '../../model/types';
 import type { App } from '../app';
+import { surfaceDropPose } from './surfaceDrop';
 import { PrefabLibrary } from './prefabLibrary';
 import { lazyPrefabStorage, openPrefabStorage } from './prefabStorage';
 import { makeThumbnail } from './prefabThumbnail';
@@ -100,30 +102,28 @@ export async function updatePrefabFromSelection(app: App, id: string): Promise<S
 // ── placement ───────────────────────────────────────────────────────────────────────────────────────
 
 /**
- * Where an inserted prefab's anchor (centre, base) should go: the surface under the pointer — the top of a body or
- * the ground — or, without a pointer, under the lower middle of the view. Snapped to the grid when snapping is on.
- * This is the single place that decides; switch it to the shared snap-to-surface helper when that lands.
+ * Where (and turned how) an inserted prefab goes: on the surface under the pointer — or under the lower middle of
+ * the view without one — through the shared snap-to-surface helper (ED-15), so the grid / vertex / bounds snaps, the
+ * Ctrl inversion and "align to surface normal" behave exactly as for shapes. The prefab is treated as the bounding
+ * box of its stored entities (its base sits on y = 0 of its own frame, so the anchor lands on the surface).
  */
-export function dropPoint(app: App, ev?: { clientX: number; clientY: number }): Vec3 {
+export function dropPose(
+  app: App,
+  prefab: StoredPrefab,
+  pointer?: { clientX: number; clientY: number },
+  rotation?: Quat,
+): { position: Vec3; rotation: Quat } {
   const rect = app.viewport.dom.getBoundingClientRect();
-  const e = ev ?? { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height * 0.6 };
-  const hit = app.picker.pick(e, app.bodies.pickables());
-  const ground = app.picker.groundPoint(e, 0);
-  const groundOk = ground !== null && ground.distanceTo(app.camera.position) < 150;
-  let p: Vec3;
-  if (hit?.normal && hit.normal.y > 0.5 && (!ground || hit.distance < app.camera.position.distanceTo(ground))) {
-    p = [hit.point.x, hit.point.y, hit.point.z];
-  } else if (groundOk && ground) {
-    p = [ground.x, 0, ground.z];
-  } else {
-    const t = app.viewport.controls.target;
-    p = [t.x, 0, t.z];
-  }
-  if (app.prefs.value.snap) {
-    const s = app.prefs.value.snapGrid;
-    p = [Math.round(p[0] / s) * s, p[1], Math.round(p[2] / s) * s];
-  }
-  return p;
+  const e = pointer ?? { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height * 0.6 };
+  const box = selectionBounds(
+    prefab.entities,
+    prefab.entities.map((x) => x.id),
+  );
+  const pose = surfaceDropPose(app, e.clientX, e.clientY, box ? { min: box.min, max: box.max } : { halfHeight: 0.5 }, {
+    rotation,
+    invert: !!(pointer as { ctrlKey?: boolean } | undefined)?.ctrlKey,
+  });
+  return { position: pose.position, rotation: pose.rotation };
 }
 
 // ── insert ──────────────────────────────────────────────────────────────────────────────────────────
@@ -160,11 +160,12 @@ export function insertUserPrefab(app: App, id: string, opts: InsertOptions = {})
   const { store } = app;
   const room = LIMITS.maxEntities - store.all().length;
   try {
+    const placed = opts.at ? null : dropPose(app, prefab, opts.pointer, opts.rotation);
     const res = instantiatePrefab(prefab, lib.get, {
       variantId: opts.variantId,
       variableValues: opts.variableValues,
-      at: opts.at ?? dropPoint(app, opts.pointer),
-      rotation: opts.rotation,
+      at: opts.at ?? placed?.position,
+      rotation: placed?.rotation ?? opts.rotation,
       takenNames: store.all().map((e) => e.name),
       maxEntities: Math.max(0, room),
     });

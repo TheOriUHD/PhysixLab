@@ -1,1 +1,74 @@
-/* UI-A: inspector */
+/* UI-A: inspector upgrades (units, filter, reset, copy/paste, presets), calculators and the Readout panel */
+
+/* ---- unit chips -------------------------------------------------------------------------------------------- */
+.num-unit.unit-toggle { background: none; border: 0; font: inherit; font-size: 11px; cursor: pointer; border-radius: 4px; padding: 1px 5px; margin-right: 3px; }
+.num-unit.unit-toggle:hover { color: var(--accent); background: var(--accent-bg); }
+.vec3.has-unit { align-items: center; }
+.vec3 > .vec-unit { flex: 0 0 auto; min-width: 22px; text-align: center; padding-right: 0; }
+.num-input.invalid { color: var(--danger); box-shadow: 0 0 0 1px var(--danger) inset; border-radius: var(--radius-s); animation: ui-a-shake 0.25s; }
+@keyframes ui-a-shake { 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
+
+/* ---- scrub on labels / reset ------------------------------------------------------------------------------- */
+.row-label.ui-a-scrub { cursor: ew-resize; user-select: none; }
+.row-label.ui-a-scrub:hover { color: var(--text); }
+.row-label.has-reset { display: flex; align-items: center; gap: 4px; }
+.ui-a-reset { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--accent); cursor: pointer; flex: 0 0 auto; }
+.ui-a-reset:hover { background: var(--accent-bg); }
+.ui-a-reset .icon { width: 12px; height: 12px; }
+
+/* ---- toolbar ----------------------------------------------------------------------------------------------- */
+.ui-a-tools { padding: 8px 12px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+.ui-a-tools-row { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.ui-a-search-wrap { position: relative; flex: 1; min-width: 0; }
+.ui-a-search { width: 100%; height: 26px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s); color: var(--text); font: 12px var(--font); padding: 0 24px 0 26px; outline: none; }
+.ui-a-search:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-bg); }
+.ui-a-search-icon { position: absolute; left: 8px; top: 7px; width: 12px; height: 12px; color: var(--text-3); pointer-events: none; }
+.ui-a-clear { position: absolute; right: 2px; top: 1px; width: 22px; height: 22px; display: none; }
+.ui-a-search:not(:placeholder-shown) ~ .ui-a-clear { display: inline-flex; }
+.ui-a-hide { display: none !important; }
+.ui-a-filtering .hint-text { display: none; }
+.ui-a-filtering > .section > .section-body { display: block; }
+.ui-a-props-wrap { display: flex; flex-direction: column; gap: 6px; }
+.ui-a-props { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.ui-a-props[hidden] { display: none; }
+.ui-a-props .hint-text { margin: 0; }
+.ui-a-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+.ui-a-group { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); cursor: pointer; }
+.ui-a-group input { accent-color: var(--accent); margin: 0; }
+.ui-a-save { display: flex; gap: 6px; }
+.ui-a-preset-name { flex: 1; min-width: 0; height: 26px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-s); color: var(--text); font: 12px var(--font); padding: 0 8px; outline: none; }
+.ui-a-preset-name:focus { border-color: var(--accent-line); }
+.ui-a-preset-list { display: flex; flex-direction: column; gap: 3px; max-height: 160px; overflow-y: auto; }
+.ui-a-preset-row { display: flex; gap: 4px; align-items: center; }
+.ui-a-preset { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 8px; background: var(--raised); border: 1px solid var(--border); border-radius: var(--radius-s); color: var(--text); text-align: left; cursor: pointer; }
+.ui-a-preset:hover { background: var(--hover); border-color: var(--accent-line); }
+.ui-a-preset small { color: var(--text-3); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* ---- calculators ------------------------------------------------------------------------------------------- */
+.ui-a-calc { padding: 6px 0 10px; border-top: 1px solid var(--border); }
+.ui-a-calc:first-child { border-top: 0; }
+.ui-a-calc-title { font: 600 12px var(--font); color: var(--text); margin-bottom: 2px; }
+.ui-a-calc .hint-text { margin: 2px 0 6px; }
+.ui-a-calc-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ui-a-out { display: block; flex: 1; min-width: 0; text-align: right; color: var(--accent); font: 12px var(--mono); font-variant-numeric: tabular-nums; }
+.ui-a-note { margin-top: 4px; }
+
+/* ---- readout panel ----------------------------------------------------------------------------------------- */
+.ui-a-readout { padding: 6px 12px 12px; }
+.ui-a-readout-title { display: flex; align-items: center; gap: 8px; padding: 6px 0 8px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.ui-a-readout-title b { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ui-a-readout .row { grid-template-columns: 112px minmax(0, 1fr); min-height: 26px; }
+.ui-a-readout .row-control { justify-content: flex-end; }
+.ui-a-readout .row.stack { grid-template-columns: 1fr; gap: 0; padding: 3px 0 4px; min-height: 0; }
+.ui-a-readout .row-label { font-size: 12px; }
+.ui-a-readout .row.stack .row-control { justify-content: space-between; }
+.ui-a-readout .row.stack .ui-a-readout-value { flex: 1; }
+.ui-a-readout-title .icon-btn.on { color: var(--accent); background: var(--accent-bg); }
+.ui-a-readout-value { font: 12px var(--mono); font-variant-numeric: tabular-nums; color: var(--text); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ui-a-readout-sub { margin: 12px 0 4px; color: var(--text-2); font: 650 11px var(--font); letter-spacing: 0.07em; text-transform: uppercase; }
+.ui-a-contacts .hint-text { margin: 2px 0 6px; }
+.ui-a-contact { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; padding: 3px 0; border-top: 1px solid var(--border); font-size: 12px; }
+.ui-a-contact b { font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ui-a-contact span { font: 11.5px var(--mono); color: var(--text-2); text-align: right; }
+.ui-a-contact small { grid-column: 1 / -1; color: var(--text-3); font-size: 10.5px; }
+.btn.small.on { color: var(--accent); border-color: var(--accent-line); background: var(--accent-bg); }

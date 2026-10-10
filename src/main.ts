@@ -16,6 +16,9 @@ import './styles/vzb.css'; // -- VZ-B --
 import './styles/dtb.css'; // -- DT-B --
 import './styles/collab.css'; // -- DT-23 --
 import './styles/jointsB.css'; // -- JT-B --
+import './styles/sf.css'; // -- SF --
+import './styles/joints.css';
+import './styles/jointtool.css';
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';
@@ -177,6 +180,7 @@ async function boot(): Promise<void> {
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
   // -- DT-30: the versioned public API (src/api); falls through to the App for the internal members --
   (window as unknown as { physicslab: App }).physicslab = publishApi(app);
+  window.dispatchEvent(new Event('physicslab:ready')); // -- DT-31: lets installed plugins start --
   if (!app.prefs.value.seenWelcome && !new URLSearchParams(location.search).has('nowelcome'))
     setTimeout(() => showWelcome(app), 400);
 }

@@ -17,6 +17,7 @@ import type { App } from '../app';
 import { JOINT_ITEMS, LIGHT_ITEMS, SOFT_ITEMS } from '../addCatalog';
 import type { CommandDef } from '../registry/commands';
 import { registerHelp } from '../registry/help';
+import { jointCommands } from './jointCommands'; // -- JT-A
 
 const sel = (app: App) => app.store.selection;
 const hasSelection = (app: App) => sel(app).length > 0;
@@ -542,7 +543,15 @@ function addCommands(): CommandDef[] {
 
 /** Everything registered at start-up, in help order. Call once. */
 export function builtinCommands(): CommandDef[] {
-  return [...simCommands, ...editCommands, ...addCommands(), ...viewCommands, ...worldCommands, ...fileCommands];
+  return [
+    ...simCommands,
+    ...editCommands,
+    ...addCommands(),
+    ...viewCommands,
+    ...worldCommands,
+    ...fileCommands,
+    ...jointCommands,
+  ];
 }
 
 /** Help rows for what is not a command: pointer gestures and the number keys. */

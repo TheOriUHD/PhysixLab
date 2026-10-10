@@ -200,6 +200,7 @@ function jointParamsFor(type: JointType): JointParams {
   const p = defaultParams();
   if (type === 'sixdof') for (const d of p.dof) d.mode = 'locked';
   if (type === 'winch') p.loadRating = 0;
+  if (type === 'belt') p.reverse = false; // an open belt turns both pulleys the same way
   return p;
 }
 

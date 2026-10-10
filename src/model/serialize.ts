@@ -404,14 +404,6 @@ function sanitizeUnits(raw: any): UnitsSettings {
   };
 }
 
-/** JT-B: the wind vector when non-zero and finite. */
-function windField(raw: unknown): { wind?: Vec3 } {
-  if (!Array.isArray(raw) || raw.length !== 3 || !raw.every((v) => typeof v === 'number' && Number.isFinite(v)))
-    return {};
-  const w = raw.map((v: number) => clamp(v, -1000, 1000)) as Vec3;
-  return w[0] === 0 && w[1] === 0 && w[2] === 0 ? {} : { wind: w };
-}
-
 function sanitizeSettings(raw: any): SceneSettings {
   const d = defaultSettings();
   const g = raw?.ground ?? {};
@@ -436,9 +428,8 @@ function sanitizeSettings(raw: any): SceneSettings {
     units: sanitizeUnits(raw?.units),
     selectionSets: sanitizeSelectionSets(raw?.selectionSets), // -- UI-A --
     ...sanitizeWeatherField(raw?.weather), // -- VZ-B: weather --
-    // -- JT-B: collision layers and wind --
+    // -- JT-B: collision layers --
     ...layersField(raw?.layers),
-    ...windField(raw?.wind),
   };
 }
 

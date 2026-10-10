@@ -18,7 +18,8 @@ import {
   saveSelectionDialog,
 } from './prefabDialogs';
 
-export const PREFAB_MIME = 'text/x-physicslab-prefab';
+/** Distinct from the built-in prefab cards' type (ED-15 drop controller), which only knows registered prefab ids. */
+export const PREFAB_MIME = 'text/x-physicslab-user-prefab';
 
 /** The items of a prefab's ⋯ menu. */
 export function prefabMenu(app: App, p: StoredPrefab): MenuItem[] {

@@ -110,7 +110,7 @@ export function mountQuickBar(app: App, host: HTMLElement): HTMLElement {
         const ms = dyn.map((b) => massEstimate(b));
         if (!ms.length) return;
         const live = app.sim.client.active ? dyn.map((b) => app.sim.client.info.mass[b.id] ?? massEstimate(b)) : ms;
-        const same = live.every((m) => Math.abs(m - (live[0])) < 1e-9);
+        const same = live.every((m) => Math.abs(m - live[0]) < 1e-9);
         if (document.activeElement?.closest('.qb-mass')) return;
         mass.set(live[0], !same);
         massWrap.title = `Mass ${fmt(live[0], 3)} kg`;
