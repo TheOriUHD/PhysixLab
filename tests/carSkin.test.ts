@@ -88,8 +88,8 @@ describe('car skins', () => {
     f.quaternion.copy(q);
     f.position.add(new Vector3(5, 0, -3));
     for (const w of f.bodiesWithTag('car-wheel') as SkinBodyPose[]) {
-      (w.position as Vector3).sub(origin).applyQuaternion(q).add(f.position);
-      (w.quaternion as Quaternion).premultiply(q);
+      w.position.sub(origin).applyQuaternion(q).add(f.position);
+      w.quaternion.premultiply(q);
     }
     skin.update(f);
     expect(h.strutLength[0]).toBeCloseTo(rest, 3);
