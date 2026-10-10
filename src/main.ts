@@ -7,6 +7,7 @@ import './styles/ed-prefabs.css';
 import './styles/ed-path.css';
 import './styles/ui-a.css';
 import './styles/cm.css'; // -- CM-A --
+import './styles/embed.css'; // -- DT-22 --
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';
@@ -25,6 +26,7 @@ import { openMenu } from './ui/menu';
 import { mountZoneHud } from './ui/zoneHud'; // -- ZN
 import { resolveMenu } from './app/registry/menus';
 import { loadExtensions, registerBuiltins } from './ui/builtin';
+import { readEmbedOptions } from './app/embed/options'; // -- DT-22 --
 
 async function boot(): Promise<void> {
   // Everything the UI offers is a registration; register the built-ins before any UI is built.
@@ -33,6 +35,17 @@ async function boot(): Promise<void> {
   const root = document.getElementById('app')!;
   const shell = createShell(root);
   const app = new App(shell);
+  // -- DT-22: `?embed=1` boots the minimal-chrome viewer instead of the editor --
+  const embedOptions = readEmbedOptions(location.search);
+  if (embedOptions) {
+    const { bootEmbed } = await import('./ui/embed/boot');
+    const bridge = await bootEmbed(app, shell, embedOptions);
+    app.start();
+    (window as unknown as { physicslab: App }).physicslab = app;
+    bridge.announceReady();
+    return;
+  }
+  // -- end DT-22 --
 
   shell.topSlot.replaceWith(buildTopbar(app));
   // The three docked regions are generated from the panel registry.

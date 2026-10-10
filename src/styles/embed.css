@@ -1,0 +1,37 @@
+/* DT-22: minimal-chrome viewer (?embed=1) and the Embed dialog. */
+#app.embed { grid-template-rows: minmax(0, 1fr); }
+#app.embed .workspace { grid-template-columns: 0 minmax(0, 1fr) 0; }
+.embed-bar {
+  position: absolute; z-index: 6; left: 50%; bottom: 12px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px; padding: 4px 6px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--border-2);
+  border-radius: 12px; box-shadow: var(--shadow); backdrop-filter: blur(6px);
+}
+.embed-bar .icon-btn:disabled { opacity: 0.4; cursor: default; }
+.embed-clock { min-width: 44px; padding: 0 6px; font-variant-numeric: tabular-nums; color: var(--text-2, var(--text)); font-size: 12px; text-align: right; }
+.embed-notice {
+  position: absolute; z-index: 7; left: 12px; right: 12px; top: 12px; padding: 8px 12px; border-radius: 8px;
+  background: rgba(120, 40, 40, 0.9); color: #ffe4e4; border: 1px solid rgba(255, 140, 140, 0.5); font-size: 12px;
+}
+
+/* Embed dialog */
+.embed-dialog { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); gap: 16px; }
+.embed-dialog .embed-opts { display: flex; flex-direction: column; gap: 8px; }
+.embed-dialog .embed-opts label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.embed-dialog .embed-opts input[type='number'] { width: 76px; }
+.embed-dialog .embed-preview { border: 1px solid var(--border-2); border-radius: 8px; overflow: auto; background: var(--bg-deep); min-height: 200px; max-height: 360px; }
+.embed-dialog .embed-preview iframe { border: 0; display: block; max-width: none; }
+.embed-dialog textarea.embed-code { grid-column: 1 / -1; width: 100%; box-sizing: border-box; min-height: 74px; font: 12px/1.4 var(--mono, ui-monospace, monospace); resize: vertical; background: var(--panel-2); color: var(--text); border: 1px solid var(--border-2); border-radius: 8px; padding: 8px; }
+.embed-dialog .embed-note { grid-column: 1 / -1; color: var(--text-3, var(--text)); font-size: 12px; }
+@media (max-width: 760px) { .embed-dialog { grid-template-columns: minmax(0, 1fr); } }
+
+/* Share dialog (DT-21) */
+.share-dialog { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 16px; }
+.share-dialog .share-thumb { width: 100%; border-radius: 8px; border: 1px solid var(--border-2); background: var(--bg-deep); display: block; }
+.share-dialog .share-facts { color: var(--text-3, var(--text)); font-size: 12px; margin-top: 6px; }
+.share-dialog .share-qr { width: 220px; height: 220px; background: #fff; border-radius: 8px; padding: 8px; box-sizing: border-box; }
+.share-dialog .share-qr svg { width: 100%; height: 100%; display: block; }
+.share-dialog .share-url { grid-column: 1 / -1; width: 100%; box-sizing: border-box; font: 12px/1.3 var(--mono, ui-monospace, monospace); }
+.share-dialog .share-warn { grid-column: 1 / -1; color: #ffd27a; font-size: 12px; }
+.share-dialog .share-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 640px) { .share-dialog { grid-template-columns: minmax(0, 1fr); } }
