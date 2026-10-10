@@ -20,6 +20,9 @@ import { fixedDt } from '../world/stepping';
 import { pos, rot, rq, rv } from '../world/util';
 import { watchContacts } from '../world/events';
 import type { ComponentHost } from './host';
+// -- CP: the drive network (shafts / torque graph) and the body mass trim
+import { setTotalMass } from '../world/massTrim';
+import type { DriveAccess } from './drive/network';
 
 export type { ContactPoint };
 
@@ -56,6 +59,12 @@ export interface BodyHandle {
   /** Place the body instantly (velocities are kept). */
   teleport(position: Vec3, rotation?: Quat): void;
   wake(): void;
+  // -- CP: variable mass
+  /**
+   * Change the body's total mass to `kg` (dynamic bodies only): the centre of mass stays, the inertia scales in
+   * proportion — fuel burning off, a payload released. The engine keeps the new mass through snapshots.
+   */
+  setMass(kg: number): void;
 }
 
 /** A joint as a component sees it (read-only measurements). */
@@ -112,6 +121,8 @@ export interface ComponentContext {
 
   /** Raise a `component` event for the page (`SimClient` re-emits it as an `'event'`). */
   emit(name: string, data?: unknown): void;
+  // -- CP: the shaft / torque graph the powered parts register with (see `drive/network.ts`)
+  readonly drive: DriveAccess;
   readonly input: {
     /** Is the key (`KeyboardEvent.code`) held? */
     key(code: string): boolean;
@@ -254,6 +265,10 @@ class BodyHandleImpl implements BodyHandle {
   wake(): void {
     this.rec?.rb.wakeUp();
   }
+  setMass(kg: number): void {
+    const r = this.rec;
+    if (r) setTotalMass(r, kg);
+  }
 }
 
 class JointHandleImpl implements JointHandle {
@@ -287,6 +302,9 @@ export class ComponentCtx implements ComponentContext {
   spec: ComponentSpec;
   private watching = false;
 
+  // -- CP: per-component access to the drive network
+  readonly drive: DriveAccess;
+
   constructor(
     private readonly s: WorldState,
     private readonly host: ComponentHost,
@@ -295,6 +313,7 @@ export class ComponentCtx implements ComponentContext {
     spec: ComponentSpec,
   ) {
     this.spec = spec;
+    this.drive = host.driveAccess(ownerKind, ownerId);
   }
 
   get componentId(): string {
@@ -394,6 +413,7 @@ export class ComponentCtx implements ComponentContext {
   /** Undo `watchContacts` when the component goes away. */
   release(): void {
     if (this.watching) this.watchContacts(false);
+    this.drive.releaseAll();
   }
 
   emit(name: string, data?: unknown): void {

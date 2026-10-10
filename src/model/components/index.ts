@@ -5,5 +5,6 @@
 import type { ComponentDef } from '../componentRegistry';
 import { constantForce } from './constantForce';
 import { sineMover } from './sineMover';
+import { POWERED_COMPONENTS } from './poweredIndex'; // -- CP
 
-export const BUILTIN_COMPONENTS: readonly ComponentDef[] = [constantForce, sineMover];
+export const BUILTIN_COMPONENTS: readonly ComponentDef[] = [constantForce, sineMover, ...POWERED_COMPONENTS]; // -- CP: powered parts
