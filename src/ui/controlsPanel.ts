@@ -70,7 +70,10 @@ class ControlsView {
   /** Let go of everything: zero every axis, release every key held with the mouse. */
   releaseAll(): void {
     for (const name of this.axisValues.keys()) this.setAxis(name, 0);
-    for (const code of this.keyButtons.keys()) this.app.sim.keys.delete(code);
+    for (const code of this.keyButtons.keys()) {
+      this.app.input.releaseKey(code);
+      this.app.sim.keys.delete(code);
+    }
     this.syncKeys();
   }
 
@@ -153,10 +156,12 @@ class ControlsView {
     this.keyButtons.set(k.code, btn);
     const press = () => {
       if (!this.app.sim.active) return;
+      this.app.input.holdKey(k.code); // the input hub rebuilds `sim.keys` every frame from what it knows is held
       this.app.sim.keys.add(k.code);
       this.syncKeys();
     };
     const release = () => {
+      this.app.input.releaseKey(k.code);
       this.app.sim.keys.delete(k.code);
       this.syncKeys();
     };
