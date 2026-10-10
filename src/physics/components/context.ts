@@ -26,9 +26,9 @@ export type { ContactPoint };
 /** A body as a component sees it. */
 export interface BodyHandle {
   readonly id: string;
-  /** False once the body has been removed from the world (every other member then returns neutral values). */
+  /** False once the body has been removed from the world (every member but `def` then returns neutral values). */
   readonly alive: boolean;
-  /** The document definition (immutable). */
+  /** The document definition (immutable). Throws once the body is gone: check `alive` first. */
   readonly def: Readonly<BodyEntity>;
   readonly type: BodyType;
   /** Mass in kg; 0 for static and kinematic bodies. */
@@ -110,7 +110,7 @@ export interface ComponentContext {
   /** Ask the world to generate contact events (reference-counted; undone automatically when the component goes away). */
   watchContacts(on?: boolean): void;
 
-  /** Raise a `component` event for the page and for other components' listeners. */
+  /** Raise a `component` event for the page (`SimClient` re-emits it as an `'event'`). */
   emit(name: string, data?: unknown): void;
   readonly input: {
     /** Is the key (`KeyboardEvent.code`) held? */

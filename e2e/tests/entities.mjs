@@ -262,6 +262,115 @@ test('groups: group the selection, move it with its members, duplicate, ungroup 
   assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
 });
 
+test('groups: ungrouping nested groups together hands members to the nearest surviving ancestor; only groups can be parents', async () => {
+  const page = await newPage();
+  const r = await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    const mk = (n, x) => a.editor.addShape('box', [x, 0.5, 0], { name: n });
+    const b1 = mk('B1', -2);
+    const b2 = mk('B2', 0);
+    const b3 = mk('B3', 2);
+    const g0 = a.editor.addGroup([0, 0, 0]);
+    const g1 = a.editor.addGroup([0, 0, 0]);
+    const g2 = a.editor.addGroup([0, 0, 0]);
+    // g0 ▸ g1 ▸ g2 ▸ B2, g1 ▸ B1, g0 ▸ B3
+    a.editor.setParent([g1.id], g0.id);
+    a.editor.setParent([g2.id], g1.id);
+    a.editor.setParent([b2.id], g2.id);
+    a.editor.setParent([b1.id], g1.id);
+    a.editor.setParent([b3.id], g0.id);
+    const parent = (id) => a.store.get(id).parent;
+    const before = { b1: parent(b1.id), b2: parent(b2.id) };
+    a.editor.ungroup([g1.id, g2.id]);
+    const after = {
+      b1: parent(b1.id),
+      b2: parent(b2.id),
+      b3: parent(b3.id),
+      groups: a.store.groups().map((g) => g.id),
+    };
+    a.store.undo();
+    const undone = { b1: parent(b1.id), b2: parent(b2.id), groups: a.store.groups().length };
+    // a body cannot be a parent, a group can
+    const refused = a.editor.setParent([b1.id], b2.id);
+    return {
+      ids: { g0: g0.id, g1: g1.id, g2: g2.id, b1: b1.id, b2: b2.id },
+      before,
+      after,
+      undone,
+      refused,
+      still: parent(b1.id),
+    };
+  });
+  assert(
+    r.after.b1 === r.ids.g0 && r.after.b2 === r.ids.g0 && r.after.b3 === r.ids.g0,
+    `members of both dissolved groups end up in the surviving ancestor: ${JSON.stringify(r.after)}`,
+  );
+  assert(r.after.groups.length === 1 && r.after.groups[0] === r.ids.g0, 'only the outer group is left');
+  assert(
+    r.undone.b1 === r.ids.g1 && r.undone.b2 === r.ids.g2 && r.undone.groups === 3,
+    `one undo restores the whole hierarchy: ${JSON.stringify(r.undone)}`,
+  );
+  assert(r.refused === false && r.still === r.ids.g1, 'setParent refuses a body as the parent and changes nothing');
+  // an object that a damaged file links to a non-group stays visible, at the top of the outliner
+  await page.evaluate((ids) => {
+    const a = window.physicslab;
+    a.store.update(ids.b1, { parent: ids.b2 });
+  }, r.ids);
+  await page.click('.tab:has-text("Outliner")');
+  const rows = await page.evaluate(() =>
+    [...document.querySelectorAll('.o-item')].map((row) => ({
+      n: row.querySelector('.o-name').textContent,
+      pad: parseFloat(row.style.paddingLeft || '0'),
+    })),
+  );
+  const b1 = rows.find((row) => row.n === 'B1');
+  assert(b1 && b1.pad === 0, `B1 is listed at the top level, not lost: ${JSON.stringify(rows)}`);
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});
+
+test('selection: a marquee box-selects lights and group pivots together with bodies', async () => {
+  const page = await newPage();
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.editor.addShape('box', [-2, 0.5, 0], { name: 'Box' });
+    a.editor.addShape('sphere', [2, 0.5, 0], { name: 'Ball' });
+    a.editor.addLight('point', [0, 3, 0], { name: 'Lamp' });
+    a.editor.addGroup([0, 0.2, 2]);
+    a.editor.addShape('cylinder', [60, 0.5, 0], { name: 'Far' });
+    a.viewport.setView({ position: [0, 5, 11], target: [0, 1, 0] });
+    a.store.setSelection([]);
+  });
+  const box = await page.evaluate(() => {
+    const r = window.physicslab.viewport.dom.getBoundingClientRect();
+    return {
+      x0: r.left + r.width * 0.2,
+      y0: r.top + r.height * 0.18,
+      x1: r.left + r.width * 0.8,
+      y1: r.top + r.height * 0.85,
+    };
+  });
+  await nextFrame(page);
+  await page.mouse.move(box.x0, box.y0);
+  await page.mouse.down();
+  await page.mouse.move((box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2, { steps: 4 });
+  await page.mouse.move(box.x1, box.y1, { steps: 4 });
+  await page.mouse.up();
+  const picked = await page.evaluate(() =>
+    window.physicslab.store.selection.map((id) => {
+      const e = window.physicslab.store.get(id);
+      return e.kind === 'group' ? 'group' : e.name;
+    }),
+  );
+  picked.sort();
+  assert(
+    JSON.stringify(picked) === JSON.stringify(['Ball', 'Box', 'Lamp', 'group']),
+    `the marquee takes the bodies, the light and the group pivot inside it, not the far body: ${picked}`,
+  );
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});
+
 test('groups: deleting a group keeps its members; hiding it hides them; they simulate and Reset restores', async () => {
   const page = await newPage();
   await page.evaluate(() => {

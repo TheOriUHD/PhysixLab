@@ -6,7 +6,7 @@ import { Plane, Vector3, type Camera } from 'three';
 import { vadd, type Vec3 } from '../core/math';
 import { topLevel } from '../model/groups';
 import { listShapes } from '../model/shapeRegistry';
-import { isPosed } from '../model/types';
+import { isGroup, isLight, isPosed } from '../model/types';
 import type { App } from './app';
 
 type Gesture =
@@ -416,13 +416,29 @@ export class InputController {
       y1 = Math.max(e.clientY, g.y0);
     const picked: string[] = [];
     const tmp = new Vector3();
-    for (const [id, v] of app.bodies.views) {
-      if (v.def.hidden || v.state === 2) continue;
-      tmp.copy(v.position).project(this.cam);
-      if (tmp.z > 1) continue;
+    /** Does the world point project inside the rectangle on screen? */
+    const inside = (x: number, y: number, z: number): boolean => {
+      tmp.set(x, y, z).project(this.cam);
+      if (tmp.z > 1) return false;
       const sx = rect.left + ((tmp.x + 1) / 2) * rect.width;
       const sy = rect.top + ((1 - tmp.y) / 2) * rect.height;
-      if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) picked.push(id);
+      return sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1;
+    };
+    for (const [id, v] of app.bodies.views) {
+      if (v.def.hidden || v.state === 2) continue;
+      if (inside(v.position.x, v.position.y, v.position.z)) picked.push(id);
+    }
+    // Groups (their pivot diamond) and lights (their icon) are boxed by their anchor too; they are only drawn in the editor.
+    if (!app.sim.active) {
+      for (const ent of app.store.all()) {
+        if (
+          (isGroup(ent) || isLight(ent)) &&
+          !ent.hidden &&
+          inside(ent.position[0], ent.position[1], ent.position[2])
+        ) {
+          picked.push(ent.id);
+        }
+      }
     }
     const base = g.additive ? app.store.selection : [];
     app.store.setSelection([...new Set([...base, ...picked])]);
