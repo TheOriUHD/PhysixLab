@@ -140,3 +140,6 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 ## Share links v2 (DT-20)
 
 The compact share link stores non-integer numbers with 6 significant digits and renames entity ids to `e0`, `e1` … when opened, so a scene opened from a link is physically equivalent to the original but not bit-identical (chaotic scenes can diverge over a long run). Use *Export file* for exact transfer. Old `#scene=` (v1) links keep working.
+
+## Pin tool and soft particles (ED-43)
+The pin tool nails rigid bodies to the world with a hinge, ball or fixed joint, also while the simulation runs. A single soft-body particle cannot be pinned at run time: the engine fixes pinned particles when the soft body is built, so a live pin would mean rebuilding (and resetting) the body. Soft bodies are pinned with the Pin presets in their inspector; the tool says so when you click one.
