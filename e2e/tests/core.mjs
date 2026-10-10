@@ -30,8 +30,10 @@ test('add shapes with keyboard + palette, undo / redo', async () => {
   await page.waitForTimeout(200);
   await page.click('.viewport-canvas', { position: { x: 700, y: 400 } });
   await page.keyboard.press('1');
+  await page.keyboard.press('Enter'); // a number key arms a ghost; Enter places it at the pointer
   await page.keyboard.press('2');
-  await page.click('.tile:has-text("Cylinder")');
+  await page.keyboard.press('Enter');
+  await page.dblclick('.tile:has-text("Cylinder")'); // a double-click adds at the view centre at once
   let n = await page.evaluate(() => window.physicslab.store.bodies().length);
   assert(n === 3, `three bodies added (got ${n})`);
   const types = await page.evaluate(() => window.physicslab.store.bodies().map((b) => b.shape.type));
@@ -337,7 +339,7 @@ test('soft bodies: add from the palette, edit in the inspector, simulate and gra
     a.newScene();
     a.viewport.setView({ position: [0, 3, 7], target: [0, 1, 0] });
   });
-  await page.click('.tile:has-text("Jelly")');
+  await page.dblclick('.tile:has-text("Jelly")');
   const soft = await page.evaluate(() =>
     window.physicslab.store.softs().map((s) => ({ id: s.id, type: s.type, pos: s.position })),
   );

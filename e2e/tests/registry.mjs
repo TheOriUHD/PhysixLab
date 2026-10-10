@@ -294,7 +294,9 @@ test('keyboard shortcuts generated from the command registry keep working exactl
     (await import('/src/model/shapeRegistry.ts')).listShapes().map((s) => s.id),
   );
   await page.keyboard.press('3');
+  await page.keyboard.press('Enter');
   await page.keyboard.press('2');
+  await page.keyboard.press('Enter');
   const types = await page.evaluate(() => window.physicslab.store.bodies().map((b) => b.shape.type));
   assert(types.join() === [ids[2], ids[1]].join(), `3 and 2 add ${types}`);
 
@@ -474,6 +476,7 @@ test('menus, toolbox and the shortcut help are generated from the registries —
   assert(items.find((i) => i.label === 'Delete').kbd === 'Del', 'Delete shows Del');
   await page.keyboard.press('Escape');
   await page.keyboard.press('1');
+  await page.keyboard.press('Enter');
   await page.click('.menu-btn:has-text("Edit")');
   items = await page.evaluate(() =>
     [...document.querySelectorAll('.menu .menu-item')].map((b) => ({
@@ -685,6 +688,7 @@ test('panels: the three regions are generated from the panel registry, follow it
   await page.click('.panel.left .tab:has-text("Add")');
   await page.evaluate(() => window.physicslab.newScene());
   await page.keyboard.press('1');
+  await page.keyboard.press('Enter');
   await page.keyboard.press('Space');
   await simTime(page, 0.6);
   const legend = await page.locator('.dock .legend-item b').first().textContent();
@@ -715,6 +719,7 @@ test('panels: the three regions are generated from the panel registry, follow it
   );
   const n0 = await page.evaluate(() => window.physicslab.store.bodies().length);
   await page.keyboard.press('2');
+  await page.keyboard.press('Enter');
   await page.waitForFunction(
     (n) => document.querySelector('#panel-stats').textContent.startsWith(`${n} bodies`),
     n0 + 1,
@@ -884,7 +889,7 @@ test('extension examples from docs/EXTENDING.md run in the real app: command, to
   await page.click('.panel.left .tab:has-text("Scenes")');
   assert((await page.locator('.card:has-text("Three ramps")').count()) === 1, 'the template is in the Scenes tab');
   await page.click('.panel.left .tab:has-text("Prefabs")');
-  await page.click('.card:has-text("Domino trio")');
+  await page.dblclick('.card:has-text("Domino trio")');
   assert(
     (await page.evaluate(() => window.physicslab.store.bodies().filter((b) => b.name === 'Domino').length)) === 3,
     'the prefab inserts three dominoes',

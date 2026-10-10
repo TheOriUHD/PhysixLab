@@ -69,7 +69,7 @@ test('onboarding tour: every step advances by doing the real thing, and the tour
   assert(sem.dim === 'auto', 'a step that waits for nothing blocks the dimmed area');
   assert(await page.evaluate(() => window.physicslab.sim.mode === 'edit'), 'edit mode');
 
-  // Step 2: spotlight on the shape tiles; pointer events pass through to the app; clicking a tile advances.
+  // Step 2: spotlight on the shape tiles; pointer events pass through to the app; clicking a tile and then the scene advances.
   await page.keyboard.press('Enter'); // Next is focused: keyboard only
   await waitTitle(page, 'Add a shape');
   assert((await counter(page)) === 'Step 2 of 10', 'counter moved');
@@ -84,7 +84,8 @@ test('onboarding tour: every step advances by doing the real thing, and the tour
   assert(dimPE === 'none', 'a step that waits lets clicks through');
   await shot(page, 'tour-add-step');
   const before = await page.evaluate(() => window.physicslab.store.bodies().length);
-  await page.locator('#panel-add .tile').first().click();
+  await page.locator('#panel-add .tile').first().click(); // arms placement ...
+  await page.mouse.click(700, 400); // ... and a click in the scene places it
   await waitTitle(page, 'Select it');
   assert((await page.evaluate(() => window.physicslab.store.bodies().length)) === before + 1, 'the shape was added');
 

@@ -2,8 +2,10 @@
 import type { App } from '../app/app';
 import { ZONE_PRESETS } from '../model/zonePresets';
 import { ZONE_ACTIONS } from '../model/zones';
+import { zonePlaceable } from '../app/placeables';
 import { h } from './dom';
 import { icon } from './icons';
+import { bindPlaceable } from './placementTiles';
 
 export function zoneTiles(app: App): HTMLElement[] {
   const tiles = h('div', { class: 'tiles three zone-tiles' });
@@ -14,14 +16,14 @@ export function zoneTiles(app: App): HTMLElement[] {
       {
         class: 'tile zone-tile',
         type: 'button',
-        title: `${preset.name} — ${a.blurb}\nClick to add it in front of the view.`,
+        title: `${preset.name} — ${a.blurb}\nDrag into the scene, or click and then click where it should go.`,
         dataset: { zone: a.id },
         style: `--zone-color:${a.color}`,
       },
       icon(a.icon),
       a.id === 'none' ? 'Trigger' : a.label.replace(' zone', '').replace(' line', ''),
     );
-    t.addEventListener('click', () => app.zones.add(a.id));
+    bindPlaceable(app, t, `zone:${a.id}`, () => zonePlaceable(a.id)); // -- ghost placement --
     tiles.appendChild(t);
   }
   return [

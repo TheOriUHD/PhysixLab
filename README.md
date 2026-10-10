@@ -38,7 +38,7 @@ Requires a modern desktop browser with WebGL 2 and WebAssembly (Chrome, Edge, Fi
 
 | | |
 |---|---|
-| **Add** | click a shape tile (or press `1`–`8`), or drag it into the scene |
+| **Add** | drag a tile (shape, soft body, prefab, zone or light) into the scene: a translucent **ghost** shows where it will land, and the object is created when you let go (`Esc`, a right click or letting go over a panel cancels). On a trackpad: click a tile (or press `1`–`9`), move over the scene and click to place; `Shift`+click places several. While placing: `Q` / `E` (or `R`) turn it 15° (`Shift` = 1°), `[` `]` lower / raise it, `X` aligns it to the surface, hold `Alt` for no snapping. Double-click a tile to add it at the centre of the view. On touch, long-press a tile and drag |
 | **Move** | drag a body on the ground plane (hold `Shift` to lift), or use the gizmo (`W` move · `E` rotate · `R` scale · `Q` select-only) |
 | **Connect** | pick a joint (or press `J`), click body A, then body B (or empty ground to pin to the world). Select the joint to add limits, a motor or spring settings |
 | **Simulate** | `Space` start/pause · `.` step · `Shift+Space` stop & return to the editable layout |

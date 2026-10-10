@@ -192,7 +192,7 @@ export const TIPS: readonly string[] = [
   'Right-drag orbits the camera, middle-drag pans and the wheel zooms. [[F]] frames the selection.',
   'Every edit is undoable: [[Ctrl+Z]] steps back, [[Ctrl+Shift+Z]] steps forward.',
   'While the simulation runs, drag any body with the mouse to push it around — great for testing a design.',
-  'The number keys [[1]]–[[9]] add shapes to the scene without opening the library.',
+  'The number keys [[1]]–[[9]] pick a shape: a ghost follows the pointer and a click places it ([[Esc]] cancels).',
   'Press [[J]] for the joint tool, then click two bodies to connect them with a hinge, spring, slider and more.',
   'The Inspector on the right edits whatever is selected — mass, material, colour, size and components.',
   'Slow motion lives next to the clock in the top bar. Use it to watch a collision frame by frame.',

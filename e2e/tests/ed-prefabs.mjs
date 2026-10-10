@@ -56,7 +56,7 @@ test('prefabs: save selection, tile with thumbnail, insert is one undo step, sur
 
   // Insert by clicking the tile: two new bodies, selected, ONE undo step.
   await page.evaluate(() => window.physicslab.store.setSelection([]));
-  await tile.locator('.ed-pf-main').click();
+  await tile.locator('.ed-pf-main').dblclick();
   await page.waitForFunction((n) => window.physicslab.store.all().length === n + 2, base);
   const sel = await page.evaluate(() => {
     const s = window.physicslab.store;
@@ -127,7 +127,7 @@ test('prefabs: dragging a tile into the viewport drops it on the surface under t
   await openMyPrefabs(page);
   const tile = page.locator('.ed-pf-tile[data-name="Dropped box"]');
   await tile.waitFor();
-  assert((await tile.locator('.ed-pf-main').getAttribute('draggable')) === 'true', 'tile is draggable');
+  assert(!!(await tile.locator('.ed-pf-main').getAttribute('data-placeable')), 'tile can be dragged into the scene (ghost placement)');
   const id = await tile.getAttribute('data-prefab');
   const before = await count(page);
   const at = await page.evaluate(() => {

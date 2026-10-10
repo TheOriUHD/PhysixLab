@@ -1,9 +1,11 @@
 /**
  * ED-22 — the "My prefabs" tab of the left (library) region: a searchable, tag-filterable grid of the user's
- * prefabs. Click inserts at the surface under the view centre; a tile can also be dragged into the viewport.
+ * prefabs. A tile is dragged into the viewport (a ghost of every object shows where it lands) or clicked to arm
+ * placement; double-click inserts at the surface under the view centre.
  */
 import type { App } from '../../app/app';
 import { insertUserPrefab, prefabLibrary, updatePrefabFromSelection } from '../../app/edit/prefabActions';
+import { userPrefabPlaceable } from '../../app/placeables'; // -- ghost placement
 import type { PanelContext, PanelView } from '../../app/registry/panels';
 import type { StoredPrefab } from '../../model/edit/userPrefab';
 import { clear, h } from '../dom';
@@ -11,6 +13,7 @@ import { emptyState } from '../emptyState'; // -- UI-B: empty states --
 import { icon } from '../icons';
 import { openMenu, type MenuItem } from '../menu';
 import { confirmDialog } from '../modal';
+import { bindPlaceable } from '../placementTiles'; // -- ghost placement
 import {
   editPrefabDialog,
   exportDialog,
@@ -114,8 +117,7 @@ function tile(app: App, p: StoredPrefab): HTMLElement {
     {
       class: 'ed-pf-main',
       type: 'button',
-      draggable: true,
-      title: `${p.name} — ${p.entities.length} objects\nClick to insert at the centre of the view, or drag into the scene`,
+      title: `${p.name} — ${p.entities.length} objects\nDrag into the scene, or click and then click where it should go.\nDouble-click: insert at the centre of the view`,
     },
     thumb,
     h('span', { class: 'ed-pf-name' }, p.name),
@@ -126,12 +128,8 @@ function tile(app: App, p: StoredPrefab): HTMLElement {
       ...badges.map((b) => h('span', { class: 'chip-tag ed-pf-badge' }, b)),
     ),
   );
-  main.addEventListener('click', () => void insertUserPrefab(app, p.id));
-  main.addEventListener('dragstart', (e) => {
-    e.dataTransfer?.setData(PREFAB_MIME, p.id);
-    e.dataTransfer?.setData('text/plain', p.name);
-    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
-  });
+  // -- ghost placement: drag shows a ghost of every object; a click arms it (src/app/placementGhost.ts) --
+  bindPlaceable(app, main, `userprefab:${p.id}`, () => userPrefabPlaceable(app, p.id));
   const more = h(
     'button',
     { class: 'icon-btn ed-pf-more', type: 'button', title: 'Prefab actions', 'aria-label': `Actions for ${p.name}` },

@@ -8,12 +8,14 @@
  * or Space adds; in the search box ↓ moves to the first result, Enter adds the best match and Escape clears.
  */
 import type { App } from '../app/app';
+import { shapePlaceable } from '../app/placeables';
 import { listShapes, type ShapeDef } from '../model/shapeRegistry';
 import { requestThumbnail } from '../render/thumbnails';
 import { button } from './controls';
 import { h } from './dom';
 import { emptyState } from './emptyState'; // -- UI-B: empty states --
 import { icon } from './icons';
+import { bindPlaceable } from './placementTiles';
 import { groupByCategory, searchShapes, type ShapeHit } from './shapeSearch';
 import '../styles/shapePalette.css';
 // -- UI-B: favourites --
@@ -48,7 +50,7 @@ function saveCollapsed(): void {
 
 function tooltip(def: ShapeDef, index: number): string {
   const key = index < 9 ? ` (${index + 1})` : '';
-  return `${def.label}${def.blurb ? ` — ${def.blurb}` : ''}\nClick to add, or drag into the scene${key}`;
+  return `${def.label}${def.blurb ? ` — ${def.blurb}` : ''}\nDrag into the scene, or click and then click where it should go${key}\nDouble-click: add at the view centre`;
 }
 
 function tile(app: App, hit: ShapeHit, tabbable: boolean): HTMLButtonElement {
@@ -59,7 +61,6 @@ function tile(app: App, hit: ShapeHit, tabbable: boolean): HTMLButtonElement {
     {
       class: 'tile shape-tile',
       type: 'button',
-      draggable: true,
       title: tooltip(def, index),
       tabIndex: tabbable ? 0 : -1,
       dataset: { shape: def.id, ...(index < 9 ? { key: String(index + 1) } : {}) },
@@ -72,13 +73,9 @@ function tile(app: App, hit: ShapeHit, tabbable: boolean): HTMLButtonElement {
     art.replaceChildren(img);
   });
   t.appendChild(favStar('shape', def.id, def.label)); // -- UI-B --
-  t.addEventListener('click', () => app.addShape(def.id));
+  // -- ghost placement: press and move drags a ghost into the scene, a click arms it, a double-click adds at the centre --
+  bindPlaceable(app, t, `shape:${def.id}`, () => shapePlaceable(def.id));
   t.addEventListener('focus', () => (state.focusId = def.id));
-  t.addEventListener('dragstart', (e) => {
-    e.dataTransfer?.setData('text/x-physicslab-shape', def.id);
-    e.dataTransfer?.setData('text/plain', def.id);
-    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
-  });
   return t;
 }
 
@@ -256,7 +253,9 @@ export function buildShapePalette(app: App): HTMLElement {
     } else if (e.key === 'Enter') {
       const first = searchShapes(defs, state.query)[0];
       if (first && state.query.trim()) {
-        app.addShape(first.def.id);
+        // -- ghost placement: arm it and hand the keyboard to the scene (Enter there places it, Esc cancels) --
+        app.placement.ghost.arm(shapePlaceable(first.def.id));
+        input.blur();
         e.preventDefault();
       }
     }

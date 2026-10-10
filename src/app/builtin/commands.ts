@@ -16,6 +16,7 @@ import type { Quality } from '../../render/viewport';
 import type { App } from '../app';
 import { JOINT_ITEMS, LIGHT_ITEMS, SOFT_ITEMS } from '../addCatalog';
 import { pasteClaimedSince } from '../pasteClaim';
+import { lightPlaceable, pathPlaceable, shapePlaceable, softPlaceable } from '../placeables'; // -- ghost placement
 import type { CommandDef } from '../registry/commands';
 import { registerHelp } from '../registry/help';
 import { jointCommands } from './jointCommands'; // -- JT-A
@@ -502,8 +503,11 @@ function addCommands(): CommandDef[] {
       keywords: ['new', 'create', 'shape', 'body', ...shapeKeywords(def)], // -- SH: the palette's search words too
       shortcut: i < 9 ? String(i + 1) : undefined,
       help: false,
-      run: ({ app }) => {
-        app.addShape(def.id);
+      // -- ghost placement: the number keys and the palette arm a ghost that follows the pointer (placementGhost.ts);
+      // programmatic calls (`api`) still add at the view centre at once
+      run: ({ app, source }) => {
+        if (source === 'api') app.addShape(def.id);
+        else app.placement.ghost.arm(shapePlaceable(def.id));
       },
     });
   });
@@ -515,7 +519,8 @@ function addCommands(): CommandDef[] {
       icon: s.icon,
       description: s.blurb,
       keywords: ['new', 'create', 'soft body', 'deformable'],
-      run: ({ app }) => app.addSoft(s.type),
+      run: ({ app, source }) =>
+        source === 'api' ? app.addSoft(s.type) : app.placement.ghost.arm(softPlaceable(s.type)),
     });
   for (const l of LIGHT_ITEMS)
     out.push({
@@ -525,7 +530,8 @@ function addCommands(): CommandDef[] {
       icon: l.icon,
       description: l.blurb,
       keywords: ['new', 'create', 'lamp'],
-      run: ({ app }) => app.addLight(l.type),
+      run: ({ app, source }) =>
+        source === 'api' ? app.addLight(l.type) : app.placement.ghost.arm(lightPlaceable(l.type)),
     });
   out.push({
     id: 'add.path',
@@ -534,7 +540,7 @@ function addCommands(): CommandDef[] {
     icon: 'path',
     description: 'A spline through points — a track for movers and cameras',
     keywords: ['new', 'create', 'spline', 'track'],
-    run: ({ app }) => app.addPath(),
+    run: ({ app, source }) => (source === 'api' ? app.addPath() : app.placement.ghost.arm(pathPlaceable())),
   });
   for (const j of JOINT_ITEMS)
     out.push({
@@ -574,6 +580,11 @@ export function registerBuiltinHelp(): (() => void)[] {
     ['gesture.vertical', 'Edit', 'Vertical drag-move', 'Shift drag'],
     ['gesture.nudge', 'Edit', 'Nudge selection (1 m with Shift)', 'Arrow keys'],
     ['gesture.addAtView', 'Add', 'Add shape at view', `1 – ${n}`],
+    // -- ghost placement --
+    ['gesture.placeDrag', 'Add', 'Drag a tile into the scene (a ghost shows where it lands)', 'Drag · Esc cancels'],
+    ['gesture.placeClick', 'Add', 'After a number key or a tile click: place at the pointer', 'Click · Enter'],
+    ['gesture.placeKeys', 'Add', 'While placing: turn · lower / raise · align · no snap', 'Q E R · [ ] · X · Alt'],
+    ['gesture.placeMany', 'Add', 'Place several in a row', 'Shift Click'],
     ['gesture.orbit', 'Camera', 'Orbit', 'Right drag · Alt drag'],
     ['gesture.pan', 'Camera', 'Pan', 'Middle drag · Shift Right drag'],
     ['gesture.zoom', 'Camera', 'Zoom', 'Scroll'],

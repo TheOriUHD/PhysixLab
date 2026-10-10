@@ -51,6 +51,7 @@ test('shape registry: palette, number keys and the prism inspector come from the
   // the number keys address the registry order (7 = prism)
   await page.click('.viewport-canvas', { position: { x: 700, y: 400 } });
   await page.keyboard.press('7');
+  await page.keyboard.press('Enter');
   const prism = await page.evaluate(() => {
     const b = window.physicslab.store.bodies()[0];
     return { type: b.shape.type, params: b.shape.params, id: b.id };

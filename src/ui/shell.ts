@@ -2,6 +2,7 @@ import type { App, Shell } from '../app/app';
 import { DropController } from '../app/edit/dropController';
 import { h } from './dom';
 import { mountJointOptionsBar } from './jointOptionsBar';
+import { mountPlacementHud } from './placementHud';
 
 export interface ShellDom extends Shell {
   root: HTMLElement;
@@ -66,6 +67,7 @@ export function wireShell(app: App, shell: ShellDom): void {
   sync();
 
   mountJointOptionsBar(app, shell.stage); // JT-21: options bar of the joint tool
+  mountPlacementHud(app, shell.stage); // -- ghost placement: hint bar, drag chip, armed tile --
 
   app.on('hint', (t) => {
     shell.hintBar.classList.toggle('hidden', !t);

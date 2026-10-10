@@ -89,17 +89,20 @@ test('SH-13 · the Add tab groups the shapes by category, with generated thumbna
   );
   await page.evaluate(() => window.physicslab.newScene());
   await page.click('.viewport-canvas', { position: { x: 800, y: 500 } });
-  for (const k of ['1', '3', '9']) await page.keyboard.press(k);
+  for (const k of ['1', '3', '9']) {
+    await page.keyboard.press(k); // arms a ghost ...
+    await page.keyboard.press('Enter'); // ... Enter places it at the pointer (the view centre when it is off the viewport)
+  }
   const added = await page.evaluate(() => window.physicslab.store.bodies().map((b) => b.shape.type));
   assert(added.join() === 'box,cylinder,torus', `1, 3 and 9 add box, cylinder, torus: ${added.join()}`);
 
-  // tooltips keep the "Click to add" hint; clicking a tile adds the shape
+  // tooltips carry the placement hint; double-clicking a tile adds the shape at the view centre
   const title = await page.locator('.shape-tile[data-shape="gear"]').getAttribute('title');
-  assert(/Click to add, or drag/.test(title ?? ''), `tile tooltip: ${title}`);
-  await page.locator('.shape-tile[data-shape="gear"]').click();
+  assert(/Drag into the scene/.test(title ?? ''), `tile tooltip: ${title}`);
+  await page.locator('.shape-tile[data-shape="gear"]').dblclick();
   assert(
     (await page.evaluate(() => window.physicslab.store.bodies().at(-1).shape.type)) === 'gear',
-    'clicking the gear tile adds a gear',
+    'double-clicking the gear tile adds a gear',
   );
 
   // a collapsed group stays collapsed after a reload, and the thumbnails come straight from the cache
@@ -166,7 +169,8 @@ test('SH-13 · search finds shapes by name, category and keyword; Enter adds the
   // Enter adds the best match; the typed digits and letters never trigger shortcuts
   await page.evaluate(() => window.physicslab.newScene());
   await search.fill('torus');
-  await search.press('Enter');
+  await search.press('Enter'); // arms the best match and hands the keyboard to the scene ...
+  await page.keyboard.press('Enter'); // ... where Enter places it
   const bodies = await page.evaluate(() => window.physicslab.store.bodies().map((b) => b.shape.type));
   assert(bodies.join() === 'torus', `Enter added the torus: ${bodies}`);
   await search.fill('d6');
@@ -193,7 +197,8 @@ test('SH-13 · search finds shapes by name, category and keyword; Enter adds the
   await page.keyboard.press('End');
   const last = await page.evaluate(() => document.activeElement?.dataset?.shape);
   assert(last === 'd20' || last === 'half-pipe' || !!last, `End goes to the last tile (${last})`);
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter'); // arms the focused tile
+  await page.keyboard.press('Enter'); // places it
   const added = await page.evaluate(() => window.physicslab.store.bodies().at(-1).shape.type);
   assert(added === last, `Enter on a focused tile adds it (${added})`);
   await page.keyboard.press('Home');

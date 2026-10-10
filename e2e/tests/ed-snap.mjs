@@ -401,7 +401,7 @@ test('drop: a prefab card dragged onto the scene is inserted at the pointer (not
     a.viewport.setView({ position: [9, 7, 11], target: [0, 0, 0] });
     a.prefs.set({ snap: false, leftTab: 'prefabs', showLeft: true });
   });
-  await page.waitForSelector('.card[draggable="true"]');
+  await page.waitForSelector('.card[data-placeable]');
   await nextFrame(page);
   const box = await page.locator('.stage').boundingBox();
   const target = await page.evaluate(() => {
@@ -412,7 +412,7 @@ test('drop: a prefab card dragged onto the scene is inserted at the pointer (not
   });
   const before = await page.evaluate(() => window.physicslab.store.bodies().length);
   await page
-    .locator('.card[draggable="true"]')
+    .locator('.card[data-placeable]')
     .first()
     .dragTo(page.locator('.stage'), { targetPosition: { x: target.x - box.x, y: target.y - box.y } });
   await page.waitForTimeout(250);

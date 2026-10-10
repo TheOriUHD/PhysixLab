@@ -4,9 +4,15 @@ import type { ShapeType } from '../model/types';
 import type { PickHit } from '../render/picking';
 import type { App } from './app';
 import { dropPoseForShape } from './edit/surfaceDrop';
+import { PlacementGhost } from './placementGhost';
 
 export class Placement {
-  constructor(private app: App) {}
+  /** -- ghost placement: dragging or arming a library tile shows a ghost until it is placed (`placementGhost.ts`) -- */
+  readonly ghost: PlacementGhost;
+
+  constructor(private app: App) {
+    this.ghost = new PlacementGhost(app);
+  }
 
   /** Pick a body or joint under the pointer. */
   pickEntity(

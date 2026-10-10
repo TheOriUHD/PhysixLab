@@ -49,7 +49,8 @@ export class Effects {
     this.fx.push({ mesh: flash, age: 0, life: 0.22, maxScale: radius * 0.22, kind: 'shock' });
   }
 
-  ping(at: Vector3, color = 0x3ddcff): void {
+  /** An expanding ring on the ground at `at`; `radius` is how far it grows (metres). */
+  ping(at: Vector3, color = 0x3ddcff, radius = 0.8): void {
     const mat = new MeshBasicMaterial({
       color,
       transparent: true,
@@ -64,7 +65,7 @@ export class Effects {
     mesh.scale.setScalar(0.1);
     mesh.renderOrder = 996;
     this.group.add(mesh);
-    this.fx.push({ mesh, age: 0, life: 0.5, maxScale: 0.8, kind: 'ping' });
+    this.fx.push({ mesh, age: 0, life: 0.5, maxScale: radius, kind: 'ping' });
   }
 
   update(dt: number): boolean {

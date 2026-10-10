@@ -794,6 +794,16 @@ surface — is a **component** (above), not a zone action.
 
 ---
 
+## How to make a tile placeable (ghost placement)
+
+A library tile that adds something to the scene shows a **ghost** while it is dragged or armed (`src/app/placementGhost.ts`).
+To give a new kind of tile this behaviour, describe what it creates as a `Placeable` (`src/app/placeables.ts`: `bounds()` is
+the solid it occupies relative to its pose origin, `entities()` is what the ghost draws, `commit(app, pose)` creates the real
+thing as one undo step and `addAtViewCentre(app)` is the double-click) and bind the tile's element with
+`bindPlaceable(app, el, placeable.id, () => placeable)` (`src/ui/placementTiles.ts`). Clicking arms it, dragging shows the
+ghost, `app.placement.ghost.arm(placeable)` does the same from a command. Keys are handled in one place,
+`app.placement.ghost.handleKey(e)`, and `legendEntries()` lists them.
+
 ## Testing an extension
 
 - **Pure data and registries** (`registerCommand`, content, shortcuts) run in Node: register, assert, unregister
