@@ -1,4 +1,10 @@
 import './styles/app.css';
+import './styles/ed-select.css';
+import './styles/ed-arrange.css';
+import './styles/ed-snap.css';
+import './styles/ed-hierarchy.css';
+import './styles/ed-prefabs.css';
+import './styles/ed-path.css';
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';
