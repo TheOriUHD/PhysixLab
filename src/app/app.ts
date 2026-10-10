@@ -106,6 +106,8 @@ export class App extends Emitter<AppEvents> {
 
     this.viewport = new Viewport(shell.viewportHost);
     this.bodies = new BodyViews(this.viewport.bodies);
+    // -- VZ-B: `?instancing=0` draws every body with its own mesh (benchmark baseline) --
+    if (new URLSearchParams(location.search).get('instancing') === '0') this.bodies.setInstancing(false);
     this.softs = new SoftViews(this.viewport.softs);
     this.joints = new JointViews(this.viewport.joints, this.bodies);
     this.groupViews = new GroupViews(this.viewport.groups);

@@ -1,4 +1,4 @@
-import { Plane, Raycaster, Vector2, Vector3, type Camera, type Object3D } from 'three';
+import { Matrix4, Plane, Raycaster, Vector2, Vector3, type Camera, type InstancedMesh, type Object3D } from 'three';
 
 export interface PickHit {
   entityId: string;
@@ -14,6 +14,7 @@ export class Picker {
   private ray = new Raycaster();
   private ndc = new Vector2();
   private plane = new Plane();
+  private instM = new Matrix4();
 
   constructor(
     private dom: HTMLElement,
@@ -34,12 +35,23 @@ export class Picker {
     this.setRay(ev);
     const hits = this.ray.intersectObjects(targets, false);
     for (const h of hits) {
-      const id = h.object.userData.entityId as string | undefined;
+      // Instanced bodies (VZ-30): the pool mesh carries one id per instance.
+      const ids = h.instanceId !== undefined ? (h.object.userData.instanceIds as string[] | undefined) : undefined;
+      const id = ids ? ids[h.instanceId!] : (h.object.userData.entityId as string | undefined);
       if (!id) continue;
+      let normal: Vector3 | null = null;
+      if (h.face) {
+        normal = h.face.normal.clone();
+        if (h.instanceId !== undefined) {
+          (h.object as InstancedMesh).getMatrixAt(h.instanceId, this.instM);
+          normal.transformDirection(this.instM);
+        }
+        normal.transformDirection(h.object.matrixWorld);
+      }
       return {
         entityId: id,
         point: h.point.clone(),
-        normal: h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld) : null,
+        normal,
         end: h.object.userData.end as 'A' | 'B' | undefined,
         distance: h.distance,
       };
