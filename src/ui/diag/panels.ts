@@ -180,12 +180,7 @@ export const profilerPanel: PanelDef = {
       { class: 'prof-note' },
       'Times are main-thread CPU time. Render is the time spent issuing draw calls: the GPU works asynchronously and is not measured. The physics step runs on the worker thread, in parallel, so it is listed separately.',
     );
-    const el = h(
-      'div',
-      { class: 'prof-panel' },
-      h('div', { class: 'prof-top' }, canvas, table, workerTable),
-      note,
-    );
+    const el = h('div', { class: 'prof-panel' }, h('div', { class: 'prof-top' }, canvas, table, workerTable), note);
 
     // ── the stacked graph: preallocated, no allocation while drawing ──
     const g = canvas.getContext('2d');

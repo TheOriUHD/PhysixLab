@@ -43,5 +43,5 @@ export const listStatusTips = (): readonly StatusTipDef[] => statusTipRegistry.l
 export function chooseTip<T extends { priority?: number }>(tips: readonly T[], step: number): T | undefined {
   if (!tips.length) return undefined;
   const ordered = tips.map((t, i) => ({ t, i })).sort((a, b) => (b.t.priority ?? 0) - (a.t.priority ?? 0) || a.i - b.i);
-  return ordered[((step % ordered.length) + ordered.length) % ordered.length]!.t;
+  return ordered[((step % ordered.length) + ordered.length) % ordered.length].t;
 }

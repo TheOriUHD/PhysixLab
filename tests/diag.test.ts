@@ -51,7 +51,7 @@ describe('profiler', () => {
       p.mark(UI);
       p.end();
     }
-    const seen = [0, 1, 2].map((i) => p.rings[UI]![p.indexOfRecent(i)]);
+    const seen = [0, 1, 2].map((i) => p.rings[UI][p.indexOfRecent(i)]);
     expect(seen).toEqual([5, 4, 3]);
   });
 
@@ -311,7 +311,15 @@ describe('diagnostics report', () => {
 
   it('copy text is valid JSON with version, UA, GPU, limits, worker, errors and scene', () => {
     const text = formatReport(report());
-    const j = JSON.parse(text) as Record<string, any>;
+    const j = JSON.parse(text) as {
+      app: { version: string };
+      browser: { userAgent: string };
+      gpu: { unmaskedRenderer: string; limits: Record<string, number> };
+      worker: { protocol: number };
+      recentErrors: { message: string }[];
+      scene: { bodies: number };
+      capabilities: unknown[];
+    };
     expect(j.app.version).toBe('1.2.3');
     expect(j.browser.userAgent).toMatch(/Chrome\/124/);
     expect(j.gpu.unmaskedRenderer).toBe('NVIDIA GeForce RTX');
@@ -351,12 +359,12 @@ describe('cheat-sheet data', () => {
   it('lists commands with shortcuts and gestures, grouped in category order, platform aware', () => {
     const pc = cheatSections({ platform: 'pc', commands, entries });
     expect(pc.map((s) => s.title)).toEqual(['Simulation', 'Edit', 'Camera']);
-    const undo = pc[1]!.rows.find((r) => r.label === 'Undo')!;
+    const undo = pc[1].rows.find((r) => r.label === 'Undo')!;
     expect(undo.alternatives).toEqual([['Ctrl', 'Z']]);
-    expect(pc[1]!.rows.find((r) => r.label === 'Redo')!.alternatives.length).toBe(2);
-    expect(pc[1]!.rows.some((r) => r.label === 'Hidden')).toBe(false);
+    expect(pc[1].rows.find((r) => r.label === 'Redo')!.alternatives.length).toBe(2);
+    expect(pc[1].rows.some((r) => r.label === 'Hidden')).toBe(false);
     const mac = cheatSections({ platform: 'mac', commands, entries });
-    expect(mac[1]!.rows.find((r) => r.label === 'Undo')!.alternatives[0]).not.toContain('Ctrl');
+    expect(mac[1].rows.find((r) => r.label === 'Undo')!.alternatives[0]).not.toContain('Ctrl');
   });
 
   it('commands without a shortcut appear only behind the toggle', () => {
@@ -366,7 +374,7 @@ describe('cheat-sheet data', () => {
         .some((r) => r.label.startsWith('Export')),
     ).toBe(false);
     const all = cheatSections({ platform: 'pc', commands, entries, includeUnbound: true });
-    const exp = all.find((s) => s.title === 'File')!.rows[0]!;
+    const exp = all.find((s) => s.title === 'File')!.rows[0];
     expect(exp.alternatives).toEqual([]);
     expect(exp.commandId).toBe('file.export');
   });
@@ -376,7 +384,7 @@ describe('cheat-sheet data', () => {
     expect(filterCheat(s, 'undo').flatMap((x) => x.rows.map((r) => r.label))).toEqual(['Undo']);
     expect(filterCheat(s, 'revert').flatMap((x) => x.rows.map((r) => r.label))).toEqual(['Undo']);
     expect(filterCheat(s, 'edit ctrl').flatMap((x) => x.rows.map((r) => r.label))).toEqual(['Undo', 'Redo']);
-    expect(filterCheat(s, 'scroll')[0]!.title).toBe('Camera');
+    expect(filterCheat(s, 'scroll')[0].title).toBe('Camera');
     expect(filterCheat(s, 'zzz')).toEqual([]);
     expect(filterCheat(s, '  ').length).toBe(s.length);
   });
