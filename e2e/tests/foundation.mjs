@@ -18,7 +18,15 @@ test('shape registry: palette, number keys and the prism inspector come from the
     const { listShapes } = await import('/src/model/shapeRegistry.ts');
     return listShapes().map((d) => ({ id: d.id, label: d.label }));
   });
-  assert(reg.length === 8, `eight built-in shapes registered (${reg.length})`);
+  // the original eight come first (the number keys depend on it); shape packages append after them
+  const CORE = 'box,sphere,cylinder,capsule,cone,wedge,prism,icosahedron';
+  assert(
+    reg
+      .slice(0, 8)
+      .map((d) => d.id)
+      .join() === CORE,
+    `the eight original shapes come first (${reg.map((d) => d.id).join()})`,
+  );
   const tiles = await page.locator('.panel.left .tiles').first().locator('.tile').allTextContents();
   assert(
     tiles.map((t) => t.trim()).join() === reg.map((d) => d.label).join(),

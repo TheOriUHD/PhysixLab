@@ -947,6 +947,29 @@ describe('every new shape, dropped, comes to rest with its lowest mesh point on 
   });
 });
 
+describe('live edits', () => {
+  it('changing a shape parameter or size while the world runs rebuilds the compound body with the new volume', async () => {
+    const t = createBody({
+      shape: { type: 'torus', size: [1, 0.3, 1] },
+      position: [0, 3, 0],
+      material: { preset: 'custom', density: 900 },
+    });
+    const w = await worldOf([t]);
+    run(w, 0.2);
+    const mass = () => w.builtInfo().mass[t.id];
+    expect(Math.abs(mass() - 900 * shapeVolume(t.shape)) / mass()).toBeLessThan(1e-3);
+    const coarse: BodyEntity = { ...t, shape: makeShapeSpec('torus', [1.2, 0.4, 1.2], { segments: 12, tubeSides: 8 }) };
+    w.updateBody(coarse);
+    run(w, 0.2);
+    expect(Math.abs(mass() - 900 * shapeVolume(coarse.shape)) / mass()).toBeLessThan(1e-3);
+    expect(mass()).not.toBeCloseTo(900 * shapeVolume(t.shape), 0);
+    // the edited body keeps simulating: it is still falling and has not been duplicated
+    expect(w.bodyIds).toEqual([t.id]);
+    expect(w.getPose(t.id)!.position[1]).toBeLessThan(3);
+    w.dispose();
+  });
+});
+
 describe('documents', () => {
   it('a scene made of the new shapes loads and builds without warnings', async () => {
     const doc = docOf(
