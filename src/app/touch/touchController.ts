@@ -17,12 +17,17 @@ import { topLevel } from '../../model/groups';
 import { isPosed } from '../../model/types';
 import type { App } from '../app';
 import type { InputController } from '../input';
+import { applyObjectSnap, endObjectSnap, showGridSnap } from '../edit/snapDrag';
+import { effectiveModes } from '../edit/snapScene';
 import {
   FingerSet,
   LongPress,
   classifyTwoFinger,
+  orthoPixel,
   panShift,
+  perspectivePixel,
   pinchDistance,
+  pinchZoom,
   snapMove,
   type TwoFingerKind,
 } from './gestures';
@@ -32,12 +37,16 @@ type Mode = 'idle' | 'one' | 'two-camera' | 'two-move' | 'pan';
 const tmpR = new Vector3();
 const tmpU = new Vector3();
 const tmpO = new Vector3();
+const axisR: [number, number, number] = [0, 0, 0];
+const axisU: [number, number, number] = [0, 0, 0];
+const shift: [number, number, number] = [0, 0, 0];
 
 export class TouchGestures {
   private readonly fingers = new FingerSet();
   private readonly press = new LongPress(500, 10);
   private delay = 500;
   private evalFrame = 0;
+  private pressFrame = 0;
   private pressTimer = 0;
   private downEvent: PointerEvent | null = null;
   private mode: Mode = 'idle';
@@ -45,6 +54,8 @@ export class TouchGestures {
   private readonly c0 = { x: 0, y: 0 };
   private readonly prev = { x: 0, y: 0 };
   private readonly cur = { x: 0, y: 0 };
+  /** Stand-in for the pointer event the snap helpers want: the centroid of the two fingers, no modifier keys. */
+  private readonly centroidEvent = { clientX: 0, clientY: 0, ctrlKey: false, metaKey: false, shiftKey: false };
   private spread0 = 0;
   private prevSpread = 0;
   private kind: TwoFingerKind = 'undecided';
@@ -90,9 +101,7 @@ export class TouchGestures {
 
   /** Forget every finger (focus lost, a pointer-up never arrived): the next touch starts a clean gesture. */
   private reset(): void {
-    window.clearTimeout(this.pressTimer);
-    cancelAnimationFrame(this.evalFrame);
-    this.evalFrame = 0;
+    this.clearTimers();
     this.press.cancel();
     this.endMove();
     this.fingers.clear();
@@ -102,11 +111,22 @@ export class TouchGestures {
     this.applyMapping();
   }
 
-  dispose(): void {
+  private clearTimers(): void {
     window.clearTimeout(this.pressTimer);
+    cancelAnimationFrame(this.pressFrame);
     cancelAnimationFrame(this.evalFrame);
+    this.pressFrame = this.evalFrame = 0;
+  }
+
+  dispose(): void {
+    this.clearTimers();
+    this.endMove();
     for (const f of this.off) f();
     this.off.length = 0;
+    // OrbitControls' own defaults.
+    const t = this.app.viewport.controls.touches;
+    t.ONE = TOUCH.ROTATE;
+    t.TWO = TOUCH.DOLLY_PAN;
   }
 
   private get cfg() {
@@ -155,8 +175,7 @@ export class TouchGestures {
       this.delay = this.cfg.longPressMs;
       this.press.delay = this.delay;
       this.press.begin(e.pointerId, e.clientX, e.clientY, performance.now());
-      window.clearTimeout(this.pressTimer);
-      this.pressTimer = window.setTimeout(() => this.onPressTimer(), this.delay);
+      this.armPress(this.delay);
       return;
     }
     this.press.cancel();
@@ -168,10 +187,9 @@ export class TouchGestures {
       this.c0.y = this.prev.y;
       this.spread0 = this.prevSpread;
       this.kind = 'undecided';
-      if (this.canMoveSelection()) {
+      if (this.canMoveSelection() && this.beginMove()) {
         this.mode = 'two-move';
         this.app.viewport.controls.touches.TWO = null; // OrbitControls stays out of it
-        this.beginMove();
       } else {
         this.endMove();
         this.mode = 'two-camera';
@@ -209,6 +227,8 @@ export class TouchGestures {
     this.fingers.up(e.pointerId);
     this.press.cancel();
     window.clearTimeout(this.pressTimer);
+    cancelAnimationFrame(this.pressFrame);
+    this.pressFrame = 0;
     const n = this.fingers.count;
     if (n < 2) {
       cancelAnimationFrame(this.evalFrame);
@@ -228,17 +248,33 @@ export class TouchGestures {
 
   // ---- long press ----------------------------------------------------------------------------
 
+  private armPress(ms: number): void {
+    window.clearTimeout(this.pressTimer);
+    this.pressTimer = window.setTimeout(() => this.onPressTimer(), ms);
+  }
+
   private onPressTimer(): void {
+    // A timer can fire early: wait for what is left of the hold time.
+    const left = this.press.remaining(performance.now());
+    if (left > 4) {
+      this.armPress(left);
+      return;
+    }
     // The browser delivers a pointer-up that happened during a long frame at the start of the next frame, ahead of
     // animation callbacks: firing from one means a lift that is already queued can still cancel the press.
-    requestAnimationFrame(() => this.firePress());
+    this.pressFrame = requestAnimationFrame(() => {
+      this.pressFrame = 0;
+      this.firePress();
+    });
   }
 
   private firePress(): void {
     const app = this.app;
     if (!this.press.fire(performance.now()) || this.mode !== 'one' || !this.downEvent) return;
-    // Holding a physics grab or a gizmo handle still is not a request for a menu.
-    if (this.input.gestureKind === 'grab' || app.gizmo.isDragging) return;
+    // Holding a physics grab, a gizmo handle or a tool's own hold gesture (charging a throw, a gust, a paint stroke)
+    // still is not a request for a menu.
+    const kind = this.input.gestureKind;
+    if (kind === 'grab' || kind === 'custom' || app.gizmo.isDragging) return;
     this.input.cancelGesture();
     navigator.vibrate?.(12);
     this.input.onContextMenu?.(this.downEvent);
@@ -259,21 +295,31 @@ export class TouchGestures {
     const target = vp.controls.target;
     tmpR.setFromMatrixColumn(cam.matrixWorld, 0);
     tmpU.setFromMatrixColumn(cam.matrixWorld, 1);
-    const dist = tmpO.copy(cam.position).sub(target).length();
-    const rect = vp.dom.getBoundingClientRect();
-    const s = panShift(dx, dy, dist, cam.fov, rect.height, [tmpR.x, tmpR.y, tmpR.z], [tmpU.x, tmpU.y, tmpU.z]);
-    cam.position.x += s[0];
-    cam.position.y += s[1];
-    cam.position.z += s[2];
-    target.x += s[0];
-    target.y += s[1];
-    target.z += s[2];
+    axisR[0] = tmpR.x;
+    axisR[1] = tmpR.y;
+    axisR[2] = tmpR.z;
+    axisU[0] = tmpU.x;
+    axisU[1] = tmpU.y;
+    axisU[2] = tmpU.z;
+    const h = vp.dom.getBoundingClientRect().height;
+    // Orthographic views scale with the zoom, not with the distance.
+    const perPixel = cam.ortho
+      ? orthoPixel(cam.orthoSize, cam.zoom, h)
+      : perspectivePixel(tmpO.copy(cam.position).sub(target).length(), cam.fov, h);
+    panShift(dx, dy, perPixel, axisR, axisU, shift);
+    cam.position.x += shift[0];
+    cam.position.y += shift[1];
+    cam.position.z += shift[2];
+    target.x += shift[0];
+    target.y += shift[1];
+    target.z += shift[2];
     vp.needsRender = true;
   }
 
   // ---- two fingers: move the selection / zoom ------------------------------------------------
 
-  private beginMove(): void {
+  /** Capture the selection and the ground point under the fingers; false when there is nothing to move there. */
+  private beginMove(): boolean {
     const store = this.app.store;
     const ids = this.movableSelection();
     const starts = new Map<string, Vec3>();
@@ -283,17 +329,20 @@ export class TouchGestures {
     }
     const primary = ids[0];
     const start = starts.get(primary);
-    if (!start) {
-      this.move = null;
-      return;
+    const p0 = start && this.app.picker.groundPoint({ clientX: this.c0.x, clientY: this.c0.y }, start[1]);
+    if (!start || !p0) {
+      this.move = null; // the fingers are above the horizon: they orbit the camera instead
+      return false;
     }
-    const p0 = this.app.picker.groundPoint({ clientX: this.c0.x, clientY: this.c0.y }, start[1]);
-    this.move = { ids, starts, p0: p0 ?? new Vector3(start[0], start[1], start[2]), primary, began: false };
-    if (!p0) this.move = null;
+    this.move = { ids, starts, p0, primary, began: false };
+    return true;
   }
 
   private endMove(): void {
-    if (this.move?.began) this.app.store.end();
+    if (this.move?.began) {
+      this.app.store.end();
+      endObjectSnap(this.app);
+    }
     this.move = null;
   }
 
@@ -320,23 +369,41 @@ export class TouchGestures {
       m.began = true;
       app.store.begin(m.ids.length > 1 ? `Move ${m.ids.length} objects` : 'Move');
     }
-    let delta: Vec3 = [cur.x - m.p0.x, 0, cur.z - m.p0.z];
-    if (app.prefs.value.snap) delta = snapMove(m.starts.get(m.primary)!, delta, app.prefs.value.snapGrid);
-    app.editor.moveTo(new Map(m.ids.map((id) => [id, vadd(m.starts.get(id)!, delta)])));
+    const delta: Vec3 = [cur.x - m.p0.x, 0, cur.z - m.p0.z];
+    // Vertex / edge / face / surface snapping and the grid, exactly like a one-finger (mouse) drag.
+    this.centroidEvent.clientX = this.cur.x;
+    this.centroidEvent.clientY = this.cur.y;
+    // The snap helpers read only the pointer position and the modifier keys of the event.
+    const pseudo = this.centroidEvent as unknown as PointerEvent;
+    // `vertical: true` switches only the surface snap off (it snaps to what is under the pointer, and two fingers
+    // are not on the object); vertex / edge / face / bounds snapping and the grid still apply.
+    if (applyObjectSnap(app, pseudo, { ids: m.ids, starts: m.starts, primary: m.primary, delta, vertical: true }))
+      return;
+    const base = m.starts.get(m.primary)!;
+    const gridOn = effectiveModes(app, false).grid;
+    const d = gridOn ? snapMove(base, delta, app.prefs.value.snapGrid) : delta;
+    app.editor.moveTo(new Map(m.ids.map((id) => [id, vadd(m.starts.get(id)!, d)])));
+    if (gridOn) showGridSnap(app, vadd(base, d));
   }
 
   /** Dolly the camera towards / away from its target (the camera-side of a pinch while OrbitControls is off). */
   private dolly(scale: number): void {
     const vp = this.app.viewport;
-    if (!vp.controls.enabled || !vp.controls.enableZoom) return;
+    const c = vp.controls;
+    if (!c.enabled || !c.enableZoom) return;
     const cam = vp.camera;
-    const target = vp.controls.target;
-    const off = tmpO.copy(cam.position).sub(target);
+    if (cam.ortho) {
+      cam.zoom = pinchZoom(cam.zoom, scale, c.minZoom, c.maxZoom);
+      cam.updateProjectionMatrix();
+      vp.needsRender = true;
+      return;
+    }
+    const off = tmpO.copy(cam.position).sub(c.target);
     const d = off.length();
     if (d < 1e-6) return;
-    const nd = pinchDistance(d, scale, vp.controls.minDistance, vp.controls.maxDistance);
+    const nd = pinchDistance(d, scale, c.minDistance, c.maxDistance);
     off.multiplyScalar(nd / d);
-    cam.position.copy(target).add(off);
+    cam.position.copy(c.target).add(off);
     vp.needsRender = true;
   }
 }

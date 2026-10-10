@@ -17,33 +17,33 @@ import { listBarMenus, resolveMenu, type MenuItem } from '../../app/registry/men
 import { h, svg } from '../dom';
 import { icon } from '../icons';
 import { openMenu } from '../menu';
+import { SHEETS, SHOW, enterNarrow, leaveNarrow, parsePanels, sheetToKeep, type Panels, type Sheet } from './sheets';
+
+export type { Sheet };
 
 /** The width at and below which the sheet layout applies (keep in sync with `cm-mobile.css`). */
 export const NARROW_QUERY = '(max-width: 900px)';
 
-export type Sheet = 'left' | 'right' | 'bottom';
-const SHEETS: readonly Sheet[] = ['left', 'right', 'bottom'];
-const SHOW = { left: 'showLeft', right: 'showRight', bottom: 'showBottom' } as const;
 const STASH_KEY = 'physicslab:desktop-panels';
+/** Fallback when storage is unavailable: the arrangement is still restored within this page's life. */
+let memoryStash: Panels | null = null;
 
-type Stash = { showLeft: boolean; showRight: boolean; showBottom: boolean };
-
-function readStash(): Stash | null {
+function readStash(): Panels | null {
   try {
     const raw = localStorage.getItem(STASH_KEY);
-    if (!raw) return null;
-    const v = JSON.parse(raw) as Partial<Stash>;
-    return { showLeft: v.showLeft !== false, showRight: v.showRight !== false, showBottom: v.showBottom !== false };
+    if (raw) return parsePanels(JSON.parse(raw));
   } catch {
-    return null;
+    /* fall through to the in-memory copy */
   }
+  return memoryStash;
 }
-function writeStash(s: Stash | null): void {
+function writeStash(p: Panels | null): void {
+  memoryStash = p;
   try {
-    if (s) localStorage.setItem(STASH_KEY, JSON.stringify(s));
+    if (p) localStorage.setItem(STASH_KEY, JSON.stringify(p));
     else localStorage.removeItem(STASH_KEY);
   } catch {
-    /* storage unavailable: the desktop arrangement simply is not remembered */
+    /* storage unavailable: the in-memory copy above is all there is */
   }
 }
 
@@ -66,7 +66,10 @@ export function mountMobileLayout(app: App, root: HTMLElement): MobileLayout {
   const mq = window.matchMedia(NARROW_QUERY);
   let narrow = mq.matches;
   let popover: 'tools' | 'view' | null = null;
+  let wasOpen = false;
   let last: Record<Sheet, boolean> = { left: false, right: false, bottom: false };
+  /** The navigation button that opened the current sheet / popover (focus goes back to it on close). */
+  let opener: HTMLElement | null = null;
 
   const openSheets = (): Sheet[] => SHEETS.filter((s) => prefs.value[SHOW[s]]);
 
@@ -95,7 +98,10 @@ export function mountMobileLayout(app: App, root: HTMLElement): MobileLayout {
       ic,
       h('span', { class: 'm-nav-label' }, label),
     );
-    b.addEventListener('click', onClick);
+    b.addEventListener('click', () => {
+      opener = b;
+      onClick();
+    });
     return b;
   };
   const toggleSheet = (s: Sheet) => () => setSheet(prefs.value[SHOW[s]] ? null : s);
@@ -184,26 +190,30 @@ export function mountMobileLayout(app: App, root: HTMLElement): MobileLayout {
       const state = on[b.dataset.nav ?? ''] ?? false;
       b.classList.toggle('on', state);
       b.setAttribute('aria-pressed', String(state));
+      if (b.dataset.nav !== 'menu') b.setAttribute('aria-expanded', String(state));
     }
+    // While a sheet is open the page behind the scrim is not reachable by keyboard or assistive technology.
+    const sheetOpen = narrow && open.length > 0;
+    for (const el of root.querySelectorAll<HTMLElement>('.topbar, .stage')) el.inert = sheetOpen;
+    if (sheetOpen && !wasOpen) requestAnimationFrame(() => close.focus({ preventScroll: true }));
+    if (!sheetOpen && wasOpen && opener?.isConnected) opener.focus({ preventScroll: true });
+    wasOpen = sheetOpen;
   }
 
   /** Enter or leave the narrow layout: remember / restore the desktop arrangement of the three regions. */
-  const apply = (initial: boolean): void => {
+  const apply = (): void => {
     narrow = mq.matches;
     root.classList.toggle('m-narrow', narrow);
+    popover = null;
     if (narrow) {
       const v = prefs.value;
-      if (!readStash()) writeStash({ showLeft: v.showLeft, showRight: v.showRight, showBottom: v.showBottom });
-      if (openSheets().length) setSheet(null);
-      popover = null;
+      const plan = enterNarrow({ showLeft: v.showLeft, showRight: v.showRight, showBottom: v.showBottom }, readStash());
+      writeStash(plan.stash);
+      if (openSheets().length) prefs.set(plan.panels);
     } else {
-      const stash = readStash();
-      if (stash) {
-        writeStash(null);
-        prefs.set(stash);
-      }
-      popover = null;
-      if (initial) writeStash(null);
+      const restore = leaveNarrow(readStash());
+      writeStash(null);
+      if (restore) prefs.set(restore);
     }
     last = { left: prefs.value.showLeft, right: prefs.value.showRight, bottom: prefs.value.showBottom };
     sync();
@@ -214,8 +224,8 @@ export function mountMobileLayout(app: App, root: HTMLElement): MobileLayout {
     if (narrow) {
       // One sheet at a time: the one that was just opened wins.
       const now = openSheets();
-      if (now.length > 1) {
-        const fresh = now.find((s) => !last[s]) ?? now[now.length - 1];
+      const fresh = sheetToKeep(now, last);
+      if (fresh) {
         last = { left: fresh === 'left', right: fresh === 'right', bottom: fresh === 'bottom' };
         setSheet(fresh);
         return;
@@ -225,7 +235,7 @@ export function mountMobileLayout(app: App, root: HTMLElement): MobileLayout {
     last = { left: prefs.value.showLeft, right: prefs.value.showRight, bottom: prefs.value.showBottom };
     sync();
   });
-  const onMq = () => apply(false);
+  const onMq = () => apply();
   mq.addEventListener('change', onMq);
 
   // Escape closes a sheet or popover (unless a menu / dialog is on top of it, which handle Escape themselves).
@@ -235,16 +245,17 @@ export function mountMobileLayout(app: App, root: HTMLElement): MobileLayout {
     if (openSheets().length || popover) {
       closeAll();
       e.preventDefault();
+      e.stopImmediatePropagation(); // the editor's own Escape (deselect, cancel the tool) must not also run
     }
   };
-  window.addEventListener('keydown', onKey);
+  window.addEventListener('keydown', onKey, true);
   // Tapping the viewport dismisses an open popover.
   const dismiss = () => {
     if (popover) setPopover(null);
   };
   app.viewport.dom.addEventListener('pointerdown', dismiss);
 
-  apply(true);
+  apply();
 
   return {
     get narrow() {
@@ -254,7 +265,7 @@ export function mountMobileLayout(app: App, root: HTMLElement): MobileLayout {
     dispose() {
       offPrefs();
       mq.removeEventListener('change', onMq);
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onKey, true);
       app.viewport.dom.removeEventListener('pointerdown', dismiss);
       scrim.remove();
       close.remove();

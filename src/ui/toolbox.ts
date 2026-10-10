@@ -41,7 +41,7 @@ export function buildToolbox(app: App): { toolbox: HTMLElement; viewbar: HTMLEle
           type: 'button',
           title: tooltip(def),
           'aria-label': tooltip(def),
-          dataset: { tool: def.id },
+          dataset: { tool: def.id, label: def.label ?? def.id }, // label: caption in the touch layout
         },
         def.text ? null : icon(def.icon),
       );

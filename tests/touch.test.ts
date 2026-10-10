@@ -6,12 +6,18 @@ import {
   LongPress,
   TWO_FINGER_DECIDE_PX,
   classifyTwoFinger,
+  orthoPixel,
   panShift,
+  perspectivePixel,
   pinchDistance,
+  pinchZoom,
   snapMove,
 } from '../src/app/touch/gestures';
 import { clearPad, setPadButton, setStick, stickVector } from '../src/app/touch/joystick';
 import { DEFAULT_TOUCH, sanitizeTouch } from '../src/app/touch/settings';
+import { createBody } from '../src/model/factory';
+import { SceneStore } from '../src/model/store';
+import { enterNarrow, leaveNarrow, parsePanels, sheetToKeep } from '../src/ui/mobile/sheets';
 
 describe('finger set', () => {
   it('tracks centroid and spread of several fingers', () => {
@@ -79,6 +85,18 @@ describe('long press', () => {
     expect(lp.fire(1600)).toBe(false); // consumed
   });
 
+  it('reports how much of the hold time is left, so an early timer can re-arm', () => {
+    const lp = new LongPress(500, 10);
+    expect(lp.remaining(0)).toBe(-1);
+    lp.begin(1, 0, 0, 1000);
+    expect(lp.remaining(1200)).toBe(300);
+    expect(lp.fire(1200)).toBe(false);
+    expect(lp.armed).toBe(true); // still armed: the caller waits the remaining 300 ms
+    expect(lp.remaining(1600)).toBe(0);
+    expect(lp.fire(1600)).toBe(true);
+    expect(lp.remaining(1700)).toBe(-1);
+  });
+
   it('is cancelled by drift beyond the tolerance, by cancel(), and ignores other fingers', () => {
     const lp = new LongPress(500, 10);
     lp.begin(1, 0, 0, 0);
@@ -95,14 +113,35 @@ describe('long press', () => {
 describe('camera maths', () => {
   it('pans the camera so the scene follows the fingers (analytic)', () => {
     // 90° vertical fov at distance 10 over a 1000 px tall view → 20 m / 1000 px = 0.02 m per pixel.
-    const s = panShift(100, 0, 10, 90, 1000, [1, 0, 0], [0, 1, 0]);
+    const px = perspectivePixel(10, 90, 1000);
+    expect(px).toBeCloseTo(0.02, 12);
+    const s = panShift(100, 0, px, [1, 0, 0], [0, 1, 0]);
     expect(s[0]).toBeCloseTo(-2, 9);
     expect(s[1]).toBeCloseTo(0, 9);
-    const t = panShift(0, 50, 10, 90, 1000, [1, 0, 0], [0, 1, 0]);
+    const t = panShift(0, 50, px, [1, 0, 0], [0, 1, 0]);
     expect(t[1]).toBeCloseTo(1, 9);
     // Rotated camera: right = +z
-    const u = panShift(50, 0, 10, 90, 1000, [0, 0, 1], [0, 1, 0]);
+    const u = panShift(50, 0, px, [0, 0, 1], [0, 1, 0]);
     expect(u[2]).toBeCloseTo(-1, 9);
+  });
+
+  it('orthographic pan follows the zoom, not the distance', () => {
+    // 12 m visible at zoom 1 over 600 px = 0.02 m per pixel; zoomed 2x it halves.
+    expect(orthoPixel(12, 1, 600)).toBeCloseTo(0.02, 12);
+    expect(orthoPixel(12, 2, 600)).toBeCloseTo(0.01, 12);
+    const s = panShift(100, 0, orthoPixel(12, 2, 600), [1, 0, 0], [0, 1, 0]);
+    expect(s[0]).toBeCloseTo(-1, 12);
+    // an output array is reused, not reallocated
+    const out: [number, number, number] = [9, 9, 9];
+    expect(panShift(0, 0, 1, [1, 0, 0], [0, 1, 0], out)).toBe(out);
+    expect(out).toEqual([0, 0, 0]);
+  });
+
+  it('pinch zoom multiplies an orthographic zoom and clamps', () => {
+    expect(pinchZoom(2, 1.5, 0.1, 50)).toBeCloseTo(3, 12);
+    expect(pinchZoom(2, 100, 0.1, 50)).toBe(50);
+    expect(pinchZoom(2, 0.001, 0.1, 50)).toBe(0.1);
+    expect(pinchZoom(2, NaN, 0.1, 50)).toBe(2);
   });
 
   it('pinch scales the distance inversely and clamps', () => {
@@ -181,6 +220,13 @@ describe('touch settings', () => {
 
   it('is part of the input settings and survives sanitising and old blobs without it', () => {
     expect(DEFAULT_INPUT.touch).toEqual(DEFAULT_TOUCH);
+    // sanitising never hands out the shared default object (or its buttons array) for callers to mutate
+    for (const raw of [undefined, 'junk', {}, { touch: {} }]) {
+      const t = sanitizeInput(raw).touch;
+      expect(t).toEqual(DEFAULT_TOUCH);
+      expect(t).not.toBe(DEFAULT_TOUCH);
+      expect(t.buttons).not.toBe(DEFAULT_TOUCH.buttons);
+    }
     const old = sanitizeInput({ profile: 'plane', touchControls: 'on' });
     expect(old.touch).toEqual(DEFAULT_TOUCH);
     expect(old.touchControls).toBe('on');
@@ -189,5 +235,86 @@ describe('touch settings', () => {
     expect(custom.touch.buttons).toEqual(['East']);
     // idempotent
     expect(sanitizeInput(custom)).toEqual(custom);
+  });
+});
+
+describe('abandoning an edit group (a drag cancelled by a second finger)', () => {
+  const box = (x: number) => createBody({ name: 'b', shape: { type: 'box' }, position: [x, 0.5, 0] });
+
+  it('restores the document and leaves neither an undo nor a redo step', () => {
+    const store = new SceneStore();
+    const a = box(0);
+    store.add([a], 'Add');
+    store.update(a.id, { name: 'renamed' }, 'Rename');
+    store.undo(); // a redo entry exists before the drag
+    expect(store.canRedo).toBe(true);
+    const undoDepth = store.undoDepth;
+    store.begin('Move');
+    store.update(a.id, { position: [4, 0.5, 0] });
+    store.update(a.id, { position: [5, 0.5, 0] });
+    expect(store.body(a.id)!.position[0]).toBe(5);
+    store.cancelBatch();
+    expect(store.body(a.id)!.position[0]).toBe(0);
+    expect(store.undoDepth).toBe(undoDepth);
+    expect(store.redoLabel).toBe('Rename'); // the user's redo history is untouched
+    // a later edit still groups and undoes normally
+    store.begin('Move');
+    store.update(a.id, { position: [2, 0.5, 0] });
+    store.end();
+    expect(store.undo()).toBe('Move');
+    expect(store.body(a.id)!.position[0]).toBe(0);
+  });
+
+  it('is a no-op outside a group and closes a nested group like end()', () => {
+    const store = new SceneStore();
+    const a = box(0);
+    store.add([a], 'Add');
+    store.cancelBatch();
+    expect(store.size).toBe(1);
+    store.begin('outer');
+    store.begin('inner');
+    store.update(a.id, { name: 'x' });
+    store.cancelBatch(); // nested: just closes the inner group
+    store.end();
+    expect(store.body(a.id)!.name).toBe('x');
+    expect(store.undoLabel).toBe('outer');
+  });
+});
+
+describe('mobile sheet rules', () => {
+  const all = { showLeft: true, showRight: true, showBottom: true };
+
+  it('remembers the desktop arrangement once and closes everything while narrow', () => {
+    const first = enterNarrow(all, null);
+    expect(first.stash).toEqual(all);
+    expect(first.panels).toEqual({ showLeft: false, showRight: false, showBottom: false });
+    // a reload while still narrow: the preferences hold the closed sheets, the stash survives
+    const again = enterNarrow(first.panels, first.stash);
+    expect(again.stash).toEqual(all);
+    // widening brings the desktop back; with no stash nothing changes
+    expect(leaveNarrow(again.stash)).toEqual(all);
+    expect(leaveNarrow(null)).toBeNull();
+    // the stash is a copy
+    expect(enterNarrow(all, null).stash).not.toBe(all);
+  });
+
+  it('keeps only the newest of several open sheets', () => {
+    const none = { left: false, right: false, bottom: false };
+    expect(sheetToKeep([], none)).toBeNull();
+    expect(sheetToKeep(['left'], none)).toBeNull();
+    expect(sheetToKeep(['left', 'right'], { ...none, left: true })).toBe('right');
+    expect(sheetToKeep(['left', 'bottom'], { ...none, bottom: true })).toBe('left');
+    expect(sheetToKeep(['left', 'right', 'bottom'], { left: true, right: true, bottom: true })).toBe('bottom');
+  });
+
+  it('parses stored panels defensively', () => {
+    expect(parsePanels(null)).toBeNull();
+    expect(parsePanels('x')).toBeNull();
+    expect(parsePanels({})).toEqual(all);
+    expect(parsePanels({ showLeft: false, showBottom: 0 })).toEqual({
+      showLeft: false,
+      showRight: true,
+      showBottom: true,
+    });
   });
 });

@@ -515,8 +515,8 @@ export class InputController {
 
   /**
    * Abandon the gesture in progress without applying it: the marquee disappears (selection untouched), a drag-move is
-   * undone (no history entry is left), a physics grab is released. Called when a second finger lands or a long
-   * press takes over.
+   * rolled back (no undo or redo step is left), a physics grab is released, a tool's own gesture is cancelled. Called
+   * when a second finger lands or a long press takes over.
    */
   cancelGesture(): void {
     const app = this.app;
@@ -524,10 +524,13 @@ export class InputController {
     this.g = { kind: 'none' };
     this.marquee.style.display = 'none';
     app.viewport.dom.classList.remove('grabbing');
-    if (g.kind === 'dragMove' && g.moved) {
-      app.store.end();
-      app.store.undo();
-    } else if (g.kind === 'grab') app.sim.client.op({ op: 'release' });
+    if (g.kind === 'dragMove') {
+      if (g.moved) app.store.cancelBatch();
+      endObjectSnap(app);
+    } else if (g.kind === 'grab') {
+      app.sim.client.op({ op: 'release' });
+      this.rHeld = false;
+    } else if (g.kind === 'custom') g.cancel?.();
   }
 
   /** Set by the UI to show the viewport context menu. */

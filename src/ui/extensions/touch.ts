@@ -18,10 +18,11 @@ registerCommand({
 
 registerCommand({
   id: 'view.touchControls',
-  label: 'On-screen touch controls',
+  label: 'Always show on-screen touch controls',
   category: 'View',
   icon: 'keyboard',
-  description: 'Show the virtual joysticks and buttons (otherwise: automatic on touch devices while simulating)',
+  description:
+    'Keep the virtual joysticks and buttons on screen (the default shows them on touch devices while simulating)',
   keywords: ['touch', 'joystick', 'virtual', 'gamepad', 'on-screen'],
   setting: true,
   checked: (app) => app.input.settings.touchControls === 'on',

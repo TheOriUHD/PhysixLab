@@ -4,6 +4,7 @@
  * pointer behaviour in `InputController`; this module only declares them to the registry, which is what the
  * toolbox, the keyboard, the palette and the pointer dispatch read.
  */
+import { isTouchDevice } from '../touch/device'; // -- CM-A touch --
 import type { App } from '../app';
 import type { ToolDef } from '../registry/tools';
 
@@ -28,7 +29,10 @@ export const BUILTIN_TOOLS: readonly ToolDef[] = [
     pointerDown: (_app, e, input) => input.downSelect(e),
     hint: (app) =>
       app.sim.active
-        ? '<b>Drag</b> a body to throw it · <b>Scroll</b> pushes / pulls it · <kbd>Q</kbd><kbd>E</kbd> spin · <kbd>R</kbd>+drag turn · <kbd>F</kbd> freeze'
+        ? // -- CM-A touch: there are no Q / E / R / F / scroll wheel under a finger --
+          isTouchDevice()
+          ? '<b>Drag</b> a body to throw it · two fingers orbit and zoom · three fingers pan · <b>long-press</b> for the menu'
+          : '<b>Drag</b> a body to throw it · <b>Scroll</b> pushes / pulls it · <kbd>Q</kbd><kbd>E</kbd> spin · <kbd>R</kbd>+drag turn · <kbd>F</kbd> freeze'
         : null,
   },
   {

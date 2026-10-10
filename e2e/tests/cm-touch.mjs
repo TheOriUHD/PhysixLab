@@ -292,7 +292,16 @@ test('touch: tap selects, tap on empty space deselects, a second finger cancels 
 
   // drag-move + second finger: the object returns to where it was and no undo step is left
   const startPos = await posOf(page, a);
-  const undoDepth = await page.evaluate(() => window.physicslab.store.undoLabel);
+  // an undo step and a redo step exist before the drag, so a leftover entry of either kind would show
+  await page.evaluate(() => {
+    const st = window.physicslab.store;
+    const id = st.bodies()[0].id;
+    st.update(id, { name: 'one' }, 'Rename one');
+    st.update(id, { name: 'two' }, 'Rename two');
+    st.undo();
+  });
+  const hist = () => page.evaluate(() => [window.physicslab.store.undoDepth, window.physicslab.store.redoLabel]);
+  const before = await hist();
   const p = await screenOf(page, a);
   await down(page, 1, p.x, p.y);
   await drag(page, [1], 60, 40, 5);
@@ -323,9 +332,10 @@ test('touch: tap selects, tap on empty space deselects, a second finger cancels 
   near(still[0], startPos[0], 1e-6, 'remaining finger does not move it');
   await up(page, 1);
   await nextFrame(page);
+  const after = await hist();
   assert(
-    (await page.evaluate(() => window.physicslab.store.undoLabel)) === undoDepth,
-    'cancelled drag leaves no undo step',
+    after[0] === before[0] && after[1] === before[1] && after[1] === 'Rename two',
+    `cancelled drag leaves no undo step and keeps the redo history: ${before} -> ${after}`,
   );
   assert(page.errors.length === 0, page.errors.join('\n'));
   await page.closeAll();
@@ -459,6 +469,8 @@ test('touch: "move selection with two fingers" moves the selection (one undo ste
   await page.evaluate(() => {
     const app = window.physicslab;
     app.input.update_settings({ touch: { ...app.input.settings.touch, moveWithTwoFingers: true } });
+    // plain grid snapping: the other boxes must not pull the moved one onto their corners
+    app.prefs.set({ snapVertex: false, snapSurface: false });
     app.viewport.setView({ position: [0, 9, 12], target: [0, 0.5, 0] });
   });
   await page.waitForFunction(() => window.physicslab.camera.position.distanceTo({ x: 0, y: 9, z: 12 }) < 0.05, null, {

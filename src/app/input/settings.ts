@@ -40,6 +40,7 @@ export function sanitizeInput(raw: unknown): InputSettings {
     ...DEFAULT_INPUT,
     bindings: {},
     axisTuning: {},
+    touch: sanitizeTouch(undefined), // -- CM-A touch: a fresh object, never the shared default --
   };
   if (!isRec(raw)) return out;
   if (isRec(raw.bindings))

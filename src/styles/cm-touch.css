@@ -25,4 +25,4 @@
 .touch-tab .cm-group:first-child { margin-top: 0; }
 .touch-tab .cm-actions { margin-top: 10px; display: flex; gap: 8px; }
 .tc-choice { display: flex; flex-wrap: wrap; gap: 6px; }
-.tc-choice .chip { min-width: 40px; height: 28px; }
+.tc-choice .chip { min-width: 44px; height: 44px; }

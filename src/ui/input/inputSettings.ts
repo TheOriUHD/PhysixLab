@@ -430,7 +430,7 @@ function touchTab(app: App): HTMLElement {
   const patch = (p: Partial<TouchSettings>) => hub.update_settings({ touch: { ...t(), ...p } });
   const mode = selectField({
     options: [
-      { value: 'auto', label: 'Automatic (touch devices, while simulating)' },
+      { value: 'auto', label: 'Automatic' },
       { value: 'on', label: 'Always show' },
       { value: 'off', label: 'Hide' },
     ],
@@ -525,7 +525,7 @@ function touchTab(app: App): HTMLElement {
     row(
       'Show controls',
       mode.el,
-      'Virtual joysticks and buttons that drive the same axes as a gamepad. Automatic shows them on touch devices while the simulation is running.',
+      'Virtual joysticks and buttons that drive the same axes as a gamepad. Automatic: on touch devices, while the simulation is running. Always show: also in edit mode.',
     ),
     row('Joysticks', sticks.el, 'The left stick is the gamepad’s left stick, the right one its right stick'),
     row('Buttons', chips, 'Choose which buttons are on screen; triggers and bumpers drive vehicles and motors'),

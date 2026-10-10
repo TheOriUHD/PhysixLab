@@ -139,6 +139,8 @@ export function buildTopbar(app: App): HTMLElement {
   // ---- right cluster ---------------------------------------------------------------------------
   const undo = iconButton('undo', withShortcut('Undo', 'edit.undo'), () => run('edit.undo'));
   const redo = iconButton('redo', withShortcut('Redo', 'edit.redo'), () => run('edit.redo'));
+  undo.classList.add('tb-history'); // -- CM-A mobile: kept in the compact top bar --
+  redo.classList.add('tb-history');
   const syncHistory = () => {
     undo.disabled = !store.canUndo;
     redo.disabled = !store.canRedo;

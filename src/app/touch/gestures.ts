@@ -14,9 +14,10 @@ export interface TouchPoint {
   y: number;
 }
 
-/** Fingers currently down, with the centroid / spread of the group. Allocation-free after warm-up. */
+/** Fingers currently down, with the centroid / spread of the group. */
 export class FingerSet {
   private pts = new Map<number, TouchPoint>();
+  private scratch = { x: 0, y: 0 };
 
   get count(): number {
     return this.pts.size;
@@ -46,7 +47,7 @@ export class FingerSet {
     this.pts.clear();
   }
 
-  /** Mean position of all fingers (0, 0 when there are none). */
+  /** Mean position of all fingers (0, 0 when there are none). Pass `out` to avoid an allocation. */
   centroid(out: { x: number; y: number } = { x: 0, y: 0 }): { x: number; y: number } {
     let sx = 0,
       sy = 0;
@@ -63,7 +64,7 @@ export class FingerSet {
   /** Mean distance of the fingers from their centroid, times two (= the finger distance for two fingers). */
   spread(): number {
     if (this.pts.size < 2) return 0;
-    const c = this.centroid();
+    const c = this.centroid(this.scratch);
     let s = 0;
     for (const p of this.pts.values()) s += Math.hypot(p.x - c.x, p.y - c.y);
     return (2 * s) / this.pts.size;
@@ -122,6 +123,11 @@ export class LongPress {
     this.active = false;
   }
 
+  /** Milliseconds still to wait before the press counts (0 = due now), or -1 when no press is armed. */
+  remaining(now: number): number {
+    return this.active ? Math.max(0, this.delay - (now - this.t0)) : -1;
+  }
+
   /** Has the press been held long enough (and not cancelled)? Consumes the press when it has. */
   fire(now: number): boolean {
     if (!this.active || now - this.t0 < this.delay) return false;
@@ -134,23 +140,40 @@ export class LongPress {
   }
 }
 
+/** World metres per screen pixel of a perspective view at `distance` from the camera. */
+export function perspectivePixel(distance: number, fovDeg: number, viewportHeight: number): number {
+  return (2 * distance * Math.tan((fovDeg * Math.PI) / 360)) / Math.max(1, viewportHeight);
+}
+
+/** World metres per screen pixel of an orthographic view (`orthoSize` = visible height at zoom 1). */
+export function orthoPixel(orthoSize: number, zoom: number, viewportHeight: number): number {
+  return orthoSize / Math.max(1e-6, zoom) / Math.max(1, viewportHeight);
+}
+
 /**
- * World-space shift of camera and target for a screen pan of (dx, dy) pixels: the scene follows the fingers.
- * `right` / `up` are the camera's world axes; `distance` is camera-to-target; `fovDeg` the vertical field of view.
+ * World-space shift of camera and target for a screen pan of (dx, dy) pixels at `perPixel` metres per pixel: the scene
+ * follows the fingers. `right` / `up` are the camera's world axes.
  */
 export function panShift(
   dx: number,
   dy: number,
-  distance: number,
-  fovDeg: number,
-  viewportHeight: number,
+  perPixel: number,
   right: readonly [number, number, number],
   up: readonly [number, number, number],
+  out: [number, number, number] = [0, 0, 0],
 ): [number, number, number] {
-  const perPixel = (2 * distance * Math.tan((fovDeg * Math.PI) / 360)) / Math.max(1, viewportHeight);
   const sx = -dx * perPixel;
   const sy = dy * perPixel;
-  return [right[0] * sx + up[0] * sy, right[1] * sx + up[1] * sy, right[2] * sx + up[2] * sy];
+  out[0] = right[0] * sx + up[0] * sy;
+  out[1] = right[1] * sx + up[1] * sy;
+  out[2] = right[2] * sx + up[2] * sy;
+  return out;
+}
+
+/** New orthographic zoom after a pinch that scaled the finger distance by `scale` (>1 = fingers apart = zoom in). */
+export function pinchZoom(zoom: number, scale: number, min: number, max: number): number {
+  if (!(scale > 0) || !Number.isFinite(scale)) return zoom;
+  return Math.min(max, Math.max(min, zoom * scale));
 }
 
 /** New camera distance after a pinch that scaled the finger distance by `scale` (>1 = fingers apart = zoom in). */
