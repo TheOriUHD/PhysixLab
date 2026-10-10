@@ -3,6 +3,7 @@
  * registry, the 1–9 shortcuts it must leave alone, and the thumbnail cache.
  */
 import { describe, expect, it } from 'vitest';
+import { builtinCommands } from '../src/app/builtin/commands';
 import { listShapes } from '../src/model/shapeRegistry';
 import { ThumbCache, type ThumbStorage } from '../src/render/thumbCache';
 import { CATEGORY_ORDER, groupByCategory, searchShapes } from '../src/ui/shapeSearch';
@@ -146,5 +147,18 @@ describe('thumbnail cache (SH-13)', () => {
     d.set('box', 'x', URL); // quota: stays in memory
     expect(d.get('box', 'x')).toBe(URL);
     expect(new ThumbCache(full).get('box', 'x')).toBeNull();
+  });
+});
+
+describe('command palette (SH-13)', () => {
+  it('“Add …” commands carry the shape’s search words, so Ctrl+K finds “dice”, “donut” and “cog”', () => {
+    const cmds = new Map(builtinCommands().map((c) => [c.id, c]));
+    expect(cmds.get('add.shape.d20')?.keywords).toContain('dice');
+    expect(cmds.get('add.shape.torus')?.keywords).toContain('donut');
+    expect(cmds.get('add.shape.gear')?.keywords).toContain('cog');
+    // the first nine keep their number keys
+    expect(cmds.get('add.shape.box')?.shortcut).toBe('1');
+    expect(cmds.get('add.shape.torus')?.shortcut).toBe('9');
+    expect(cmds.get('add.shape.d20')?.shortcut).toBeUndefined();
   });
 });

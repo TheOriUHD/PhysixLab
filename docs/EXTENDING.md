@@ -106,6 +106,16 @@ prove a compound shape (mesh volume = analytic volume = engine mass, a ball thro
 (volume × density = integrated mass, bounding radius, mesh bounds); the example's own test also checks the centre
 of mass of a real spire.
 
+A shape can also carry three optional fields that the palette and the inspector pick up without further code:
+`keywords` (extra search words: "donut" finds the torus), `quantities` (derived numbers the inspector shows and
+edits — a gear's module, a rounded box's corner radius in metres; each maps a value to the size and parameters
+that realise it, so undo, live resizing and the scale gizmo keep working) and `surface` (a painted texture over the
+geometry's uvs, as the dice have; the painter itself is registered in `src/render/shapeSurface.ts`). A geometry
+with a `color` attribute (`MeshBuilder.tint`) is drawn with vertex colours, as the wheel's dark tyre is. Convex
+shapes with a fine rounded edge or a flat polygon almost parallel to a neighbour need the engine-safety rule in
+`src/model/shapes/hull3.ts` (`firstSafeHull`): the engine's hull builder silently merges faces that meet at under
+about 1.35° and mis-computes the mass of such hulls, so give it candidates from the most detailed to a plain one.
+
 ## How to add a component
 
 A component is a behaviour attached to a body or a joint. It has two halves registered under the same `type`:
