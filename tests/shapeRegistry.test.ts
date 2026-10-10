@@ -37,6 +37,7 @@ import {
 import type { BodyEntity, ShapeSpec } from '../src/model/types';
 import { initRapier, PhysicsWorld } from '../src/physics/world';
 import { GEOMETRY_KIT } from '../src/render/geometryKit';
+import { hasIcon } from '../src/ui/icons';
 
 beforeAll(async () => {
   await initRapier();
@@ -82,6 +83,8 @@ describe('registry contents', () => {
       expect(() => validateShapeDef(d), d.id).not.toThrow();
       expect(d.label.length).toBeGreaterThan(0);
       expect(d.icon.length).toBeGreaterThan(0);
+      // an icon is a key of src/ui/icons.ts or inline SVG
+      expect(hasIcon(d.icon) || d.icon.startsWith('<'), `icon of ${d.id}`).toBe(true);
       expect(['basic', 'structural', 'mechanical', 'solids', 'special']).toContain(d.category);
       expect(getShape(d.id)).toBe(d);
     }

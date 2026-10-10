@@ -95,13 +95,18 @@ const PATHS: Record<string, string> = {
     '<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 3"/>',
 };
 
+/** Is `name` one of the built-in icon keys? */
+export const hasIcon = (name: string): boolean => name in PATHS;
+
+/** An icon is a key of `PATHS`, or inline SVG shapes (a string starting with `<`, as `ShapeDef.icon` may be). */
+const bodyOf = (name: string): string => (name.startsWith('<') ? name : (PATHS[name] ?? PATHS.info));
+
 export function icon(name: string, cls = 'icon'): SVGSVGElement {
-  const body = PATHS[name] ?? PATHS.info;
-  return svg(wrap(body), cls);
+  return svg(wrap(bodyOf(name)), cls);
 }
 
 export function iconHtml(name: string): string {
-  return wrap(PATHS[name] ?? PATHS.info, 'class="icon"');
+  return wrap(bodyOf(name), 'class="icon"');
 }
 
 export const LOGO = `<svg viewBox="0 0 32 32" class="logo-mark" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5eead4"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs><rect x="2" y="2" width="28" height="28" rx="8" fill="#0f1620" stroke="url(#lg)" stroke-width="1.6"/><path d="M7 22c3-1 5-6 8-11s6-4 10-1" stroke="url(#lg)" stroke-width="1.8" stroke-linecap="round"/><circle cx="15" cy="11" r="3.2" fill="url(#lg)"/><path d="M7 25h18" stroke="#2c3a4c" stroke-width="1.6" stroke-linecap="round"/></svg>`;

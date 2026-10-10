@@ -1,4 +1,5 @@
 import type { App } from '../app/app';
+import { shapeDef } from '../model/shapeRegistry';
 import { JOINT_TYPE_LABELS, SOFT_LABELS } from '../model/factory';
 import type { Entity } from '../model/types';
 import { isBody, isSoft } from '../model/types';
@@ -89,7 +90,7 @@ export class Outliner {
   private item(e: Entity): HTMLElement {
     const { store, editor } = this.app;
     const sel = store.selection.includes(e.id);
-    const ic = isBody(e) ? icon(e.shape.type) : isSoft(e) ? icon(e.type) : icon(JOINT_ICON[e.type]);
+    const ic = isBody(e) ? icon(shapeDef(e.shape.type).icon) : isSoft(e) ? icon(e.type) : icon(JOINT_ICON[e.type]);
     const title = isBody(e)
       ? `${e.name} — ${e.bodyType}`
       : isSoft(e)
