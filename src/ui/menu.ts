@@ -1,18 +1,8 @@
+import type { MenuItem } from '../app/registry/menus';
 import { h } from './dom';
 import { icon } from './icons';
 
-export type MenuItem =
-  | {
-      label: string;
-      action: () => void | Promise<void>;
-      icon?: string;
-      kbd?: string;
-      checked?: boolean;
-      disabled?: boolean;
-      keepOpen?: boolean;
-    }
-  | { sep: true }
-  | { heading: string };
+export type { MenuItem };
 
 let openMenuEl: HTMLElement | null = null;
 let cleanup: (() => void) | null = null;

@@ -3,21 +3,18 @@
  * selection changes and otherwise just refreshes field values (including live readouts from
  * the running simulation), so typing and scrubbing never lose focus.
  *
- * The per-entity-type panels live next to this file: `body.ts`, `soft.ts`, `joint.ts`; the shared
- * context (header, edit / undo-grouping helpers, updater lists) is in `shared.ts`.
+ * What it shows is decided by the inspector-section registry (`src/app/registry/inspectorSections.ts`): every
+ * registered section that applies to the selection builds its part. The built-in sections (`sections.ts`) wrap the
+ * per-entity-type panels next to this file: `body.ts`, `soft.ts`, `joint.ts`, `aux.ts`; the shared context (header,
+ * edit / undo-grouping helpers, updater lists) is in `shared.ts`.
  */
 import type { App } from '../../app/app';
+import { inspectorSectionRegistry, sectionsFor } from '../../app/registry/inspectorSections';
 import type { Entity } from '../../model/types';
-import { isBody, isGroup, isJoint, isLight, isPath, isSoft } from '../../model/types';
+import { isJoint } from '../../model/types';
 import { clear, h } from '../dom';
 import { icon } from '../icons';
-import { groupInspector, lightInspector, membershipRow, pathInspector } from './aux';
-import { componentsSection } from './components';
-import { section } from '../controls';
-import { bodyInspector } from './body';
-import { jointInspector } from './joint';
 import { InspectorContext } from './shared';
-import { softInspector } from './soft';
 
 export class Inspector {
   readonly el: HTMLElement = h('div', { class: 'panel-body' });
@@ -43,6 +40,8 @@ export class Inspector {
     });
     app.on('jointEnd', () => this.refresh());
     app.on('pathPoint', () => this.refresh());
+    // A section registered (or removed) later shows up at once.
+    inspectorSectionRegistry.onChange(() => this.render());
     this.render();
   }
 
@@ -63,14 +62,7 @@ export class Inspector {
       this.el.appendChild(this.empty());
       return;
     }
-    if (sel.every(isBody)) this.el.append(...bodyInspector(ctx, sel), ...this.organise(sel), ...this.components(sel));
-    else if (sel.every(isSoft)) this.el.append(...softInspector(ctx, sel), ...this.organise(sel));
-    else if (sel.every(isLight)) this.el.append(...lightInspector(ctx, sel));
-    else if (sel.length === 1 && isGroup(sel[0])) this.el.append(...groupInspector(ctx, sel[0]));
-    else if (sel.length === 1 && isPath(sel[0])) this.el.append(...pathInspector(ctx, sel[0]));
-    else if (sel.length === 1 && isJoint(sel[0]))
-      this.el.append(...jointInspector(ctx, sel[0]), ...this.components(sel));
-    else this.el.append(...this.summary(sel));
+    for (const section of sectionsFor(sel, this.app)) this.el.append(...section.build(ctx, sel));
     this.refresh();
     ctx.live.forEach((f) => f());
   }
@@ -99,49 +91,5 @@ export class Inspector {
           : 'Add a shape from the library on the left (or press 1–8), then press Space to simulate.',
       ),
     );
-  }
-
-  /** The Components section — for a single body or joint (components are edited one owner at a time). */
-  private components(sel: Entity[]): HTMLElement[] {
-    const sec = sel.length === 1 ? componentsSection(this.ctx, sel[0].id) : null;
-    return sec ? [sec] : [];
-  }
-
-  /** The "Group" row for bodies and soft bodies (the other kinds build it into their own panel). */
-  private organise(sel: Entity[]): HTMLElement[] {
-    const row = membershipRow(
-      this.ctx,
-      sel.map((e) => e.id),
-    );
-    return row ? [section('Organise', [row], { id: 'organise' })] : [];
-  }
-
-  /** Mixed selections (bodies + joints, several groups …): counts only, no shared properties. */
-  private summary(sel: Entity[]): HTMLElement[] {
-    const count = (f: (e: Entity) => boolean) => sel.filter(f).length;
-    const parts = [
-      [count((e) => isBody(e) || isSoft(e)), 'body', 'bodies'],
-      [count(isJoint), 'joint', 'joints'],
-      [count(isGroup), 'group', 'groups'],
-      [count(isLight), 'light', 'lights'],
-      [count(isPath), 'path', 'paths'],
-    ] as const;
-    const text = parts
-      .filter(([n]) => n > 0)
-      .map(([n, one, many]) => `${n} ${n === 1 ? one : many}`)
-      .join(', ');
-    return [
-      this.ctx.header(sel),
-      h(
-        'div',
-        { class: 'empty-state' },
-        h('h4', null, `${sel.length} objects selected`),
-        h(
-          'p',
-          null,
-          `${text}. Select objects of one kind to edit shared properties (bodies, soft bodies or lights), or a single group, path or joint to edit its settings.`,
-        ),
-      ),
-    ];
   }
 }

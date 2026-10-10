@@ -109,6 +109,8 @@ const PATHS: Record<string, string> = {
   wave: '<path d="M2 12c2.5-8 5.5-8 8 0s5.5 8 8 0 2-3 4-4"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/>',
   chevronUp: '<path d="M6 15l6-6 6 6"/>',
+  // ── FB-10: maps ──
+  map: '<path d="M9 4L3 6.5v13L9 17l6 2.5 6-2.5v-13L15 7z"/><path d="M9 4v13M15 7v12.5"/>',
 };
 
 /** Is `name` one of the built-in icon keys? */

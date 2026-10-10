@@ -5,26 +5,57 @@ import { Persistence } from './app/persistence';
 import { newReport } from './model/errors';
 import type { SceneDocument } from './model/types';
 import { getTemplate } from './model/content';
-import { buildDock } from './ui/telemetry';
-import { buildLeftPanel } from './ui/leftPanel';
-import { buildRightPanel } from './ui/rightPanel';
+import { buildPanelRegion } from './ui/panelRegion';
 import { buildStatusbar } from './ui/statusbar';
 import { createShell, wireShell } from './ui/shell';
 import { buildToolbox } from './ui/toolbox';
-import { buildTopbar, importDocument } from './ui/topbar';
+import { buildTopbar } from './ui/topbar';
+import { importDocument } from './ui/sceneActions';
 import { mountToasts } from './ui/toasts';
 import { showWelcome } from './ui/dialogs';
 import { openMenu } from './ui/menu';
+import { resolveMenu } from './app/registry/menus';
+import { loadExtensions, registerBuiltins } from './ui/builtin';
 
 async function boot(): Promise<void> {
+  // Everything the UI offers is a registration; register the built-ins before any UI is built.
+  registerBuiltins();
+  const extensionFailures = await loadExtensions();
   const root = document.getElementById('app')!;
   const shell = createShell(root);
   const app = new App(shell);
 
   shell.topSlot.replaceWith(buildTopbar(app));
-  shell.leftSlot.replaceWith(buildLeftPanel(app));
-  shell.rightSlot.replaceWith(buildRightPanel(app));
-  shell.dockSlot.replaceWith(buildDock(app));
+  // The three docked regions are generated from the panel registry.
+  shell.leftSlot.replaceWith(
+    buildPanelRegion(app, {
+      region: 'left',
+      rootTag: 'aside',
+      rootClass: 'panel left',
+      headClass: 'tabs',
+      // Four tabs do not fit next to their icons in the 268 px panel; the text-only strip does.
+      icons: false,
+    }),
+  );
+  shell.rightSlot.replaceWith(
+    buildPanelRegion(app, {
+      region: 'right',
+      rootTag: 'aside',
+      rootClass: 'panel right',
+      headClass: 'tabs',
+      icons: true,
+    }),
+  );
+  shell.dockSlot.replaceWith(
+    buildPanelRegion(app, {
+      region: 'bottom',
+      rootTag: 'div',
+      rootClass: 'dock',
+      headClass: 'dock-head',
+      icons: false,
+      collapseWhenOff: true,
+    }),
+  );
   shell.footSlot.replaceWith(buildStatusbar(app));
   const { toolbox, viewbar } = buildToolbox(app);
   shell.floatSlot.replaceWith(toolbox, viewbar);
@@ -38,43 +69,7 @@ async function boot(): Promise<void> {
   input.onContextMenu = (ev) => {
     const hit = app.pickEntity(ev);
     if (hit && !app.store.selection.includes(hit.entityId)) app.store.setSelection([hit.entityId]);
-    const has = app.store.selection.length > 0;
-    openMenu(
-      [
-        { label: 'Frame', icon: 'frame', kbd: 'F', action: () => app.frameSelection() },
-        {
-          label: 'Duplicate',
-          icon: 'copy',
-          kbd: 'Ctrl+D',
-          disabled: !has,
-          action: () => app.editor.duplicateSelection(),
-        },
-        {
-          label: 'Hide / show',
-          icon: 'eye',
-          kbd: 'H',
-          disabled: !has,
-          action: () => app.editor.toggleFlag(app.store.selection, 'hidden'),
-        },
-        {
-          label: 'Lock / unlock',
-          icon: 'lock',
-          kbd: 'L',
-          disabled: !has,
-          action: () => app.editor.toggleFlag(app.store.selection, 'locked'),
-        },
-        { sep: true },
-        { label: 'Delete', icon: 'trash', kbd: 'Del', disabled: !has, action: () => app.editor.deleteSelection() },
-        { sep: true },
-        {
-          label: app.sim.active ? 'Reset simulation' : 'Simulate',
-          icon: app.sim.active ? 'reset' : 'play',
-          kbd: app.sim.active ? 'Shift+Space' : 'Space',
-          action: () => (app.sim.active ? app.sim.reset() : app.sim.play()),
-        },
-      ],
-      { x: ev.clientX, y: ev.clientY },
-    );
+    openMenu(resolveMenu(app, 'context'), { x: ev.clientX, y: ev.clientY });
   };
 
   // ---- initial scene: shared link > autosave > welcome example ---------------------------------
@@ -129,6 +124,7 @@ async function boot(): Promise<void> {
     }
   });
 
+  for (const f of extensionFailures) app.toast(`Extension ${f.file} failed to load: ${f.error.message}`, 'error');
   app.start();
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
   (window as unknown as { physicslab: App }).physicslab = app;

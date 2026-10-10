@@ -1,13 +1,16 @@
 /**
  * Pointer + keyboard input for the viewport: selection, drag-moving, grabbing bodies in a
- * running simulation, the joint / measure / blast / shoot tools and all shortcuts.
+ * running simulation and the pointer behaviour of the joint / measure / blast / shoot tools. Which tool receives the
+ * pointer, and what every key does, is decided by the registries (`./registry`), not here.
  */
 import { Plane, Vector3, type Camera } from 'three';
 import { vadd, type Vec3 } from '../core/math';
 import { topLevel } from '../model/groups';
-import { listShapes } from '../model/shapeRegistry';
 import { isGroup, isLight, isPosed } from '../model/types';
 import type { App } from './app';
+import { runCommand } from './registry/commands';
+import { keymap } from './registry/keymap';
+import { toolForMode } from './registry/tools';
 
 type Gesture =
   | { kind: 'none' }
@@ -97,28 +100,13 @@ export class InputController {
     if (e.altKey) return; // orbit emulation
     if (app.gizmo.controls.enabled && app.gizmo.hovering) return;
 
-    const tool = app.prefs.value.tool;
     dom.setPointerCapture(e.pointerId);
-    switch (tool) {
-      case 'select':
-        this.downSelect(e);
-        break;
-      case 'joint':
-        this.downJoint(e);
-        break;
-      case 'measure':
-        this.downMeasure(e);
-        break;
-      case 'blast':
-        this.downBlast(e);
-        break;
-      case 'shoot':
-        this.downShoot(e);
-        break;
-    }
+    // Which tool handles the pointer is the registry's business (src/app/registry/tools.ts).
+    toolForMode(app.prefs.value.tool)?.pointerDown?.(app, e, this);
   }
 
-  private downSelect(e: PointerEvent): void {
+  /** Pointer press of the tool of the same name (called through the tool registry). */
+  downSelect(e: PointerEvent): void {
     const app = this.app;
     const store = app.store;
     // A control handle of the selected path comes first: clicking one hands it to the gizmo.
@@ -204,7 +192,8 @@ export class InputController {
     };
   }
 
-  private downJoint(e: PointerEvent): void {
+  /** Pointer press of the tool of the same name (called through the tool registry). */
+  downJoint(e: PointerEvent): void {
     const app = this.app;
     const hit = app.pickEntity(e, { joints: false });
     const ground = app.picker.groundPoint(e, 0);
@@ -249,7 +238,8 @@ export class InputController {
     app.updateToolHint();
   }
 
-  private downMeasure(e: PointerEvent): void {
+  /** Pointer press of the tool of the same name (called through the tool registry). */
+  downMeasure(e: PointerEvent): void {
     const app = this.app;
     const hit = app.pickEntity(e, { joints: false });
     const p = hit?.point ?? app.picker.groundPoint(e, 0);
@@ -268,13 +258,15 @@ export class InputController {
     app.effects.ping(p);
   }
 
-  private downBlast(e: PointerEvent): void {
+  /** Pointer press of the tool of the same name (called through the tool registry). */
+  downBlast(e: PointerEvent): void {
     const hit = this.app.pickEntity(e, { joints: false });
     const p = hit?.point ?? this.app.picker.groundPoint(e, 0);
     if (p) this.app.blast(p);
   }
 
-  private downShoot(e: PointerEvent): void {
+  /** Pointer press of the tool of the same name (called through the tool registry). */
+  downShoot(e: PointerEvent): void {
     const dir = this.app.picker.rayDirection(e);
     this.app.shoot(this.cam.position.clone(), dir);
   }
@@ -466,170 +458,9 @@ export class InputController {
       app.sim.keys.add(e.code);
       if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
     }
-    if (typing) return;
-    const mod = e.ctrlKey || e.metaKey;
-    const k = e.key.toLowerCase();
-    const sel = app.store.selection;
-
-    if (mod) {
-      switch (k) {
-        case 'z':
-          e.preventDefault();
-          this.undo(e.shiftKey);
-          return;
-        case 'y':
-          e.preventDefault();
-          this.undo(true);
-          return;
-        case 'd':
-          e.preventDefault();
-          app.editor.duplicateSelection();
-          return;
-        case 'g':
-          e.preventDefault();
-          if (e.shiftKey) app.editor.ungroup();
-          else app.addGroup();
-          return;
-        case 'c':
-          app.editor.copy();
-          return;
-        case 'v':
-          e.preventDefault();
-          app.editor.paste();
-          return;
-        case 'a':
-          e.preventDefault();
-          app.editor.selectAll();
-          return;
-        case 's':
-          e.preventDefault();
-          this.save();
-          return;
-      }
-      return;
-    }
-
-    switch (e.code) {
-      case 'Space':
-        e.preventDefault();
-        if (e.shiftKey) app.sim.reset();
-        else app.sim.toggle();
-        return;
-      case 'Period':
-        app.sim.step(1);
-        return;
-      case 'Delete':
-      case 'Backspace':
-        e.preventDefault();
-        app.editor.deleteSelection();
-        return;
-      case 'Escape':
-        if (app.pathPoint) app.setPathPoint(null);
-        else if (app.jointDraft) {
-          app.cancelJointDraft();
-          app.updateToolHint();
-        } else if (app.prefs.value.tool !== 'select') app.setTool('select');
-        else if (app.measure) app.clearMeasure();
-        else app.store.setSelection([]);
-        return;
-      case 'Home':
-        app.frameAll();
-        return;
-      case 'NumpadDecimal':
-        app.frameSelection();
-        return;
-    }
-    switch (k) {
-      case 'q':
-        app.setGizmo('none');
-        break;
-      case 'w':
-        app.setGizmo('translate');
-        break;
-      case 'e':
-        app.setGizmo('rotate');
-        break;
-      case 'r':
-        app.setGizmo('scale');
-        break;
-      case 'j':
-        app.setTool('joint');
-        break;
-      case 'm':
-        app.setTool('measure');
-        break;
-      case 'b':
-        app.setTool('blast');
-        break;
-      case 't':
-        app.setTool('shoot');
-        break;
-      case 'f':
-        app.frameSelection();
-        break;
-      case 'g':
-        app.prefs.set({ snap: !app.prefs.value.snap });
-        app.toast(app.prefs.value.snap ? 'Snapping on' : 'Snapping off');
-        break;
-      case 'x':
-        app.prefs.set({ space: app.prefs.value.space === 'world' ? 'local' : 'world' });
-        break;
-      case 'h':
-        if (sel.length) app.editor.toggleFlag(sel, 'hidden');
-        break;
-      case 'l':
-        if (sel.length) app.editor.toggleFlag(sel, 'locked');
-        break;
-      case 'c':
-        app.prefs.set({ followSelection: !app.prefs.value.followSelection });
-        break;
-      case '?':
-        app.emit('toast', { text: 'Press the keyboard icon in the top bar for all shortcuts', kind: 'info' });
-        break;
-      case '1':
-      case '2':
-      case '3':
-      case '4':
-      case '5':
-      case '6':
-      case '7':
-      case '8':
-      case '9': {
-        // The palette order is the registry order; the first nine shapes answer to the 1–9 keys.
-        const def = listShapes()[Number(k) - 1];
-        if (def) app.addShape(def.id);
-        break;
-      }
-      case 'arrowup':
-      case 'arrowdown':
-      case 'arrowleft':
-      case 'arrowright':
-        if (!app.sim.active && sel.length) {
-          e.preventDefault();
-          const step = e.shiftKey ? 1 : app.prefs.value.snap ? app.prefs.value.snapGrid : 0.1;
-          const f = app.camera.getWorldDirection(new Vector3());
-          f.y = 0;
-          f.normalize();
-          const r = new Vector3().crossVectors(f, new Vector3(0, 1, 0));
-          const dir =
-            k === 'arrowup' ? f : k === 'arrowdown' ? f.clone().negate() : k === 'arrowright' ? r : r.clone().negate();
-          // snap the push direction to the dominant world axis
-          const ax: Vec3 = Math.abs(dir.x) > Math.abs(dir.z) ? [Math.sign(dir.x), 0, 0] : [0, 0, Math.sign(dir.z)];
-          app.editor.translate(sel, [ax[0] * step, 0, ax[2] * step]);
-        }
-        break;
-    }
-  }
-
-  private undo(redo: boolean): void {
-    const app = this.app;
-    const label = redo ? app.store.redo() : app.store.undo();
-    if (label) app.toast(`${redo ? 'Redo' : 'Undo'}: ${label}`);
-  }
-
-  private save(): void {
-    const app = this.app;
-    const e = app.persistence.saveToLibrary();
-    if (e) app.toast(`Saved “${e.name}” to your scene library`, 'success');
+    // Every other key is a command's shortcut (src/app/registry/commands.ts); nothing here binds keys.
+    const cmd = keymap.find(e);
+    if (!cmd || (typing && !cmd.allowWhileTyping)) return;
+    if (runCommand(cmd.id, app, 'shortcut', e) && cmd.preventDefault !== false) e.preventDefault();
   }
 }

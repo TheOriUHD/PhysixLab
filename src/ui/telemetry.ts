@@ -1,11 +1,12 @@
 /**
- * Telemetry dock: live time-series charts of the running simulation.
+ * Telemetry dock: live time-series charts of the running simulation (the bottom region's Energy and Selection tabs).
  *  - Energy: kinetic, rotational, potential, spring (elastic) and total mechanical energy.
  *  - Selection: speed / height of the selected body, or position / speed of a selected joint.
  * All values come straight from the physics worker's per-frame statistics.
  */
 import { RAD, vlen } from '../core/math';
 import type { App } from '../app/app';
+import type { PanelDef } from '../app/registry/panels';
 import { B } from '../physics/protocol';
 import { fmt } from './controls';
 import { h } from './dom';
@@ -231,7 +232,24 @@ function niceNum(v: number): string {
   return v.toFixed(3);
 }
 
-export function buildDock(app: App): HTMLElement {
+/** What the two dock panels share: both charts, the toolbar (note, time window, clear) and the per-frame feed. */
+interface Telemetry {
+  energyBody: HTMLElement;
+  selectionBody: HTMLElement;
+  toolbar: HTMLElement[];
+  /** Redraw both charts (cheap when hidden: they bail out at zero size). */
+  redraw: () => void;
+}
+
+const telemetries = new WeakMap<App, Telemetry>();
+
+function telemetryFor(app: App): Telemetry {
+  let t = telemetries.get(app);
+  if (!t) telemetries.set(app, (t = createTelemetry(app)));
+  return t;
+}
+
+function createTelemetry(app: App): Telemetry {
   const { prefs } = app;
   const energyDefs: SeriesDef[] = [
     { id: 'total', label: 'Total mechanical', color: '#e8eefc', unit: 'J', on: true },
@@ -245,10 +263,6 @@ export function buildDock(app: App): HTMLElement {
   const selection = new Chart(selDefs, '');
   selection.zeroLine = true;
 
-  const tabEnergy = h('button', { class: 'tab', type: 'button' }, 'Energy');
-  const tabSel = h('button', { class: 'tab', type: 'button' }, 'Selection');
-  tabEnergy.addEventListener('click', () => prefs.set({ bottomTab: 'energy' }));
-  tabSel.addEventListener('click', () => prefs.set({ bottomTab: 'selection' }));
   const note = h('span', { style: { color: 'var(--text-3)', fontSize: '11.5px', marginLeft: '10px' } }, '');
   const winSel = h(
     'select',
@@ -264,26 +278,14 @@ export function buildDock(app: App): HTMLElement {
     energy.reset();
     selection.reset();
   });
-  const head = h('div', { class: 'dock-head' }, tabEnergy, tabSel, note, winSel, clearBtn);
+  const toolbar = [note, winSel, clearBtn];
 
-  const eBody = h('div', { class: 'dock-body' }, energy.wrap, energy.legend);
-  const sBody = h('div', { class: 'dock-body' }, selection.wrap, selection.legend);
-  const dock = h('div', { class: 'dock' }, head, eBody, sBody);
-
-  const syncTabs = () => {
-    const t = prefs.value.bottomTab;
-    tabEnergy.classList.toggle('on', t === 'energy');
-    tabSel.classList.toggle('on', t === 'selection');
-    eBody.style.display = t === 'energy' ? '' : 'none';
-    sBody.style.display = t === 'selection' ? '' : 'none';
-    dock.classList.toggle('collapsed', !prefs.value.showBottom);
-    requestAnimationFrame(() => {
-      energy.draw();
-      selection.draw();
-    });
+  const energyBody = h('div', { class: 'dock-body' }, energy.wrap, energy.legend);
+  const selectionBody = h('div', { class: 'dock-body' }, selection.wrap, selection.legend);
+  const redraw = () => {
+    energy.draw();
+    selection.draw();
   };
-  prefs.on('change', syncTabs);
-  syncTabs();
 
   // Rebuild the selection chart when what is selected changes.
   let selKey = '';
@@ -351,7 +353,7 @@ export function buildDock(app: App): HTMLElement {
     const now = performance.now();
     if (now - lastDraw > 60 && prefs.value.showBottom) {
       lastDraw = now;
-      (prefs.value.bottomTab === 'energy' ? energy : selection).draw();
+      (prefs.value.bottomTab === 'selection' ? selection : energy).draw();
     }
   });
   app.sim.on('layout', () => {
@@ -363,12 +365,39 @@ export function buildDock(app: App): HTMLElement {
       selection.reset();
     }
   });
-  new ResizeObserver(() => {
-    energy.draw();
-    selection.draw();
-  }).observe(dock);
-  return dock;
+  const resize = new ResizeObserver(redraw);
+  resize.observe(energyBody);
+  resize.observe(selectionBody);
+  return { energyBody, selectionBody, toolbar, redraw };
 }
+
+/** The Energy tab of the telemetry dock. */
+export const energyPanel: PanelDef = {
+  id: 'energy',
+  label: 'Energy',
+  icon: 'zap',
+  region: 'bottom',
+  order: 10,
+  title: 'Kinetic, rotational, potential and spring energy over time',
+  build(app) {
+    const t = telemetryFor(app);
+    return { el: t.energyBody, toolbar: t.toolbar, onShow: () => requestAnimationFrame(t.redraw) };
+  },
+};
+
+/** The Selection tab of the telemetry dock. */
+export const selectionPanel: PanelDef = {
+  id: 'selection',
+  label: 'Selection',
+  icon: 'select',
+  region: 'bottom',
+  order: 20,
+  title: 'Speed, height and spin of the selected body, or the state of the selected joint',
+  build(app) {
+    const t = telemetryFor(app);
+    return { el: t.selectionBody, toolbar: t.toolbar, onShow: () => requestAnimationFrame(t.redraw) };
+  },
+};
 
 function selectionDefs(kind: 'body' | 'joint' | 'none', jtype?: string): SeriesDef[] {
   if (kind === 'body') {

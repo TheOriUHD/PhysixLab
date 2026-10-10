@@ -1,86 +1,22 @@
 import type { App } from '../app/app';
+import { helpSections } from '../app/registry/help';
 import { button } from './controls';
 import { h } from './dom';
 import { icon } from './icons';
 import { openModal } from './modal';
 
-const SHORTCUTS: [string, [string, string][]][] = [
-  [
-    'Simulation',
-    [
-      ['Start / pause', 'Space'],
-      ['Stop and return to the editable layout', 'Shift Space'],
-      ['Single step (paused)', '.'],
-      ['Throw a body while running', 'Drag'],
-      ['Drive / actuate', 'Bound motor keys'],
-    ],
-  ],
-  [
-    'Tools',
-    [
-      ['Select only', 'Q'],
-      ['Move gizmo', 'W'],
-      ['Rotate gizmo', 'E'],
-      ['Scale gizmo', 'R'],
-      ['Joint tool', 'J'],
-      ['Measure', 'M'],
-      ['Blast', 'B'],
-      ['Fire projectile', 'T'],
-      ['Grid snapping', 'G'],
-      ['World / local space', 'X'],
-    ],
-  ],
-  [
-    'Selection & editing',
-    [
-      ['Select / add to selection', 'Click · Shift Click'],
-      ['Box select', 'Drag on empty space'],
-      ['Select all', 'Ctrl A'],
-      ['Duplicate', 'Ctrl D'],
-      ['Group · ungroup', 'Ctrl G · Ctrl Shift G'],
-      ['Copy · paste', 'Ctrl C · Ctrl V'],
-      ['Delete', 'Del'],
-      ['Undo · redo', 'Ctrl Z · Ctrl Shift Z'],
-      ['Hide · lock', 'H · L'],
-      ['Nudge', 'Arrow keys'],
-      ['Add shape at view', '1 – 8'],
-      ['Vertical drag-move', 'Shift + drag'],
-    ],
-  ],
-  [
-    'Camera',
-    [
-      ['Orbit', 'Right drag · Alt drag'],
-      ['Pan', 'Middle drag · Shift Right drag'],
-      ['Zoom', 'Scroll'],
-      ['Frame selection', 'F · double-click'],
-      ['Frame everything', 'Home'],
-      ['Follow selection', 'C'],
-    ],
-  ],
-  [
-    'Scene',
-    [
-      ['Save to library', 'Ctrl S'],
-      ['Cancel tool / deselect', 'Esc'],
-    ],
-  ],
-];
-
+/** The keyboard shortcut reference — generated from the command registry and the gesture entries. */
 export function showShortcuts(): void {
   const grid = h('div', { class: 'kbd-grid' });
-  for (const [group, rows] of SHORTCUTS) {
-    grid.appendChild(h('div', { class: 'kbd-group' }, group));
-    for (const [label, keys] of rows) {
-      const alternatives = keys
-        .split(' · ')
-        .map((alt) => h('span', null, ...alt.split(' ').map((k) => h('kbd', { style: { marginLeft: '3px' } }, k))));
+  for (const section of helpSections()) {
+    grid.appendChild(h('div', { class: 'kbd-group' }, section.title));
+    for (const row of section.rows) {
       const joined: (HTMLElement | string)[] = [];
-      alternatives.forEach((a2, i) => {
+      row.alternatives.forEach((keys, i) => {
         if (i) joined.push(h('span', { style: { margin: '0 6px', color: 'var(--text-3)' } }, 'or'));
-        joined.push(a2);
+        joined.push(h('span', null, ...keys.map((k) => h('kbd', { style: { marginLeft: '3px' } }, k))));
       });
-      grid.appendChild(h('div', { class: 'kbd-row' }, h('span', null, label), h('span', null, ...joined)));
+      grid.appendChild(h('div', { class: 'kbd-row' }, h('span', null, row.label), h('span', null, ...joined)));
     }
   }
   openModal({ title: 'Keyboard shortcuts', body: [grid], width: '780px' });

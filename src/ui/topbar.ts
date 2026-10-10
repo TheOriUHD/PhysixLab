@@ -1,14 +1,12 @@
 import type { App } from '../app/app';
-import { COLOR_MODE_LABELS, type ColorMode } from '../render/bodyViews';
-import { newReport } from '../model/errors';
-import { listTemplates } from '../model/content';
+import { runCommand } from '../app/registry/commands';
+import { listBarMenus, menuRegistry, resolveMenu } from '../app/registry/menus';
+import { formatShortcut } from '../app/registry/shortcuts';
 import { iconButton, segmented } from './controls';
-import { h } from './dom';
+import { h, svg } from './dom';
 import { icon, LOGO } from './icons';
-import { openMenu, type MenuItem } from './menu';
-import { confirmDialog, promptText } from './modal';
-import { showShortcuts, showWelcome } from './dialogs';
-import { svg } from './dom';
+import { openMenu } from './menu';
+import { createImportInput } from './sceneActions';
 
 const TIME_SCALES = [0.1, 0.25, 0.5, 1, 2, 4];
 
@@ -41,218 +39,29 @@ export function buildTopbar(app: App): HTMLElement {
     if (c.type === 'reset') name.value = store.name;
   });
 
-  // ---- menus -----------------------------------------------------------------------------------
-  const importFile = h('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' } });
-  importFile.addEventListener('change', () => {
-    const f = importFile.files?.[0];
-    importFile.value = '';
-    if (f) void importDocument(app, f);
-  });
-
-  const menus: [string, () => MenuItem[]][] = [
-    [
-      'File',
-      () => [
-        { label: 'New scene', icon: 'plus', action: () => newScene(app) },
-        { heading: 'Examples' },
-        ...listTemplates().map((t): MenuItem => ({
-          label: t.name,
-          action: () => confirmReplace(app, () => app.loadTemplate(t.id)),
-        })),
-        { sep: true },
-        {
-          label: 'Save to library',
-          icon: 'save',
-          kbd: 'Ctrl+S',
-          action: () => {
-            const e = app.persistence.saveToLibrary();
-            if (e) app.toast(`Saved “${e.name}” to your scene library`, 'success');
-          },
-        },
-        {
-          label: 'Open scene library…',
-          icon: 'folder',
-          action: () => {
-            prefs.set({ leftTab: 'scenes', showLeft: true });
-          },
-        },
-        { sep: true },
-        { label: 'Export scene file…', icon: 'download', action: () => app.persistence.exportFile() },
-        { label: 'Import scene file…', icon: 'upload', action: () => importFile.click() },
-        {
-          label: 'Copy share link',
-          icon: 'share',
-          action: async () => {
-            let url: string;
-            try {
-              url = await app.persistence.shareLink();
-            } catch (e) {
-              app.toast((e as Error).message, 'error');
-              return;
-            }
-            try {
-              await navigator.clipboard.writeText(url);
-              app.toast(
-                `Share link copied (${Math.round(url.length / 1000)} kB). Anyone opening it gets this scene.`,
-                'success',
-              );
-            } catch {
-              await promptText('Share link', 'Copy this link:', url, 'Done');
-            }
-          },
-        },
-      ],
-    ],
-    [
-      'Edit',
-      () => [
-        {
-          label: store.canUndo ? `Undo ${store.undoLabel}` : 'Undo',
-          icon: 'undo',
-          kbd: 'Ctrl+Z',
-          disabled: !store.canUndo,
-          action: () => store.undo(),
-        },
-        {
-          label: store.canRedo ? `Redo ${store.redoLabel}` : 'Redo',
-          icon: 'redo',
-          kbd: 'Ctrl+Shift+Z',
-          disabled: !store.canRedo,
-          action: () => store.redo(),
-        },
-        { sep: true },
-        {
-          label: 'Duplicate',
-          icon: 'copy',
-          kbd: 'Ctrl+D',
-          disabled: !store.selection.length,
-          action: () => app.editor.duplicateSelection(),
-        },
-        { label: 'Copy', kbd: 'Ctrl+C', disabled: !store.selection.length, action: () => app.editor.copy() },
-        { label: 'Paste', kbd: 'Ctrl+V', action: () => app.editor.paste() },
-        {
-          label: 'Delete',
-          icon: 'trash',
-          kbd: 'Del',
-          disabled: !store.selection.length,
-          action: () => app.editor.deleteSelection(),
-        },
-        { sep: true },
-        { label: 'Select all', kbd: 'Ctrl+A', action: () => app.editor.selectAll() },
-        {
-          label: 'Group selection',
-          icon: 'group',
-          kbd: 'Ctrl+G',
-          disabled: !store.selection.length,
-          action: () => app.addGroup(),
-        },
-        {
-          label: 'Ungroup',
-          kbd: 'Ctrl+Shift+G',
-          disabled: !store.selection.some((id) => store.group(id)),
-          action: () => app.editor.ungroup(),
-        },
-        {
-          label: 'Rotate selection 90° about Y',
-          disabled: !store.selection.length || sim.active,
-          action: () => app.editor.rotateSelection90(),
-        },
-        { label: 'Frame selection', icon: 'frame', kbd: 'F', action: () => app.frameSelection() },
-        { sep: true },
-        {
-          label: 'Use current simulation state as the starting layout',
-          disabled: !sim.active,
-          action: () => {
-            const n = app.editor.captureLivePose();
-            app.toast(`Captured ${n} body poses. Reset now returns to this state.`, 'success');
-          },
-        },
-      ],
-    ],
-    [
-      'View',
-      () => {
-        const p = prefs.value;
-        const ov = p.overlays;
-        const items: MenuItem[] = [{ heading: 'Colour bodies by' }];
-        for (const m of Object.keys(COLOR_MODE_LABELS) as ColorMode[]) {
-          items.push({
-            label: COLOR_MODE_LABELS[m],
-            checked: p.colorMode === m,
-            action: () => prefs.set({ colorMode: m }),
-          });
-        }
-        items.push(
-          { sep: true },
-          { heading: 'Overlays (live while simulating)' },
-          {
-            label: 'Velocity vectors',
-            checked: ov.velocity,
-            action: () => prefs.setOverlay({ velocity: !ov.velocity }),
-          },
-          { label: 'Net force vectors', checked: ov.force, action: () => prefs.setOverlay({ force: !ov.force }) },
-          {
-            label: 'Contact points & forces',
-            checked: ov.contacts,
-            action: () => prefs.setOverlay({ contacts: !ov.contacts }),
-          },
-          { label: 'Centres of mass', checked: ov.com, action: () => prefs.setOverlay({ com: !ov.com }) },
-          {
-            label: `Motion trails: ${ov.trails}`,
-            action: () =>
-              prefs.setOverlay({ trails: ov.trails === 'off' ? 'selected' : ov.trails === 'selected' ? 'all' : 'off' }),
-            keepOpen: false,
-          },
-          { sep: true },
-          {
-            label: 'Show joints & constraints',
-            checked: p.showJoints,
-            action: () => prefs.set({ showJoints: !p.showJoints }),
-          },
-          {
-            label: 'Camera follows selection',
-            kbd: 'C',
-            checked: p.followSelection,
-            action: () => prefs.set({ followSelection: !p.followSelection }),
-          },
-          { sep: true },
-          { heading: 'Graphics quality' },
-          ...(['low', 'medium', 'high'] as const).map((q): MenuItem => ({
-            label: { low: 'Low — fastest', medium: 'Medium — shadows + MSAA', high: 'High — shadows + AO + MSAA' }[q],
-            checked: p.quality === q,
-            action: () => prefs.set({ quality: q }),
-          })),
-          { sep: true },
-          { label: 'Frame everything', kbd: 'Home', icon: 'frame', action: () => app.frameAll() },
-        );
-        return items;
-      },
-    ],
-    [
-      'Help',
-      () => [
-        { label: 'Keyboard shortcuts', icon: 'keyboard', action: () => showShortcuts() },
-        { label: 'Welcome & quick start', icon: 'info', action: () => showWelcome(app) },
-      ],
-    ],
-  ];
-
+  // ---- menus (File / Edit / View / Help come from the menu registry) --------------------------
   const menubar = h('div', { class: 'menubar' });
-  for (const [label, items] of menus) {
-    const b = h('button', { class: 'menu-btn', type: 'button' }, label);
-    b.addEventListener('click', () => {
-      b.classList.add('open');
-      openMenu(items(), b, () => b.classList.remove('open'));
-      const obs = new MutationObserver(() => {
-        if (!document.querySelector('.menu')) {
-          b.classList.remove('open');
-          obs.disconnect();
-        }
-      });
-      obs.observe(document.body, { childList: true });
-    });
-    menubar.appendChild(b);
-  }
+  const renderMenubar = () => {
+    menubar.replaceChildren(
+      ...listBarMenus().map((menu) => {
+        const b = h('button', { class: 'menu-btn', type: 'button' }, menu.label);
+        b.addEventListener('click', () => {
+          b.classList.add('open');
+          openMenu(resolveMenu(app, menu.id), b, () => b.classList.remove('open'));
+          const obs = new MutationObserver(() => {
+            if (!document.querySelector('.menu')) {
+              b.classList.remove('open');
+              obs.disconnect();
+            }
+          });
+          obs.observe(document.body, { childList: true });
+        });
+        return b;
+      }),
+    );
+  };
+  menuRegistry.onChange(renderMenubar);
+  renderMenubar();
 
   // ---- transport -------------------------------------------------------------------------------
   const playBtn = h('button', { class: 'tbtn play', type: 'button', title: 'Start / pause (Space)' });
@@ -263,9 +72,10 @@ export function buildTopbar(app: App): HTMLElement {
     icon('reset'),
   );
   const clock = h('div', { class: 'sim-clock', title: 'Simulated time' }, '0.00 s');
-  playBtn.addEventListener('click', () => sim.toggle());
-  stepBtn.addEventListener('click', () => sim.step(1));
-  resetBtn.addEventListener('click', () => sim.reset());
+  const run = (id: string) => runCommand(id, app, 'button');
+  playBtn.addEventListener('click', () => run('sim.toggle'));
+  stepBtn.addEventListener('click', () => run('sim.step'));
+  resetBtn.addEventListener('click', () => run('sim.reset'));
   const ts = segmented({
     compact: true,
     options: TIME_SCALES.map((v) => ({
@@ -312,8 +122,8 @@ export function buildTopbar(app: App): HTMLElement {
   );
 
   // ---- right cluster ---------------------------------------------------------------------------
-  const undo = iconButton('undo', 'Undo (Ctrl+Z)', () => store.undo());
-  const redo = iconButton('redo', 'Redo (Ctrl+Shift+Z)', () => store.redo());
+  const undo = iconButton('undo', 'Undo (Ctrl+Z)', () => run('edit.undo'));
+  const redo = iconButton('redo', 'Redo (Ctrl+Shift+Z)', () => run('edit.redo'));
   const syncHistory = () => {
     undo.disabled = !store.canUndo;
     redo.disabled = !store.canRedo;
@@ -329,14 +139,11 @@ export function buildTopbar(app: App): HTMLElement {
       if (saved.textContent === 'Saved') saved.textContent = '';
     }, 2200);
   };
-  const pLeft = iconButton('panelLeft', 'Toggle library panel', () => prefs.set({ showLeft: !prefs.value.showLeft }));
-  const pRight = iconButton('panelRight', 'Toggle inspector panel', () =>
-    prefs.set({ showRight: !prefs.value.showRight }),
-  );
-  const pBottom = iconButton('panelBottom', 'Toggle telemetry dock', () =>
-    prefs.set({ showBottom: !prefs.value.showBottom }),
-  );
-  const help = iconButton('keyboard', 'Keyboard shortcuts', () => showShortcuts());
+  const pLeft = iconButton('panelLeft', 'Toggle library panel', () => run('view.panel.left'));
+  const pRight = iconButton('panelRight', 'Toggle inspector panel', () => run('view.panel.right'));
+  const pBottom = iconButton('panelBottom', 'Toggle telemetry dock', () => run('view.panel.bottom'));
+  const help = iconButton('keyboard', 'Keyboard shortcuts', () => run('help.shortcuts'));
+  const search = iconButton('search', `Command palette (${formatShortcut('Mod+K')})`, () => run('app.palette'));
   const syncPanels = () => {
     pLeft.classList.toggle('on', prefs.value.showLeft);
     pRight.classList.toggle('on', prefs.value.showRight);
@@ -349,6 +156,7 @@ export function buildTopbar(app: App): HTMLElement {
     'div',
     { class: 'topbar-right' },
     saved,
+    search,
     undo,
     redo,
     h('span', { style: { width: '8px' } }),
@@ -367,39 +175,6 @@ export function buildTopbar(app: App): HTMLElement {
     h('div', { class: 'spacer' }),
     right,
     transport,
-    importFile,
+    createImportInput(app),
   );
-}
-
-export async function confirmReplace(app: App, then: () => void): Promise<void> {
-  const dirty = app.store.size > 0 && app.store.canUndo;
-  if (
-    !dirty ||
-    (await confirmDialog(
-      'Replace current scene?',
-      'Your current scene is autosaved, but opening another one will replace it in the editor. Use “Save to library” first to keep a named copy.',
-      'Replace scene',
-    ))
-  )
-    then();
-}
-
-export async function newScene(app: App): Promise<void> {
-  await confirmReplace(app, () => app.newScene());
-}
-
-export async function importDocument(app: App, file: File): Promise<void> {
-  try {
-    const report = newReport();
-    const doc = await app.persistence.importFile(file, report);
-    await confirmReplace(app, () => {
-      app.loadDocument(doc, 'frame');
-      app.toast(`Imported “${doc.name}”`, 'success');
-      // Problems the loader repaired (an unknown shape, a broken link …) are worth knowing about.
-      for (const w of report.warnings.slice(0, 2)) app.toast(w, 'warn');
-      if (report.warnings.length > 2) app.toast(`…and ${report.warnings.length - 2} more repairs.`, 'warn');
-    });
-  } catch (e) {
-    app.toast((e as Error).message, 'error');
-  }
 }

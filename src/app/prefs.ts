@@ -4,7 +4,8 @@ import { DEFAULT_OVERLAYS, type OverlayOptions } from '../render/overlays';
 import type { Quality } from '../render/viewport';
 import type { JointType } from '../model/types';
 
-export type ToolId = 'select' | 'joint' | 'measure' | 'blast' | 'shoot';
+/** The interaction mode (`ToolDef.mode`): 'select', 'joint', 'measure', 'blast', 'shoot' … — any registered tool's mode. */
+export type ToolId = string;
 export type GizmoKind = 'none' | 'translate' | 'rotate' | 'scale';
 
 export interface Prefs {
@@ -24,12 +25,13 @@ export interface Prefs {
   blastStrength: number;
   shootSpeed: number;
   shootSize: number;
-  leftTab: 'add' | 'prefabs' | 'scenes';
-  rightTab: 'inspector' | 'outliner' | 'world';
+  /** Ids of registered panels (src/app/registry/panels.ts); an unknown id falls back to the first tab. */
+  leftTab: string;
+  rightTab: string;
   showLeft: boolean;
   showRight: boolean;
   showBottom: boolean;
-  bottomTab: 'energy' | 'selection';
+  bottomTab: string;
   seenWelcome: boolean;
 }
 

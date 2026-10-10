@@ -1,5 +1,6 @@
 /** Preferences → renderer / simulation / gizmo: applies stored preferences and reacts to changes. */
 import type { App } from './app';
+import { hintForMode, toolModes } from './registry/tools';
 
 export class PrefsSync {
   constructor(private app: App) {}
@@ -70,28 +71,16 @@ export class PrefsSync {
     const { app } = this;
     const t = app.prefs.value.tool;
     const cls = app.viewport.dom.classList;
-    for (const c of ['select', 'joint', 'measure', 'blast', 'shoot']) cls.toggle(`tool-${c}`, c === t);
+    for (const c of toolModes()) cls.toggle(`tool-${c}`, c === t);
     app.cancelJointDraft();
     if (t !== 'measure') app.clearMeasure();
     app.gizmos.updateMode();
     this.updateToolHint();
   }
 
-  /** Tool-specific hint line; the input controller overrides it while a gesture is in progress. */
+  /** Tool-specific hint line (from the tool registry); the input controller overrides it while a gesture is in progress. */
   updateToolHint(): void {
     const { app } = this;
-    const t = app.prefs.value.tool;
-    const sim = app.sim.active;
-    const jt = app.prefs.value.jointType;
-    const hints: Record<string, string | null> = {
-      select: sim
-        ? '<b>Drag</b> a body to throw it · <b>Right-drag</b> orbit · <b>Middle-drag</b> pan · <b>Scroll</b> zoom'
-        : null,
-      joint: `<b>${jt}</b> — click the first body (or the ground to pin it to the world)`,
-      measure: 'Click two points to measure the distance between them',
-      blast: sim ? 'Click anywhere to set off a blast' : 'Start the simulation, then click to set off blasts',
-      shoot: sim ? 'Click to fire a ball along the view ray' : 'Start the simulation, then click to fire balls',
-    };
-    app.setHint(hints[t] ?? null);
+    app.setHint(hintForMode(app.prefs.value.tool, app));
   }
 }
