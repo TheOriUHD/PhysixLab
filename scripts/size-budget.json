@@ -1,0 +1,10 @@
+{
+  "_comment": "Gzip budgets in KiB for `npm run size` (scripts/check-size.mjs). Initial values = measured size + a generous margin because many packages add code concurrently; tighten them once the program settles (see docs/PERFORMANCE.md). Raise a budget only with a reason in the commit message.",
+  "firstLoadJs": 900,
+  "workerJs": 300,
+  "wasm": 1300,
+  "css": 40,
+  "lazyChunkEach": 400,
+  "lazyTotal": 2500,
+  "firstLoadTotal": 2400
+}
