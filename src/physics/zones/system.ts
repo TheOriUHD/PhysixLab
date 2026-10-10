@@ -204,11 +204,12 @@ export class ZoneSystem {
 
   // ---- events ------------------------------------------------------------------------------
 
-  emit(src: EventSource, name: string, data?: unknown): void {
+  /** `t` is the simulation time stamped on the event: the end of the current step unless the engine event gave one. */
+  emit(src: EventSource, name: string, data?: unknown, t?: number): void {
     if (this.s.events.length > MAX_EVENTS) return; // a runaway zone must not grow the queue without bound
     this.s.events.push({
       kind: 'component',
-      t: this.s.simTime,
+      t: t ?? this.s.simTime,
       owner: src.owner,
       component: src.component,
       type: src.type,
@@ -561,7 +562,7 @@ export class ZoneSystem {
     };
   }
 
-  private publish(): void {
+  private publish(bump = true): void {
     this.dirty = false;
     const quiet =
       !this.published &&
@@ -570,7 +571,7 @@ export class ZoneSystem {
       !this.races.raceNames.length &&
       !Object.keys(this.score.byRacer).length;
     if (quiet) return; // a scene without races or scores never creates the entry
-    this.rev++;
+    if (bump) this.rev++;
     this.published = true;
     const json = this.snapshot();
     let rec = this.s.componentState.get(ZONES_STATE_ID);
@@ -627,6 +628,7 @@ export class ZoneSystem {
       score: this.score,
       message: this.message,
       messageId: this.messageId,
+      rev: this.rev,
       respawnPoints: [...this.respawnPoints.values()],
       respawnCounts: [...this.respawnCounts],
       immune: [...this.immune],
@@ -644,6 +646,7 @@ export class ZoneSystem {
     this.score = { total: score?.total ?? 0, byRacer: { ...(score?.byRacer ?? {}) } };
     this.message = (d.message as ZonesPublic['message']) ?? null;
     this.messageId = typeof d.messageId === 'number' ? d.messageId : 0;
+    this.rev = typeof d.rev === 'number' ? d.rev : 0;
     this.respawnPoints = new Map(((d.respawnPoints as Pose[]) ?? []).map((p) => [p.id, p]));
     this.respawnCounts = new Map((d.respawnCounts as [string, number][]) ?? []);
     this.immune = new Map((d.immune as [string, number][]) ?? []);
@@ -652,7 +655,7 @@ export class ZoneSystem {
     this.spawned = new Map((d.spawned as [string, SpawnedRec][]) ?? []);
     // The page dropped the old entry when the world was rebuilt: write the restored one now, not after the next step.
     this.dirty = true;
-    this.publish();
+    this.publish(false); // same revision as when it was saved: a replay publishes exactly what the first run did
   }
 
   /** Empty published state (used by the page before the first frame). */

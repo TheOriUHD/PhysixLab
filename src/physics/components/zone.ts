@@ -40,13 +40,13 @@ function join(st: ZoneState, ctx: ComponentContext, id: string, t: number, annou
   st.entered++;
   if (ctx.bool('emitEnter')) {
     const src = zoneSource(ctx);
-    ctx.zones.emit(src, 'enter', { body: id, unit, zone: src.zone, inside: st.rec.inside.size });
+    ctx.zones.emit(src, 'enter', { body: id, unit, zone: src.zone, inside: st.rec.inside.size }, t);
   }
   if (count === 1) st.queue.push({ body: id, unit, t });
 }
 
 /** A body left (its last overlapping collider pair ended, or it was switched off). */
-function leave(st: ZoneState, ctx: ComponentContext, id: string): void {
+function leave(st: ZoneState, ctx: ComponentContext, id: string, t?: number): void {
   if (!st.rec.inside.delete(id)) return;
   st.lastStay.delete(id);
   const unit = st.unitOfBody.get(id) ?? id;
@@ -56,7 +56,7 @@ function leave(st: ZoneState, ctx: ComponentContext, id: string): void {
   else st.units.set(unit, c);
   if (ctx.bool('emitExit')) {
     const src = zoneSource(ctx);
-    ctx.zones.emit(src, 'exit', { body: id, unit, zone: src.zone, inside: st.rec.inside.size });
+    ctx.zones.emit(src, 'exit', { body: id, unit, zone: src.zone, inside: st.rec.inside.size }, t);
   }
   if (!st.units.size && st.revert && ctx.bool('revertOnExit')) st.revertDue = true;
 }
@@ -105,7 +105,7 @@ export const zone: ComponentRuntime<ZoneState> = {
       return;
     }
     st.overlaps.delete(ev.other);
-    leave(st, ctx, ev.other);
+    leave(st, ctx, ev.other, ev.t);
   },
 
   prestep(st, dt, ctx) {

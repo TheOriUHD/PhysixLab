@@ -43,7 +43,7 @@ export function zoneBody(params: ComponentParams = {}, o: ZoneOptions = {}): Bod
   });
 }
 
-/** A small dynamic ball (radius 0.25, 1 kg-ish) with optional velocity. */
+/** A small dynamic ball: radius 0.25 m, 1 kg, no damping, with an optional velocity. */
 export function ball(position: Vec3, velocity: Vec3 = [0, 0, 0], extra: Record<string, unknown> = {}): BodyEntity {
   return createBody({
     name: 'Ball',
@@ -52,7 +52,7 @@ export function ball(position: Vec3, velocity: Vec3 = [0, 0, 0], extra: Record<s
     velocity,
     linearDamping: 0,
     angularDamping: 0,
-    material: { preset: 'custom', density: 1000 / 0.0654, friction: 0.5, restitution: 0 }, // ≈ 1 kg
+    material: { preset: 'custom', density: 1 / ((4 / 3) * Math.PI * 0.25 ** 3), friction: 0.5, restitution: 0 }, // 1 kg
     ...extra,
   });
 }
@@ -99,4 +99,22 @@ export function eventsOf(w: PhysicsWorld, type: string, name?: string): Componen
   return w
     .drainEvents()
     .filter((e): e is ComponentEvent => e.kind === 'component' && e.type === type && (!name || e.name === name));
+}
+
+/** Step until a zone event with this name is raised (returns it), or give up after `seconds`. */
+export function runUntil(w: PhysicsWorld, name: string, seconds: number): ComponentEvent | null {
+  const n = Math.round(seconds * w.settings.physicsHz);
+  for (let i = 0; i < n; i++) {
+    w.stepOnce();
+    const hit = w.drainEvents().find((e): e is ComponentEvent => isZoneEvent(e) && e.name === name);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/** The gauges `[inside, entered, fired]` a zone component last published. */
+export function gauges(w: PhysicsWorld, body: BodyEntity): number[] {
+  const id = body.components[0].id;
+  const st = w.drainComponentState().changed[id];
+  return st?.values ? [...st.values] : [];
 }
