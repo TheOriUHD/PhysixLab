@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec3 } from '../src/core/math';
 import { effectiveMask, layersCollide, layersField, setLayerPair, defaultLayers } from '../src/model/collisionLayers';
+import { defaultWeather } from '../src/model/weather';
 import { quadraticDragCoefficient, terminalSpeed } from '../src/model/drag';
 import { parseDocument, sanitizeDocument, serializeDocument } from '../src/model/serialize';
 import type { BodyEntity } from '../src/model/types';
@@ -90,24 +91,21 @@ describe('collision layers (JT-30)', () => {
     expect(layersField('x')).toEqual({});
   });
 
-  it('layers and wind round-trip through the document', () => {
+  it('layers round-trip through the document', () => {
     const doc = docOf([slab({ oneWay: [0, 1, 0] })], {
       layers: {
         ...setLayerPair(defaultLayers(), 1, 2, false),
         names: ['World', ...defaultLayers().names.slice(1)],
         trigger: 4,
       },
-      wind: [3, 0, -1],
     });
     const back = parseDocument(serializeDocument(doc));
     expect(back.settings.layers!.names[0]).toBe('World');
     expect(layersCollide(back.settings.layers, 1, 2)).toBe(false);
     expect(back.settings.layers!.trigger).toBe(4);
-    expect(back.settings.wind).toEqual([3, 0, -1]);
     const b = back.entities[0] as BodyEntity;
     expect(b.oneWay).toEqual([0, 1, 0]);
-    const dirty = sanitizeDocument({ ...doc, settings: { ...doc.settings, wind: [1, 'x', 0], layers: 7 } });
-    expect(dirty.settings.wind).toBeUndefined();
+    const dirty = sanitizeDocument({ ...doc, settings: { ...doc.settings, layers: 7 } });
     expect(dirty.settings.layers).toBeUndefined();
   });
 });
@@ -189,11 +187,15 @@ describe('drag and wind (JT-32)', () => {
       material: { preset: 'custom', density: 10 } as BodyEntity['material'],
       drag: { linear2: 2, angular2: 0 },
     });
-    const w = await worldOf([b], { ...noGround, gravity: [0, 0, 0] as Vec3, wind: [6, 0, -2] as Vec3 });
+    const w = await worldOf([b], {
+      ...noGround,
+      gravity: [0, 0, 0] as Vec3,
+      weather: { ...defaultWeather(), windSpeed: 6, windDir: 90 },
+    });
     run(w, 6);
     const v = w.getPose(b.id)!.linvel;
     expect(v[0]).toBeCloseTo(6, 0);
-    expect(v[2]).toBeCloseTo(-2, 0);
+    expect(Math.abs(v[2])).toBeLessThan(0.1);
     // without wind the same body stays at rest
     const calm = await worldOf([b], { ...noGround, gravity: [0, 0, 0] as Vec3 });
     run(calm, 2);
@@ -202,7 +204,7 @@ describe('drag and wind (JT-32)', () => {
 
   it('wind shifts the terminal velocity of a falling body sideways', async () => {
     const b = ball({ position: [0, 800, 0], drag: { linear2: 0.5, angular2: 0 } });
-    const w = await worldOf([b], { ...noGround, wind: [4, 0, 0] as Vec3 });
+    const w = await worldOf([b], { ...noGround, weather: { ...defaultWeather(), windSpeed: 4, windDir: 90 } });
     run(w, 12);
     const v = w.getPose(b.id)!.linvel;
     expect(v[0]).toBeGreaterThan(3.5);

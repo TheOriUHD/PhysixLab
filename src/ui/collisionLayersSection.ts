@@ -1,5 +1,5 @@
 /**
- * JT-30 / JT-32: the "Collision layers" and "Wind" sections of the World tab. Sixteen named layers, a symmetric
+ * JT-30: the "Collision layers" section of the World tab. Sixteen named layers, a symmetric
  * interaction matrix (a checked cell = the two layers collide) and a per-layer "trigger" switch (its bodies pass through
  * everything but still report overlaps). Edits go through the scene settings: undoable, applied to a running world.
  */
@@ -13,7 +13,7 @@ import {
   setLayerPair,
   type CollisionLayers,
 } from '../model/collisionLayers';
-import { button, row, rowStack, section, vec3Field } from './controls';
+import { button, row, rowStack, section } from './controls';
 import { h } from './dom';
 
 export function buildCollisionLayersSection(app: App): { el: HTMLElement[]; refresh: () => void } {
@@ -91,17 +91,6 @@ export function buildCollisionLayersSection(app: App): { el: HTMLElement[]; refr
     title: 'Back to 16 default layers that all collide with each other',
   });
 
-  // ---- wind --------------------------------------------------------------------------------------
-  const wind = vec3Field({
-    step: 0.5,
-    unit: 'm/s',
-    digits: 2,
-    onStart: () => store.begin('Edit wind'),
-    onEnd: () => store.end(),
-    onChange: (v) =>
-      store.updateSettings({ wind: v[0] === 0 && v[1] === 0 && v[2] === 0 ? undefined : v }, 'Edit wind'),
-  });
-
   const layersEl = section(
     'Collision layers',
     [
@@ -117,19 +106,6 @@ export function buildCollisionLayersSection(app: App): { el: HTMLElement[]; refr
     ],
     { id: 'world-layers', open: false },
   );
-  const windEl = section(
-    'Wind',
-    [
-      rowStack('Velocity (m/s)', wind.el, 'World-frame wind velocity'),
-      h(
-        'p',
-        { class: 'hint-text' },
-        'Bodies with a quadratic drag coefficient feel the air relative to the wind (F = −c·|v − wind|·(v − wind)). Zero = still air.',
-      ),
-    ],
-    { id: 'world-wind', open: false },
-  );
-
   const refresh = () => {
     const l = current();
     for (let i = 0; i < LAYER_COUNT; i++) {
@@ -142,7 +118,6 @@ export function buildCollisionLayersSection(app: App): { el: HTMLElement[]; refr
       const [a, b] = key.split(',').map(Number);
       cb.checked = layersCollide(l, a, b);
     }
-    wind.set(store.settings.wind ?? [0, 0, 0]);
   };
-  return { el: [layersEl, windEl], refresh };
+  return { el: [layersEl], refresh };
 }

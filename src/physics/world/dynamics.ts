@@ -2,6 +2,7 @@
  * Per-step body dynamics driven by per-body fields: quadratic drag (applied before every engine step) and the
  * emulated sleep threshold (checked once per fixed step).
  */
+import { weatherWind } from '../../model/weather';
 import { qmul, qrot, qrotInv, type Quat } from '../../core/math';
 import type { WorldState } from './state';
 
@@ -11,11 +12,14 @@ import type { WorldState } from './state';
  * converges to the analytic terminal speed √(m·g / c) of the explicit force. Angular drag is evaluated per
  * principal axis with that axis' moment of inertia, so non-spherical bodies decelerate anisotropically.
  */
+const WIND: [number, number, number] = [0, 0, 0];
+
 export function applyDrag(s: WorldState, dt: number): void {
-  const wind = s.settings.wind;
-  const wx = wind ? wind[0] : 0,
-    wy = wind ? wind[1] : 0,
-    wz = wind ? wind[2] : 0;
+  // the scene wind (weather settings) is the air the drag is measured against
+  const wind = weatherWind(s.settings.weather, WIND);
+  const wx = wind[0],
+    wy = wind[1],
+    wz = wind[2];
   for (const r of s.draggers) {
     if (r.disabled || r.rb.isSleeping()) continue;
     const { linear2, angular2 } = r.def.drag;

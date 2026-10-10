@@ -198,7 +198,7 @@ export function bodyJtSections(ctx: InspectorContext, sel: BodyEntity[]): HTMLEl
         h(
           'p',
           { class: 'hint-text' },
-          'Linear and angular damping (1/s) are in the Physics section; set a wind in the World tab.',
+          'Linear and angular damping (1/s) are in the Physics section; the scene wind (Weather section of the World tab) is the air the drag is measured against.',
         ),
       ],
       { id: 'body-aero', open: false },
