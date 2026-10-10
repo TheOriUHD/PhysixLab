@@ -115,10 +115,15 @@ registerCameraSection({
       settings.replaceChildren(...rows);
     };
 
+    let shownMode = '';
     const refresh = () => {
       renderModes();
       renderSubject();
-      renderSettings();
+      // Rebuilding the sliders while one is being dragged would drop it: only when the mode changed.
+      if (shownMode !== rig.mode) {
+        shownMode = rig.mode;
+        renderSettings();
+      }
     };
     rig.on('change', refresh);
     app.store.on('selection', renderSubject);

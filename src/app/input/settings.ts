@@ -44,15 +44,16 @@ export function sanitizeInput(raw: unknown): InputSettings {
   if (!isRec(raw)) return out;
   if (isRec(raw.bindings))
     for (const [id, v] of Object.entries(raw.bindings))
-      if (Array.isArray(v) && v.every((s) => typeof s === 'string')) out.bindings[id] = v.slice(0, 4);
+      if (id !== '__proto__' && Array.isArray(v) && v.every((s) => typeof s === 'string'))
+        out.bindings[id] = v.slice(0, 4);
   if (typeof raw.preset === 'string') out.preset = raw.preset.slice(0, 40);
   if (typeof raw.profile === 'string') out.profile = raw.profile.slice(0, 40);
   if (isRec(raw.axisTuning))
     for (const [prof, axes] of Object.entries(raw.axisTuning)) {
-      if (!isRec(axes)) continue;
+      if (!isRec(axes) || prof === '__proto__') continue;
       const m: Record<string, Partial<AxisCfg>> = {};
       for (const [name, cfg] of Object.entries(axes)) {
-        if (!isRec(cfg)) continue;
+        if (!isRec(cfg) || name === '__proto__') continue;
         const c: Partial<AxisCfg> = {};
         for (const k of ['deadzone', 'sensitivity', 'expo', 'smoothing', 'rise', 'fall'] as const)
           if (typeof cfg[k] === 'number' && Number.isFinite(cfg[k])) c[k] = cfg[k];

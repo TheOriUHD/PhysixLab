@@ -21,13 +21,15 @@ export class DualCamera extends PerspectiveCamera {
       super.updateProjectionMatrix();
       return;
     }
-    const halfH = this.orthoSize / Math.max(1e-6, this.zoom) / 2;
+    // left / right / top / bottom are the *unzoomed* extents: OrbitControls divides them by `zoom` when it pans.
+    const halfH = this.orthoSize / 2;
     const halfW = halfH * this.aspect;
     this.left = -halfW;
     this.right = halfW;
     this.top = halfH;
     this.bottom = -halfH;
-    this.projectionMatrix.makeOrthographic(-halfW, halfW, halfH, -halfH, this.near, this.far);
+    const z = Math.max(1e-6, this.zoom);
+    this.projectionMatrix.makeOrthographic(-halfW / z, halfW / z, halfH / z, -halfH / z, this.near, this.far);
     this.projectionMatrixInverse.copy(this.projectionMatrix).invert();
   }
 }

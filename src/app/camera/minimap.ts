@@ -155,7 +155,7 @@ export class Minimap {
 
   private onWheel(e: WheelEvent): void {
     e.preventDefault();
-    const range = Math.max(2, Math.min(2000, this.cfg.range * Math.exp(e.deltaY * 0.0012)));
+    const range = Math.max(2, Math.min(2000, this.view.range * Math.exp(e.deltaY * 0.0012)));
     this.view.range = range;
     window.clearTimeout(this.persistTimer);
     this.persistTimer = window.setTimeout(() => this.set({ range }, 'Zoom minimap'), 500);

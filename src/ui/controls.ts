@@ -449,8 +449,10 @@ export function keyField(o: { value?: string; onChange: (code: string) => void; 
   };
   show();
   // -- CM-A: capture goes through the InputMap pipeline (keyboard and gamepad buttons) --
+  let stopCapture: (() => void) | null = null;
   btn.addEventListener('click', () => {
     btn.textContent = 'Press a key or pad button…';
+    stopCapture?.(); // a second click must not stack another listener
     btn.classList.add('listening');
     let stop: (() => void) | null = null;
     const cleanup = () => {
@@ -463,7 +465,7 @@ export function keyField(o: { value?: string; onChange: (code: string) => void; 
       cleanup();
       show();
     };
-    stop = captureKey((c) => {
+    stop = stopCapture = captureKey((c) => {
       code = c;
       cleanup();
       show();

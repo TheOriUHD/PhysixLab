@@ -196,7 +196,15 @@ function sanitizeJoint(raw: any, report?: LoadReport): JointEntity {
       slewRate: Math.max(0, num(m.slewRate, base.motor.slewRate)),
       brake: bool(m.brake, true),
       // -- CM-A: kept only when the file has one, so scenes without an axis save back unchanged --
-      ...(typeof m.axis === 'string' ? { axis: m.axis.slice(0, 40) } : {}),
+      ...(typeof m.axis === 'string'
+        ? {
+            axis:
+              /^[A-Za-z][A-Za-z0-9_.-]{0,39}$/.test(m.axis) &&
+              !/^(constructor|prototype|toString|valueOf|hasOwnProperty)$/.test(m.axis)
+                ? m.axis
+                : '',
+          }
+        : {}),
     },
     spring: {
       restLength: Math.max(0, num(s.restLength, base.spring.restLength)),
