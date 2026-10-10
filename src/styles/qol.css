@@ -1,0 +1,75 @@
+/* UI-B: presentation / photo mode (UI-41) and quality-of-life (UI-42). */
+
+/* ── presentation mode ── */
+.qol-hidden { display: none !important; }
+body.qol-presenting { cursor: default; }
+body.qol-presenting .viewport-host { position: fixed; inset: 0; }
+
+.qol-exit-hint {
+  position: fixed; top: 14px; left: 50%; transform: translate(-50%, -6px); z-index: 90;
+  display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px;
+  border: 1px solid var(--border-2); border-radius: 999px; background: var(--glass);
+  backdrop-filter: blur(10px); color: var(--text); font-size: 12px; cursor: pointer;
+  opacity: 0; pointer-events: none; transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.qol-exit-hint.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.qol-exit-hint kbd {
+  padding: 1px 6px; border: 1px solid var(--border-2); border-radius: 4px; background: var(--raised);
+  font: 11px var(--mono); color: var(--text-2);
+}
+
+.qol-caption {
+  position: fixed; z-index: 80; pointer-events: none; max-width: 80vw;
+  color: #fff; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7), 0 0 2px rgba(0, 0, 0, 0.5);
+  transition: opacity 0.2s linear; --cap-size: 40px;
+}
+.qol-cap-title { font-size: var(--cap-size); font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; }
+.qol-cap-sub { font-size: calc(var(--cap-size) * 0.45); line-height: 1.3; margin-top: 4px; opacity: 0.92; }
+.qol-caption.pos-top-left { top: 5vmin; left: 5vmin; text-align: left; }
+.qol-caption.pos-top { top: 5vmin; left: 50%; transform: translateX(-50%); text-align: center; }
+.qol-caption.pos-top-right { top: 5vmin; right: 5vmin; text-align: right; }
+.qol-caption.pos-center { top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+.qol-caption.pos-bottom-left { bottom: 5vmin; left: 5vmin; text-align: left; }
+.qol-caption.pos-bottom { bottom: 5vmin; left: 50%; transform: translateX(-50%); text-align: center; }
+.qol-caption.pos-bottom-right { bottom: 5vmin; right: 5vmin; text-align: right; }
+
+/* the Present panel */
+.qol-present .qol-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.qol-present .qol-grid.two { grid-template-columns: repeat(2, 1fr); }
+.qol-present .qol-grid .btn { justify-content: center; }
+.qol-present .qol-inputs { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 8px; }
+.qol-present .qol-inputs input {
+  width: 100%; padding: 6px 9px; border-radius: var(--radius-s); border: 1px solid var(--border-2);
+  background: var(--bg-deep); color: var(--text);
+}
+.qol-present .qol-inputs input:focus { outline: none; border-color: var(--accent-line); }
+.qol-present .qol-capture-info { margin: 8px 0 0; font-variant-numeric: tabular-nums; }
+
+/* ── favourites + thumbnails ── */
+.tile { position: relative; }
+.fav-star { margin-left: auto; padding: 0 3px; line-height: 1; font-size: 15px; color: var(--text-3); cursor: pointer; border-radius: 4px; user-select: none; }
+.fav-star:hover, .fav-star:focus-visible { color: var(--warn); outline: none; background: var(--hover); }
+.fav-star.on { color: #ffcf4d; }
+.tile .fav-star { position: absolute; top: 2px; right: 2px; margin: 0; font-size: 13px; opacity: 0; transition: opacity 0.12s; }
+.tile:hover .fav-star, .tile .fav-star.on, .tile .fav-star:focus-visible { opacity: 1; }
+.card.has-thumb { display: flex; gap: 10px; align-items: center; }
+.card.has-thumb .qol-card-text { flex: 1; min-width: 0; }
+.scene-thumb { flex: none; width: 72px; height: 40.5px; border-radius: 5px; object-fit: cover; border: 1px solid var(--border-2); background: var(--bg); display: block; }
+
+/* ── drag & drop overlay ── */
+.qol-drop {
+  position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;
+  background: rgba(8, 10, 15, 0.72); backdrop-filter: blur(3px);
+  opacity: 0; pointer-events: none; transition: opacity 0.12s ease;
+}
+.qol-drop.show { opacity: 1; }
+.qol-drop-card {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+  width: min(560px, 80vw); padding: 44px 32px; border-radius: 16px;
+  border: 2px dashed var(--accent-line); background: var(--accent-bg); color: var(--text);
+}
+.qol-drop-card .icon.big { width: 44px; height: 44px; color: var(--accent); }
+.qol-drop-title { font-size: 20px; font-weight: 650; }
+.qol-drop-detail { font-size: 13px; color: var(--text-2); }
+.qol-drop.bad .qol-drop-card { border-color: rgba(255, 93, 115, 0.6); background: rgba(255, 93, 115, 0.1); }
+.qol-drop.bad .qol-drop-card .icon.big { color: var(--danger); }

@@ -72,7 +72,8 @@ import { AudioDirector } from './audio/audioDirector';
 import { ZoneBridge } from './zones'; // -- ZN
 import { ZoneViews } from '../render/zoneViews'; // -- ZN
 
-export type { Shell, ToastKind } from './appTypes';
+import type { SceneSource } from './appTypes';
+export type { Shell, ToastKind, SceneSource } from './appTypes';
 
 export class App extends Emitter<AppEvents> {
   readonly store = new SceneStore();
@@ -384,8 +385,8 @@ export class App extends Emitter<AppEvents> {
     this.commands.insertPrefab(id, drop);
   }
 
-  loadDocument(doc: SceneDocument, view?: 'frame'): void {
-    this.commands.loadDocument(doc, view);
+  loadDocument(doc: SceneDocument, view?: 'frame', source?: SceneSource): void {
+    this.commands.loadDocument(doc, view, source);
   }
 
   loadTemplate(id: string): void {

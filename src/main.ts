@@ -23,6 +23,7 @@ import './styles/joints.css';
 import './styles/jointtool.css';
 import './styles/sf-inspector.css'; // -- SF --
 import './styles/data.css'; // -- DT --
+import './styles/qol.css';
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { initDataPlatform } from './app/data/platform'; // -- DT
@@ -35,7 +36,6 @@ import { buildStatusbar } from './ui/statusbar';
 import { createShell, wireShell } from './ui/shell';
 import { buildToolbox } from './ui/toolbox';
 import { buildTopbar } from './ui/topbar';
-import { importDocument } from './ui/sceneActions';
 import { mountToasts } from './ui/toasts';
 import { mountUiA } from './ui/uiA';
 import { showWelcome } from './ui/dialogs';
@@ -57,6 +57,7 @@ import { publishApi } from './api/install';
 import { installTour } from './ui/tour';
 import { initPwa } from './pwa'; // -- DT-40 --
 import { mountTouch } from './ui/touch'; // -- CM-A touch --
+import { installQol } from './ui/qol/install';
 
 installDiagnostics(); // -- UI-B: error boundary --
 
@@ -185,23 +186,14 @@ async function boot(): Promise<void> {
   app.updateToolHint();
   data.announceRecovery(restoredFrom); // -- DT-12
 
-  // Drag & drop a scene file anywhere to import it.
-  window.addEventListener('dragover', (e) => {
-    if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
-  });
-  window.addEventListener('drop', (e) => {
-    const f = e.dataTransfer?.files?.[0];
-    if (f && /\.json$/i.test(f.name)) {
-      e.preventDefault();
-      void importDocument(app, f);
-    }
-  });
+  // Drag & drop of files (scenes …) is installed by installQol(app) below, with its drop overlay.
 
   for (const f of extensionFailures) app.toast(`Extension ${f.file} failed to load: ${f.error.message}`, 'error');
   initPwa(app); // -- DT-40: service worker (production only), update banner, file / share intake --
   installTimeTravel(app); // -- TM: timeline, rewind, replays, ghosts --
   app.start();
   installTour(app); // -- UI-B: guided tours, context hints, tips --
+  installQol(app); // UI-B: presentation mode, recents, drop overlay, clipboard paste
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
   // -- DT-30: the versioned public API (src/api); falls through to the App for the internal members --
   (window as unknown as { physicslab: App }).physicslab = publishApi(app);
