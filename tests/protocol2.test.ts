@@ -6,9 +6,9 @@
 import { describe, expect, it } from 'vitest';
 import { vdist, vlen, type Vec3 } from '../src/core/math';
 import { makeComponent, registerComponent } from '../src/model/componentRegistry';
-import { createSoft, defaultSettings } from '../src/model/factory';
+import { createPath, createSoft, defaultSettings } from '../src/model/factory';
 import { makePart } from '../src/model/compound';
-import type { BodyEntity, ComponentSpec, JointEntity, SoftEntity } from '../src/model/types';
+import type { BodyEntity, ComponentSpec, JointEntity, PathEntity, SoftEntity } from '../src/model/types';
 import { registerRuntime } from '../src/physics/components';
 import { registerCustomChannel, unregisterCustomChannel } from '../src/physics/custom';
 import {
@@ -559,6 +559,68 @@ describe('ray casts', () => {
     const w = await worldOf([b]);
     run(w, 0.05);
     expect(w.drainComponentState().changed[c.id].values![0]).toBeCloseTo(3, 2);
+  });
+});
+
+// ── paths ─────────────────────────────────────────────────────────────────────────────────────────
+
+describe('paths in the worker', () => {
+  const route = (over: Partial<PathEntity> = {}) =>
+    createPath({
+      points: [
+        [0, 0, 0],
+        [2, 0, 0],
+        [4, 0, 0],
+      ],
+      position: [10, 1, 0],
+      ...over,
+    });
+  const lengths: Record<string, number | null> = {};
+  registerComponent({
+    type: 'testRouteReader',
+    label: 'Route reader',
+    icon: 'component',
+    category: 'Tests',
+    blurb: '',
+    appliesTo: 'body',
+    fields: [{ kind: 'path', key: 'route', label: 'Route', default: '' }],
+  });
+  registerRuntime<null>({
+    type: 'testRouteReader',
+    create: () => null,
+    prestep: (_s, _dt, ctx) => {
+      const curve = ctx.path(ctx.str('route'));
+      lengths[ctx.componentId] = curve ? curve.length : null;
+      if (curve) ctx.state.set(curve.positionAtDistance(1));
+    },
+  });
+
+  it('a path of the scene is available to components as a world-space curve, from the first step', async () => {
+    const p = route();
+    const c = makeComponent('testRouteReader', { route: p.id });
+    const b = withComponents(ball(), c);
+    const w = await worldOf([p, b], NO_G);
+    run(w, 0.02);
+    expect(lengths[c.id]).toBeCloseTo(4, 6);
+    expect([...w.drainComponentState().changed[c.id].values!]).toEqual([11, 1, 0]); // 1 m along, placed at (10, 1, 0)
+  });
+
+  it('setPath adds and replaces a path while running; removing the entity forgets it', async () => {
+    const p = route();
+    const c = makeComponent('testRouteReader', { route: p.id });
+    const b = withComponents(ball(), c);
+    const w = await worldOf([b], NO_G);
+    run(w, 0.02);
+    expect(lengths[c.id]).toBeNull(); // no such path yet
+    w.applyOp({ op: 'setPath', path: p });
+    run(w, 0.02);
+    expect(lengths[c.id]).toBeCloseTo(4, 6);
+    w.applyOp({ op: 'setPath', path: { ...p, points: [...p.points, [4, 0, 6]] } });
+    run(w, 0.02);
+    expect(lengths[c.id]).toBeGreaterThan(9);
+    w.applyOp({ op: 'remove', ids: [p.id] });
+    run(w, 0.02);
+    expect(lengths[c.id]).toBeNull();
   });
 });
 

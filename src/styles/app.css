@@ -231,6 +231,45 @@ button.o-caret:hover { background: var(--raised); }
 .o-item .o-caret.open .icon { transform: rotate(90deg); }
 .o-item.is-group .o-name { font-weight: 600; color: var(--text); }
 .o-item.drop { background: var(--accent-bg); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.comps { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.comp-add { width: 100%; justify-content: center; }
+.comp { border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); }
+.comp.disabled > .comp-body { opacity: 0.55; }
+.comp-head { display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 4px; }
+.comp-head > .icon { width: 15px; height: 15px; color: var(--text-2); flex: none; }
+.comp-title { flex: 1; min-width: 0; font-weight: 600; cursor: default; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.comp-caret { width: 18px; height: 18px; flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; background: none; color: var(--text-3); border-radius: 4px; }
+.comp-caret .icon { width: 11px; height: 11px; transition: transform 0.15s; transform: rotate(90deg); }
+.comp.folded .comp-caret .icon { transform: none; }
+.comp.folded > .comp-body { display: none; }
+.comp-body { padding: 2px 8px 8px; border-top: 1px solid var(--border); }
+.comp-switch { margin: 0 2px; }
+.comp-warn { display: flex; gap: 6px; align-items: flex-start; margin: 8px 0 2px; padding: 6px 8px; border-radius: 6px; background: rgba(255, 179, 71, 0.1); color: var(--warn); font-size: 11.5px; line-height: 1.4; }
+.comp-warn .icon { width: 13px; height: 13px; flex: none; margin-top: 1px; }
+.comp-state { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border); font-size: 11px; color: var(--text-3); }
+.comp-gauge b { margin-left: 5px; color: var(--text); font: 600 11px var(--mono); }
+.comp-empty { margin: 8px 2px 0; color: var(--text-3); font-size: 12px; line-height: 1.45; }
+.comp-text { width: 100%; }
+.comp-menu { width: 300px; max-width: 300px; padding: 6px; }
+.comp-search-wrap { display: flex; align-items: center; gap: 7px; padding: 4px 8px 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.comp-search-wrap .icon { width: 14px; height: 14px; color: var(--text-3); }
+.comp-search { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font: inherit; }
+.comp-results { max-height: 340px; overflow-y: auto; }
+.comp-item { align-items: flex-start; }
+.comp-item .icon { margin-top: 2px; }
+.comp-item.active:not(:disabled) { background: var(--hover); }
+.comp-item .grow { display: flex; flex-direction: column; gap: 1px; }
+.comp-item-name { font-weight: 600; }
+.comp-item-blurb { color: var(--text-3); font-size: 11px; line-height: 1.35; }
+.curve-editor { width: 100%; }
+.curve-svg { width: 100%; height: auto; display: block; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; touch-action: none; cursor: crosshair; }
+.curve-grid line { stroke: var(--border); stroke-width: 0.6; }
+.curve-line { stroke: var(--accent); stroke-width: 1.8; }
+.curve-hit { fill: transparent; cursor: grab; }
+.curve-dot { pointer-events: none; fill: var(--panel); stroke: var(--accent); stroke-width: 1.8; cursor: grab; }
+.curve-dot.sel { fill: var(--accent); }
+.curve-labels { display: flex; justify-content: space-between; margin-top: 3px; color: var(--text-3); font: 10px var(--mono); }
+.curve-readout { margin-top: 2px; color: var(--text-2); font: 11px var(--mono); min-height: 15px; }
 .path-points { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .path-point { display: flex; align-items: center; gap: 4px; padding: 3px 4px; border-radius: 6px; }
 .path-point.active { background: var(--accent-bg); box-shadow: inset 0 0 0 1px var(--accent-line); }

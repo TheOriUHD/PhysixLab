@@ -12,6 +12,7 @@ import { isBody, isGroup, isJoint, isLight, isPath, isSoft } from '../../model/t
 import { clear, h } from '../dom';
 import { icon } from '../icons';
 import { groupInspector, lightInspector, membershipRow, pathInspector } from './aux';
+import { componentsSection } from './components';
 import { section } from '../controls';
 import { bodyInspector } from './body';
 import { jointInspector } from './joint';
@@ -62,12 +63,13 @@ export class Inspector {
       this.el.appendChild(this.empty());
       return;
     }
-    if (sel.every(isBody)) this.el.append(...bodyInspector(ctx, sel), ...this.organise(sel));
+    if (sel.every(isBody)) this.el.append(...bodyInspector(ctx, sel), ...this.organise(sel), ...this.components(sel));
     else if (sel.every(isSoft)) this.el.append(...softInspector(ctx, sel), ...this.organise(sel));
     else if (sel.every(isLight)) this.el.append(...lightInspector(ctx, sel));
     else if (sel.length === 1 && isGroup(sel[0])) this.el.append(...groupInspector(ctx, sel[0]));
     else if (sel.length === 1 && isPath(sel[0])) this.el.append(...pathInspector(ctx, sel[0]));
-    else if (sel.length === 1 && isJoint(sel[0])) this.el.append(...jointInspector(ctx, sel[0]));
+    else if (sel.length === 1 && isJoint(sel[0]))
+      this.el.append(...jointInspector(ctx, sel[0]), ...this.components(sel));
     else this.el.append(...this.summary(sel));
     this.refresh();
     ctx.live.forEach((f) => f());
@@ -97,6 +99,12 @@ export class Inspector {
           : 'Add a shape from the library on the left (or press 1–8), then press Space to simulate.',
       ),
     );
+  }
+
+  /** The Components section — for a single body or joint (components are edited one owner at a time). */
+  private components(sel: Entity[]): HTMLElement[] {
+    const sec = sel.length === 1 ? componentsSection(this.ctx, sel[0].id) : null;
+    return sec ? [sec] : [];
   }
 
   /** The "Group" row for bodies and soft bodies (the other kinds build it into their own panel). */

@@ -20,6 +20,7 @@ import { Emitter } from '../core/events';
 import type { Vec3 } from '../core/math';
 import type { BodyEntity, Entity, JointType, LightType, SceneDocument, ShapeType, SoftType } from '../model/types';
 import { isBody } from '../model/types';
+import { componentDef } from '../model/componentRegistry';
 import { SceneStore } from '../model/store';
 import { BodyViews } from '../render/bodyViews';
 import { SoftViews } from '../render/softViews';
@@ -125,6 +126,14 @@ export class App extends Emitter<AppEvents> {
     this.sim.on('broken', ({ id }) => {
       const j = this.store.joint(id);
       this.toast(`${j?.name ?? 'A joint'} broke!`, 'warn');
+    });
+    // A component that threw is switched off by the worker; tell the user which one and why.
+    this.sim.client.on('event', (ev) => {
+      if (ev.kind !== 'component' || ev.name !== 'error') return;
+      const owner = this.store.get(ev.owner);
+      const label = componentDef(ev.type)?.label ?? ev.type;
+      const message = (ev.data as { message?: string } | undefined)?.message ?? 'unknown error';
+      this.toast(`${label} on ${owner?.name ?? 'an object'} stopped: ${message}`, 'warn');
     });
     this.sim.client.on('error', (m) => {
       console.error('[physics worker]', m);
