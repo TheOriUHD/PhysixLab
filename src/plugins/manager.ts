@@ -74,7 +74,7 @@ export function askPermissions(m: PluginManifest, origin: string, updating: bool
       ],
       footer: [cancel, allow],
     });
-    allow.focus();
+    cancel.focus(); // a security prompt defaults to the safe answer
   });
 }
 
@@ -86,7 +86,13 @@ export async function installFromSource(app: App, source: string, origin: string
   if (!granted) return false;
   const info = await h2.install(source, origin, granted);
   if (info.state === 'error') app.toast(`“${manifest.name}” was installed but failed to start: ${info.error}`, 'error');
-  else app.toast(`Plugin “${manifest.name}” installed`, 'success');
+  else
+    app.toast(
+      info.panels.length
+        ? `Plugin “${manifest.name}” installed — open its panel from the command palette (Ctrl+K → “Show …”)`
+        : `Plugin “${manifest.name}” installed`,
+      'success',
+    );
   return true;
 }
 
@@ -100,6 +106,7 @@ export function openPluginManager(app: App): void {
   };
   const run = async (source: string, origin: string) => {
     message.textContent = '';
+    message.className = 'dtb-status';
     try {
       await installFromSource(app, source, origin);
     } catch (e) {

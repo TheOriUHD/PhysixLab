@@ -11,8 +11,11 @@
 .layer-matrix .layer-matrix-name { text-align: right; padding-right: 4px; white-space: nowrap; font: 500 10px var(--font, inherit); max-width: 56px; overflow: hidden; }
 .layer-matrix td { padding: 0; text-align: center; }
 .layer-matrix td.blank { background: color-mix(in srgb, var(--border) 25%, transparent); }
-.layer-cell { width: 11px; height: 11px; margin: 0.5px; accent-color: var(--accent, #35c9ff); cursor: pointer; }
+.layer-cell { width: 15px; height: 15px; margin: 1px; accent-color: var(--accent, #35c9ff); cursor: pointer; }
 .mask-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; width: 100%; }
 .mask-grid .chip { min-width: 0; padding: 0; }
 .mask-grid .chip.on { background: color-mix(in srgb, var(--accent, #35c9ff) 22%, var(--bg)); border-color: var(--accent, #35c9ff); color: var(--text); }
 .stack-col { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+
+.layer-matrix tr:hover td:not(.blank) { background: color-mix(in srgb, var(--accent, #35c9ff) 14%, transparent); }
+.layer-cell:focus-visible, .chip:focus-visible, .mask-grid .chip:focus-visible { outline: 2px solid var(--accent, #35c9ff); outline-offset: 1px; }

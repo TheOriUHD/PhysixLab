@@ -77,6 +77,7 @@ export function buildCollisionLayersSection(app: App): { el: HTMLElement[]; refr
       const cb = h('input', { type: 'checkbox', class: 'layer-cell' });
       cb.dataset.a = String(a);
       cb.dataset.b = String(b);
+      cb.title = `Layer ${a} × layer ${b}`;
       cb.addEventListener('change', () =>
         commit(setLayerPair(current(), a, b, cb.checked), `${cb.checked ? 'Enable' : 'Disable'} layer collision`),
       );

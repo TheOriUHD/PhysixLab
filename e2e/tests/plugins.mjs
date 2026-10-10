@@ -35,7 +35,7 @@ test('Plugins: install an example through the manager UI (permission prompt), us
   await page.evaluate(() => window.physicslab.actions.run('plugin.gravity-presets.gravity-moon'));
   await wait(page, () => Math.abs(window.physicslab.scene.settings().gravity[1] + 1.62) < 1e-6);
   // Declarative panel: appears as a tab, renders buttons from the plugin's tree, and clicking calls back into the sandbox.
-  await page.evaluate(() => window.physicslab.actions.run('panel.plugin-gravity-presets-gravity'));
+  await page.evaluate(() => window.physicslab.actions.run('panel.plugin.gravity-presets.gravity'));
   await page.waitForSelector('.plg-panel button:has-text("Mars")', { timeout: 20000 });
   await page.click('.plg-panel button:has-text("Mars")');
   await wait(page, () => Math.abs(window.physicslab.scene.settings().gravity[1] + 3.72) < 1e-6);
@@ -56,11 +56,11 @@ test('Plugins: second example — batch command is ONE undo step, stats panel, t
   assert((await page.evaluate(() => window.physicslab.scene.entities().length)) === 0, 'one undo removes all dominoes');
   const tpl = await page.evaluate(
     async () =>
-      (await import('/src/model/content/index.ts')).getTemplate('plugin-domino-tools-domino-arc')?.build().entities
+      (await import('/src/model/content/index.ts')).getTemplate('plugin.domino-tools.domino-arc')?.build().entities
         .length,
   );
   assert(tpl > 20, `template from the plugin DSL: ${tpl}`);
-  await page.evaluate(() => window.physicslab.actions.run('panel.plugin-domino-tools-stats'));
+  await page.evaluate(() => window.physicslab.actions.run('panel.plugin.domino-tools.stats'));
   await page.waitForSelector('.plg-panel .plg-table', { timeout: 20000 });
   // Reload: the plugin is remembered and started again.
   await page.reload();
@@ -212,7 +212,7 @@ await plugin.registerCommand({ id: 'noop', label: 'Noop', run() {} });
 await plugin.registerPanel({ id: 'p', label: 'Xss', render: () => ({ type: 'column', children: [{ type: 'text', text: '<img src=x onerror="window.__pwned=1">' }, { type: 'script', src: 'x' }] }) });
 `;
   await install(page, src, ['ui']);
-  await page.evaluate(() => window.physicslab.actions.run('panel.plugin-xss-p'));
+  await page.evaluate(() => window.physicslab.actions.run('panel.plugin.xss.p'));
   await page.waitForSelector('.plg-panel .plg-error', { timeout: 20000 }); // unknown element type → clear message, nothing rendered
   assert(
     (await page.evaluate(() => window.__pwned)) === undefined && (await page.locator('.plg-panel img').count()) === 0,

@@ -52,3 +52,47 @@
 .cam-card-name { flex: 1; min-width: 0; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
 .cam-card-bar .icon-btn { width: 24px; height: 24px; }
 .cam-card-bar .icon-btn .icon { width: 13px; height: 13px; }
+.cam-shots { display: flex; flex-direction: column; gap: 6px; }
+.cam-shot-list { display: flex; flex-direction: column; gap: 2px; }
+.cam-shot-item { display: flex; align-items: center; gap: 2px; }
+.cam-shot-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; padding: 6px 8px; border-radius: 7px; border: 1px solid transparent; background: none; color: var(--text-2); text-align: left; }
+.cam-shot-row:hover { background: var(--hover); }
+.cam-shot-row.on { border-color: var(--accent-line); background: var(--accent-bg); color: var(--accent); }
+.cam-shot-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cam-shot-detail { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.cam-transport { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; }
+.cam-scrub { flex: 1; min-width: 60px; }
+.cam-time { font: 11px var(--mono); color: var(--text-2); white-space: nowrap; }
+.cam-transport-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cam-key-head, .cam-key { display: grid; grid-template-columns: 18px 1fr 1fr 1fr 1.25fr 26px 26px; gap: 4px; align-items: center; }
+.cam-key-head { font: 600 10px var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); margin-top: 6px; padding-right: 56px; grid-template-columns: 18px 1fr 1fr 1fr 1.25fr; }
+.cam-key-n { font: 600 10.5px var(--mono); color: var(--text-3); }
+.cam-key .num-input { width: 100%; min-width: 0; }
+.cam-keys { display: flex; flex-direction: column; gap: 4px; }
+select.missing { border-color: var(--danger); }
+
+/* ---- split screen and picture-in-picture ---- */
+.cm-views { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.cm-view { position: absolute; overflow: hidden; background: #0a0d13; }
+.cm-view.pane { border-left: 0; }
+.cm-view.pip { border: 1px solid var(--border-2); border-radius: 10px; box-shadow: var(--shadow); pointer-events: auto; }
+.cm-view-canvas { display: block; width: 100%; height: 100%; transform: scaleY(-1); object-fit: cover; }
+.cm-view.empty .cm-view-canvas { opacity: 0.25; }
+.cm-view.empty::after { content: 'Select a body to look through'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-2); font-size: 12.5px; text-align: center; padding: 12px; }
+.cm-view-bar { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 9px; background: linear-gradient(rgba(8, 10, 15, 0.72), transparent); color: var(--text-2); font-size: 11px; }
+.cm-view.pip .cm-view-bar { cursor: grab; }
+.cm-view-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-view-close { width: 22px; height: 22px; border-radius: 6px; border: 0; background: rgba(8, 10, 15, 0.6); color: var(--text); line-height: 1; font-size: 15px; }
+.cm-view-close:hover { background: var(--danger); }
+.cm-view-grip { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 55%, rgba(219, 227, 239, 0.55) 55% 62%, transparent 62% 72%, rgba(219, 227, 239, 0.55) 72% 79%, transparent 79%); }
+.cm-split .viewport-host { border-right: 0; }
+.cam-pane-block { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin: 6px 0; display: flex; flex-direction: column; gap: 4px; }
+.cam-pane-block > b, .cam-pip-head b { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); }
+.cam-pip-head { margin-top: 10px; }
+.cam-vec { display: flex; gap: 4px; }
+.cam-vec .num-field, .cam-vec .num-input { min-width: 0; }
+.cam-pane-editor { display: flex; flex-direction: column; gap: 2px; }
+
+/* ---- minimap ---- */
+.cm-minimap { position: absolute; z-index: 3; border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); line-height: 0; }
+.cm-minimap-canvas { display: block; cursor: crosshair; touch-action: none; }

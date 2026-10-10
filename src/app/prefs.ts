@@ -7,10 +7,13 @@ import { DEFAULT_OVERLAYS, type OverlayOptions } from '../render/overlays';
 import type { Quality } from '../render/viewport';
 import type { JointType } from '../model/types';
 import type { AxisChoice, ConnectMode } from '../model/jointDefaults';
+// -- ED-A arrange: pivot mode preference --
+import { PIVOT_MODES, type PivotMode } from '../model/edit/pivot';
 // ── FX: visual-effects settings live in the preferences ──
 import { DEFAULT_FX_SETTINGS, sanitizeFxSettings, type FxSettings } from '../render/fx/settings';
 // ── FX: sound settings live in the preferences too ──
 import { sanitizeAudioSettings, type AudioSettings } from '../audio/settings';
+import { sanitizeAccent, sanitizeTheme, type ThemeId } from '../ui/theme';
 import { DEFAULT_INPUT, sanitizeInput, type InputSettings } from './input/settings';
 
 /** The interaction mode (`ToolDef.mode`): 'select', 'joint', 'measure', 'blast', 'shoot' … — any registered tool's mode. */
@@ -21,6 +24,8 @@ export interface Prefs {
   tool: ToolId;
   gizmo: GizmoKind;
   space: 'world' | 'local';
+  // -- ED-A arrange: where gizmo rotations/scales are centred (selection centre, 3D cursor, individual origins …) --
+  pivotMode: PivotMode;
   snap: boolean;
   snapGrid: number;
   snapAngle: number;
@@ -86,6 +91,10 @@ export interface Prefs {
   fx: FxSettings;
   // ── FX: sound — master volume, mute, per-category volumes, spatialisation (src/audio) ──
   audio: AudioSettings;
+  // -- VZ-50: UI theme --
+  theme: ThemeId;
+  /** Custom accent colour `#rrggbb`, or '' for the theme's own accent. */
+  accent: string;
   // -- CM-A: key bindings, gamepad, touch and axis settings --
   input: InputSettings;
   // -- VZ-B: per-effect graphics options, tri-state `on` follows the quality tier --
@@ -102,6 +111,7 @@ export const DEFAULT_PREFS: Prefs = {
   tool: 'select',
   gizmo: 'translate',
   space: 'world',
+  pivotMode: 'centre',
   snap: true,
   snapGrid: 0.25,
   snapAngle: 15,
@@ -150,6 +160,8 @@ export const DEFAULT_PREFS: Prefs = {
   seenWelcome: false,
   fx: { ...DEFAULT_FX_SETTINGS },
   audio: sanitizeAudioSettings(undefined),
+  theme: 'dark',
+  accent: '',
   input: DEFAULT_INPUT, // -- CM-A --
   // -- VZ-B: per-effect graphics options (VZ-20..22) --
   graphics: cloneGraphics(DEFAULT_GRAPHICS),
@@ -181,8 +193,12 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
         const saved = JSON.parse(raw) as Partial<Prefs>;
         this.value = { ...this.value, ...saved, overlays: { ...DEFAULT_OVERLAYS, ...(saved.overlays ?? {}) } };
         this.value.tool = 'select';
+        // -- ED-A arrange: stored pivot mode is validated --
+        if (!PIVOT_MODES.some((m) => m.id === this.value.pivotMode)) this.value.pivotMode = DEFAULT_PREFS.pivotMode;
         this.value.fx = sanitizeFxSettings(saved.fx); // ── FX: stored values are validated ──
         this.value.audio = sanitizeAudioSettings(saved.audio); // ── FX ──
+        this.value.theme = sanitizeTheme(this.value.theme);
+        this.value.accent = sanitizeAccent(this.value.accent);
         this.value.input = sanitizeInput(saved.input); // -- CM-A --
         this.value.graphics = sanitizeGraphics(saved.graphics); // -- VZ-B --
         this.value.highlight = sanitizeHighlight(saved.highlight);
@@ -198,6 +214,8 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
   }
 
   set(patch: Partial<Prefs>): void {
+    if ('theme' in patch) patch = { ...patch, theme: sanitizeTheme(patch.theme) };
+    if ('accent' in patch) patch = { ...patch, accent: sanitizeAccent(patch.accent) };
     const keys: (keyof Prefs)[] = [];
     for (const k of Object.keys(patch) as (keyof Prefs)[]) {
       if (this.value[k] !== patch[k]) keys.push(k);

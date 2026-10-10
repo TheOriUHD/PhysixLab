@@ -39,7 +39,7 @@ export function uid(prefix: string): string {
 export const DEFAULT_GRAVITY: Vec3 = [0, -9.81, 0];
 
 export function defaultGround(): GroundSettings {
-  return { enabled: true, friction: 0.8, restitution: 0.1, halfSize: 60, color: '#2b3038' };
+  return { enabled: true, friction: 0.8, restitution: 0.1, halfSize: 60, color: '#2b3038', type: 'grid', horizonBlend: 0.5 };
 }
 
 /** Group 0, colliding with every group. */
@@ -48,7 +48,16 @@ export const DEFAULT_LAYER = 'default';
 export const defaultCollision = (): CollisionSpec => ({ group: 0, mask: ALL_GROUPS });
 
 export function defaultEnvironment(): EnvironmentSettings {
-  return { sky: 'studio', timeOfDay: 12, fog: { enabled: false, color: '#9db4cc', density: 0.01 }, exposure: 1 };
+  return {
+    sky: 'studio',
+    timeOfDay: 12,
+    fog: { enabled: false, color: '#9db4cc', density: 0.01, type: 'exp', near: 30, far: 200, height: 0, falloff: 0.15 },
+    exposure: 1,
+    toneMapping: 'aces',
+    sun: { azimuth: 220, elevation: 55, intensity: 1, turbidity: 6, rayleigh: 1.5 },
+    cycle: { enabled: false, hoursPerSecond: 0.5 },
+    hdri: { assetId: null, showBackground: true, backgroundBlur: 0, rotation: 0, intensity: 1 },
+  };
 }
 
 export function defaultBounds(): BoundsSettings {
@@ -330,11 +339,11 @@ export function softDefaults(type: SoftType): Omit<SoftEntity, 'kind' | 'id' | '
         size: [0.8, 0.26, 0.2],
         resolution: 24,
         mass: 6,
-        stiffness: 30,
+        stiffness: 150,
         damping: 0.25,
         pin: 'none',
         volumePreserve: true,
-        volumeFactor: 1.1,
+        volumeFactor: 1.3,
         friction: 1.4,
         color: '#2b2f36',
         roughness: 0.85,

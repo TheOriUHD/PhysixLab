@@ -28,7 +28,13 @@ export interface RingEntry {
   snap: WorldSnapshot;
   bytes: number;
   /** The mouse grab at that moment (the snapshot itself releases it): body id, grab point in body space, target. */
-  grab: { id: string; local: [number, number, number]; target: [number, number, number] } | null;
+  grab: {
+    id: string;
+    local: [number, number, number];
+    target: [number, number, number];
+    strength: number;
+    spin: [number, number, number];
+  } | null;
 }
 
 export interface Recording {
@@ -52,15 +58,19 @@ export interface ReplayState {
 /** What the recorder needs from the stepper and the snapshot code (installed by `travel.ts`). */
 export interface RecorderApi {
   take(s: WorldState): WorldSnapshot;
+  restore(s: WorldState, snap: WorldSnapshot): void;
   applyOp(s: WorldState, op: SimOp): void;
   hash(s: WorldState): string;
   rewindAdvance(s: WorldState, realDt: number): number;
 }
 
-/** Ops that are queries or whole-world replacements: never part of the input log. */
-const NOT_LOGGED = new Set<SimOp['op']>(['raycast', 'snapshot', 'restore']);
+/**
+ * Ops that are queries, whole-world replacements or only change what is *reported* (event generation): never part of
+ * the input log, and they do not end a branch or a play-through.
+ */
+const NOT_LOGGED = new Set<SimOp['op']>(['raycast', 'snapshot', 'restore', 'events']);
 /** Ops a replay viewer still accepts from the page. */
-const ALWAYS_ACCEPTED = new Set<SimOp['op']>(['raycast', 'snapshot']);
+const ALWAYS_ACCEPTED = new Set<SimOp['op']>(['raycast', 'snapshot', 'events']);
 
 export const HASH_EVERY = 60;
 const MIN_INTERVAL = 2;
@@ -282,6 +292,8 @@ export class Recorder {
             id: g.rec.id,
             local: [...g.local] as [number, number, number],
             target: [...g.target] as [number, number, number],
+            strength: g.strength,
+            spin: [...g.spin] as [number, number, number],
           }
         : null,
     });
@@ -428,12 +440,11 @@ export class Recorder {
 
   startRecording(s: WorldState): void {
     const fresh = s.stepCount === 0 && this.log.length === 0;
-    this.recording = {
-      base: fresh ? null : this.api.take(s),
-      startStep: s.stepCount,
-      entries: [],
-      hashes: [],
-    };
+    const base = fresh ? null : this.api.take(s);
+    this.recording = { base, startStep: s.stepCount, entries: [], hashes: [] };
+    // The live world continues from the very state a replay will start from, so both run through the same restore
+    // (restoring is deterministic, but not bit-identical to carrying on for soft bodies — see docs/LIMITATIONS.md).
+    if (base) this.api.restore(s, base);
     // The inputs in force right now are part of the recording's start state.
     this.recording.entries.push({ step: s.stepCount, kind: 'keys', keys: [...s.keys].sort() });
     this.recording.entries.push({ step: s.stepCount, kind: 'axes', axes: { ...s.axes } });

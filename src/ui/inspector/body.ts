@@ -4,14 +4,12 @@
  */
 import { DEG, qfromEuler, qtoEuler, RAD, vlen } from '../../core/math';
 import type { Vec3 } from '../../core/math';
-import { MATERIAL_PRESETS, PRESET_BY_ID } from '../../model/materials';
 import { isCompound, massEstimate } from '../../model/compound';
 import { shapeDef } from '../../model/shapeRegistry';
 import { normalizeSize, shapeVolume } from '../../model/shapes';
 import type { BodyEntity } from '../../model/types';
 import {
   checkChips,
-  colorField,
   fmt,
   keyField,
   numberField,
@@ -19,13 +17,13 @@ import {
   rowStack,
   section,
   segmented,
-  selectField,
   sliderField,
   toggleField,
   vec3Field,
 } from '../controls';
 import type { Field } from '../controls';
 import { h } from '../dom';
+import { multiTransformSection, relativeRotation, rotateByRow } from './edTransform';
 import type { InspectorContext } from './shared';
 import { shapeParamRows } from './shapeParams';
 import { shapeQuantityRows } from './shapeQuantities'; // -- SH
@@ -64,10 +62,20 @@ export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLEle
       digits: o.digits,
       ...g,
       onChange: (v) => ctx.edit<BodyEntity>(ids, `Edit ${label}`, (b) => set(b, v)),
+      // -- ED-A snap: with several bodies a relative entry (+0.5, *2) applies to each body's own value --
+      onRelative: multi
+        ? (apply) =>
+            ctx.edit<BodyEntity>(ids, `Edit ${label}`, (b) => {
+              const next = apply(get(b));
+              return Number.isFinite(next) ? set(b, next) : {};
+            })
+        : undefined,
     });
     return row(label, bind(f, get), o.hint);
   };
   const out: HTMLElement[] = [ctx.header(sel)];
+  // -- ED-A snap: several bodies get a centre entry and "Rotate by" (src/ui/inspector/edTransform.ts) --
+  if (multi) out.push(multiTransformSection(ctx, ids));
 
   // ---- transform ----------------------------------------------------------------------------
   if (!multi) {
@@ -91,6 +99,7 @@ export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLEle
       step: 1,
       unit: '°',
       digits: 2,
+      onRelative: relativeRotation(ctx, ids), // -- ED-A snap: "+15" turns the body 15° about that axis --
       ...gr,
       onChange: (v) => {
         const q = qfromEuler([v[0] * DEG, v[1] * DEG, v[2] * DEG]);
@@ -118,6 +127,7 @@ export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLEle
             live ? 'Live pose — editing moves the body in the running simulation only' : undefined,
           ),
           rowStack('Rotation (°)', rot.el),
+          rotateByRow(ctx, ids), // -- ED-A snap --
           ...size,
         ],
         { id: 'transform' },
@@ -139,25 +149,6 @@ export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLEle
     else typeSeg.buttons.forEach((b) => b.classList.remove('on'));
   });
 
-  const presetSel = selectField<string>({
-    options: [...MATERIAL_PRESETS.map((p) => ({ value: p.id, label: p.label })), { value: 'custom', label: 'Custom' }],
-    onChange: (v) => {
-      const p = PRESET_BY_ID.get(v);
-      if (!p) return;
-      ctx.edit<BodyEntity>(ids, `Material: ${p.label}`, () => ({
-        material: {
-          preset: p.id,
-          density: p.density,
-          friction: p.friction,
-          restitution: p.restitution,
-          color: p.color,
-          metalness: p.metalness,
-          roughness: p.roughness,
-          opacity: p.opacity,
-        },
-      }));
-    },
-  });
   const matEdit = (label: string, patch: (m: BodyEntity['material']) => Partial<BodyEntity['material']>) =>
     ctx.edit<BodyEntity>(ids, label, (b) => ({
       material: { ...b.material, preset: 'custom', ...patch(b.material) },
@@ -213,10 +204,6 @@ export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLEle
       'Physics',
       [
         rowStack('Type', typeSeg.el),
-        row(
-          'Material',
-          bind(presetSel, (b) => b.material.preset),
-        ),
         row(
           'Density',
           bind(density, (b) => b.material.density),
@@ -346,59 +333,7 @@ export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLEle
   // ---- forces -------------------------------------------------------------------------------
   out.push(thrustSection(ctx, ids, cur, mixed));
 
-  // ---- appearance ---------------------------------------------------------------------------
-  const color = colorField({
-    ...ctx.grouped('Edit colour'),
-    onChange: (v) => matEdit('Edit colour', () => ({ color: v })),
-  });
-  const metal = sliderField({
-    min: 0,
-    max: 1,
-    step: 0.01,
-    digits: 2,
-    ...ctx.grouped('Edit metalness'),
-    onChange: (v) => matEdit('Edit metalness', () => ({ metalness: v })),
-  });
-  const rough = sliderField({
-    min: 0,
-    max: 1,
-    step: 0.01,
-    digits: 2,
-    ...ctx.grouped('Edit roughness'),
-    onChange: (v) => matEdit('Edit roughness', () => ({ roughness: v })),
-  });
-  const opac = sliderField({
-    min: 0.05,
-    max: 1,
-    step: 0.01,
-    digits: 2,
-    ...ctx.grouped('Edit opacity'),
-    onChange: (v) => matEdit('Edit opacity', () => ({ opacity: v })),
-  });
-  out.push(
-    section(
-      'Appearance',
-      [
-        row(
-          'Colour',
-          bind(color, (b) => b.material.color),
-        ),
-        row(
-          'Metalness',
-          bind(metal, (b) => b.material.metalness),
-        ),
-        row(
-          'Roughness',
-          bind(rough, (b) => b.material.roughness),
-        ),
-        row(
-          'Opacity',
-          bind(opac, (b) => b.material.opacity),
-        ),
-      ],
-      { id: 'appearance', open: false },
-    ),
-  );
+  // Appearance (material picker, colour, textures …) is the 'material' inspector section: src/ui/extensions/materialEditor.ts
 
   // ---- live readout -------------------------------------------------------------------------
   if (live && !multi) out.push(liveBodySection(ctx, ids[0]));

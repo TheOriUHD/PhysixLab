@@ -60,7 +60,7 @@ export function parseManifest(source: string): PluginManifest {
   if (!Array.isArray(perms)) throw new ManifestError('manifest.permissions must be a list');
   const permissions: Permission[] = [];
   for (const p of perms) {
-    if (typeof p !== 'string' || !(p in PERMISSIONS))
+    if (typeof p !== 'string' || !Object.hasOwn(PERMISSIONS, p))
       throw new ManifestError(
         `Unknown permission "${String(p).slice(0, 30)}". Available: ${Object.keys(PERMISSIONS).join(', ')}. Network, storage and DOM access cannot be requested.`,
       );

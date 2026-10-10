@@ -27,6 +27,7 @@ import {
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import type { LightEntity, LightType } from '../model/types';
 import { iconDataUrl } from '../ui/icons';
+import { cssColor, onThemeChange } from '../ui/theme';
 
 /** The three.js light classes a `LightEntity` maps to. */
 export type RealLight = PointLight | SpotLight | DirectionalLight | RectAreaLight;
@@ -43,6 +44,9 @@ const GLYPH: Record<LightType, string> = {
 };
 
 const glyphs = new Map<string, CanvasTexture>();
+const glyphRedraws: (() => void)[] = [];
+// -- VZ-50: the glyph discs follow the UI theme tokens --
+onThemeChange(() => glyphRedraws.forEach((f) => f()));
 
 /** Dark disc with the light's icon in white (the sprite material tints the icon with the light's colour). */
 function glyphTexture(name: string): CanvasTexture {
@@ -56,19 +60,21 @@ function glyphTexture(name: string): CanvasTexture {
     const c = canvas.getContext('2d');
     if (!c) return;
     c.clearRect(0, 0, 128, 128);
-    c.fillStyle = 'rgba(16, 22, 32, 0.92)';
+    c.fillStyle = cssColor('--glyph-bg');
     c.beginPath();
     c.arc(64, 64, 60, 0, Math.PI * 2);
     c.fill();
     c.lineWidth = 5;
-    c.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    c.strokeStyle = cssColor('--glyph-line');
     c.stroke();
     if (img) c.drawImage(img, 26, 26, 76, 76);
     if (tex) tex.needsUpdate = true;
   };
+  let loaded: HTMLImageElement | null = null;
+  glyphRedraws.push(() => draw(loaded));
   draw(null);
   const img = new Image();
-  img.onload = () => draw(img);
+  img.onload = () => draw((loaded = img));
   img.src = iconDataUrl(name, '#ffffff');
   glyphs.set(name, tex);
   return tex;
@@ -273,6 +279,22 @@ export class LightView {
     this.wireMat.opacity = this.selected ? 0.95 : 0.5;
   }
 
+  /** Intensity animation (flicker / pulse): multiplies the entity's intensity; no-op for steady lights. */
+  tick(t: number): void {
+    const f = this.def.flicker;
+    const l = this.light;
+    if (!f || !l) return;
+    const w = t * f.speed * Math.PI * 2;
+    const dip =
+      f.mode === 'pulse'
+        ? 0.5 - 0.5 * Math.cos(w)
+        : Math.min(
+            1,
+            Math.max(0, 0.5 + 0.35 * Math.sin(w * 1.0) * Math.sin(w * 2.7 + 1.3) + 0.25 * Math.sin(w * 5.1 + 0.4)),
+          );
+    l.intensity = this.def.intensity * (1 - f.amount * dip);
+  }
+
   /** Rect-area lights cannot cast shadows in three.js; the others get a map sized for their kind. */
   private setShadow(l: ShadowedLight, on: boolean): void {
     l.castShadow = on;
@@ -365,6 +387,18 @@ export class LightViews {
     let n = 0;
     for (const v of this.views.values()) if (v.overBudget) n++;
     return n;
+  }
+
+  /** Per frame: advance the flicker / pulse animation of lights that have one. */
+  tick(t: number): boolean {
+    let any = false;
+    for (const v of this.views.values()) {
+      if (v.def.flicker && v.def.enabled && !v.def.hidden) {
+        v.tick(t);
+        any = true;
+      }
+    }
+    return any;
   }
 
   /** Click targets: the icon sprites of visible lights. */

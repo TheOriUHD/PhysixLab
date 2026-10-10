@@ -11,6 +11,10 @@ interface SwApi {
   isStaleCache: (name: string, v: string) => boolean;
   precacheUrl: (rel: string, scope: string) => string;
   precacheSet: (p: string[], scope: string) => Set<string>;
+  isCacheable: (res: { status: number; type: string } | null) => boolean;
+  shareExpired: (at: number, now: number) => boolean;
+  MAX_SHARE_BYTES: number;
+  SHARE_TTL_MS: number;
   routeRequest: (req: { url: string; method: string; mode?: string }, scope: string, set: Set<string>) => string;
 }
 const require = createRequire(import.meta.url);
@@ -102,5 +106,20 @@ describe('service worker cache naming', () => {
     expect(sw.isStaleCache('pl-vabc', 'abc')).toBe(false);
     expect(sw.isStaleCache('pl-share', 'abc')).toBe(false);
     expect(sw.isStaleCache('someone-elses', 'abc')).toBe(false);
+  });
+});
+
+describe('service worker caching limits', () => {
+  it('caches only whole same-origin 200 responses (never 206 partials or opaque)', () => {
+    expect(sw.isCacheable({ status: 200, type: 'basic' })).toBe(true);
+    expect(sw.isCacheable({ status: 206, type: 'basic' })).toBe(false);
+    expect(sw.isCacheable({ status: 200, type: 'opaque' })).toBe(false);
+    expect(sw.isCacheable(null)).toBe(false);
+  });
+  it('bounds the share stash by size and age', () => {
+    expect(sw.MAX_SHARE_BYTES).toBe(20 * 1024 * 1024);
+    expect(sw.shareExpired(1000, 1000 + sw.SHARE_TTL_MS)).toBe(false);
+    expect(sw.shareExpired(1000, 1001 + sw.SHARE_TTL_MS)).toBe(true);
+    expect(sw.shareExpired(NaN, 5)).toBe(true);
   });
 });

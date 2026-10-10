@@ -5,6 +5,8 @@ import { cameraSections } from './sections';
 import './modesSection';
 import './viewSection';
 import './bookmarksSection';
+import './shotsSection';
+import './viewsSection';
 
 export const cameraPanel: PanelDef = {
   id: 'camera',

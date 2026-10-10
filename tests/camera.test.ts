@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { Quaternion, Raycaster, Vector2, Vector3 } from 'three';
 import { DualCamera } from '../src/render/dualCamera';
+import { MapView, yawOf } from '../src/app/camera/minimap';
 import {
   angleDelta,
   chasePose,
@@ -243,5 +244,37 @@ describe('camera settings and saved cameras', () => {
     const old = JSON.parse(text) as Record<string, unknown>;
     delete old.cameras;
     expect(parseDocument(JSON.stringify(old)).cameras).toEqual(emptyCameras());
+  });
+});
+
+describe('minimap geometry', () => {
+  it('maps the centre to the middle, north (−Z) up, and round-trips at any rotation', () => {
+    const v = new MapView(10, -4, 25, 200, 0);
+    expect(v.toMap(10, -4)).toEqual([100, 100]);
+    const north = v.toMap(10, -4 - 25);
+    expect(north[0]).toBeCloseTo(100, 9);
+    expect(north[1]).toBeCloseTo(0, 9);
+    const east = v.toMap(10 + 25, -4);
+    expect(east[0]).toBeCloseTo(200, 9);
+    for (const rot of [0, 0.7, -2.2, Math.PI]) {
+      v.rotation = rot;
+      const [x, z] = v.toWorld(...v.toMap(3.3, 7.1));
+      expect(x).toBeCloseTo(3.3, 9);
+      expect(z).toBeCloseTo(7.1, 9);
+    }
+  });
+
+  it('rotate-with-camera puts the camera heading at screen-up', () => {
+    for (const psi of [0, Math.PI / 2, 2.4, -1]) {
+      const v = new MapView(0, 0, 10, 200, psi - Math.PI);
+      const ahead = v.toMap(Math.sin(psi) * 5, Math.cos(psi) * 5);
+      expect(ahead[0]).toBeCloseTo(100, 9);
+      expect(ahead[1]).toBeCloseTo(50, 9); // 5 m ahead = 50 px above the centre
+    }
+  });
+
+  it('yaw of a body from its quaternion', () => {
+    const q = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), 0.9);
+    expect(yawOf([q.x, q.y, q.z, q.w])).toBeCloseTo(0.9, 9);
   });
 });

@@ -21,7 +21,8 @@ export function serviceWorkerSupported(): boolean {
 export function registerServiceWorker(cb: PwaCallbacks): void {
   if (!serviceWorkerSupported()) return;
   const sw = navigator.serviceWorker;
-  let reloading = false;
+  /** True only in the tab whose user chose "Reload": other open tabs keep their (possibly unsaved) scene. */
+  let requested = false;
   let hadController = !!sw.controller;
   sw.addEventListener('controllerchange', () => {
     // The first install claims the page (offline readiness); only an update the user asked for reloads it.
@@ -29,14 +30,14 @@ export function registerServiceWorker(cb: PwaCallbacks): void {
       hadController = true;
       return;
     }
-    if (reloading) return;
-    reloading = true;
+    if (!requested) return;
+    requested = false;
     location.reload();
   });
 
   const offer = (worker: ServiceWorker): void =>
     cb.onUpdate(() => {
-      reloading = false;
+      requested = true;
       worker.postMessage({ type: 'SKIP_WAITING' });
     });
 

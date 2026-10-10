@@ -295,6 +295,63 @@ export function lightInspector(ctx: InspectorContext, sel: LightEntity[]): HTMLE
   );
   const unit = h('span', { class: 'num-unit', style: { marginLeft: '6px' } });
   intensity.querySelector('.row-control')!.appendChild(unit);
+  // -- VZ-A: photometric readout + flicker / pulse --
+  const lumens = h('span', { class: 'readout' });
+  const lumensRow = row('Output', lumens, 'Approximate total luminous flux of the light');
+  const fx = segmented<'steady' | 'flicker' | 'pulse'>({
+    options: [
+      { value: 'steady', label: 'Steady' },
+      { value: 'flicker', label: 'Flicker', title: 'Candle / faulty-tube style random dips' },
+      { value: 'pulse', label: 'Pulse', title: 'Smooth breathing between full and dimmed' },
+    ],
+    onChange: (v) =>
+      edit('Light effect', (l) => {
+        if (v === 'steady') return { flicker: undefined };
+        return {
+          flicker: { mode: v, amount: l.flicker?.amount ?? 0.4, speed: l.flicker?.speed ?? (v === 'pulse' ? 0.5 : 6) },
+        };
+      }),
+  });
+  const fxAmount = num(
+    'Depth',
+    (l) => l.flicker?.amount ?? 0.4,
+    (v) => ({
+      flicker: {
+        mode: first().flicker?.mode ?? 'flicker',
+        amount: Math.min(1, Math.max(0, v)),
+        speed: first().flicker?.speed ?? 2,
+      },
+    }),
+    { step: 0.05, min: 0, max: 1, digits: 2, hint: 'How far the light dips below its intensity' },
+  );
+  const fxSpeed = num(
+    'Speed',
+    (l) => l.flicker?.speed ?? 2,
+    (v) => ({
+      flicker: {
+        mode: first().flicker?.mode ?? 'flicker',
+        amount: first().flicker?.amount ?? 0.4,
+        speed: Math.min(30, Math.max(0.05, v)),
+      },
+    }),
+    { step: 0.1, min: 0.05, max: 30, unit: 'Hz', digits: 2 },
+  );
+  ctx.updaters.push(() => {
+    if (!cur().length) return;
+    const l = first();
+    const m = l.flicker?.mode ?? 'steady';
+    if (!mixed((x) => x.flicker?.mode)) fx.set(m);
+    fxAmount.style.display = fxSpeed.style.display = m === 'steady' ? 'none' : '';
+    const cd = l.intensity;
+    lumens.textContent =
+      l.lightType === 'point'
+        ? `≈ ${Math.round(4 * Math.PI * cd)} lm`
+        : l.lightType === 'spot'
+          ? `≈ ${Math.round(2 * Math.PI * (1 - Math.cos(l.angle)) * cd)} lm`
+          : l.lightType === 'area'
+            ? `≈ ${Math.round(cd * Math.PI * l.size[0] * l.size[1])} lm`
+            : `${cd} lx on a surface facing it`;
+  });
   const visibility = () => {
     const t = cur().length ? first().lightType : 'point';
     const same = !mixed((l) => l.lightType);
@@ -321,6 +378,10 @@ export function lightInspector(ctx: InspectorContext, sel: LightEntity[]): HTMLE
           bind(color, (l) => l.color),
         ),
         intensity,
+        lumensRow,
+        rowStack('Effect', fx.el),
+        fxAmount,
+        fxSpeed,
         rangeRow,
         ...spotRows,
         ...areaRows,

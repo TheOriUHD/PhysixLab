@@ -5,7 +5,10 @@ import './styles/ed-snap.css';
 import './styles/ed-hierarchy.css';
 import './styles/ed-prefabs.css';
 import './styles/ed-path.css';
+import './styles/ed-array.css';
 import './styles/ui-a.css';
+import './styles/themes.css';
+import './styles/vz-a.css';
 import './styles/tm.css'; // -- TM --
 import './styles/cm.css'; // -- CM-A --
 import './styles/diag.css';
@@ -38,23 +41,33 @@ import { mountZoneHud } from './ui/zoneHud'; // -- ZN
 import { resolveMenu } from './app/registry/menus';
 import { installTimeTravel } from './app/timeTravel'; // -- TM
 import { loadExtensions, registerBuiltins } from './ui/builtin';
+import { PrefsStore } from './app/prefs';
+import { applyTheme } from './ui/theme';
 // -- ED-B: tool options bar --
 import { mountToolOptions } from './ui/toolOptionsBar';
 import './styles/ed-b-tools.css';
 // -- ED-B --
 import { setContextTarget } from './ui/contextTarget';
 import './styles/ed-b.css';
+import { attachDiagnostics, installDiagnostics, preflight, showBootFailure } from './ui/diag/boot'; // -- UI-B: error boundary --
 import { publishApi } from './api/install';
 import { installTour } from './ui/tour';
 import { initPwa } from './pwa'; // -- DT-40 --
 
+installDiagnostics(); // -- UI-B: error boundary --
+
 async function boot(): Promise<void> {
+  if (!preflight()) return; // -- UI-B: capability check --
+  // -- VZ-50: paint the stored theme before anything is built (no flash of the default theme) --
+  const early = new PrefsStore().value;
+  applyTheme(early.theme, early.accent);
   // Everything the UI offers is a registration; register the built-ins before any UI is built.
   registerBuiltins();
   const extensionFailures = await loadExtensions();
   const root = document.getElementById('app')!;
   const shell = createShell(root);
   const app = new App(shell);
+  attachDiagnostics(app); // -- UI-B --
 
   shell.topSlot.replaceWith(buildTopbar(app));
   // The three docked regions are generated from the panel registry.
@@ -179,8 +192,4 @@ async function boot(): Promise<void> {
     setTimeout(() => showWelcome(app), 400);
 }
 
-boot().catch((e: unknown) => {
-  console.error(e);
-  const root = document.getElementById('app')!;
-  root.innerHTML = `<div style="padding:40px;max-width:640px;margin:auto;color:#dbe3ef;font:15px system-ui"><h2>PhysicsLab couldn’t start</h2><p>${String((e as { message?: unknown } | null)?.message ?? e)}</p><p style="color:#98a5b9">PhysicsLab needs a modern desktop browser with WebGL 2 and WebAssembly.</p></div>`;
-});
+boot().catch(showBootFailure); // -- UI-B: plain-language boot failure screen --

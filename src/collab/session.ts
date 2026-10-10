@@ -52,6 +52,34 @@ interface SessionEvents extends Record<string, unknown> {
 const MAX_PEERS = 32;
 const MAX_SELECTION = 64;
 const SYNC_CHUNK = 1000;
+/** Serialized-size budget of one `ops` / `sync` message body (well under MAX_MESSAGE_CHARS, leaves room for the envelope). */
+const CHUNK_CHARS = 2_000_000;
+/** An op may carry a clock at most this far ahead of the local Lamport clock (a forged huge clock would wedge the log). */
+const MAX_CLOCK_AHEAD = 1_000_000;
+/** The host's snapshot is allowed a bigger jump (a long-lived session legitimately has a large clock). */
+const MAX_SYNC_CLOCK_AHEAD = 1_000_000_000;
+/** Remote documents are materialised at most this often (ms). */
+const APPLY_GAP_MS = 50;
+const DEFAULT_RATE = { burst: 400, perSec: 200 };
+
+/** Split operations into chunks of at most `maxOps` operations and about `maxChars` serialized characters. */
+export function chunkOps(ops: readonly Op[], maxOps = SYNC_CHUNK, maxChars = CHUNK_CHARS): Op[][] {
+  const out: Op[][] = [];
+  let cur: Op[] = [];
+  let size = 0;
+  for (const op of ops) {
+    const len = JSON.stringify(op).length + 1;
+    if (cur.length && (cur.length >= maxOps || size + len > maxChars)) {
+      out.push(cur);
+      cur = [];
+      size = 0;
+    }
+    cur.push(op);
+    size += len;
+  }
+  if (cur.length) out.push(cur);
+  return out;
+}
 const MODES: readonly SimMode[] = ['edit', 'paused', 'running'];
 
 export const randomSite = (): string => {
@@ -91,6 +119,10 @@ export interface SessionOptions {
   flushMs?: number;
   /** Give up waiting for the host's answer after this many ms. */
   joinTimeoutMs?: number;
+  /** Per-peer inbound token bucket: `burst` messages at once, refilled at `perSec` (a message with many ops costs more). */
+  rate?: { burst: number; perSec: number };
+  /** Clock for the rate limiter (ms); tests inject one. */
+  now?: () => number;
 }
 
 export class Session extends Emitter<SessionEvents> {
@@ -112,8 +144,10 @@ export class Session extends Emitter<SessionEvents> {
   private syncGot = 0;
   private joinTimer: ReturnType<typeof setTimeout> | null = null;
   private offs: (() => void)[] = [];
+  private readonly buckets = new Map<string, { tokens: number; t: number }>();
+  private lastRateNotice = -Infinity;
   /** Counters for diagnostics / tests. */
-  stats = { rejectedMessages: 0, rejectedOps: 0, appliedOps: 0, duplicateOps: 0 };
+  stats = { rejectedMessages: 0, rejectedOps: 0, appliedOps: 0, duplicateOps: 0, rateLimited: 0 };
 
   constructor(private readonly o: SessionOptions) {
     super();
@@ -188,6 +222,7 @@ export class Session extends Emitter<SessionEvents> {
   leave(): void {
     if (this.status === 'closed' || this.status === 'idle') return;
     this.flushNow();
+    this.sync.commitRemote();
     this.broadcast({ t: 'bye', from: this.site });
     for (const off of this.offs) off();
     this.offs = [];
@@ -208,13 +243,19 @@ export class Session extends Emitter<SessionEvents> {
 
   // ---- sending -------------------------------------------------------------------------------------
 
-  private sendTo(link: Link, msg: object): void {
-    if (link.state !== 'open') return;
+  /** Send one message; false (after telling the user) when it is too large or the link failed. Never drops silently. */
+  private sendTo(link: Link, msg: object): boolean {
+    if (link.state !== 'open') return false;
     try {
       const text = JSON.stringify(msg);
-      if (text.length <= MAX_MESSAGE_CHARS) link.send(text);
+      if (text.length > MAX_MESSAGE_CHARS) {
+        this.notice('A change was too large to send to the other peers and was not delivered.');
+        return false;
+      }
+      link.send(text);
+      return true;
     } catch {
-      /* the link closed under us */
+      return false; /* the link closed under us */
     }
   }
 
@@ -235,8 +276,7 @@ export class Session extends Emitter<SessionEvents> {
     this.sync.flush();
     const ops = this.pending;
     this.pending = [];
-    for (let i = 0; i < ops.length; i += SYNC_CHUNK)
-      this.broadcast({ t: 'ops', from: this.site, ops: ops.slice(i, i + SYNC_CHUNK) });
+    for (const chunk of chunkOps(ops)) this.broadcast({ t: 'ops', from: this.site, ops: chunk });
     this.sendPresence(false);
   }
 
@@ -284,6 +324,27 @@ export class Session extends Emitter<SessionEvents> {
     this.stats.rejectedMessages++;
   }
 
+  private clock(): number {
+    return this.o.now ? this.o.now() : Date.now();
+  }
+
+  /** Token bucket per sending peer. */
+  private allow(key: string, cost: number): boolean {
+    const { burst, perSec } = this.o.rate ?? DEFAULT_RATE;
+    const now = this.clock();
+    let b = this.buckets.get(key);
+    if (!b) {
+      if (this.buckets.size >= 256) this.buckets.clear();
+      b = { tokens: burst, t: now };
+      this.buckets.set(key, b);
+    }
+    b.tokens = Math.min(burst, b.tokens + ((now - b.t) / 1000) * perSec);
+    b.t = now;
+    if (b.tokens < cost) return false;
+    b.tokens -= cost;
+    return true;
+  }
+
   private onMessage(link: Link, text: string): void {
     if (this.status === 'closed') return;
     let msg: Record<string, unknown>;
@@ -304,6 +365,15 @@ export class Session extends Emitter<SessionEvents> {
         if (msg.t !== 'hello') return this.reject();
         this.linkSite.set(link, from);
       } else if (bound !== from) return this.reject();
+    }
+    if (msg.t !== 'sync' && !this.allow(from, 1 + (Array.isArray(msg.ops) ? Math.floor(msg.ops.length / 100) : 0))) {
+      this.stats.rateLimited++;
+      const t = this.clock();
+      if (t - this.lastRateNotice > 5000) {
+        this.lastRateNotice = t;
+        this.notice('A peer is sending too many messages; the excess is being ignored.');
+      }
+      return;
     }
     switch (msg.t) {
       case 'hello':
@@ -365,26 +435,34 @@ export class Session extends Emitter<SessionEvents> {
   private sendSnapshot(link: Link, to: string): void {
     this.flushNow();
     const ops = this.replica.snapshot();
-    const total = Math.max(1, Math.ceil(ops.length / SYNC_CHUNK));
+    const chunks = chunkOps(ops);
+    if (!chunks.length) chunks.push([]);
+    const total = chunks.length;
     const peers = this.peers.filter((p) => p.site !== to).map((p) => ({ site: p.site, name: p.name }));
     for (let i = 0; i < total; i++) {
-      this.sendTo(link, {
+      const ok = this.sendTo(link, {
         t: 'sync',
         from: this.site,
         to,
         name: this.name,
         n: i,
         total,
-        ops: ops.slice(i * SYNC_CHUNK, (i + 1) * SYNC_CHUNK),
+        ops: chunks[i],
         sim: this.o.sim.mode(),
         peers: i === 0 ? peers : undefined,
       });
+      if (!ok) {
+        this.notice(
+          `Could not send the scene to a joining peer (part ${i + 1} of ${total} failed). They will not get a complete copy.`,
+        );
+        return;
+      }
     }
   }
 
   private onSync(from: string, msg: Record<string, unknown>): void {
     if (msg.to !== this.site) return; // meant for another guest on the same bus
-    if (this.role !== 'guest') return this.reject();
+    if (this.role !== 'guest' || this.status !== 'connecting') return this.reject();
     if (this.hostSite && from !== this.hostSite) return this.reject();
     if (!this.hostSite) {
       this.hostSite = from;
@@ -395,12 +473,13 @@ export class Session extends Emitter<SessionEvents> {
         const o = q as { site?: unknown; name?: unknown } | null;
         if (o && isSiteId(o.site) && o.site !== this.site) this.upsertPeer(o.site, o.name, 'guest');
       }
-    this.applyOps(msg.ops);
+    this.applyOps(msg.ops, from, true);
     this.syncGot++;
     const total = typeof msg.total === 'number' ? msg.total : 1;
     if (this.syncGot >= Math.min(total, 100000) && this.status === 'connecting') {
       if (this.joinTimer) clearTimeout(this.joinTimer);
       this.joinTimer = null;
+      this.sync.commitRemote();
       this.hostMode = MODES.includes(msg.sim as SimMode) ? (msg.sim as SimMode) : 'edit';
       this.setStatus('live');
       this.followHost();
@@ -408,10 +487,21 @@ export class Session extends Emitter<SessionEvents> {
     }
   }
 
-  private applyOps(raw: unknown): Op[] {
-    const { ops, rejected } = parseOps(raw);
+  /**
+   * Validate and apply operations from a peer. Ops must be authored by the peer that sent them (`author`), except
+   * in the host's snapshot, which replays everybody's stamps; clocks that jump absurdly far ahead are refused.
+   */
+  private applyOps(raw: unknown, author: string, snapshot = false): Op[] {
+    const parsed = parseOps(raw);
+    let rejected = parsed.rejected;
+    const limit = this.replica.lamport + (snapshot ? MAX_SYNC_CLOCK_AHEAD : MAX_CLOCK_AHEAD);
+    const ops = parsed.ops.filter((op) => {
+      const ok = (snapshot || op.s === author) && op.c <= limit;
+      if (!ok) rejected++;
+      return ok;
+    });
     this.stats.rejectedOps += rejected;
-    const fresh = this.sync.applyRemote(ops);
+    const fresh = this.sync.applyRemoteThrottled(ops, APPLY_GAP_MS);
     this.stats.appliedOps += fresh.length;
     this.stats.duplicateOps += ops.length - fresh.length;
     return fresh;
@@ -419,7 +509,7 @@ export class Session extends Emitter<SessionEvents> {
 
   private onOps(link: Link, from: string, msg: Record<string, unknown>): void {
     if (this.status !== 'live' && this.status !== 'connecting') return;
-    const fresh = this.applyOps(msg.ops);
+    const fresh = this.applyOps(msg.ops, from);
     if (this.role === 'host' && fresh.length) this.broadcast({ t: 'ops', from, ops: fresh }, link);
   }
 

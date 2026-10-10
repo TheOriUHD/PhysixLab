@@ -11,10 +11,12 @@ import { B } from '../physics/protocol';
 import { fmt } from './controls';
 import { h } from './dom';
 import { iconButton } from './controls';
+import { cssColor, onThemeChange } from './theme';
 
 interface SeriesDef {
   id: string;
   label: string;
+  /** CSS token name (`--chart-1` …): the legend reads it as `var()`, the canvas through `cssColor` at draw time. */
   color: string;
   unit: string;
   on: boolean;
@@ -42,7 +44,7 @@ class Chart {
       const item = h(
         'div',
         { class: `legend-item toggle ${d.on ? '' : 'off'}`, title: 'Click to show / hide' },
-        h('i', { style: { background: d.color } }),
+        h('i', { style: { background: `var(${d.color})` } }),
         h('span', null, d.label),
         value,
       );
@@ -69,7 +71,7 @@ class Chart {
         const item = h(
           'div',
           { class: `legend-item toggle ${d.on ? '' : 'off'}` },
-          h('i', { style: { background: d.color } }),
+          h('i', { style: { background: `var(${d.color})` } }),
           h('span', null, d.label),
           value,
         );
@@ -151,8 +153,8 @@ class Chart {
 
     g.font = '10.5px ui-monospace, Menlo, Consolas, monospace';
     g.textBaseline = 'middle';
-    g.strokeStyle = 'rgba(255,255,255,0.06)';
-    g.fillStyle = '#627086';
+    g.strokeStyle = cssColor('--canvas-grid');
+    g.fillStyle = cssColor('--canvas-text');
     g.lineWidth = 1;
     for (let i = 0; i <= 4; i++) {
       const v = lo + ((hi - lo) * i) / 4;
@@ -169,7 +171,7 @@ class Chart {
     for (let s = Math.ceil(t0); s <= tEnd + 0.01; s += this.window > 10 ? 5 : 2) {
       const x = X(s);
       if (x < padL || x > w - padR) continue;
-      g.strokeStyle = 'rgba(255,255,255,0.04)';
+      g.strokeStyle = cssColor('--canvas-grid-2');
       g.beginPath();
       g.moveTo(Math.round(x) + 0.5, padT);
       g.lineTo(Math.round(x) + 0.5, padT + ph);
@@ -177,7 +179,7 @@ class Chart {
       g.fillText(`${s}s`, x, padT + ph + 5);
     }
     if (this.zeroLine && lo < 0 && hi > 0) {
-      g.strokeStyle = 'rgba(255,255,255,0.18)';
+      g.strokeStyle = cssColor('--canvas-zero');
       const y = Math.round(Y(0)) + 0.5;
       g.beginPath();
       g.moveTo(padL, y);
@@ -190,7 +192,7 @@ class Chart {
     g.clip();
     this.defs.forEach((d, i) => {
       if (!d.on || this.t.length < 2) return;
-      g.strokeStyle = d.color;
+      g.strokeStyle = cssColor(d.color);
       g.lineWidth = d.id === 'total' ? 2.2 : 1.6;
       g.lineJoin = 'round';
       g.beginPath();
@@ -207,12 +209,12 @@ class Chart {
       g.stroke();
     });
     g.restore();
-    g.fillStyle = '#627086';
+    g.fillStyle = cssColor('--canvas-text');
     g.textAlign = 'left';
     g.textBaseline = 'top';
     g.fillText(this.unitLabel, padL + 4, padT);
     if (this.t.length < 2) {
-      g.fillStyle = '#627086';
+      g.fillStyle = cssColor('--canvas-text');
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.font = '12px Inter, system-ui, sans-serif';
@@ -252,11 +254,11 @@ function telemetryFor(app: App): Telemetry {
 function createTelemetry(app: App): Telemetry {
   const { prefs } = app;
   const energyDefs: SeriesDef[] = [
-    { id: 'total', label: 'Total mechanical', color: '#e8eefc', unit: 'J', on: true },
-    { id: 'kinetic', label: 'Kinetic (motion)', color: '#3ddcff', unit: 'J', on: true },
-    { id: 'rot', label: 'Kinetic (spin)', color: '#b18cff', unit: 'J', on: true },
-    { id: 'potential', label: 'Gravitational', color: '#ffb347', unit: 'J', on: true },
-    { id: 'elastic', label: 'Elastic (springs, soft bodies)', color: '#ff6b9a', unit: 'J', on: true },
+    { id: 'total', label: 'Total mechanical', color: '--chart-total', unit: 'J', on: true },
+    { id: 'kinetic', label: 'Kinetic (motion)', color: '--chart-1', unit: 'J', on: true },
+    { id: 'rot', label: 'Kinetic (spin)', color: '--chart-2', unit: 'J', on: true },
+    { id: 'potential', label: 'Gravitational', color: '--chart-3', unit: 'J', on: true },
+    { id: 'elastic', label: 'Elastic (springs, soft bodies)', color: '--chart-4', unit: 'J', on: true },
   ];
   const energy = new Chart(energyDefs, 'Energy (J)');
   let selDefs = selectionDefs('none');
@@ -286,6 +288,7 @@ function createTelemetry(app: App): Telemetry {
     energy.draw();
     selection.draw();
   };
+  onThemeChange(redraw); // -- VZ-50: canvases follow the theme --
 
   // Rebuild the selection chart when what is selected changes.
   let selKey = '';
@@ -402,29 +405,29 @@ export const selectionPanel: PanelDef = {
 function selectionDefs(kind: 'body' | 'joint' | 'none', jtype?: string): SeriesDef[] {
   if (kind === 'body') {
     return [
-      { id: 'speed', label: 'Speed', color: '#3ddcff', unit: 'm/s', on: true },
-      { id: 'height', label: 'Height', color: '#ffb347', unit: 'm', on: true },
-      { id: 'ke', label: 'Kinetic energy', color: '#b18cff', unit: 'J', on: false },
-      { id: 'force', label: 'Net force', color: '#ff6b9a', unit: 'N', on: false },
-      { id: 'spin', label: 'Spin rate', color: '#5be3a1', unit: 'rad/s', on: false },
+      { id: 'speed', label: 'Speed', color: '--chart-1', unit: 'm/s', on: true },
+      { id: 'height', label: 'Height', color: '--chart-3', unit: 'm', on: true },
+      { id: 'ke', label: 'Kinetic energy', color: '--chart-2', unit: 'J', on: false },
+      { id: 'force', label: 'Net force', color: '--chart-4', unit: 'N', on: false },
+      { id: 'spin', label: 'Spin rate', color: '--chart-5', unit: 'rad/s', on: false },
     ];
   }
   if (kind === 'joint') {
     if (jtype === 'hinge')
       return [
-        { id: 'angle', label: 'Angle', color: '#ffb347', unit: '°', on: true },
-        { id: 'speed', label: 'Angular speed', color: '#3ddcff', unit: 'rad/s', on: true },
+        { id: 'angle', label: 'Angle', color: '--chart-3', unit: '°', on: true },
+        { id: 'speed', label: 'Angular speed', color: '--chart-1', unit: 'rad/s', on: true },
       ];
     if (jtype === 'spring')
       return [
-        { id: 'length', label: 'Length', color: '#3ddcff', unit: 'm', on: true },
-        { id: 'force', label: 'Force', color: '#ff6b9a', unit: 'N', on: true },
-        { id: 'rate', label: 'Stretch rate', color: '#ffb347', unit: 'm/s', on: false },
+        { id: 'length', label: 'Length', color: '--chart-1', unit: 'm', on: true },
+        { id: 'force', label: 'Force', color: '--chart-4', unit: 'N', on: true },
+        { id: 'rate', label: 'Stretch rate', color: '--chart-3', unit: 'm/s', on: false },
       ];
     return [
-      { id: 'pos', label: 'Position', color: '#5be3a1', unit: 'm', on: true },
-      { id: 'speed', label: 'Speed', color: '#3ddcff', unit: 'm/s', on: true },
+      { id: 'pos', label: 'Position', color: '--chart-5', unit: 'm', on: true },
+      { id: 'speed', label: 'Speed', color: '--chart-1', unit: 'm/s', on: true },
     ];
   }
-  return [{ id: 'none', label: 'Nothing selected', color: '#627086', unit: '', on: false }];
+  return [{ id: 'none', label: 'Nothing selected', color: '--text-3', unit: '', on: false }];
 }

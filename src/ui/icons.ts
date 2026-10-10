@@ -128,6 +128,9 @@ const PATHS: Record<string, string> = {
   wave: '<path d="M2 12c2.5-8 5.5-8 8 0s5.5 8 8 0 2-3 4-4"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/>',
   chevronUp: '<path d="M6 15l6-6 6 6"/>',
+  // ── VZ-50: appearance ──
+  palette:
+    '<path d="M12 3a9 9 0 0 0 0 18c1.4 0 2-.9 2-1.8 0-.5-.2-.9-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4C21 6.4 17 3 12 3z"/><circle cx="7.5" cy="11.5" r="1" fill="currentColor"/><circle cx="10" cy="7.5" r="1" fill="currentColor"/><circle cx="15" cy="7.5" r="1" fill="currentColor"/>',
   // ── FB-10: maps ──
   map: '<path d="M9 4L3 6.5v13L9 17l6 2.5 6-2.5v-13L15 7z"/><path d="M9 4v13M15 7v12.5"/>',
   // ── ED-B: cut tool ──
@@ -160,4 +163,4 @@ export function iconHtml(name: string): string {
   return wrap(bodyOf(name), 'class="icon"');
 }
 
-export const LOGO = `<svg viewBox="0 0 32 32" class="logo-mark" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5eead4"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs><rect x="2" y="2" width="28" height="28" rx="8" fill="#0f1620" stroke="url(#lg)" stroke-width="1.6"/><path d="M7 22c3-1 5-6 8-11s6-4 10-1" stroke="url(#lg)" stroke-width="1.8" stroke-linecap="round"/><circle cx="15" cy="11" r="3.2" fill="url(#lg)"/><path d="M7 25h18" stroke="#2c3a4c" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+export const LOGO = `<svg viewBox="0 0 32 32" class="logo-mark" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--accent-2)"/><stop offset="1" style="stop-color:var(--accent)"/></linearGradient></defs><rect x="2" y="2" width="28" height="28" rx="8" style="fill:var(--bg-deep)" stroke="url(#lg)" stroke-width="1.6"/><path d="M7 22c3-1 5-6 8-11s6-4 10-1" stroke="url(#lg)" stroke-width="1.8" stroke-linecap="round"/><circle cx="15" cy="11" r="3.2" fill="url(#lg)"/><path d="M7 25h18" style="stroke:var(--border-2)" stroke-width="1.6" stroke-linecap="round"/></svg>`;

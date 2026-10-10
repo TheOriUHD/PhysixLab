@@ -32,7 +32,7 @@ registerTool({
   label: 'Path tool',
   title: 'Draw and edit paths and splines — click points on the ground or a surface',
   icon: 'path',
-  shortcut: 'P',
+  shortcut: 'D',
   keywords: ['spline', 'curve', 'track', 'rail', 'route', 'waypoint', 'draw'],
   activate: (app) => activatePathTool(app),
   isActive: (app) => app.prefs.value.tool === PATH_TOOL,

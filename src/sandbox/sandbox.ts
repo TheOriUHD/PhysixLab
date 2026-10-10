@@ -27,7 +27,11 @@ export interface SandboxOptions {
   maxCalls?: number;
   /** Maximum number of log lines (default 500). */
   maxLogLines?: number;
-  /** How long the sandbox may take to start (default 5 s). */
+  /** Maximum calls per second from the sandbox (default 5 000); a sandbox that floods the host is killed. */
+  maxCallsPerSecond?: number;
+  /** Called once when the sandbox stops for any reason other than the host's own dispose() (timeout, flood, budget). */
+  onDispose?: (reason: SandboxError) => void;
+  /** How long the sandbox may take to start (default 15 s). */
   startTimeoutMs?: number;
 }
 
@@ -67,6 +71,8 @@ export class Sandbox {
   private port: MessagePort | null = null;
   private disposed = false;
   private calls = 0;
+  private windowStart = 0;
+  private windowCalls = 0;
   private logLines = 0;
   private nextId = 1;
   private readonly runs = new Map<number, Pending>();
@@ -148,7 +154,13 @@ export class Sandbox {
         this.dispose(new SandboxError(`Timed out after ${timeoutMs} ms`, 'timeout'));
       }, timeoutMs);
       table.set(id, { resolve, reject, timer });
-      this.port!.postMessage({ ...msg, id });
+      try {
+        this.port!.postMessage({ ...msg, id });
+      } catch (e) {
+        clearTimeout(timer);
+        table.delete(id);
+        reject(new SandboxError(e instanceof Error ? e.message : 'Could not send to the sandbox', 'error'));
+      }
     });
   }
 
@@ -186,7 +198,12 @@ export class Sandbox {
 
   private async onCall(id: number, method: string, args: unknown[]): Promise<void> {
     if (this.disposed) return;
-    if (++this.calls > (this.o.maxCalls ?? 100_000)) {
+    const now = performance.now();
+    if (now - this.windowStart > 1000) {
+      this.windowStart = now;
+      this.windowCalls = 0;
+    }
+    if (++this.calls > (this.o.maxCalls ?? Infinity) || ++this.windowCalls > (this.o.maxCallsPerSecond ?? 5000)) {
       this.dispose(new SandboxError('The sandbox made too many calls', 'budget'));
       return;
     }
@@ -211,6 +228,7 @@ export class Sandbox {
   dispose(reason: SandboxError = new SandboxError('The sandbox was stopped', 'disposed')): void {
     if (this.disposed) return;
     this.disposed = true;
+    if (reason.kind !== 'disposed') queueMicrotask(() => this.o.onDispose?.(reason));
     try {
       this.port?.close();
     } catch {

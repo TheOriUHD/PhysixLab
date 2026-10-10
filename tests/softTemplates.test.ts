@@ -23,6 +23,8 @@ interface Loaded {
   pos: (name: string) => [number, number, number];
   /** All soft particles, flat xyz. */
   particles: () => Float32Array;
+  /** The drawn particles of one soft body (by name), flat xyz. */
+  soft: (name: string) => Float32Array;
 }
 
 async function load(id: string): Promise<Loaded> {
@@ -30,6 +32,7 @@ async function load(id: string): Promise<Loaded> {
   if (!t) throw new Error(`template ${id} is not registered`);
   const doc = sanitizeDocument(JSON.parse(JSON.stringify(t.build())));
   const w = await PhysicsWorld.create(doc);
+  const layout = w.readSoft().layout ?? []; // the topology is only sent once, on the first read
   const body = (name: string) => {
     const e = doc.entities.find((x) => x.kind === 'body' && x.name === name);
     if (!e) throw new Error(`no body ${name}`);
@@ -41,6 +44,16 @@ async function load(id: string): Promise<Loaded> {
     body,
     pos: (name) => w.getPose(body(name).id)!.position,
     particles: () => w.readSoft().positions,
+    soft: (name) => {
+      const e = doc.entities.find((x) => x.kind === 'soft' && x.name === name);
+      if (!e) throw new Error(`no soft body ${name}`);
+      let at = 0;
+      for (const l of layout) {
+        if (l.id === e.id) return w.readSoft().positions.slice(3 * at, 3 * (at + l.count));
+        at += l.count;
+      }
+      throw new Error(`soft body ${name} is not in the layout`);
+    },
   };
 }
 
@@ -224,5 +237,97 @@ describe('SF templates: ropes and chains carrying loads', () => {
     for (let i = 1; i < pts.length; i++)
       expect(Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])).toBeLessThan(0.6);
     for (const r of rope) expect(s.w.getPose(r.id)!.position[1]).toBeGreaterThan(0.2); // never dragged on the ground
+  });
+});
+
+describe('SF templates: jelly shapes and soft vehicles', { timeout: 150_000 }, () => {
+  it('Jelly shapes: every shape lands on the ground, squashes and keeps its height', async () => {
+    const s = await load('jelly-shapes');
+    const kinds = s.doc.entities.filter((e) => e.kind === 'soft');
+    expect(kinds.length).toBe(6);
+    expect(new Set(kinds.map((k) => (k.kind === 'soft' ? k.shape.type : ''))).size).toBe(6); // six different shapes
+    const start = new Map(kinds.map((k) => [k.name, extent(s.soft(k.name), 1)]));
+    run(s.w, 0.3);
+    for (const k of kinds)
+      expect(extent(s.soft(k.name), 1).lo, `${k.name} is falling`).toBeLessThan(start.get(k.name)!.lo - 0.1);
+    run(s.w, 3.2);
+    for (const k of kinds) {
+      if (k.kind !== 'soft') continue;
+      const p = s.soft(k.name);
+      const h = extent(p, 1);
+      const rest = k.shape.size[1];
+      log('jelly', k.name, h.lo, h.hi - h.lo, rest);
+      expect(finite(p), `${k.name} finite`).toBe(true);
+      expect(h.lo, `${k.name} rests on the ground`).toBeGreaterThan(-0.02);
+      expect(h.lo, `${k.name} is down`).toBeLessThan(0.15);
+      expect(h.hi - h.lo, `${k.name} keeps its height`).toBeGreaterThan(rest * 0.5);
+      expect(h.hi - h.lo, `${k.name} not stretched`).toBeLessThan(rest * 1.15);
+    }
+  });
+
+  it('Soft-tyre car: pneumatic tyres on motor hubs carry the chassis and drive it more than 2 m in 4 s', async () => {
+    const s = await load('soft-tyre-car');
+    const x0 = s.pos('Chassis')[0];
+    run(s.w, 4);
+    const c = s.pos('Chassis');
+    log('tyre car', x0, c);
+    expect(c[0] - x0).toBeGreaterThan(2);
+    // chassis (0.3 thick) rides about one tyre radius (0.3 m) off the ground: centre 0.3 + 0.15, a little more for the air
+    expect(c[1]).toBeGreaterThan(0.4);
+    expect(c[1]).toBeLessThan(0.55);
+    expect(Math.abs(c[2])).toBeLessThan(0.3); // straight
+    // the four tyres are all still tyres: round, full height, on the hubs they hold
+    for (const tag of ['front left', 'front right', 'rear left', 'rear right']) {
+      const p = s.soft(`${tag} tyre`);
+      expect(finite(p)).toBe(true);
+      const h = extent(p, 1);
+      expect(h.hi - h.lo).toBeGreaterThan(0.55); // 0.6 m diameter, squashed a little
+      expect(h.lo).toBeGreaterThan(-0.02);
+      const hub = s.pos(`${tag} hub`);
+      const cx = extent(p, 0);
+      expect(Math.abs((cx.lo + cx.hi) / 2 - hub[0])).toBeLessThan(0.1); // the tyre stays on its hub
+    }
+  });
+
+  it('Jelly car: a jelly chassis on rigid axles drives off, carrying its wheels', async () => {
+    const s = await load('jelly-car');
+    const ax0 = s.pos('front axle')[0];
+    run(s.w, 4);
+    const front = s.pos('front axle'),
+      rear = s.pos('rear axle');
+    const jelly = s.soft('Jelly chassis');
+    const cx = extent(jelly, 0),
+      cy = extent(jelly, 1);
+    log('jelly car', ax0, front, rear, cx, cy);
+    expect(front[0] - ax0).toBeGreaterThan(2);
+    expect(finite(jelly)).toBe(true);
+    // the jelly rides on its axles: it travels with them and sits on top of them
+    expect(Math.abs((cx.lo + cx.hi) / 2 - (front[0] + rear[0]) / 2)).toBeLessThan(0.35);
+    expect(cy.lo).toBeGreaterThan(0.02);
+    expect(cy.lo).toBeLessThan(0.35);
+    expect(cy.hi).toBeGreaterThan(0.6);
+    // the axle spacing is still the car's 1.3 m (the jelly did not tear the axles apart), the wheels stay on the ground
+    expect(Math.abs(front[0] - rear[0] - 1.3)).toBeLessThan(0.35);
+    for (const w of ['front left wheel', 'rear right wheel']) expect(Math.abs(s.pos(w)[1] - 0.3)).toBeLessThan(0.1);
+    expect(Math.abs(front[2])).toBeLessThan(1.2);
+  });
+
+  it('Cloth over a moving car: the car drives off and drags the cloth with it', async () => {
+    const s = await load('cloth-over-a-moving-car');
+    run(s.w, 0.8);
+    const cloth0 = s.soft('Cloth');
+    const draped = extent(cloth0, 1);
+    expect(draped.lo).toBeLessThan(0.9); // it has fallen onto the car and hangs over the sides
+    const car0 = s.pos('Car')[0];
+    const mid0 = (extent(cloth0, 0).lo + extent(cloth0, 0).hi) / 2;
+    run(s.w, 3);
+    const car1 = s.pos('Car')[0];
+    const cloth = s.soft('Cloth');
+    const mid1 = (extent(cloth, 0).lo + extent(cloth, 0).hi) / 2;
+    log('cloth car', car0, car1, mid0, mid1, extent(cloth, 1));
+    expect(finite(cloth)).toBe(true);
+    expect(car1 - car0).toBeGreaterThan(2); // the car moved
+    expect(mid1 - mid0).toBeGreaterThan(0.6 * (car1 - car0)); // and took the cloth along
+    expect(extent(cloth, 1).hi).toBeGreaterThan(1.1); // still draped over the roof, not left behind on the ground
   });
 });

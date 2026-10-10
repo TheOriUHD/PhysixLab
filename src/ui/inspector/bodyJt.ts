@@ -68,7 +68,9 @@ export function bodyJtSections(ctx: InspectorContext, sel: BodyEntity[]): HTMLEl
     const layers = app.store.settings.layers;
     const nm = names();
     const sel0 = layerSel.el.querySelector('select');
-    if (sel0) {
+    const key = nm.join('\u0000');
+    if (sel0 && sel0.dataset.names !== key) {
+      sel0.dataset.names = key;
       sel0.replaceChildren(
         ...nm.map((n, i) => {
           const o = document.createElement('option');
@@ -83,6 +85,8 @@ export function bodyJtSections(ctx: InspectorContext, sel: BodyEntity[]): HTMLEl
     chips.forEach((c, i) => {
       c.classList.toggle('on', ((b.collision.mask >> i) & 1) === 1);
       const blocked = ((b.collision.mask >> i) & 1) === 1 && ((eff >> i) & 1) === 0;
+      c.setAttribute('aria-pressed', String(((b.collision.mask >> i) & 1) === 1));
+      c.setAttribute('aria-label', `Layer ${i} · ${nm[i]}`);
       c.title = `${nm[i]}${blocked ? ' — switched off in the World tab matrix' : ''}`;
       c.style.opacity = blocked ? '0.45' : '';
     });
@@ -179,9 +183,7 @@ export function bodyJtSections(ctx: InspectorContext, sel: BodyEntity[]): HTMLEl
     const m = app.sim.client.active ? (app.sim.client.info.mass[b.id] ?? massEstimate(b)) : massEstimate(b);
     const g = Math.hypot(...app.store.settings.gravity) * b.gravityScale;
     vt.textContent =
-      b.drag.linear2 > 0 && g > 0
-        ? `${fmt(terminalSpeed(m, Math.abs(g), b.drag.linear2), 2)} m/s`
-        : 'no limit (no drag or no gravity)';
+      b.drag.linear2 > 0 && g > 0 ? `${fmt(terminalSpeed(m, Math.abs(g), b.drag.linear2), 2)} m/s` : 'no limit';
   });
   out.push(
     section(
@@ -242,7 +244,8 @@ export function bodyJtSections(ctx: InspectorContext, sel: BodyEntity[]): HTMLEl
     { cls: 'small', title: 'Drag the centre of mass with the move gizmo' },
   );
   const handleOn = () => app.gizmos.com.bodyId === ids[0];
-  app.on('comEdit', () => handle.classList.toggle('active', handleOn()));
+  ctx.live.push(() => handle.classList.toggle('active', handleOn()));
+  ctx.updaters.push(() => handle.classList.toggle('active', handleOn()));
   const inertia = numberField({
     step: 0.1,
     min: 0.001,
@@ -267,6 +270,7 @@ export function bodyJtSections(ctx: InspectorContext, sel: BodyEntity[]): HTMLEl
     if (b.comOverride) comF.set(b.comOverride);
     inertia.set(b.inertiaScale);
     handle.disabled = multi || !dyn;
+    vt.title = 'Needs a drag coefficient and gravity';
   });
   out.push(
     section(
@@ -301,11 +305,6 @@ export function bodyJtSections(ctx: InspectorContext, sel: BodyEntity[]): HTMLEl
     ...ctx.grouped('Edit sleep threshold'),
     onChange: (v) => edit('Edit sleep threshold', () => ({ sleepThreshold: Math.max(0, v) })),
   });
-  const never = toggleField({
-    label: 'Never sleep',
-    title: 'Keep the body awake (it never stops being simulated)',
-    onChange: (v) => edit('Toggle never sleep', () => ({ canSleep: !v })),
-  });
   const wake = button('Wake all bodies', () => app.sim.client.op({ op: 'wakeAll' }), {
     cls: 'small',
     title: 'Wake every sleeping body in the running simulation',
@@ -317,21 +316,22 @@ export function bodyJtSections(ctx: InspectorContext, sel: BodyEntity[]): HTMLEl
     sleepOn.set(b.sleepThreshold !== undefined);
     sleepBox.style.display = b.sleepThreshold !== undefined ? '' : 'none';
     if (b.sleepThreshold !== undefined) sleepF.set(b.sleepThreshold);
-    never.set(!b.canSleep);
     wake.disabled = !app.sim.active;
+    wake.title = app.sim.active
+      ? 'Wake every sleeping body in the running simulation'
+      : 'Available while the simulation is running';
   });
   out.push(
     section(
       'Sleep',
       [
-        never.el,
         sleepOn.el,
         sleepBox,
         h('div', { class: 'chips' }, wake),
         h(
           'p',
           { class: 'hint-text' },
-          'A body asleep costs nothing until something touches it. The threshold is the speed (of the body and of its surface when spinning) under which it settles.',
+          '“Allow sleeping” in the Physics section switches sleeping off per body (never sleep). A body asleep costs nothing until something touches it. The threshold is the speed (of the body and of its surface when spinning) under which it settles.',
         ),
       ],
       { id: 'body-sleep', open: false },

@@ -29,6 +29,8 @@ import {
   Vector2,
   Vector3,
   WebGLRenderer,
+  type WebGLRenderTarget,
+  type Camera,
   type Object3D,
 } from 'three';
 import type { Material } from 'three';
@@ -36,6 +38,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { ViewHelper } from 'three/addons/helpers/ViewHelper.js';
 import type { GroundSettings } from '../model/types';
+import { EnvironmentController } from './environment';
 // -- VZ-B: graphics settings, the post stack and the Auto governor (VZ-20..22) --
 import {
   DEFAULT_GRAPHICS,
@@ -51,6 +54,7 @@ import { PostStack } from './postStack';
 import { DualCamera } from './dualCamera'; // -- CM-A --
 import { ViewGrid, type ViewPlane } from './viewGrid'; // -- CM-A --
 import { Weather } from './weather'; // -- VZ-B: weather (VZ-23) --
+import { OTHER, RENDER, profiler } from '../core/profiler'; // -- UI-B: frame timing --
 
 export type Quality = QualityChoice;
 
@@ -156,12 +160,16 @@ export class Viewport {
   private activeTier: QualityTier = 'medium';
   private pixelRatioNow = 1;
   private viewHelper: ViewHelper;
-  private sun: DirectionalLight;
-  private skyMesh: Mesh;
-  private slab: Mesh;
-  private grid: Mesh;
-  private shadowCatcher: Mesh;
-  private gridMat: ShaderMaterial;
+  // -- VZ-A: environment controller (src/render/environment.ts) and the direction the sun shines from --
+  env!: EnvironmentController;
+  readonly sunDir = new Vector3(-38, 62, 26).normalize();
+  ambient!: AmbientLight;
+  sun: DirectionalLight;
+  skyMesh: Mesh;
+  slab: Mesh;
+  grid: Mesh;
+  shadowCatcher: Mesh;
+  gridMat: ShaderMaterial;
   private quality: Quality = 'medium';
   private width = 1;
   private height = 1;
@@ -177,6 +185,8 @@ export class Viewport {
   private resizeObserver: ResizeObserver;
   // -- CM-A: a camera rig drives `camera` itself (fly, first person …): the tween and orbit controls stand aside --
   externalCamera = false;
+  /** Hidden while a shot is recorded so the video holds the scene only. */
+  viewHelperVisible = true;
   readonly viewGrid = new ViewGrid();
   private viewPlane: ViewPlane = null;
   private thumbRequests: { w: number; h: number; done: (url: string | null) => void }[] = [];
@@ -235,7 +245,8 @@ export class Viewport {
     this.buildEnvironment();
 
     // ---- lights -----------------------------------------------------------------------------
-    this.scene.add(new AmbientLight(0x8fa3c4, 0.18));
+    this.ambient = new AmbientLight(0x8fa3c4, 0.18);
+    this.scene.add(this.ambient);
     this.sun = new DirectionalLight(0xfff3e0, 3.2);
     this.sun.castShadow = true;
     this.sun.shadow.bias = -0.0003;
@@ -341,6 +352,7 @@ export class Viewport {
     this.resizeObserver.observe(container);
     this.resize();
     this.setQuality('auto');
+    this.env = new EnvironmentController(this); // -- VZ-A --
   }
 
   // ------------------------------------------------------------------------------------------
@@ -387,6 +399,7 @@ export class Viewport {
     this.grid.scale.set(size, 1, size);
     this.shadowCatcher.scale.set(size, 1, size);
     this.gridMat.uniforms.uHalf.value = g.halfSize;
+    this.env?.onGround(g); // -- VZ-A: ground type + horizon blend --
     this.needsRender = true;
   }
 
@@ -442,9 +455,8 @@ export class Viewport {
     this.pixelRatioNow = pr;
     this.renderer.setPixelRatio(pr);
     this.post.setSize(this.width, this.height, pr);
-    const before = this.post.currentSignature;
     this.post.configure(g);
-    if (before !== this.post.currentSignature || this.lastShadowsOn !== g.shadows.enabled) {
+    if (this.lastShadowsOn !== g.shadows.enabled) {
       // materials must recompile when shadows are toggled
       this.scene.traverse((o) => {
         const m: Material | Material[] = (o as Mesh).material;
@@ -457,7 +469,6 @@ export class Viewport {
 
   private lastShadowsOn = true;
   // -- VZ-B: shadow frustum snapping (VZ-32) --
-  private readonly sunDir = new Vector3(-38, 62, 26).normalize();
   private readonly lightRight = new Vector3();
   private readonly lightUp = new Vector3();
   resolvedGraphics = resolveGraphics(DEFAULT_GRAPHICS, 'medium');
@@ -492,6 +503,12 @@ export class Viewport {
     this.paintOutlines();
     this.decor.update(objects, this.highlight.bbox, this.highlight.axes);
     this.needsRender = true;
+  }
+
+  /** Per frame: keep the bounding boxes / axis triads on the moving selection. */
+  refreshDecor(): void {
+    if (this.highlight.bbox || this.highlight.axes)
+      this.decor.update(this.outline.selectedObjects, this.highlight.bbox, this.highlight.axes);
   }
 
   /** Palette, pulse, bounding box / axes options. */
@@ -581,6 +598,7 @@ export class Viewport {
   }
 
   private frameOnce(): void {
+    profiler.begin(); // -- UI-B: frame timing --
     const now = performance.now();
     const rawDt = (now - this.lastTime) / 1000;
     const dt = Math.min(0.1, rawDt);
@@ -617,6 +635,7 @@ export class Viewport {
       void moved;
     }
 
+    profiler.mark(OTHER); // -- UI-B: frame timing --
     this.onFrame?.(dt);
 
     // Keep sun shadow frustum centred on what the user is looking at (VZ-32): the extent is quantised so the texel
@@ -650,16 +669,21 @@ export class Viewport {
     this.sun.position.copy(t).addScaledVector(d, 70);
 
     this.skyMesh.position.copy(this.camera.position);
+    this.env.followCamera(this.camera.position);
+    this.env.tick(dt); // -- VZ-A --
     // An orthographic camera sits far away: fade the ground grid around what is looked at instead.
     (this.gridMat.uniforms.uCamPos.value as Vector3).copy(this.camera.ortho ? tgt : this.camera.position);
     this.updateViewGrid();
 
+    profiler.mark(OTHER); // -- UI-B: frame timing --
     this.post.focusDistance = this.camera.position.distanceTo(this.controls.target);
     this.weather.update(dt, this.camera, this.controls.target, this.activeTier); // -- VZ-B: weather --
     this.post.render(dt);
     this.renderer.autoClear = false;
-    this.viewHelper.render(this.renderer);
+    if (this.viewHelperVisible) this.viewHelper.render(this.renderer);
     this.renderer.autoClear = true;
+    profiler.mark(RENDER); // -- UI-B: frame timing --
+    profiler.end(); // -- UI-B: frame timing --
     if (this.thumbRequests.length) this.flushThumbnails();
   }
 
@@ -701,6 +725,23 @@ export class Viewport {
         r.done(null);
       }
     }
+  }
+
+  // ---- CM-A: extra views ------------------------------------------------------------------------
+
+  /** Render the scene from another camera into an off-screen target (split-screen panes, picture-in-picture). */
+  renderView(cam: Camera, target: WebGLRenderTarget): void {
+    // The sky dome and the ground grid are placed relative to the camera that looks at them.
+    this.skyMesh.position.copy(cam.position);
+    (this.gridMat.uniforms.uCamPos.value as Vector3).copy(cam.position);
+    this.renderer.setRenderTarget(target);
+    this.renderer.clear();
+    this.renderer.render(this.scene, cam);
+    this.renderer.setRenderTarget(null);
+    this.skyMesh.position.copy(this.camera.position);
+    (this.gridMat.uniforms.uCamPos.value as Vector3).copy(
+      this.camera.ortho ? this.controls.target : this.camera.position,
+    );
   }
 
   // ---- CM-A: projection -------------------------------------------------------------------------

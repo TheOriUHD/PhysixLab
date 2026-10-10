@@ -10,6 +10,7 @@ import { BUILTIN_INSPECTOR_SECTIONS } from '../inspector/sections';
 import { uiCommands } from './commands';
 import { registerBuiltinMenus } from './menus';
 import { registerBuiltinPanels } from './panels';
+import { registerAppearance } from '../appearance';
 // -- UI-A: layout commands and menu --
 import { layoutCommands, registerLayoutMenu } from '../dock/layoutCommands';
 import { registerUiA } from '../uiA';
@@ -23,6 +24,7 @@ export function registerUiBuiltins(): void {
   registerBuiltinMenus();
   for (const s of BUILTIN_INSPECTOR_SECTIONS) registerInspectorSection(s);
   registerBuiltinPanels();
+  registerAppearance(); // -- VZ-50 --
   // -- UI-A: layout presets, save / reset, maximise --
   for (const c of layoutCommands()) registerCommand(c);
   registerLayoutMenu();

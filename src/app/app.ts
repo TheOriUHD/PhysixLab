@@ -55,6 +55,7 @@ import { MeasureTool } from './measureTool';
 import { Persistence } from './persistence';
 import { Placement } from './placement';
 import { PrefsStore, type GizmoKind, type ToolId } from './prefs';
+import { VisualsSync } from './visualsSync';
 import { PrefsSync } from './prefsSync';
 import { Projectiles } from './projectiles';
 import { SceneCommands } from './sceneCommands';
@@ -161,6 +162,7 @@ export class App extends Emitter<AppEvents> {
     this.gizmo = this.gizmos.gizmo;
     this.viewSync = new ViewSync(this);
     this.prefsSync = new PrefsSync(this);
+    new VisualsSync(this); // -- VZ-A --
     this.placement = new Placement(this);
     this.cameraControl = new CameraControl(this);
     this.commands = new SceneCommands(this);

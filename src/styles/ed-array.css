@@ -1,0 +1,14 @@
+/* ED-A: array panel, linked-array inspector section and the mirror dialog */
+.ed-array-panel { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+.ed-array-info { margin: 0; color: var(--text-2); font-size: 12px; }
+.ed-array-status { margin: 0; min-height: 1.4em; color: var(--text-2); font-size: 12px; }
+.ed-array-status.warn { color: var(--warn); }
+.ed-array-form { display: flex; flex-direction: column; gap: 8px; }
+.ed-array-tabs { align-self: stretch; }
+.ed-array-tabs .seg-btn { flex: 1; justify-content: center; }
+.ed-array-fields { display: flex; flex-direction: column; gap: 4px; }
+.ed-array-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.ed-array-buttons .btn { flex: 1 1 auto; justify-content: center; }
+.ed-mirror-help { margin: 0 0 10px; color: var(--text-2); font-size: 12px; }
+.ed-mirror-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.ed-mirror-presets .btn { flex: 0 0 auto; }

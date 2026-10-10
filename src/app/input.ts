@@ -14,6 +14,9 @@ import { jointToolOf } from './jointTool';
 import { runCommand } from './registry/commands';
 import { keymap, shouldPreventDefault } from './registry/keymap';
 import { toolForMode } from './registry/tools';
+// -- ED-A snap --
+import { applyObjectSnap, endObjectSnap, showGridSnap } from './edit/snapDrag';
+import { invertKey } from './edit/snapScene';
 
 type Gesture =
   | { kind: 'none' }
@@ -431,8 +434,12 @@ export class InputController {
       delta[2] = 0;
     }
     const base = g.starts.get(g.primary)!;
+    // -- ED-A snap: vertex / edge / face / bounds / surface snapping (src/app/edit/snapDrag.ts) --
+    if (applyObjectSnap(app, e, { ids: g.ids, starts: g.starts, primary: g.primary, delta, vertical })) return;
+    // -- /ED-A snap --
     let d = delta;
-    if (app.prefs.value.snap) {
+    // -- ED-A snap: holding Ctrl inverts the grid switch as well --
+    if (app.prefs.value.snap !== invertKey(e)) {
       const s = app.prefs.value.snapGrid;
       const snapped = vadd(base, delta).map((v) => Math.round(v / s) * s) as Vec3;
       d = [
@@ -442,6 +449,8 @@ export class InputController {
       ];
     }
     app.editor.moveTo(new Map(g.ids.map((id) => [id, vadd(g.starts.get(id)!, d)])));
+    // -- ED-A snap: marker for the grid snap --
+    if (app.prefs.value.snap !== invertKey(e)) showGridSnap(app, vadd(base, d));
   }
 
   private onUp(e: PointerEvent): void {
@@ -464,6 +473,7 @@ export class InputController {
         break;
       case 'dragMove':
         if (g.moved) app.store.end();
+        endObjectSnap(app); // -- ED-A snap --
         break;
       case 'grab':
         app.sim.client.op({ op: 'release', throwScale: app.prefs.value.grabThrow });

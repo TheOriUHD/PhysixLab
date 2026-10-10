@@ -43,7 +43,7 @@ test('path tool: draw with the pointer, insert, delete, close, reverse; the draw
     a.store.setSelection([]);
     a.prefs.set({ snap: false });
   });
-  await page.keyboard.press('p');
+  await page.keyboard.press('d');
   assert((await page.evaluate(() => window.physicslab.prefs.value.tool)) === 'path', 'P selects the path tool');
   assert(
     (await page.locator('.tool[data-tool="path"], [data-tool="path"]').count()) > 0,

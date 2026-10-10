@@ -12,6 +12,7 @@ import { h } from './dom';
 import type { CollabController } from './collabController';
 
 interface Box {
+  seen: number;
   el: HTMLElement;
   label: HTMLElement;
 }
@@ -21,6 +22,7 @@ export class CollabCursors {
   private readonly chip = h('button', { class: 'collab-chip', type: 'button', title: 'Open the Collaborate dialog' });
   private readonly boxes = new Map<string, Box>();
   private raf = 0;
+  private frameNo = 0;
   private shown = false;
   private readonly v = new Vector3();
 
@@ -66,7 +68,8 @@ export class CollabCursors {
     const { camera, dom } = this.app.viewport;
     const w = dom.clientWidth;
     const hgt = dom.clientHeight;
-    const used = new Set<string>();
+    const frameNo = ++this.frameNo;
+    let used = 0;
     for (const p of s.peers) {
       for (const id of p.selection) {
         const ent = this.app.store.get(id);
@@ -84,15 +87,16 @@ export class CollabCursors {
           Math.min(300, ((radius * 2.2) / (2 * dist * Math.tan((camera.fov * Math.PI) / 360))) * hgt),
         );
         const key = `${p.site}/${id}`;
-        used.add(key);
+        used++;
         let b = this.boxes.get(key);
         if (!b) {
           const label = h('span', { class: 'collab-label' });
           const el = h('div', { class: 'collab-outline' }, label);
           this.layer.appendChild(el);
-          b = { el, label };
+          b = { el, label, seen: frameNo };
           this.boxes.set(key, b);
         }
+        b.seen = frameNo;
         b.label.textContent = p.name;
         b.el.dataset.peer = p.site;
         b.el.dataset.entity = id;
@@ -102,11 +106,11 @@ export class CollabCursors {
       }
     }
     for (const [key, b] of this.boxes)
-      if (!used.has(key)) {
+      if (b.seen !== frameNo) {
         b.el.remove();
         this.boxes.delete(key);
       }
     // Keep animating only while someone else has a selection (the camera may move under it).
-    if (used.size) this.raf = requestAnimationFrame(() => this.frame());
+    if (used) this.raf = requestAnimationFrame(() => this.frame());
   }
 }

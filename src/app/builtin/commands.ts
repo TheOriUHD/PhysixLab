@@ -262,11 +262,11 @@ function overlayToggle(
 }
 
 const QUALITY_LABELS: Record<Quality, string> = {
-  auto: 'Auto — adapts to this GPU and the frame rate',
+  auto: 'Auto — adapts to GPU',
   low: 'Low — fastest',
   medium: 'Medium — shadows + FXAA',
   high: 'High — shadows + AO + bloom + MSAA',
-  ultra: 'Ultra — adds reflections, light shafts, motion blur',
+  ultra: 'Ultra — reflections, shafts, blur',
 };
 
 /** Menu labels of the graphics-quality choices (the command labels are the palette-friendly short forms). */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DocSync } from '../src/collab/docSync';
 import { OP_LIMITS, Replica, parseOp, parseOps, type Op } from '../src/collab/opLog';
-import { Session, type SimBridge, type SimMode } from '../src/collab/session';
+import { Session, chunkOps, type SimBridge, type SimMode } from '../src/collab/session';
 import { LoopbackBus, createLoopbackPair, decodeSignal, encodeSignal } from '../src/collab/transport';
 import { createBody } from '../src/model/factory';
 import { SceneStore } from '../src/model/store';
@@ -436,5 +436,93 @@ describe('Session over a loopback bus', () => {
     await wait(80);
     expect(s.status).toBe('closed');
     expect(notices.join(' ')).toMatch(/No host answered/);
+  });
+
+  it('a forged far-future clock or a spoofed author site cannot wedge or impersonate', async () => {
+    const { bus, hs, host, hostBox, mkGuest } = setup();
+    await mkGuest('guestAAA1', 'Ann');
+    const evil = bus.link();
+    await wait(5);
+    const clockBefore = host.replica.lamport;
+    evil.send(
+      JSON.stringify({
+        t: 'ops',
+        from: 'evilSite1',
+        ops: [
+          { k: 'set', c: 2 ** 48, s: 'evilSite1', e: hostBox.id, f: 'name', v: 'wedged' },
+          { k: 'set', c: clockBefore + 5, s: 'guestAAA1', e: hostBox.id, f: 'name', v: 'spoofed' },
+        ],
+      }),
+    );
+    await wait(60);
+    expect(host.replica.lamport).toBe(clockBefore);
+    expect(hs.body(hostBox.id)?.name).toBe('host box');
+    expect(host.stats.rejectedOps).toBeGreaterThanOrEqual(2);
+    // the log is still live: a normal host edit still wins and propagates
+    hs.update(hostBox.id, { name: 'still works' });
+    await wait(40);
+    expect(hs.body(hostBox.id)?.name).toBe('still works');
+  });
+
+  it('host-only messages (sim, bye) from a non-host are ignored by guests', async () => {
+    const { bus, hsim, mkGuest } = setup();
+    const g = await mkGuest('guestAAA1', 'Ann');
+    const evil = bus.link();
+    await wait(5);
+    evil.send(JSON.stringify({ t: 'sim', from: 'evilSite1', mode: 'running' }));
+    evil.send(JSON.stringify({ t: 'bye', from: 'evilSite1' }));
+    await wait(30);
+    expect(g.sim.m).toBe(hsim.m);
+    expect(g.s.status).toBe('live');
+  });
+
+  it('rate-limits a flooding peer per sender', async () => {
+    let t = 0;
+    const store = new SceneStore();
+    const s = new Session({
+      store,
+      sim: new FakeSim(),
+      site: 'hostSite1',
+      now: () => t,
+      rate: { burst: 5, perSec: 1 },
+    });
+    s.startHost();
+    const bus = new LoopbackBus();
+    s.addLink(bus.link());
+    const evil = bus.link();
+    await wait(5);
+    for (let i = 0; i < 50; i++) evil.send(JSON.stringify({ t: 'presence', from: 'evilSite1', sel: [] }));
+    await wait(30);
+    expect(s.stats.rateLimited).toBe(45);
+    t += 10_000; // bucket refills
+    evil.send(JSON.stringify({ t: 'presence', from: 'evilSite1', sel: [] }));
+    await wait(10);
+    expect(s.stats.rateLimited).toBe(45);
+  });
+
+  it('coalesces a burst of remote messages into few document writes', async () => {
+    const { hs, host, mkGuest } = setup();
+    const g = await mkGuest('guestAAA1', 'Ann');
+    let commits = 0;
+    hs.on('change', () => commits++);
+    const bodies = Array.from({ length: 30 }, (_, i) => box(`b${i}`, i));
+    for (const b of bodies) g.store.add([b]);
+    await wait(150);
+    expect(hs.size).toBe(31);
+    expect(commits).toBeLessThan(30);
+    expect(host.stats.appliedOps).toBeGreaterThan(30);
+  });
+});
+
+describe('chunkOps', () => {
+  it('splits by serialized size as well as by count, never dropping an op', () => {
+    const big = (i: number): Op => ({ k: 'set', c: i + 1, s: 'siteAAAA', e: 'e', f: 'x', v: 'y'.repeat(1000) });
+    const ops = Array.from({ length: 50 }, (_, i) => big(i));
+    const chunks = chunkOps(ops, 1000, 10_000);
+    expect(chunks.length).toBeGreaterThan(4);
+    expect(chunks.flat()).toEqual(ops);
+    for (const c of chunks) expect(JSON.stringify(c).length).toBeLessThan(12_000);
+    expect(chunkOps(ops, 7, 1e9).map((c) => c.length)).toEqual([7, 7, 7, 7, 7, 7, 7, 1]);
+    expect(chunkOps([])).toEqual([]);
   });
 });

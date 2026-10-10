@@ -13,6 +13,11 @@ import { ComHandle } from './comHandle'; // -- JT-B
 // -- ED-A hierarchy: scale gizmo on groups --
 import { endScaleGroupDrag } from './edit/groupOps';
 import { jointWorldFrame } from './jointHandles';
+// -- ED-A arrange: pivot modes for the gizmo --
+import { gizmoPivotPolicy, groupPivotOf } from './edit/gizmoPivot';
+// -- ED-A snap --
+import { snapGizmoUpdates } from './edit/snapDrag';
+import { hideSnap } from './edit/snapIndicator';
 
 export class GizmoController {
   readonly gizmo: Gizmo;
@@ -170,6 +175,10 @@ export class GizmoController {
           !this.app.store.joint(i.id),
       );
     if (posedOnly && this.gizmo.mode === 'scale') this.gizmo.setMode('translate');
+    // -- ED-A arrange: pivot mode (selection centre / bounds / 3D cursor / individual origins / group pivot) --
+    const policy = gizmoPivotPolicy(this.app, items);
+    if (this.app.prefs.value.pivotMode === 'group') for (const i of items) i.pivot = groupPivotOf(this.app, i.id);
+    this.gizmo.setPivotPolicy(policy.handle, policy.individual);
     this.gizmo.setItems(items);
     this.gizmo.refresh(items);
   }
@@ -202,6 +211,7 @@ export class GizmoController {
       this.moveJoint(jointUpdate, updates[0]);
       return;
     }
+    snapGizmoUpdates(app, updates, this.gizmo.mode); // -- ED-A snap: vertex / edge / face / bounds snapping --
     app.editor.applyGizmo(updates);
     // Immediate visual feedback (document updates also reach the views through events).
     if (app.sim.active) {
@@ -224,6 +234,7 @@ export class GizmoController {
         'warn',
       );
     }
+    hideSnap(this.app); // -- ED-A snap --
     if (this.undoOpen) {
       this.app.store.end();
       this.undoOpen = false;

@@ -4,6 +4,7 @@
  * (the F1 command, menu entries, links in tooltips and dialogs).
  */
 import type { App } from '../../app/app';
+import { runCommand } from '../../app/registry/commands';
 import type { PanelDef } from '../../app/registry/panels';
 import { h } from '../dom';
 import { icon } from '../icons';
@@ -29,7 +30,7 @@ export function parseTarget(target: string): { page: string; anchor: string } {
 /** Open the Help panel on a page, optionally at a section (`'joints-and-motors#motors'`), optionally highlighting a query. */
 export function openHelp(app: App, target = '', query?: string): void {
   pending = { target, query };
-  app.prefs.set({ rightTab: 'help', showRight: true });
+  runCommand('panel.help', app); // reveals the panel wherever the user docked it
   // The region builds the panel on first need and calls onShow; when it was already built, show right away.
   if (controller) {
     pending = null;

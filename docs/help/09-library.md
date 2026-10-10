@@ -22,7 +22,7 @@ Scenes, prefabs and maps: start from something ready-made and keep your own work
 - **File → Export scene file** downloads the scene as a JSON file; **File → Import** (or dropping a `.json` file on the window) opens one.
 - **File → Copy share link** packs the scene into a link you can send to someone.
 
-Everything lives in your browser's local storage: clearing site data removes your saved scenes, so export the ones you care about.
+Everything lives in your browser's local storage: clearing site data removes your saved scenes, so export the ones you care about. The [Troubleshooting page](troubleshooting) explains how to download the current scene if something goes wrong.
 
 ## Empty lists
 

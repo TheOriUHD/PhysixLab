@@ -654,11 +654,13 @@ describe('menus resolve from the registry', () => {
       'Camera follows selection',
       '---',
       '# Graphics quality',
-      'Auto — adapts to this GPU and the frame rate',
+      'Auto — adapts to GPU',
       'Low — fastest',
       'Medium — shadows + FXAA',
       'High — shadows + AO + bloom + MSAA',
-      'Ultra — adds reflections, light shafts, motion blur',
+      'Ultra — reflections, shafts, blur',
+      '---',
+      'Appearance…',
       '---',
       'Frame everything',
       // -- UI-A: layout presets --
@@ -837,7 +839,7 @@ describe('integrity of the built-in registrations', () => {
     for (const m of ['file', 'edit', 'view', 'help', 'context'])
       for (const item of resolveMenu(app, m)) if ('label' in item) expect(item.label.length).toBeGreaterThan(0);
     // Every command referenced by a menu entry exists (resolveMenu silently skips missing ones, so check by count).
-    expect(resolveMenu(app, 'view').filter((i) => 'label' in i)).toHaveLength(6 + 5 + 2 + 5 + 1 + 6 + 4);
+    expect(resolveMenu(app, 'view').filter((i) => 'label' in i)).toHaveLength(6 + 5 + 2 + 5 + 1 + 6 + 4 + 1);
   });
 
   it('gives every command a category from the known list or a sensible one, and no label is empty', () => {

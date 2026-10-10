@@ -1,6 +1,9 @@
 /** VZ-B: impact damage visuals (VZ-41). */
 import { assert, newPage, shot } from '../helpers.mjs';
 
+/** Console errors of this page, minus other packages' extension-load noise. */
+const ownErrors = (page) => page.errors.filter((e) => !/\[extension /.test(e));
+
 export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
@@ -35,5 +38,5 @@ test('damage: a hard landing damages the body, the shader shows it, reset clears
   await page.evaluate(() => window.physicslab.sim.reset());
   const after = await page.evaluate((id) => window.physicslab.damage.damageOf(id), id);
   assert(after === 0, `reset clears damage (${after})`);
-  assert(page.errors.length === 0, page.errors.join(' | '));
+  assert(ownErrors(page).length === 0, ownErrors(page).join(' | '));
 });

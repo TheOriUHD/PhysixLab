@@ -10,7 +10,7 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 * **Elastic energy of soft bodies counts the edge springs only** (½·k·(l − l₀)² per stretch and bend edge, k = ω²·m/2 with ω = 2π × the edge softness frequency). The engine's volume and shape-matching constraints store energy too but expose no closed form, so a compressed jelly reports less elastic energy than it holds. A stretched, undamped cable conserves kinetic + elastic energy to ~25 % over a period at 120 Hz and ~10 % at 480 Hz — the solver is implicit and dissipates slightly (tests/softSf.test.ts › SF-8).
 * **Young's modulus is an effective readout, not an input of the solver.** `E ≈ ρ·(2π f·h)²/2` (ρ mean density, h particle spacing, f the stiffness in Hz) is how stiff the discretised lattice behaves in the continuum limit; it depends on the resolution, because the engine's softness is per constraint. Typing a modulus sets the Hz so that the formula holds at the current resolution. Poisson ratio and permanent set (plastic yield) are passed to the engine's material as-is; Poisson mainly matters for volumetric meshes.
 * **Volumetric meshes (SF-5)** are built from a closed surface: convex shapes use their hull (a gear or any concave shape therefore becomes its convex hull until imported-mesh triangles can be passed on), the analytic primitives are sampled and hulled. The engine voxelises a cell beyond the surface, so the collision and the drawing use the exact skinned surface while the lattice reaches slightly beyond it. Tearing a volumetric mesh splits its lattice but not its skin mapping (only cloth and cable are meant to tear).
-* **Pneumatic tyres need the top of the stiffness range** (≈ 400 Hz) and ≥ 1.3× target volume to carry a vehicle: softer tyres fold flat (a 60 kg hub on a 400 Hz, 1.3× tyre keeps its 0.8 m diameter; at 40 Hz it collapses). The inspector warns and offers a one-click fix. A puncture (`leakRate`) deflates the tyre or balloon exponentially toward 15 % of its volume.
+* **Pneumatic tyres need pressure and stiffness to carry load, but very stiff ones misbehave while rolling.** A 60 kg hub on a 400 Hz, 1.3× tyre keeps its 0.8 m diameter standing still, while at 40 Hz it folds flat; however, at 400 Hz a *rolling* tyre car gains speed on its own and blows up (engine artifact, reproduced with the motors off), so the defaults and the example car use 150 Hz / 1.3× (steady at the commanded speed over 12 s). The inspector warns below 100 Hz or 1.15× and offers a fix. A puncture (`leakRate`) deflates the tyre or balloon exponentially toward 15 % of its volume.
 * **No per-body soft update rate.** The engine steps all soft bodies with the rigid world, so the "lower update rate" of SF-9 is delivered as an *economy mode* that disables the engine's impact-adaptive extra substeps for soft bodies (cheaper, slightly less accurate fast impacts), together with the particle budget readout and the adaptive resolution suggestion.
 * **Softness is a frequency, not a modulus.** The stiffness control is the material's natural frequency: ~7 Hz is very squishy, ≈ 40 Hz and above is nearly rigid. Below ~4 Hz a jelly stops conserving volume and collapses.
 * **No concave colliders.** Every collider is a primitive or a convex hull. Compound bodies (`parts`: several colliders on one rigid body, each with its own pose and material overrides) approximate concave shapes, but nothing decomposes a concave mesh into parts automatically yet. Resizing a compound body scales its parts proportionally; for a part that is rotated relative to the body a non-uniform scale is approximated (a rotated box cannot be sheared).
@@ -80,6 +80,17 @@ Pulley, rack, gear, belt / chain, winch, soft weld, screw and the limits / sprin
 * **Snapshots are exact for what the engine and the world record** (rigid bodies, joints, soft bodies, RNG, clock, components with `saveState`). Components without `saveState` start over from their parameters on restore; the mouse grab is released; pending events and the per-pair rate-limit memory of contact events are not saved (so the first impact of a pair after a restore is reported even if it had reported within `pairInterval` before the snapshot); key and axis input are supplied by the next tick. A snapshot is for this build's engine: its bytes are not a file format.
 * **Component state is published only on change** and read by component id; there is no history (the telemetry package keeps series).
 
+## Time travel, replays and ghosts (package TM)
+
+* **Soft bodies come back from a snapshot approximately**: the engine's soft-body contact and attachment caches are not part of its serialisation, so after a restore a jelly, cloth or net can be a few millimetres (transiently up to a few centimetres) from where the uninterrupted run was. Rigid bodies, joints, components, the drive network and the RNG come back bit-exactly (`tests/timelineScenes.test.ts` checks every bundled scene; the soft scenes are held to a tolerance instead). A recording that starts mid-run therefore restores its own base state into the live world at the moment you press Record, so the live run and its replay share one starting point.
+* **Replays are exact for this build only** (the engine bytes and the checkpoint hashes are not a stable file format): a replay recorded by another build may report a divergence, which is the viewer working as designed. A recording from a fresh scene (step 0) needs no engine bytes at all, only the scene and the inputs.
+* **The mouse grab is part of the ring, but the soft-body grab is not**: dragging a soft particle while scrubbing back and forth releases it.
+* **History has a memory budget** (Replay tab, 32–512 MB): when a long run fills it the oldest and newest snapshots stay and the ones between are thinned, so a seek into the middle of a very long run re-simulates up to a few hundred steps; the input log keeps at most 400 000 entries, after which the oldest history is forgotten.
+* **Rewind speed on a slow machine is what the frame rate allows**: it plays history back at `rate × real time`, restoring a snapshot per frame, so a heavy scene rewinds in jumps rather than smoothly.
+* **Ghosts show bodies that existed when the run started** (projectiles and spawned debris are not in the track); the personal best is stored in the browser (localStorage, thinned to about 1.6 MB) per scene name.
+* **Share links carry small replays only** (the scene and the log are in the URL, limit about 150 kB); larger ones are saved as a file.
+* **Unseeded randomness is not caught by the compiler**: a runtime that calls `Math.random()` is detected by *Check determinism* and by `tests/timeline.test.ts`, not prevented.
+
 ## Effects (package FX)
 
 * **Trails and skid marks exist only for the ground plane** (the ground slab's top). Dust trails, tyre smoke, grinding sparks and skid marks come from the lowest point of a body touching the ground; a wheel on a ramp, a box sliding on another body or a car on a bridge leaves nothing. The slip is *estimated* from the body's pose and velocities (`v_c = v + ω × r` of the lowest point, see `render/fx/slip.ts`) rather than read from the engine's contact forces, and the lowest point of a compound body or a mesh body is approximated by its primary shape / bounding sphere.
@@ -132,6 +143,16 @@ Pulley, rack, gear, belt / chain, winch, soft weld, screw and the limits / sprin
 * **Flames, blade blur and gauges are drawn, not simulated**: `src/render/componentFx.ts` draws a teardrop flame per thruster / jet, translucent blade discs for propellers and rotors, and dial / stroke / brake-ring gauges from the numbers the components publish. There are no exhaust particles or smoke yet (the `ignite` / `burnout` events and the published thrust are the hook); the sound engine (package FX) already voices them, from the published rpm / thrust and an ignition sound.
 * **The Controls panel drives analog axes only with its own sliders** (no gamepad or script input yet; the protocol accepts any `setAxis`). It lists the keys and axes found in the schemas of the enabled components of the scene, so a binding that a component reads through a script or a custom channel is not listed.
 
+## Charts (UI-30 / 31 / 32)
+
+* **Samples are per rendered frame**, at most 60 per simulated second (a chart's rate and record length are settable), so a spectrum can resolve frequencies up to half the sampling rate (30 Hz at best, less when the browser renders slower than the simulation) and fast contact transients are undersampled. Irregular frame spacing is resampled linearly onto a uniform grid before the FFT.
+* **Acceleration is the backward difference of the sampled velocity**, not an instantaneous value: it includes gravity and contact forces and is noisy at impacts.
+* **Angular momentum uses an effective moment of inertia** `2·KE_rot/ω²` recovered from the body's rotational kinetic energy, because the worker does not send the inertia tensor: exact for rotation about a principal axis, an approximation for a tumbling asymmetric body.
+* **Contacts are world-level.** The contact point count and total contact force come from the contact-point buffer of awake dynamic bodies (the same data as the Contacts overlay, which a chart switches on while it needs it); there is no per-body contact count or force, and no force for resting contacts of sleeping bodies.
+* **No hinge torque, temperature or sensor signals.** The engine's joint readback reports angle / speed (hinge, slider), length / force (spring) and tension (rope) only; there is no temperature simulation, and sensor events are events, not continuous values.
+* **Power is F·v** of the body's average net force over the last frame (the rate of change of its translational kinetic energy); use the Derivative option on an energy trace for dE/dt of anything else.
+* Chart data is not saved with the scene; configurations are saved per browser (localStorage), not per scene, and refer to objects by name.
+
 ## Rendering & platform
 
 * Targets desktop browsers with WebGL 2 and WebAssembly; touch navigation works (orbit/zoom) but editing is mouse- and keyboard-centric.
@@ -166,6 +187,11 @@ Pulley, rack, gear, belt / chain, winch, soft weld, screw and the limits / sprin
 6. Community gallery on top of the existing share-link format.
 7. Challenges/objectives (reach a target, hold a load) evaluated by the same telemetry.
 
+## Visuals (VZ-A)
+* Triplanar mapping applies to the colour texture only; normal maps are turned off while it is on.
+* Height fog is exponential, integrated analytically along the view ray per fragment (no volumetric scattering); it needs the patched shader chunks in `src/render/fogChunks.ts`.
+* The "water" ground type is a visual surface (reflective, animated normal map); it does not buoy bodies.
+* Physical-sky lighting is re-baked at most twice a second while the day cycle runs.
 ## Share links v2 (DT-20)
 
 The compact share link stores non-integer numbers with 6 significant digits and renames entity ids to `e0`, `e1` … when opened, so a scene opened from a link is physically equivalent to the original but not bit-identical (chaotic scenes can diverge over a long run). Use *Export file* for exact transfer. Old `#scene=` (v1) links keep working.
@@ -206,3 +232,5 @@ Plugins can register commands, declarative panels and example scenes (templates)
 * **Light shafts** are screen-space: the sun only produces shafts when it is in the frame (the orbit camera cannot look that high), spotlights always (up to three, nearest-first scan twice a second).
 * **Damage visuals** are procedural (cracks / scorch / dent-tint in the body shader) and accumulate from approach speed per material kind; skinned bodies and compound bodies' parts share the body's damage but skins are not damaged.
 * **Auto quality** judges by frame time on the main thread: a slow *simulation* step lowers quality too.
+## DT-42: first load is not under 1.2 MB gzip
+The Rapier WebAssembly binary alone is about 1.15 MB gzip (served as a separate cached asset), so the cold-start download is about 1.9 MB gzip; the JavaScript part is well below the target. Numbers and the lazy-loading policy are in docs/PERFORMANCE.md; `npm run size` enforces budgets in CI.

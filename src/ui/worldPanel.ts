@@ -12,6 +12,7 @@ import {
 } from './controls';
 import { GRAVITY_PRESETS } from '../model/gravityPresets';
 import { h } from './dom';
+import { buildEnvironmentSections } from './environmentPanel';
 import { buildBoundsSection } from './boundsSection'; // -- ZN
 import { buildGraphicsSection } from './graphicsSection'; // -- VZ-B: graphics (VZ-20..22)
 import { buildWeatherSection } from './weatherSection'; // -- VZ-B: weather --
@@ -171,6 +172,10 @@ export function buildWorldPanel(app: App): HTMLElement {
       { id: 'world-solver' },
     ),
   );
+  // -- VZ-A: sky / display / fog / ground look --
+  const envUi = buildEnvironmentSections(app);
+  el.append(...envUi.sections);
+  upd.push(envUi.refresh);
   // -- ZN: world bounds (ZN-34)
   const bounds = buildBoundsSection(app);
   el.append(bounds.el);

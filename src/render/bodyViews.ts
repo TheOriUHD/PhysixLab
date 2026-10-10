@@ -5,7 +5,8 @@
  * glance.
  */
 import type { BufferGeometry, Group, Object3D } from 'three';
-import { Color, Group as ThreeGroup, Mesh, MeshStandardMaterial, Quaternion, SRGBColorSpace, Vector3 } from 'three';
+import { Color, Group as ThreeGroup, Mesh, MeshPhysicalMaterial, Quaternion, SRGBColorSpace, Vector3 } from 'three';
+import { applyMaterialSpec, disposeMaterialTextures } from './materialBuild';
 import { isCompound, partMaterial } from '../model/compound';
 import { shapeDef, shapeGeometry, shapeGeometryKey, shapeVisualScale } from '../model/shapeRegistry';
 import type { BodyEntity, ColliderPart, MaterialSpec, ShapeSpec } from '../model/types';
@@ -72,12 +73,14 @@ class GeometryCache {
 /** One drawn mesh of a body: the body's shape, or one collider part. */
 interface Piece {
   mesh: Mesh;
-  material: MeshStandardMaterial;
+  material: MeshPhysicalMaterial;
   geoKey: string;
   /** The part drawn; null for the body's own shape. */
   part: ColliderPart | null;
   /** Surface colour in the 'material' colour mode (the part's override, else the body's). */
   baseColor: string;
+  /** Emissive colour of the material (the highlight tint is added on top of it). */
+  baseEmissive: string;
 }
 
 export class BodyView implements PoolMember, SkinBodyPose {
@@ -190,7 +193,7 @@ export class BodyView implements PoolMember, SkinBodyPose {
 
   private makePiece(shape: ShapeSpec, part: ColliderPart | null): Piece {
     const { key, geo } = this.cache.acquire(shape);
-    const material = new MeshStandardMaterial();
+    const material = new MeshPhysicalMaterial();
     const mesh = new Mesh(geo, material);
     applyShapeSurface(material, geo, shape); // -- SH: vertex-coloured tyres, painted dice
     mesh.castShadow = true;
@@ -200,7 +203,14 @@ export class BodyView implements PoolMember, SkinBodyPose {
     mesh.scale.set(s[0], s[1], s[2]);
     mesh.userData.vel = this.vel;
     patchDamage(material, damageKindOf(this.def.material), false);
-    const piece: Piece = { mesh, material, geoKey: key, part, baseColor: this.def.material.color };
+    const piece: Piece = {
+      mesh,
+      material,
+      geoKey: key,
+      part,
+      baseColor: this.def.material.color,
+      baseEmissive: '#000000',
+    };
     this.pieces.push(piece);
     return piece;
   }
@@ -230,17 +240,11 @@ export class BodyView implements PoolMember, SkinBodyPose {
   applyMaterial(def: BodyEntity): void {
     for (const piece of this.pieces) {
       const m: MaterialSpec = piece.part ? partMaterial(def, piece.part) : def.material;
-      piece.baseColor = m.color;
-      piece.material.color.set(m.color);
-      piece.material.metalness = m.metalness;
-      piece.material.roughness = m.roughness;
-      const ghostly = def.ghost || !!piece.part?.sensor;
-      piece.material.opacity = ghostly ? Math.min(m.opacity, 0.35) : m.opacity;
-      piece.material.transparent = piece.material.opacity < 0.999;
-      piece.material.depthWrite = true;
-      piece.material.envMapIntensity = 1;
+      // a procedural pattern already contains the colour: showing it tinted would darken it twice
+      piece.baseColor = m.texture && m.texture.pattern !== 'image' ? '#ffffff' : m.color;
+      applyMaterialSpec(piece.material, m, def.ghost || !!piece.part?.sensor); // -- VZ-A --
+      piece.baseEmissive = `#${piece.material.emissive.getHexString()}`;
       patchDamage(piece.material, damageKindOf(m), false);
-      piece.material.needsUpdate = true;
     }
     this.mesh.visible = !def.hidden;
   }
@@ -255,12 +259,15 @@ export class BodyView implements PoolMember, SkinBodyPose {
   dispose(): void {
     this.skin?.dispose();
     for (const piece of this.pieces) {
+      disposeMaterialTextures(piece.material);
       piece.material.dispose();
       this.cache.release(piece.geoKey);
     }
   }
 }
 
+const SEL_TINT = new Color(0.02, 0.05, 0.09);
+const HOVER_TINT = new Color(0.05, 0.1, 0.14);
 const TYPE_COLORS = { dynamic: '#4a8dff', static: '#6b7686', kinematic: '#ffb03a' };
 const HEAT: [number, number, number][] = [
   [0.1, 0.22, 0.85],
@@ -361,6 +368,8 @@ export class BodyViews {
     if (shapeDef(v.def.shape.type).surface) return null;
     const { color: _color, ...rest } = v.def.material;
     void _color;
+    // -- VZ-A: a procedural pattern bakes the material colour into its texture --
+    if (rest.texture && rest.texture.pattern !== 'image') (rest as Record<string, unknown>).color = _color;
     return `${this.cache.key(v.def.shape)}|${v.def.ghost ? 1 : 0}|${JSON.stringify(rest)}`;
   }
 
@@ -382,6 +391,7 @@ export class BodyViews {
       mat.emissive.setRGB(0, 0, 0);
       pool = new InstancePool(key, geo, mat, this.group);
       this.pools.set(key, pool);
+      this.lodLevels.set(key, leader.lod);
       this.poolGeo.set(key, geoKey);
       for (const m of set) this.attach(m, pool);
     } else if (pool) this.attach(v, pool);
@@ -641,7 +651,11 @@ export class BodyViews {
     for (const v of this.views.values()) {
       const d = v.def;
       const sel = selected.has(d.id);
-      if (v.pool) v.promoted = sel || d.id === this.hoverId || this.linkedIds.has(d.id);
+      if (v.pool) {
+        v.promoted = sel || d.id === this.hoverId || this.linkedIds.has(d.id);
+        // A promoted body draws through its own mesh: give it the level of detail its pool shows.
+        if (v.promoted && v.instKey) v.setLod(this.lodLevels.get(v.instKey) ?? 0);
+      }
       // Colour the whole body for the analytic modes; in 'material' mode each part keeps its own colour.
       let flat: string | null = null;
       const heat = this.tmpColor;
@@ -678,9 +692,9 @@ export class BodyViews {
       for (const piece of v.pieces) {
         if (useHeat) piece.material.color.copy(heat);
         else piece.material.color.set(flat ?? piece.baseColor);
-        piece.material.emissive.setRGB(0, 0, 0);
-        if (sel) piece.material.emissive.setRGB(0.02, 0.05, 0.09);
-        else if (d.id === this.hoverId) piece.material.emissive.setRGB(0.05, 0.1, 0.14);
+        piece.material.emissive.set(piece.baseEmissive);
+        if (sel) piece.material.emissive.add(SEL_TINT);
+        else if (d.id === this.hoverId) piece.material.emissive.add(HOVER_TINT);
       }
     }
   }
