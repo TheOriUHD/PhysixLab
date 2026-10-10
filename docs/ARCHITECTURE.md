@@ -52,6 +52,8 @@ in the page, in the worker and in the Node unit tests.
 | `src/model/content/` | **content registries** and the built-in templates, prefabs and maps; auto-collected (§5) |
 | `src/physics/` | the worker, the client, the protocol; `world/` is the simulation (§7), `components/` the component runtimes |
 | `src/render/` | three.js: viewport, body / soft / joint / light / path / group views, overlays, gizmo, picking |
+| `src/render/fx/` | the effects system (§8a): particle types, pooled simulation, instanced renderer, impact surfaces, ground-contact slip, skid marks, explosions |
+| `src/app/fx/` | the glue to the app: `FxDirector`, effects clock, per-body facts, contact queue, physical debris |
 | `src/app/` | orchestration: `App`, `SimController`, `Editor`, `InputController`, persistence, prefs, scene commands |
 | `src/app/registry/` | **the UI registries** (§6): commands, tools, panels, inspector sections, menus, help, keymap, shortcuts |
 | `src/app/builtin/` | the built-in commands and tools that need no DOM, registered through those registries |
@@ -271,6 +273,29 @@ verified against analytic results (`tests/components.test.ts`).
   with the store.
 * `Overlays` (velocity / force arrows, contact points, centres of mass, trails), `Gizmo` (three's `TransformControls` with a
   pivot object so many bodies move together, one is resized, or a joint anchor / axis is edited), `Picker`.
+
+### 8a. Effects (`render/fx/`, `app/fx/`)
+
+`app.fx` (class `Fx`) is one particle system every package shares: `fx.emit(type, position, options)`, `fx.explosion`,
+`fx.impact`, `fx.skid`. **Particle types** are registry entries (`registerParticleType`): sprite, lifetime, size /
+opacity / colour over life, speed cone, gravity multiplier, drag, wind, floor bounce — compiled into 32-entry look-up
+tables and a row of scalars. The **pool** (`particlePool.ts`) is a fixed structure-of-arrays simulation (swap-remove on
+death, a rotating cursor overwrites when full, soft cap = the quality tier's budget); it integrates the scene's gravity
+vector, drag, wind (a constant or a field), a lateral wobble, spin and the floor, and fills four instance arrays that
+`particleRenderer.ts` uploads as two instanced draw calls (alpha-blended, sorted back to front by a packed float64 key;
+additive). Sprites are generated from maths (`sprites.ts`, a 256 px atlas with a short mip chain; the two ring sprites
+are analytic in the shader). Each `emit` draws from a stream seeded by the scene seed and the call number, so the same
+seed gives the same particles and a culled call cannot shift another effect (`emitter.ts`). Time is *simulation* time
+(`app/fx/fxClock.ts`): paused = frozen, slow motion = slow particles, a single step advances by the step.
+
+`FxDirector` (`app/fx/`) is the only code that knows the app. It subscribes to the **contact feed** (`app/contactFeed.ts`:
+the worker's protocol-v2 contact events, switched on only while somebody holds the feed), keeps the frame's strongest
+`burstsPerFrame` (`ContactQueue`), and for each calls `surfaces.ts`: **impact energy** `½·J·v` → a 0…1 level, plus the
+material pair's profile (hardness, brittleness, dust, spark, chips) → a list of bursts (sparks, dust, chips, shards,
+scuffs, debris). Each frame it scans the simulation's bodies for **ground contact and slip** (`slip.ts`: lowest point of
+the shape, `v_c = v + ω × r`) and turns that into tyre smoke, dust trails, grinding sparks and **skid marks**
+(`trails.ts`, `skidBuffer.ts`: a ring buffer of strip segments, drawn by one mesh that fades them by age in the shader).
+Settings are `Prefs.fx` (validated on load); the Effects panel (`ui/fxPanel.ts`) is a registry of sections.
 
 ## 9. Orchestration (`app/`)
 

@@ -131,6 +131,7 @@ export class FxDirector {
 
   /** Reset or a new scene: no particles, marks, fragments or pending events survive. */
   clearAll(): void {
+    this.skidKeys.clear();
     this.fx.clear();
     this.debris.clear();
     this.clock.reset();

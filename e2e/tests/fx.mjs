@@ -30,6 +30,7 @@ test('fx: Effects panel — master switch, quality and intensity drive the syste
     'sections dimmed',
   );
   assert(await page.evaluate(() => window.physicslab.prefs.value.fx.enabled === false), 'stored in the preferences');
+  await page.waitForTimeout(350); // the switch animation
   await shot(page, 'fx-panel-off');
   await page.click('.fx-panel label.switch:has-text("Visual effects")');
 
@@ -115,10 +116,12 @@ test('fx: car braking skid — slipping wheels smoke and leave skid marks; Reset
   await page.waitForFunction(() => window.physicslab.fx.stats.skidSegments > 8, null, { timeout: 60000 });
   const during = await page.evaluate(() => ({
     smoke: window.physicslab.fx.emittedByType()['smoke.tyre'] ?? 0,
+    dust: window.physicslab.fx.emittedByType()['dust.trail'] ?? 0,
     segments: window.physicslab.fx.stats.skidSegments,
   }));
   assert(during.segments > 8, `skid marks laid (${during.segments})`);
   assert(during.smoke > 0, `tyre smoke emitted (${during.smoke})`);
+  assert(during.dust > 0, `a dust trail behind the fast car (${during.dust})`);
   await page.keyboard.up('KeyS');
   await page.evaluate(() => {
     const a = window.physicslab;
@@ -211,10 +214,10 @@ test('fx: determinism — the same scene seed gives the same effects, another se
     window.physicslab.loadDocument(doc);
   });
   const stepTo = async (steps) => {
-    for (let done = 0; done < steps; done += 4) {
+    for (let done = 0; done < steps; done += 10) {
       const f = await page.evaluate(() => {
         const a = window.physicslab;
-        a.sim.step(4);
+        a.sim.step(10);
         return a.sim.client.frameNo;
       });
       await page.waitForFunction((f) => window.physicslab.sim.client.frameNo > f, f, { timeout: 30000 });
@@ -222,7 +225,7 @@ test('fx: determinism — the same scene seed gives the same effects, another se
     }
   };
   const run = async () => {
-    await stepTo(140);
+    await stepTo(130);
     await page.waitForTimeout(150);
     return page.evaluate(() => ({
       digest: window.physicslab.fx.digest(),

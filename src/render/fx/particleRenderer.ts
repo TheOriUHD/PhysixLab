@@ -115,6 +115,21 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
+/** Run `fn` in an idle moment (or after half a second where there is no idle callback). Returns the cancel function. */
+function scheduleIdle(fn: () => void): () => void {
+  if (typeof window === 'undefined') return () => undefined; // no page (unit tests): generated when first needed
+  const w = globalThis as unknown as {
+    requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
+    cancelIdleCallback?: (id: number) => void;
+  };
+  if (typeof w.requestIdleCallback === 'function') {
+    const id = w.requestIdleCallback(fn, { timeout: 2000 });
+    return () => w.cancelIdleCallback?.(id);
+  }
+  const id = setTimeout(fn, 500);
+  return () => clearTimeout(id);
+}
+
 /** One pool's draw call. */
 class Batch {
   readonly mesh: Mesh;
@@ -178,7 +193,9 @@ class Batch {
 }
 
 export class ParticleRenderer {
-  private readonly texture: DataTexture;
+  private texture: DataTexture;
+  private atlasReady = false;
+  private atlasTimer: (() => void) | null = null;
   private readonly normalMat: ShaderMaterial;
   private readonly additiveMat: ShaderMaterial;
   private readonly normalBatch: Batch;
@@ -189,14 +206,12 @@ export class ParticleRenderer {
     private readonly additive: ParticlePool,
     private readonly normal: ParticlePool,
   ) {
-    const levels = generateAtlasLevels();
-    const tex = new DataTexture(levels[0].data, levels[0].width, levels[0].height, RGBAFormat, UnsignedByteType);
-    tex.mipmaps = levels.map((l) => ({ data: l.data, width: l.width, height: l.height }));
-    tex.minFilter = LinearMipmapLinearFilter;
-    tex.magFilter = LinearFilter;
-    tex.generateMipmaps = false;
+    // The atlas is generated from maths (about 40 ms): a 1×1 transparent placeholder is bound until it is ready —
+    // in an idle moment shortly after start-up, or at once when the first particle needs it.
+    const tex = new DataTexture(new Uint8Array(4), 1, 1, RGBAFormat, UnsignedByteType);
     tex.needsUpdate = true;
     this.texture = tex;
+    this.atlasTimer = scheduleIdle(() => this.ensureAtlas());
 
     const common = {
       vertexShader: VERT,
@@ -218,6 +233,28 @@ export class ParticleRenderer {
     this.additiveBatch = new Batch(parent, additive, this.additiveMat, 910, 'fx-particles-additive');
   }
 
+  /** Generate the sprite atlas now (idempotent). */
+  ensureAtlas(): void {
+    if (this.atlasReady) return;
+    this.atlasReady = true;
+    this.atlasTimer?.();
+    const levels = generateAtlasLevels();
+    const tex = new DataTexture(levels[0].data, levels[0].width, levels[0].height, RGBAFormat, UnsignedByteType);
+    tex.mipmaps = levels.map((l) => ({ data: l.data, width: l.width, height: l.height }));
+    tex.minFilter = LinearMipmapLinearFilter;
+    tex.magFilter = LinearFilter;
+    tex.generateMipmaps = false;
+    tex.needsUpdate = true;
+    this.normalMat.uniforms.uMap.value = tex;
+    this.additiveMat.uniforms.uMap.value = tex;
+    this.texture.dispose();
+    this.texture = tex;
+  }
+
+  get atlasIsReady(): boolean {
+    return this.atlasReady;
+  }
+
   setFloor(y: number): void {
     this.normalMat.uniforms.uFloorY.value = y;
     this.additiveMat.uniforms.uFloorY.value = y;
@@ -225,6 +262,7 @@ export class ParticleRenderer {
 
   /** Sort, evaluate the curves and upload both pools for a camera at (cx, cy, cz). */
   sync(cx: number, cy: number, cz: number): void {
+    if (!this.atlasReady && (this.normal.count > 0 || this.additive.count > 0)) this.ensureAtlas();
     this.normal.writeInstances(this.normal.count > 1 ? this.normal.sortBackToFront(cx, cy, cz) : null);
     this.additive.writeInstances(null);
     this.normalBatch.upload();
@@ -236,6 +274,7 @@ export class ParticleRenderer {
   }
 
   dispose(): void {
+    this.atlasTimer?.();
     this.normalBatch.dispose();
     this.additiveBatch.dispose();
     this.normalMat.dispose();

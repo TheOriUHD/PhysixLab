@@ -107,6 +107,22 @@ describe('Fx emit and update', () => {
   });
 });
 
+describe('sprite atlas', () => {
+  it('is generated when the first particle needs it, and only once', () => {
+    const { fx } = make();
+    expect(fx.renderer.atlasIsReady).toBe(false);
+    fx.update(0, CAM); // nothing to draw yet
+    expect(fx.renderer.atlasIsReady).toBe(false);
+    fx.emit('spark', [0, 1, 0], { count: 5 });
+    fx.update(1 / 60, CAM);
+    expect(fx.renderer.atlasIsReady).toBe(true);
+    const tex = (fx.renderer.meshes[0].material as ShaderMaterial).uniforms.uMap.value as { image: { width: number } };
+    expect(tex.image.width).toBe(256);
+    fx.renderer.ensureAtlas();
+    expect((fx.renderer.meshes[0].material as ShaderMaterial).uniforms.uMap.value).toBe(tex);
+  });
+});
+
 describe('quality tiers, intensity and switches', () => {
   it('the live particle count never exceeds the tier budget, however much is thrown at it', () => {
     for (const graphics of ['low', 'medium', 'high'] as const) {

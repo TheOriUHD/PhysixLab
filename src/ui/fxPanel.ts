@@ -83,6 +83,12 @@ const PREVIEWS: { kind: Parameters<App['fxDirector']['preview']>[0]; label: stri
   { kind: 'explosion', label: 'Explosion', title: 'A blast of radius 5 m' },
 ];
 
+/** Dim a block and take it out of the tab order and the accessibility tree while effects are off. */
+function setDisabled(block: Element | null, off: boolean): void {
+  block?.classList.toggle('fx-disabled-block', off);
+  block?.toggleAttribute('inert', off);
+}
+
 const fmtInt = (n: number): string => Math.round(n).toLocaleString('en-US');
 
 function masterSection(app: App) {
@@ -108,23 +114,16 @@ function masterSection(app: App) {
     { class: 'hint-text fx-off-note' },
     'Effects are off. Impacts, trails, skid marks and explosions are not drawn; the Blast tool shows its plain shock wave.',
   );
-  const el = section(
-    'Visual effects',
-    [
-      on.el,
-      off,
-      h(
-        'div',
-        { class: 'fx-dim-inner' },
-        row('Quality', quality.el, 'Auto follows the graphics quality of the View menu'),
-        tierHint,
-        row('Intensity', intensity.el, 'Scales particle counts and sizes'),
-      ),
-    ],
-    {
-      id: 'fx-master',
-    },
+  const inner = h(
+    'div',
+    { class: 'fx-dim-inner' },
+    row('Quality', quality.el, 'Auto follows the graphics quality of the View menu'),
+    tierHint,
+    row('Amount', intensity.el, 'Intensity of the effects: scales particle counts and sizes'),
   );
+  const el = section('Visual effects', [on.el, off, inner], {
+    id: 'fx-master',
+  });
   const update = () => {
     const s = app.prefs.value.fx;
     on.set(s.enabled);
@@ -133,6 +132,7 @@ function masterSection(app: App) {
     const tier = resolveTier(s.quality, app.prefs.value.quality);
     tierHint.textContent = `${s.quality === 'auto' ? `Auto → ${tier.label}` : tier.label}: ${tier.blurb}.`;
     el.classList.toggle('fx-disabled', !s.enabled);
+    setDisabled(inner, !s.enabled);
   };
   return { el, update };
 }
@@ -153,7 +153,7 @@ function kindsSection(app: App) {
     const s = app.prefs.value.fx;
     for (const { k, f } of fields) f.set(!!s[k.key]);
     el.classList.toggle('fx-disabled', !s.enabled);
-    // Physical debris needs the visual chips' source events, but works on its own; nothing else depends on another switch.
+    setDisabled(el.querySelector('.section-body'), !s.enabled);
   };
   return { el, update };
 }
@@ -197,7 +197,14 @@ function previewSection(app: App) {
     { id: 'fx-preview' },
   );
   el.classList.add('fx-dim');
-  return { el, update: () => el.classList.toggle('fx-disabled', !app.prefs.value.fx.enabled) };
+  return {
+    el,
+    update: () => {
+      const off = !app.prefs.value.fx.enabled;
+      el.classList.toggle('fx-disabled', off);
+      setDisabled(el.querySelector('.section-body'), off);
+    },
+  };
 }
 
 function statusSection(app: App) {
