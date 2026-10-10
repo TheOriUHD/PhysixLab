@@ -10,6 +10,8 @@ import { beginGrab, explode, impulse } from './forces';
 import { addJoint, updateJoint } from './joints';
 import { applySettings } from './settings';
 import { addSoft, beginSoftGrab, releaseSoftGrab, removeSoft } from './soft';
+import { releaseSoftAttachments } from './softAttach';
+import { cutSoft, tearSoftAt } from './softCut';
 import type { WorldState } from './state';
 
 export function applyOp(s: WorldState, op: SimOp): void {
@@ -65,6 +67,18 @@ export function applyOp(s: WorldState, op: SimOp): void {
       break;
     case 'grabSoft':
       beginSoftGrab(s, op.id, op.index, op.target);
+      break;
+    case 'cutSoft':
+      cutSoft(s, op.id, op.origin, op.a, op.b);
+      break;
+    case 'tearSoft':
+      tearSoftAt(s, op.id, op.point, op.radius);
+      break;
+    case 'releaseSoft':
+      releaseSoftAttachments(s, op.id, op.attachment);
+      break;
+    case 'softEconomy':
+      s.world.integrationParameters.softBodiesMaxExtraSubsteps = op.on ? 0 : 4;
       break;
     case 'wakeAll':
       for (const r of s.order) r.rb.wakeUp();

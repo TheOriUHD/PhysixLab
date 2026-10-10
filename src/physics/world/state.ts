@@ -10,7 +10,15 @@ import type RAPIER from '@dimforge/rapier3d-compat';
 import type { Quat, Vec3 } from '../../core/math';
 import { Rng } from '../../core/rng';
 import type { PathCurve } from '../../model/path';
-import type { BodyEntity, ColliderPart, JointEntity, PathEntity, SceneSettings, SoftEntity } from '../../model/types';
+import type {
+  BodyEntity,
+  ColliderPart,
+  JointEntity,
+  PathEntity,
+  SceneSettings,
+  SoftAttachment,
+  SoftEntity,
+} from '../../model/types';
 import type { ComponentHost } from '../components/host';
 import {
   DEFAULT_EVENT_CONFIG,
@@ -95,6 +103,26 @@ export interface SoftRec {
   id: string;
   def: SoftEntity;
   root: RAPIER.SoftBody;
+  // -- SF: attachment bookkeeping and runtime pressure --
+  /** World positions of the particles right after construction (null after a snapshot restore: current positions are used). */
+  rest: Float32Array | null;
+  /** Resolved attachments: which engine particles are fastened to which rigid body. */
+  attached: SoftAttached[];
+  /** Attachment ids already released (broken joint, removed body, tool) — never re-fastened until the body is rebuilt. */
+  released: Set<string>;
+  /** Current target volume factor (decays with `def.leakRate`). */
+  volumeFactor: number;
+  /** Cached rest lengths per engine soft body (handle:topologyVersion) for the elastic energy. */
+  restLen: Map<number, SoftEdgeCache>;
+}
+
+import type { SoftEdgeCache } from './energy';
+
+export interface SoftAttached {
+  att: SoftAttachment;
+  particles: number[];
+  /** Engine handle of the rigid body the particles were attached to (detects a rebuilt body). */
+  bodyHandle: number;
 }
 
 export interface JointRec {

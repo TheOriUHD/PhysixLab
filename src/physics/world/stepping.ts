@@ -10,7 +10,7 @@ import { collectEvents, stepPending } from './events';
 import { applySoftWalls, checkBounds } from './bounds'; // -- ZN-34
 import { applyGrab, applyThrusters } from './forces';
 import { driveMotor, measureJoint, measureSpring } from './joints';
-import { applySoftGrab } from './soft';
+import { applySoftGrab, softPrestep } from './soft';
 import type { WorldState } from './state';
 
 /** Bodies that fall below this height are switched off. */
@@ -35,6 +35,7 @@ function preStep(s: WorldState, dt: number): void {
   for (const j of s.jointOrder) if (j.def.motor.mode !== 'off' || j.cache[0] !== 0) driveMotor(s, j, dt);
   applyThrusters(s);
   applySoftGrab(s);
+  softPrestep(s, dt); // -- SF: attachments, pressure leak --
   applyGrab(s);
   applySoftWalls(s, dt); // -- ZN-34: the spring walls of the world bounds
   // Components run after the built-in forces, bodies first, then joints, each owner in array order.

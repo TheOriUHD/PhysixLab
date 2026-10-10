@@ -87,6 +87,15 @@ export type SimOp =
   | { op: 'addSoft'; soft: SoftEntity }
   | { op: 'updateSoft'; soft: SoftEntity }
   | { op: 'grabSoft'; id: string; index: number; target: Vec3 }
+  // -- SF: cutting, tearing and fastenings of soft bodies --
+  /** Cut a soft body with the triangle (viewer position, line end a, line end b) — SF-2. */
+  | { op: 'cutSoft'; id: string; origin: Vec3; a: Vec3; b: Vec3 }
+  /** Tear a hole of the given radius around a world point — SF-2 "tear on demand". */
+  | { op: 'tearSoft'; id: string; point: Vec3; radius: number }
+  /** Release one fastening (or all of them) of a soft body — SF-1. */
+  | { op: 'releaseSoft'; id: string; attachment?: string }
+  /** Soft-body economy mode: fewer impact substeps, cheaper and slightly less accurate (SF-9). */
+  | { op: 'softEconomy'; on: boolean }
   | { op: 'wakeAll' }
   // ── protocol v2 ──
   /** Re-seed the world's random number generator. */
@@ -333,7 +342,14 @@ export interface WorldSnapshot {
   settings: SceneSettings;
   bodies: BodySnapshot[];
   joints: JointSnapshot[];
-  softs: { def: SoftEntity; root: number }[];
+  softs: {
+    def: SoftEntity;
+    root: number;
+    // -- SF: runtime state the engine bytes cannot carry (older snapshots omit it) --
+    volumeFactor?: number;
+    released?: string[];
+    attached?: { id: string; particles: number[]; bodyHandle: number }[];
+  }[];
   paths: PathEntity[];
   /** Engine handle of the fixed body world-anchored joints attach to, and of the ground slab (if enabled). */
   worldBody: number;
