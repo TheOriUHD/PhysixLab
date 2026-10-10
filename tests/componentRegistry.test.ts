@@ -124,6 +124,48 @@ describe('registry', () => {
       /two default points/,
     );
     bad({ fields: [{ kind: 'key', key: 'k', label: 'K', default: 'Not A Key!' }] }, /key code/);
+    // defaults must already be what sanitising would keep
+    bad({ fields: [{ kind: 'number', key: 'n', label: 'N', default: 5, min: 6, max: 9 }] }, /outside its range/);
+    bad(
+      { fields: [{ kind: 'vec3', key: 'v', label: 'V', default: [0, 99, 0], min: -1, max: 1 }] },
+      /outside its range/,
+    );
+    bad(
+      {
+        fields: [
+          {
+            kind: 'curve',
+            key: 'c',
+            label: 'C',
+            default: [
+              [0, 0],
+              [0.5, 2],
+            ],
+            xRange: [0, 1],
+            yRange: [0, 1],
+          },
+        ],
+      },
+      /outside the ranges/,
+    );
+    bad(
+      {
+        fields: [
+          {
+            kind: 'curve',
+            key: 'c',
+            label: 'C',
+            default: [
+              [0.5, 0],
+              [0.5, 1],
+            ],
+            xRange: [0, 1],
+            yRange: [0, 1],
+          },
+        ],
+      },
+      /not increasing/,
+    );
   });
 });
 

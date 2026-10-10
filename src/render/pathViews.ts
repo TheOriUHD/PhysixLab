@@ -71,6 +71,8 @@ export class PathView {
   activePoint = -1;
   /** Total length of the curve in metres (for the inspector). */
   length = 0;
+  /** The definition the line, handles and arrows were last built from. */
+  private built: PathEntity | null = null;
 
   constructor(
     public def: PathEntity,
@@ -107,6 +109,14 @@ export class PathView {
     this.root.quaternion.set(...def.rotation);
     this.root.visible = !def.hidden;
     this.line.userData.entityId = def.id;
+    // Moving or recolouring a path leaves its points alone (entities are immutable, so the same array means the same
+    // curve): only an edit of the shape rebuilds the line, the handles and the arrows.
+    const prev = this.built;
+    this.built = def;
+    if (prev && prev.points === def.points && prev.closed === def.closed && prev.tension === def.tension) {
+      this.refreshState();
+      return;
+    }
     const curve = new PathCurve({ points: def.points, closed: def.closed, tension: def.tension });
     this.length = curve.length;
     // the curve

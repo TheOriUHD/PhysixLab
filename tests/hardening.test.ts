@@ -537,3 +537,33 @@ describe('group transforms', () => {
     expect(Math.hypot(swung.position[0] - 2, swung.position[1] - 5)).toBeGreaterThan(0.5);
   });
 });
+
+// ── snapshots with a kinematic mover ──────────────────────────────────────────────────────────────
+
+describe('snapshot / restore with a sine mover', () => {
+  it('a platform carrying a box replays bit-identically after a restore (the mover resumes on its curve)', async () => {
+    const platform = withComponents(
+      createBody({
+        shape: { type: 'box', size: [4, 0.4, 4] },
+        bodyType: 'kinematic',
+        position: [0, 1, 0],
+        material: { preset: 'rubber' },
+      }),
+      makeComponent('sineMover', { amplitude: 1.5, frequency: 0.4, phase: 30 }),
+    );
+    const rider = createBody({
+      shape: { type: 'box', size: [0.8, 0.8, 0.8] },
+      position: [0, 1.7, 0],
+      material: { preset: 'rubber' },
+    });
+    const w = await worldOf([platform, rider]);
+    run(w, 1.3);
+    const snap = w.snapshot();
+    const poseOf = () => [platform.id, rider.id].map((id) => w.getPose(id));
+    run(w, 1);
+    const first = poseOf();
+    w.restore(snap);
+    run(w, 1);
+    expect(poseOf()).toEqual(first);
+  });
+});

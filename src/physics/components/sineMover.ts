@@ -3,7 +3,7 @@
  * along a world axis from the body's authored position. The kinematic body is moved by velocity so that it is on the
  * curve at the end of every fixed step — contacts see the true velocity, hence friction carries riders.
  */
-import { vdot, vnorm, type Vec3 } from '../../core/math';
+import { vdist, vdot, vnorm, type Vec3 } from '../../core/math';
 import type { ComponentRuntime } from './registry';
 
 interface State {
@@ -23,7 +23,10 @@ export const sineMover: ComponentRuntime<State | null> = {
     // Start on the curve, so a non-zero phase (or a component added mid-run) does not launch riders.
     const ax = vnorm(ctx.vec3('axis'), [1, 0, 0]);
     const off = offsetAt(ctx.num('amplitude'), ctx.num('frequency'), ctx.num('phase'), ctx.time);
-    body.teleport([center[0] + ax[0] * off, center[1] + ax[1] * off, center[2] + ax[2] * off]);
+    const start: Vec3 = [center[0] + ax[0] * off, center[1] + ax[1] * off, center[2] + ax[2] * off];
+    // A body that is already on the curve stays exactly where it is: after a snapshot restore the mover resumes from
+    // the restored position, so the replay is bit-identical instead of being nudged by the rounding of a teleport.
+    if (vdist(body.position(), start) > 1e-4) body.teleport(start);
     return { center };
   },
   paramsChanged: () => undefined, // the curve is evaluated from the live parameters every step

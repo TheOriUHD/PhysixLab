@@ -114,8 +114,6 @@ export type FieldDef =
   | PathField
   | CurveField;
 
-export type FieldKind = FieldDef['kind'];
-
 /** A value the runtime publishes through `ctx.state` and the inspector shows live. */
 export interface StateLabel {
   label: string;
@@ -168,6 +166,9 @@ export function registerComponent(def: ComponentDef): void {
       case 'number':
         if (!Number.isFinite(f.default)) fail(`field "${f.key}" default is not a number`);
         if (f.min !== undefined && f.max !== undefined && f.min > f.max) fail(`field "${f.key}" min > max`);
+        // the default must survive its own sanitising, or a fresh component would differ from a reloaded one
+        if ((f.min !== undefined && f.default < f.min) || (f.max !== undefined && f.default > f.max))
+          fail(`field "${f.key}" default is outside its range`);
         break;
       case 'bool':
         if (typeof (f.default as unknown) !== 'boolean') fail(`field "${f.key}" default is not a boolean`);
@@ -178,10 +179,23 @@ export function registerComponent(def: ComponentDef): void {
         break;
       case 'vec3':
         if (!isFiniteVec(f.default, 3)) fail(`field "${f.key}" default is not a vec3`);
+        if (f.default.some((v) => v < (f.min ?? -Infinity) || v > (f.max ?? Infinity)))
+          fail(`field "${f.key}" default is outside its range`);
         break;
       case 'curve':
         if (f.default.length < 2) fail(`field "${f.key}" needs at least two default points`);
         if (f.xRange[0] >= f.xRange[1] || f.yRange[0] >= f.yRange[1]) fail(`field "${f.key}" has an empty range`);
+        if (
+          f.default.some(
+            ([x, y], i) =>
+              x < f.xRange[0] ||
+              x > f.xRange[1] ||
+              y < f.yRange[0] ||
+              y > f.yRange[1] ||
+              (i > 0 && x <= f.default[i - 1][0]),
+          )
+        )
+          fail(`field "${f.key}" default points are outside the ranges or not increasing in x`);
         break;
       case 'key':
         if (!KEY_PATTERN.test(f.default)) fail(`field "${f.key}" default is not a key code`);

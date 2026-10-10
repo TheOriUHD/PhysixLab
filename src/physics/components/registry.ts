@@ -47,15 +47,6 @@ export function registerRuntime<S>(rt: ComponentRuntime<S>): void {
   runtimes.set(rt.type, rt);
 }
 
-/** Remove a runtime (tests only). */
-export function unregisterRuntime(type: string): void {
-  runtimes.delete(type);
-}
-
 export function runtimeOf(type: string): ComponentRuntime | undefined {
   return runtimes.get(type);
-}
-
-export function listRuntimes(): ComponentRuntime[] {
-  return [...runtimes.values()];
 }

@@ -8,5 +8,5 @@ import { sineMover } from './sineMover';
 
 for (const rt of [constantForce, sineMover]) if (!runtimeOf(rt.type)) registerRuntime(rt);
 
-export { registerRuntime, unregisterRuntime, runtimeOf, listRuntimes, type ComponentRuntime } from './registry';
+export { registerRuntime, runtimeOf, type ComponentRuntime } from './registry';
 export type { BodyHandle, ComponentContext, ContactPoint, JointHandle } from './context';

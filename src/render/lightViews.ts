@@ -151,6 +151,8 @@ export class LightView {
   overBudget = false;
   /** Whether this light is currently allowed to cast shadows (budget). */
   shadowAllowed = true;
+  /** What the wire sketch was last built from (it is rebuilt only when this changes). */
+  private sketchKey = '';
 
   constructor(public def: LightEntity) {
     this.sprite = new Sprite(
@@ -242,10 +244,15 @@ export class LightView {
         l.height = def.size[1];
       }
     }
-    this.wire.geometry.dispose();
-    const g = new BufferGeometry();
-    g.setAttribute('position', new Float32BufferAttribute(sketch(def), 3));
-    this.wire.geometry = g;
+    // The sketch only depends on the shape of the light, not on where it is: dragging one rebuilds nothing.
+    const key = `${def.lightType}|${def.range}|${def.angle}|${def.size[0]}|${def.size[1]}`;
+    if (key !== this.sketchKey) {
+      this.sketchKey = key;
+      this.wire.geometry.dispose();
+      const g = new BufferGeometry();
+      g.setAttribute('position', new Float32BufferAttribute(sketch(def), 3));
+      this.wire.geometry = g;
+    }
     this.refreshState();
   }
 
