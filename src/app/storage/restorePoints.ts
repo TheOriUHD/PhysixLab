@@ -133,6 +133,7 @@ export class RestorePoints {
 
   async delete(id: string): Promise<void> {
     await this.storage.delete('snapshots', id);
+    this.lastHash = ''; // an identical point may be needed again
   }
 
   async clear(): Promise<void> {
@@ -166,7 +167,8 @@ export class RestorePoints {
         .filter((p) => !drop.has(p.id))
         .sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind) || a.at - b.at);
       for (const v of victims) {
-        if (total <= this.settings.maxBytes || v.id === all[0]?.id) break;
+        if (total <= this.settings.maxBytes) break;
+        if (v.id === all[0]?.id) continue; // the newest point always stays
         drop.add(v.id);
         total -= v.bytes;
       }
@@ -187,7 +189,9 @@ export class RestorePoints {
           const doc = getDoc(); // before the thumbnail wait: the scene may change meanwhile
           const t = await thumb?.().catch(() => undefined);
           await this.create(doc, 'Automatic snapshot', 'auto', t);
-        })();
+        })().catch(() => {
+          this.lastAutoRevision = -1; // storage failed: try again at the next tick
+        });
       },
       Math.max(0.1, this.settings.autoMinutes) * 60_000,
     );

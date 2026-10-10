@@ -82,6 +82,11 @@ export function tooLargeError(r: ShareResult): SceneFormatError {
 export async function parseShareHash(hash: string, report?: LoadReport): Promise<SceneDocument | null> {
   const m = /(?:^|[#&])(s|scene)=([A-Za-z0-9_-]+)/.exec(hash);
   if (!m) return null;
+  if (m[2].length > LIMITS.maxShareLinkChars * 2)
+    throw new SceneFormatError(
+      'limit',
+      'This share link is far too long to be a PhysicsLab scene, so it was not opened.',
+    );
   const damaged = new SceneFormatError(
     'invalid-json',
     'This share link is damaged or incomplete, so its scene could not be opened.',

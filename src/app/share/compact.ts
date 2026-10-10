@@ -163,6 +163,7 @@ export async function decodeCompact(data: Uint8Array): Promise<unknown> {
   if (data[0] !== COMPACT_VERSION) throw new Error('not a compact share payload');
   const v = decodeBinary(await inflate(data.subarray(1)));
   if (!isObj(v) || !Array.isArray(v.e) || !isObj(v.s)) throw new Error('not a scene');
+  if (v.e.length > 100_000) throw new Error('too many entities');
   const entityCount = v.e.length;
   const refName = (n: number): string => (n < entityCount ? `e${n}` : `c${n - entityCount}`);
   const unref = (x: Json): Json => {
@@ -229,14 +230,41 @@ export function expectedAfterRoundTrip(doc: SceneDocument): unknown {
   return rename(q);
 }
 
-async function pipe(data: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {
+/** Most bytes a share link may inflate to; a hostile link can claim a 1000:1 ratio, so reading stops here. */
+export const MAX_INFLATED_BYTES = 32 * 1024 * 1024;
+
+async function pipe(
+  data: Uint8Array,
+  stream: CompressionStream | DecompressionStream,
+  maxOut = Infinity,
+): Promise<Uint8Array> {
   const out = new Blob([data as BlobPart])
     .stream()
     .pipeThrough(stream as unknown as ReadableWritablePair<Uint8Array, Uint8Array>);
-  return new Uint8Array(await new Response(out).arrayBuffer());
+  const reader = out.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > maxOut) {
+      await reader.cancel();
+      throw new Error('decompressed data is too large');
+    }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(total);
+  let at = 0;
+  for (const c of chunks) {
+    all.set(c, at);
+    at += c.length;
+  }
+  return all;
 }
 export const deflate = (d: Uint8Array): Promise<Uint8Array> => pipe(d, new CompressionStream('deflate-raw'));
-export const inflate = (d: Uint8Array): Promise<Uint8Array> => pipe(d, new DecompressionStream('deflate-raw'));
+export const inflate = (d: Uint8Array): Promise<Uint8Array> =>
+  pipe(d, new DecompressionStream('deflate-raw'), MAX_INFLATED_BYTES);
 
 export function toBase64Url(b: Uint8Array): string {
   let s = '';

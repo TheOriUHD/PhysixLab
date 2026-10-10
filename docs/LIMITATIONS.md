@@ -289,3 +289,11 @@ The Rapier WebAssembly binary alone is about 1.15 MB gzip (served as a separate 
 * **Cinematic recording** writes the viewport canvas as WebM through `MediaRecorder` in real time (so frame pacing follows the machine, not the shot's duration); the recorder registry (`registerShotRecorder`) is the hook for a deterministic frame-by-frame exporter. The view cube is hidden while recording. Shots follow a path's spline in world space; a path that is moved while a shot plays moves the shot.
 * **Gamepads** are read through the browser's Gamepad API: browsers hide the pad until a button is pressed once, only the first connected pad is used, and non-"standard" devices fall back to axes 0–3 for the sticks and 4/5 (or buttons 6/7) for the triggers. Automated tests use a stubbed `getGamepads`, not hardware.
 * **Axis-driven vehicles.** The bundled scenes with analog axes are the car, the powered wheel and the pistons; the plane, tank and crane profiles map a pad onto their axis names (`pitch`/`roll`/`yaw`/`throttle`, `left`/`right`, `slew`/`trolley`/`lift`/`hoist`), and any motor or thruster whose axis name matches is driven, but there is no bundled plane, tank or crane scene yet.
+
+## Data platform: known review items not fixed (DT-A)
+
+* Restore points load all snapshots (including thumbnails) when listing or pruning; with many large scenes this is memory-heavy. A separate lightweight index collection is the fix.
+* The autosave is an asynchronous IndexedDB write; on a hard tab close the last edits within the ~1 s debounce can be lost (a `pagehide` flush is attempted, but browsers may not finish it). The old synchronous localStorage write had no such window.
+* The crash-detection heartbeat is not restarted after a bfcache restore or a cancelled `beforeunload`.
+* GIF capture keeps all frames in memory (limits: 600 frames, 960 px).
+* The full editor can be framed by other sites; set `frame-ancestors` / `X-Frame-Options` at the host if that matters.

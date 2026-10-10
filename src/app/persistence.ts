@@ -41,6 +41,7 @@ export class Persistence {
     store.on('change', () => this.schedule());
     store.on('meta', () => this.schedule());
     window.addEventListener('beforeunload', () => this.saveNow());
+    window.addEventListener('pagehide', () => this.saveNow()); // -- DT-10: also fires on mobile / bfcache
   }
 
   /** Opens the storage layer (migrating old localStorage data) and loads the autosave and the library. Call once, before `loadAutosave()`. */
@@ -76,10 +77,16 @@ export class Persistence {
   saveNow(): void {
     if (this.store.revision === this.lastSaved) return;
     const json = serializeDocument(this.store.toDocument());
+    const revision = this.store.revision;
     this.autosave = json;
-    this.lastSaved = this.store.revision;
+    this.lastSaved = revision;
     this.write(async (s) => {
-      await s.put('meta', 'autosave', json);
+      try {
+        await s.put('meta', 'autosave', json);
+      } catch (e) {
+        this.lastSaved = -1; // not saved: the next change (or the next beforeunload) tries again
+        throw e;
+      }
       this.onSaved?.();
       for (const fn of this.saveListeners) fn();
     }, 'Autosave failed — browser storage is full. Free space in Settings → Storage or export the scene to keep it.');

@@ -23,6 +23,8 @@ export async function migrateLocalStorage(
 ): Promise<MigrationReport> {
   const none: MigrationReport = { ran: false, autosave: false, scenes: 0 };
   if (!ls) return none;
+  // The only copy must never be removed from localStorage when the new home is volatile.
+  if (backend.kind === 'memory') return none;
   if (await backend.get('meta', 'migrated-localstorage')) return none;
   const report: MigrationReport = { ran: true, autosave: false, scenes: 0 };
   let autosave: string | null;
