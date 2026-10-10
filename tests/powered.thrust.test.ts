@@ -430,7 +430,8 @@ describe('rotor', () => {
     const a = heli({ reaction: true, collective: 0.5 });
     const w = await worldOf([a.body], NO_G);
     run(w, 0.2);
-    const q = 0.001 * (RHO * Math.PI * R * R * (((360 * 2 * Math.PI) / 60) * R) ** 2) * R; // C_Q·q·R
+    const split = 0.3 + 0.7 * 0.5; // the drag is 30 % profile (always there) + 70 % induced (grows with the collective)
+    const q = split * 0.001 * (RHO * Math.PI * R * R * (((360 * 2 * Math.PI) / 60) * R) ** 2) * R; // C_Q·q·R·split
     expect(w.getPose(a.body.id)!.angvel[1]).toBeCloseTo(-(q / (20 / 6)) * 0.2, 1);
     // driven by an engine through a shaft: the speed settles where engine torque equals the drag
     const eng = comp('engine', {
@@ -459,7 +460,7 @@ describe('rotor', () => {
     const body = withComponents(cube(1000), eng, r);
     const w2 = await worldOf([body], NO_G);
     run(w2, 20);
-    const omega = Math.sqrt(30 / (0.001 * RHO * Math.PI * R ** 5));
+    const omega = Math.sqrt(30 / (split * 0.001 * RHO * Math.PI * R ** 5));
     expect(stateOf(w2, r.id)[0]).toBeCloseTo((omega * 60) / (2 * Math.PI), -1);
   });
 });

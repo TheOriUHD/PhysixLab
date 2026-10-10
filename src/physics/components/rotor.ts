@@ -3,7 +3,7 @@
  *
  * With Ω the rotor speed, R the radius, ρ the air density and q = ρ·π·R²·(Ω·R)²:
  *
- *     lift  T = C_T · collective · q                 drag torque  Q = C_Q · q · R
+ *     lift  T = C_T · collective · q                 drag torque  Q = C_Q · q · R · (0.3 + 0.7·|collective|)
  *
  * Cyclic pitch tilts the rotor disc by up to `maxTilt`: the thrust vector leans toward the nose (pitch) or the right
  * (roll). The force acts at the hub, so with the hub above the centre of mass the lean also turns the body; a stiff
@@ -26,6 +26,9 @@ interface State extends SpinState {
   torque: number;
   pitch: number;
   roll: number;
+  /** Disc tilt including the trim, degrees (for the gauges). */
+  tiltPitch: number;
+  tiltRoll: number;
 }
 
 export const rotor: ComponentRuntime<State> = {
@@ -38,6 +41,8 @@ export const rotor: ComponentRuntime<State> = {
     torque: 0,
     pitch: 0,
     roll: 0,
+    tiltPitch: 0,
+    tiltRoll: 0,
   }),
   paramsChanged: (_s, ctx) => ctx.drive.releaseAll(),
   prestep(s, dt, ctx) {
@@ -64,9 +69,12 @@ export const rotor: ComponentRuntime<State> = {
     const tip = Math.abs(w) * radius;
     const q = ctx.num('density') * Math.PI * radius * radius * tip * tip;
     s.lift = ctx.num('thrustCoeff') * s.collective * q;
-    s.torque = ctx.num('torqueCoeff') * q * radius;
+    // drag torque: a profile part (30 %) that is always there and an induced part (70 %) that grows with the lift
+    const drag = 0.3 + 0.7 * Math.abs(s.collective);
+    s.torque = ctx.num('torqueCoeff') * q * radius * drag;
     // Q = k·Ω²: the same load, as a coefficient on the shaft that turns the rotor
-    if (spin.shaft) loadShaft(ctx, spin.shaft, ctx.num('torqueCoeff') * ctx.num('density') * Math.PI * radius ** 5);
+    if (spin.shaft)
+      loadShaft(ctx, spin.shaft, ctx.num('torqueCoeff') * ctx.num('density') * Math.PI * radius ** 5 * drag);
     // ---- forces ----
     let body: BodyHandle | null;
     let axisDir: Vec3;
@@ -91,8 +99,12 @@ export const rotor: ComponentRuntime<State> = {
     const nose = nozzleOf(ctx, body, 'forward', 'position').dir;
     const fwd = vnorm(vcross(vcross(axisDir, nose), axisDir), [0, 0, 1]);
     const right = vnorm(vcross(fwd, axisDir), [1, 0, 0]);
-    const tilt = ctx.num('maxTilt') * DEG;
-    const lean: Vec3 = vadd(vscale(fwd, Math.tan(s.pitch * tilt)), vscale(right, Math.tan(s.roll * tilt)));
+    // disc tilt: the cyclic (keys, axes) scaled to the maximum tilt, plus the fixed trim
+    const tp = (s.pitch * ctx.num('maxTilt') + ctx.num('trimPitch')) * DEG;
+    const tr = (s.roll * ctx.num('maxTilt') + ctx.num('trimRoll')) * DEG;
+    s.tiltPitch = tp / DEG;
+    s.tiltRoll = tr / DEG;
+    const lean: Vec3 = vadd(vscale(fwd, Math.tan(tp)), vscale(right, Math.tan(tr)));
     body.applyForce(vscale(vnorm(vadd(axisDir, lean), axisDir), s.lift), hub);
     const head = ctx.num('hubMoment') * s.lift * radius;
     if (head !== 0) body.applyTorque(vscale(vcross(axisDir, lean), head));
@@ -105,8 +117,7 @@ export const rotor: ComponentRuntime<State> = {
         : ctx.str('shaft')
           ? ctx.drive.shaft(ctx.str('shaft')).omega
           : s.w;
-    const tilt = ctx.num('maxTilt');
-    ctx.state.set([toRpm(w), s.lift, s.collective * 100, s.pitch * tilt, s.roll * tilt, s.torque]);
+    ctx.state.set([toRpm(w), s.lift, s.collective * 100, s.tiltPitch, s.tiltRoll, s.torque]);
   },
   saveState: (s) => ({ w: s.w, collective: s.collective, seen: s.seen }),
   loadState(s, data) {

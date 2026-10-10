@@ -193,3 +193,140 @@ describe('hydraulic crane', () => {
 });
 
 void newDocument;
+
+describe('rocket launch', () => {
+  it('holds F and the rocket follows the rocket equation: v = v_e·ln(m₀/m) − g·t, losing the fuel mass as it goes', async () => {
+    const doc = scene('rocket-launch');
+    const rocket = named<BodyEntity>(doc, 'Rocket');
+    const w = await PhysicsWorld.create(doc);
+    run(w, 1);
+    expect(Math.abs(w.getPose(rocket.id)!.linvel[1])).toBeLessThan(0.01); // sits on its pad until fired
+    w.setKeys(['KeyF']);
+    run(w, 6);
+    const [thrust, throttle, fuel, mass, ve] = gauge(w, compOf(rocket, 'thruster').id);
+    expect(thrust).toBeCloseTo(900, 0);
+    expect(throttle).toBeCloseTo(100, 0);
+    expect(ve).toBeCloseTo(432, 3);
+    expect(Math.abs(fuel - (25 - (25 / 12) * 6))).toBeLessThan(0.5); // 12.5 kg left after 6 s (the thrust spools up over 0.15 s)
+    expect(Math.abs(mass - (12 + 12.5))).toBeLessThan(0.5);
+    // m₀ = 38.5 kg including the nose cone (a separate body, joined to the rocket); m is what the sim reports
+    const total = mass + 1.5;
+    const expected = 432 * Math.log(38.5 / total) - 9.81 * 6;
+    expect(Math.abs(w.getPose(rocket.id)!.linvel[1] - expected)).toBeLessThan(1); // ≈ 110 m/s, to within 1 %
+    run(w, 7);
+    const burnout = w.getPose(rocket.id)!.linvel[1];
+    expect(gauge(w, compOf(rocket, 'thruster').id)[0]).toBe(0);
+    expect(gauge(w, compOf(rocket, 'thruster').id)[2]).toBeCloseTo(0, 6); // out of fuel
+    expect(gauge(w, compOf(rocket, 'thruster').id)[3]).toBeCloseTo(12, 2); // only the dry mass is left
+    // after burnout the climb is v_e·ln(38.5/13.5) − g·(time), the burn having ended a spool-up (0.15 s) late
+    const flightTime = 13;
+    expect(Math.abs(burnout - (432 * Math.log(38.5 / 13.5) - 9.81 * flightTime))).toBeLessThan(2);
+  });
+
+  it('the throttle axis scales the thrust', async () => {
+    const doc = scene('rocket-launch');
+    const rocket = named<BodyEntity>(doc, 'Rocket');
+    const w = await PhysicsWorld.create(doc);
+    w.setAxes({ throttle: 0.5 });
+    run(w, 2);
+    expect(gauge(w, compOf(rocket, 'thruster').id)[0]).toBeCloseTo(450, 0);
+  });
+});
+
+describe('jet car', () => {
+  it('W spools the engine up and drives the cart; the afterburner adds thrust; thrust fades with speed', async () => {
+    const doc = scene('jet-car');
+    const car = named<BodyEntity>(doc, 'Jet car chassis');
+    const w = await PhysicsWorld.create(doc);
+    const jet = compOf(car, 'jet');
+    w.setKeys(['KeyW']);
+    run(w, 0.5);
+    const early = gauge(w, jet.id);
+    expect(early[1]).toBeLessThan(50); // still spooling up
+    run(w, 3);
+    const dry = gauge(w, jet.id);
+    expect(dry[1]).toBeGreaterThan(90);
+    expect(dry[0]).toBeGreaterThan(1500);
+    const v1 = w.getPose(car.id)!.linvel[0];
+    expect(v1).toBeGreaterThan(5);
+    w.setKeys(['KeyW', 'ShiftLeft']);
+    run(w, 1);
+    const burner = gauge(w, jet.id);
+    expect(burner[2]).toBe(1);
+    expect(burner[0]).toBeGreaterThan(dry[0] * 1.3);
+    w.setKeys(['KeyS']);
+    run(w, 8);
+    expect(Math.abs(w.getPose(car.id)!.linvel[0])).toBeLessThan(0.5); // the brakes stop it again
+  });
+});
+
+describe('propeller cart', () => {
+  it('the engine and the propeller settle where engine torque = C_Q·ρ·n²·D⁵, and the thrust pushes the cart', async () => {
+    const doc = scene('propeller-cart');
+    const car = named<BodyEntity>(doc, 'Propeller cart chassis');
+    const w = await PhysicsWorld.create(doc);
+    w.setKeys(['KeyW']);
+    run(w, 4);
+    const [rpm, thrust, torque] = gauge(w, compOf(car, 'propeller').id);
+    expect(rpm).toBeGreaterThan(2000);
+    expect(thrust).toBeGreaterThan(300);
+    // at the equilibrium the load torque equals what the engine delivers
+    const engine = gauge(w, compOf(car, 'engine').id);
+    expect(torque).toBeCloseTo(engine[1], -1);
+    expect(w.getPose(car.id)!.linvel[0]).toBeGreaterThan(3);
+  });
+});
+
+describe('helicopter', () => {
+  const tilt = (w: PhysicsWorld, id: string) => {
+    const q = w.getPose(id)!.rotation;
+    return (Math.acos(Math.max(-1, Math.min(1, 1 - 2 * (q[0] * q[0] + q[2] * q[2])))) * 180) / Math.PI;
+  };
+
+  it('spools up, sits on its skids at zero collective, lifts off when the collective is raised and comes down again', async () => {
+    const doc = scene('helicopter');
+    const heli = named<BodyEntity>(doc, 'Helicopter');
+    const w = await PhysicsWorld.create(doc);
+    const main = heli.components.filter((c) => c.type === 'rotor')[0];
+    run(w, 5);
+    expect(Math.abs(w.getPose(heli.id)!.position[1] - 0.55)).toBeLessThan(0.05); // collective 0: sits on its skids
+    expect(gauge(w, main.id)[0]).toBeGreaterThan(330); // rpm: spooled up
+    press(w, ['KeyR'], 2.5); // collective 0 → 0.75 at 0.3 / s
+    run(w, 1.5);
+    const up = w.getPose(heli.id)!;
+    expect(up.position[1]).toBeGreaterThan(1.5);
+    expect(up.linvel[1]).toBeGreaterThan(0.5);
+    expect(tilt(w, heli.id)).toBeLessThan(15); // it climbs level, not on its side
+    expect(Math.abs(up.angvel[1])).toBeLessThan(1.5); // the tail rotor answers most of the main rotor's torque
+    press(w, ['KeyF'], 4);
+    run(w, 6);
+    expect(w.getPose(heli.id)!.linvel[1]).toBeLessThan(up.linvel[1]); // lowering the collective slows the climb
+  });
+
+  it('without its tail rotor the fuselage spins the other way (torque reaction)', async () => {
+    const doc = scene('helicopter');
+    const heli = named<BodyEntity>(doc, 'Helicopter');
+    doc.entities = doc.entities.map((e) =>
+      e.id === heli.id && e.kind === 'body'
+        ? { ...e, components: e.components.filter((c, i) => i === 0 || c.type !== 'rotor') }
+        : e,
+    );
+    const w = await PhysicsWorld.create(doc);
+    run(w, 4);
+    press(w, ['KeyR'], 2.5);
+    run(w, 1);
+    expect(w.getPose(heli.id)!.angvel[1]).toBeLessThan(-1.5); // spinning the opposite way, fast
+  });
+
+  it('cyclic tilts the disc: the arrow keys lean the thrust and the heli drifts that way', async () => {
+    const doc = scene('helicopter');
+    const heli = named<BodyEntity>(doc, 'Helicopter');
+    const w = await PhysicsWorld.create(doc);
+    run(w, 5);
+    press(w, ['KeyR'], 2.5);
+    const x0 = w.getPose(heli.id)!.position[0];
+    press(w, ['ArrowUp'], 1.5); // pitch forward: the nose is +x
+    run(w, 0.5);
+    expect(w.getPose(heli.id)!.position[0]).toBeGreaterThan(x0 + 0.3);
+  });
+});

@@ -51,7 +51,7 @@ export const rotor: ComponentDef = {
       min: 0,
       max: 0.5,
       step: 0.0001,
-      hint: 'C_Q: drag torque = C_Q · ρ · π R² · (Ω R)² · R',
+      hint: 'C_Q: drag torque at full collective = C_Q · ρ · π R² · (Ω R)² · R; about a third of it with no lift',
     },
     {
       kind: 'number',
