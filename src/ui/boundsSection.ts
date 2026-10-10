@@ -25,10 +25,13 @@ const FACES: { key: FaceKey; label: string; hint: string }[] = [
 
 const EDGE_LABELS: Record<BoundsEdge, string> = {
   open: 'Open',
-  kill: 'Kill',
+  kill: 'Kill wall',
   soft: 'Soft wall',
   water: 'Water (drowns)',
 };
+
+/** What the kill option is called on each side: the floor is the void (a kill plane), the others are kill walls. */
+const killLabel = (key: FaceKey): string => (key === 'ny' ? 'Void (kill plane)' : EDGE_LABELS.kill);
 
 export interface BoundsSection {
   el: HTMLElement;
@@ -109,12 +112,16 @@ export function buildBoundsSection(app: App): BoundsSection {
   const faceRows = FACES.map((f) => {
     const options: { value: BoundsEdge; label: string }[] = (['open', 'kill', 'soft'] as const).map((v) => ({
       value: v,
-      label: EDGE_LABELS[v],
+      label: v === 'kill' ? killLabel(f.key) : EDGE_LABELS[v],
     }));
     if (f.key === 'ny') options.push({ value: 'water', label: EDGE_LABELS.water });
     const sel = selectField<BoundsEdge>({
       options,
-      onChange: (v) => write({ edges: { ...cur().edges, [f.key]: v } }, `World bounds: ${f.label} ${EDGE_LABELS[v]}`),
+      onChange: (v) =>
+        write(
+          { edges: { ...cur().edges, [f.key]: v } },
+          `World bounds: ${f.label} ${v === 'kill' ? killLabel(f.key) : EDGE_LABELS[v]}`,
+        ),
     });
     upd.push(() => {
       const v = cur().edges[f.key];
@@ -249,7 +256,7 @@ export function buildBoundsSection(app: App): BoundsSection {
     h(
       'p',
       { class: 'hint-text' },
-      'Checked for dynamic bodies, by their centre. Kill sides lose a body that crosses them; a soft wall pushes it back like a spring and never loses it; “water” is a kill side at the floor that reports the body as drowned (floating water volumes are separate). The box is drawn in the editor while bounds are on. Bodies are always switched off 400 m below the origin.',
+      'Checked for dynamic bodies, by their centre. Kill walls lose a body that crosses them (the floor as a kill plane is the void); a soft wall pushes it back like a spring and never loses it; “water” is a kill plane at the floor that reports the body as drowned (floating water volumes are separate). The box is drawn in the editor while bounds are on. Bodies are always switched off 400 m below the origin.',
     ),
   ];
   const el = section('World bounds', body, { id: 'world-bounds', open: false });

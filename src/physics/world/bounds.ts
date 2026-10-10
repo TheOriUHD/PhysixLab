@@ -17,7 +17,7 @@
  * Disabled bounds cost nothing: both hooks return at once.
  */
 import type { Vec3 } from '../../core/math';
-import type { BoundsEdge, BoundsSettings } from '../../model/types';
+import type { BoundsSettings } from '../../model/types';
 import { BOUNDS_EVENT_TYPE } from '../../model/zones';
 import type { WorldState } from './state';
 
@@ -31,7 +31,20 @@ const FACES: readonly { key: keyof BoundsSettings['edges']; axis: 0 | 1 | 2; sig
   { key: 'pz', axis: 2, sign: 1 },
 ];
 
-const faceEdges = (b: BoundsSettings, edge: BoundsEdge) => FACES.filter((f) => b.edges[f.key] === edge);
+type Face = (typeof FACES)[number];
+/** The faces of each kind for one settings object (settings objects are immutable: an edit makes a new one). */
+const faceCache = new WeakMap<BoundsSettings, { soft: Face[]; killing: Face[] }>();
+function facesOf(b: BoundsSettings): { soft: Face[]; killing: Face[] } {
+  let c = faceCache.get(b);
+  if (!c) {
+    c = {
+      soft: FACES.filter((f) => b.edges[f.key] === 'soft'),
+      killing: FACES.filter((f) => b.edges[f.key] === 'kill' || b.edges[f.key] === 'water'),
+    };
+    faceCache.set(b, c);
+  }
+  return c;
+}
 
 /** Distance from the point to the face, positive inside the box (negative once the point is past the face). */
 const depthInside = (b: BoundsSettings, axis: 0 | 1 | 2, sign: 1 | -1, p: number): number =>
@@ -41,7 +54,7 @@ const depthInside = (b: BoundsSettings, axis: 0 | 1 | 2, sign: 1 | -1, p: number
 export function applySoftWalls(s: WorldState, dt: number): void {
   const b = s.settings.bounds;
   if (!b.enabled) return;
-  const soft = faceEdges(b, 'soft');
+  const { soft } = facesOf(b);
   if (!soft.length) return;
   const { margin, stiffness, damping } = b.soft;
   for (const r of s.order) {
@@ -69,7 +82,7 @@ export function applySoftWalls(s: WorldState, dt: number): void {
 export function checkBounds(s: WorldState): void {
   const b = s.settings.bounds;
   if (!b.enabled) return;
-  const killing = FACES.filter((f) => b.edges[f.key] === 'kill' || b.edges[f.key] === 'water');
+  const { killing } = facesOf(b);
   if (!killing.length) return;
   const zones = s.host.zones;
   for (const r of s.order) {

@@ -127,8 +127,10 @@ export const zone: ComponentRuntime<ZoneState> = {
     const inside = st.rec.inside;
     if (inside.size) {
       // A body switched off (killed, held out of the world) while inside is gone as far as the zone is concerned.
-      for (const id of [...inside.keys()]) {
-        if (!ctx.zones.isActive(id)) {
+      let gone: string[] | null = null;
+      for (const id of inside.keys()) if (!ctx.zones.isActive(id)) (gone ??= []).push(id);
+      if (gone) {
+        for (const id of gone) {
           st.overlaps.delete(id);
           leave(st, ctx, id);
         }

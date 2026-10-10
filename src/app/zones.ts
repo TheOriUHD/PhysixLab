@@ -105,6 +105,11 @@ export class ZoneBridge extends Emitter<BridgeEvents> {
     return (client.jsonOf(ZONES_STATE_ID) as ZonesPublic | undefined) ?? null;
   }
 
+  /** The sounds zones asked the page to play since it loaded (muted ones included), for tests and scripts. */
+  get sounds(): readonly { sound: string; volume: number; pitch: number }[] {
+    return zoneSound.requested;
+  }
+
   /** Simulation seconds as of the last frame. */
   get now(): number {
     return this.app.sim.client.stats?.simTime ?? 0;

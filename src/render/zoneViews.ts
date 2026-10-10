@@ -36,7 +36,7 @@ import type { BodyView } from './bodyViews';
 /** Added to the distance of a ray hit on a zone volume, so any solid hit is nearer. */
 const PICK_PENALTY = 1e4;
 /** Labels are shown for zones this close to the camera (metres). */
-const LABEL_RANGE = 70;
+const LABEL_RANGE = 120;
 
 interface ZoneLook {
   action: string;
@@ -156,6 +156,13 @@ export class ZoneViews {
   private update(): void {
     const { app } = this;
     if (this.dirty) this.scan();
+    if (!this.looks.size) {
+      // no zones: nothing to draw, and the labels of the last ones must go
+      for (const key of this.labelKeys) app.labels.remove(key);
+      this.labelKeys.clear();
+      this.bounds.visible = app.store.settings.bounds.enabled;
+      return;
+    }
     const running = app.sim.active;
     const selected = new Set(app.store.selection);
     const wanted = new Set<string>();
@@ -297,7 +304,7 @@ class BoundsView {
       const mat = new MeshBasicMaterial({
         color: EDGE_COLORS[edge],
         transparent: true,
-        opacity: edge === 'water' ? 0.16 : 0.07,
+        opacity: edge === 'water' ? 0.1 : 0.022,
         side: DoubleSide,
         depthWrite: false,
       });

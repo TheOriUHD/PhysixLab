@@ -10,20 +10,7 @@
  * Actions are queued by the sensor event and run at the end of the same fixed step (`poststep`), never from inside
  * the engine's event drain.
  */
-import {
-  qconj,
-  qmul,
-  qnorm,
-  qrot,
-  vadd,
-  vdist,
-  vlen,
-  vnorm,
-  vscale,
-  vsub,
-  type Quat,
-  type Vec3,
-} from '../../core/math';
+import { qconj, qmul, qnorm, qrot, vadd, vlen, vscale, vsub, type Quat, type Vec3 } from '../../core/math';
 import { bodyBoundingRadius } from '../../model/compound';
 import type { BodyEntity } from '../../model/types';
 import type { ComponentContext } from '../components/context';
@@ -435,7 +422,10 @@ export function timerSpawn(st: ZoneState, ctx: ComponentContext, dt: number): vo
 
 // ── continuous actions ─────────────────────────────────────────────────────────────────────────────────
 
-/** Gravity override and force field: acts on every body inside, every step. */
+const F: Vec3 = [0, 0, 0];
+const P: Vec3 = [0, 0, 0];
+
+/** Gravity override and force field: acts on every body inside, every step (no allocation per body). */
 export function applyField(st: ZoneState, ctx: ComponentContext): void {
   const action = ctx.str('action');
   if (action !== 'gravity' && action !== 'force') return;
@@ -454,8 +444,10 @@ export function applyField(st: ZoneState, ctx: ComponentContext): void {
       // The engine already applies gravityScale·g; add what is missing to reach the zone's gravity.
       const k = b.def.gravityScale;
       const m = b.mass;
-      const f: Vec3 = [m * (g[0] - world[0] * k), m * (g[1] - world[1] * k), m * (g[2] - world[2] * k)];
-      if (f[0] !== 0 || f[1] !== 0 || f[2] !== 0) b.applyForce(f);
+      F[0] = m * (g[0] - world[0] * k);
+      F[1] = m * (g[1] - world[1] * k);
+      F[2] = m * (g[2] - world[2] * k);
+      if (F[0] !== 0 || F[1] !== 0 || F[2] !== 0) b.applyForce(F);
     }
     return;
   }
@@ -473,20 +465,29 @@ export function applyField(st: ZoneState, ctx: ComponentContext): void {
   for (const id of inside.keys()) {
     const b = ctx.bodyById(id);
     if (!b?.alive || b.type !== 'dynamic' || !zones.isActive(id)) continue;
-    let f: Vec3;
-    if (mode === 'uniform') f = uniform;
-    else {
-      const p = b.position();
-      const r = vdist(p, centre);
-      const dir = vnorm(mode === 'attract' ? vsub(centre, p) : vsub(p, centre), [0, 1, 0]);
-      const scale =
+    const m = perMass ? b.mass : 1;
+    if (mode === 'uniform') {
+      F[0] = uniform[0] * m;
+      F[1] = uniform[1] * m;
+      F[2] = uniform[2] * m;
+    } else {
+      // toward (attract) or away from (repel) the zone's centre, scaled by the falloff at the body's distance
+      const p = b.position(P);
+      const dx = centre[0] - p[0];
+      const dy = centre[1] - p[1];
+      const dz = centre[2] - p[2];
+      const r = Math.hypot(dx, dy, dz);
+      const fall =
         falloff === 'linear'
           ? Math.max(0, 1 - r / radius)
           : falloff === 'inverse'
             ? Math.min(16, (radius / Math.max(r, 0.25 * radius)) ** 2)
             : 1;
-      f = vscale(dir, strength * scale);
+      const k = r > 1e-9 ? ((mode === 'attract' ? 1 : -1) * strength * fall * m) / r : 0;
+      F[0] = dx * k;
+      F[1] = dy * k;
+      F[2] = dz * k;
     }
-    b.applyForce(perMass ? vscale(f, b.mass) : f);
+    b.applyForce(F);
   }
 }

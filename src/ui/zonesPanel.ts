@@ -22,6 +22,19 @@ function build(app: App, ctx: { active: () => boolean }): PanelView {
   const bridge = app.zones;
   const races = h('div', { class: 'zp-races' });
   const logList = h('div', { class: 'zp-log', role: 'log', 'aria-label': 'Zone events' });
+  // enter / exit / stay are the most frequent and rarely what one is looking for: off by default
+  let showMoves = false;
+  const movesChip = h(
+    'button',
+    { class: 'zp-chip', type: 'button', 'aria-pressed': 'false', title: 'Also list every enter, exit and stay event' },
+    'Enter / exit',
+  );
+  movesChip.addEventListener('click', () => {
+    showMoves = !showMoves;
+    movesChip.setAttribute('aria-pressed', String(showMoves));
+    logSig = -1;
+    paintLog();
+  });
   const el = h(
     'div',
     { class: 'zones-panel' },
@@ -53,17 +66,19 @@ function build(app: App, ctx: { active: () => boolean }): PanelView {
 
   // ── events ──
   let logSig = -1;
+  const MOVES = new Set(['enter', 'exit', 'stay']);
   const paintLog = () => {
     const last = bridge.log[bridge.log.length - 1]?.id ?? 0;
     const sig = last * 1000 + bridge.log.length;
     if (sig === logSig) return;
     logSig = sig;
-    if (!bridge.log.length) {
+    const entries = showMoves ? bridge.log : bridge.log.filter((e) => !MOVES.has(e.name));
+    if (!entries.length) {
       logList.replaceChildren(
         h(
           'div',
           { class: 'zp-empty' },
-          'Nothing has happened yet. Enter, exit, checkpoint, lap, launch, respawn … events appear here while the simulation runs.',
+          'Nothing has happened yet. Laps, checkpoints, launches, respawns, scores … appear here while the simulation runs (the chip above also lists every enter and exit).',
         ),
       );
       return;
@@ -142,7 +157,10 @@ function build(app: App, ctx: { active: () => boolean }): PanelView {
     set('best', x.bestLap === null ? '–' : clock(x.bestLap));
     c.best.classList.toggle('record', !!race.record && race.record.racer === x.racer && race.record.time === x.bestLap);
     set('time', x.clockStart === null ? 'waiting for the start' : clock(bridge.raceTime(x, now)));
-    set('gates', `${x.passed}/${race.checkpoints.length}`);
+    set(
+      'gates',
+      x.finished ? `${race.checkpoints.length}/${race.checkpoints.length}` : `${x.passed}/${race.checkpoints.length}`,
+    );
     set('pen', x.penalty > 0 ? `+${x.penalty.toFixed(1)} s` : '');
     c.time.classList.toggle('done', x.finished);
   };
