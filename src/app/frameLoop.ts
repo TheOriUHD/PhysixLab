@@ -47,7 +47,12 @@ export class FrameLoop {
     app.viewSync.syncSoftLayout(client);
     for (const id of app.softs.views.keys()) app.softs.tint(id, app.store.selection.includes(id));
 
-    if (app.bodies.hoverId !== app.hoverId) this.colorsDirty = true; // -- VZ-B: hover highlight (and promotion) follows the pointer --
+    if (app.bodies.hoverId !== app.hoverId) {
+      // -- VZ-B: the hover outline (and instance promotion) follows the pointer --
+      this.colorsDirty = true;
+      app.bodies.hoverId = app.hoverId;
+      app.viewSync.refreshOutline();
+    }
     app.bodies.hoverId = app.hoverId;
     if (live || this.colorsDirty || app.bodies.mode !== 'material') {
       const sel = new Set(app.store.selection);
@@ -84,6 +89,7 @@ export class FrameLoop {
     app.effects.update(dt);
     app.componentFx.update(dt); // -- CP
     app.cameraControl.updateFollow(dt);
+    app.cameraRig.update(dt); // -- CM-A --
     app.fxDirector.update(dt); // ── FX: particles, trails, skid marks ──
     app.audioDirector.update(dt); // ── FX: impact, rolling, engine and wind sound ──
     app.measureTool.updateLabel();

@@ -10,10 +10,16 @@ const test = (name, fn) => tests.push({ name, fn });
 const card = (page) => page.locator('.tour-card');
 const title = (page) => page.locator('.tour-card .tour-title').textContent();
 const counter = (page) => page.locator('.tour-card .tour-counter').textContent();
-const waitTitle = (page, t) =>
-  page.waitForFunction((t) => document.querySelector('.tour-card .tour-title')?.textContent === t, t, {
-    timeout: 8000,
-  });
+const waitTitle = async (page, t) => {
+  try {
+    await page.waitForFunction((t) => document.querySelector('.tour-card .tour-title')?.textContent === t, t, {
+      timeout: 15000,
+    });
+  } catch (e) {
+    const now = await page.evaluate(() => document.querySelector('.tour-card .tour-title')?.textContent ?? '(no card)');
+    throw new Error(`waiting for step "${t}", the tour is at "${now}"`, { cause: e });
+  }
+};
 const guideState = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('physicslab.guide.v1') ?? '{}'));
 
 async function startFromHelpMenu(page) {
@@ -216,6 +222,12 @@ test('welcome dialog offers the tour; a context hint appears once', async () => 
 
   // Hints are quiet under ?nowelcome (all tests run that way); open a page that allows them.
   const hp = page;
+  // The tip of the day (5 s after load) must not take the hint's place on a slow machine.
+  await hp.evaluate(() => {
+    const k = 'physicslab.guide.v1';
+    const g = JSON.parse(localStorage.getItem(k) ?? '{}');
+    localStorage.setItem(k, JSON.stringify({ ...g, tipsOn: false }));
+  });
   const url = page.url().replace('?nowelcome', '?x=1');
   await hp.goto(url);
   await hp.waitForFunction(() => !!window.physicslab?.viewport, null, { timeout: 30000 });

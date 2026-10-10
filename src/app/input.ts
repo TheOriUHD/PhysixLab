@@ -558,6 +558,12 @@ export class InputController {
   }
 
   private onDouble(e: MouseEvent): void {
+    // -- CM-A: in the orbit-point camera a double-click picks the new centre --
+    if (this.app.cameraRig.mode === 'point') {
+      const p = this.app.pickEntity(e)?.point ?? this.app.picker.groundPoint(e, 0);
+      if (p) this.app.cameraRig.setPivot(p);
+      return;
+    }
     const hit = this.app.pickEntity(e);
     if (hit) {
       this.app.store.setSelection([hit.entityId]);
@@ -588,7 +594,13 @@ export class InputController {
     const typing = isTyping(e.target);
     // Forward keys to the running simulation (motor / thruster bindings).
     const forward = !typing && app.sim.active && !e.ctrlKey && !e.metaKey && !e.altKey;
-    if (!typing) app.input.keyDown(e, forward); // -- CM-A --
+    // -- CM-A: the fly / chase camera owns its keys while it runs --
+    const swallowed = !typing && app.cameraRig.swallows(e);
+    if (!typing) app.input.keyDown(e, forward && !swallowed);
+    if (swallowed) {
+      e.preventDefault();
+      return;
+    }
     if (forward && (e.code.startsWith('Arrow') || e.code === 'Space')) e.preventDefault();
     // Every other key is a command's shortcut (src/app/registry/commands.ts); nothing here binds keys.
     const cmd = keymap.find(e);

@@ -166,3 +166,19 @@ describe('Auto governor (VZ-22)', () => {
     expect(g.averageMs).toBe(0);
   });
 });
+
+import { linkedBodyIds, sanitizeHighlight, DEFAULT_HIGHLIGHT, PALETTES } from '../src/render/highlight';
+
+describe('highlight (VZ-40)', () => {
+  it('finds the bodies a selected joint connects, skipping the selected and the world end', () => {
+    const ends: Record<string, (string | null)[]> = { j1: ['a', 'b'], j2: [null, 'c'] };
+    expect(linkedBodyIds(['j1'], (id) => ends[id]).sort()).toEqual(['a', 'b']);
+    expect(linkedBodyIds(['j1', 'a'], (id) => ends[id])).toEqual(['b']);
+    expect(linkedBodyIds(['j2'], (id) => ends[id])).toEqual(['c']);
+    expect(linkedBodyIds(['a'], (id) => ends[id])).toEqual([]);
+  });
+  it('sanitises options and keeps the four colours of each palette distinct', () => {
+    expect(sanitizeHighlight({ palette: 'x', pulse: 1, bbox: true })).toEqual({ ...DEFAULT_HIGHLIGHT, bbox: true });
+    for (const p of Object.values(PALETTES)) expect(new Set([p.selected, p.multi, p.hover, p.linked]).size).toBe(4);
+  });
+});

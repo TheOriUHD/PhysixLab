@@ -1,4 +1,5 @@
 import { Emitter } from '../core/events';
+import { sanitizeHighlight, DEFAULT_HIGHLIGHT, type HighlightOptions } from '../render/highlight';
 import { cloneGraphics, DEFAULT_GRAPHICS, sanitizeGraphics, type GraphicsOptions } from '../render/graphics';
 import type { ColorMode } from '../render/bodyViews';
 import { DEFAULT_OVERLAYS, type OverlayOptions } from '../render/overlays';
@@ -74,6 +75,8 @@ export interface Prefs {
   input: InputSettings;
   // -- VZ-B: per-effect graphics options, tri-state `on` follows the quality tier --
   graphics: GraphicsOptions;
+  // -- VZ-B: selection / hover highlight options (VZ-40) --
+  highlight: HighlightOptions;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -125,6 +128,7 @@ export const DEFAULT_PREFS: Prefs = {
   input: DEFAULT_INPUT, // -- CM-A --
   // -- VZ-B: per-effect graphics options (VZ-20..22) --
   graphics: cloneGraphics(DEFAULT_GRAPHICS),
+  highlight: { ...DEFAULT_HIGHLIGHT },
 };
 
 const KEY = 'physicslab:prefs:v1';
@@ -141,6 +145,7 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
       fx: { ...DEFAULT_FX_SETTINGS },
       audio: sanitizeAudioSettings(undefined), // ── FX ──
       graphics: cloneGraphics(DEFAULT_GRAPHICS), // -- VZ-B --
+      highlight: { ...DEFAULT_HIGHLIGHT },
     };
     try {
       const raw = localStorage.getItem(KEY);
@@ -152,6 +157,7 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
         this.value.audio = sanitizeAudioSettings(saved.audio); // ── FX ──
         this.value.input = sanitizeInput(saved.input); // -- CM-A --
         this.value.graphics = sanitizeGraphics(saved.graphics); // -- VZ-B --
+        this.value.highlight = sanitizeHighlight(saved.highlight);
       }
     } catch {
       /* storage unavailable */

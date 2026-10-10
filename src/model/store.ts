@@ -2,6 +2,7 @@ import { Emitter } from '../core/events';
 import { qangle, vadd, veq, type Vec3 } from '../core/math';
 import { newDocument, uid } from './factory';
 import { addAssetTo, countAssetRefs, remapAssetRefs } from './assets';
+import { emptyCameras } from './sanitize/cameras'; // -- CM-A --
 import { cloneComponents, releaseComponentRefs } from './componentRegistry';
 import { childIndex, descendantIds, groupTransformPatches, withDescendants, type Pose } from './groups';
 import { SCENE_FORMAT, SCENE_VERSION } from './migrations';
@@ -14,6 +15,7 @@ import type {
   JointEntity,
   LightEntity,
   PathEntity,
+  SceneCameras,
   SceneDocument,
   SceneSettings,
   SoftEntity,
@@ -39,6 +41,7 @@ interface Snapshot {
   entities: Map<string, Entity>;
   settings: SceneSettings;
   assets: Record<string, Asset>;
+  cameras: SceneCameras; // -- CM-A --
   name: string;
   selection: string[];
   label: string;
@@ -66,6 +69,8 @@ export class SceneStore extends Emitter<StoreEvents> {
   /** Binary payloads (see the asset store section of types.ts); replaced, never mutated, so history can share it. */
   assets: Record<string, Asset> = {};
   name = 'Untitled scene';
+  /** -- CM-A: bookmarks, cinematic shots, split / picture-in-picture setups; replaced, never mutated -- */
+  cameras: SceneCameras = emptyCameras();
   selection: string[] = [];
   /** Increments on every document mutation (used for autosave / dirty tracking). */
   revision = 0;
@@ -157,6 +162,7 @@ export class SceneStore extends Emitter<StoreEvents> {
       settings: this.settings,
       entities: this.all(),
       assets: this.assets,
+      cameras: this.cameras, // -- CM-A --
     };
   }
 
@@ -167,6 +173,7 @@ export class SceneStore extends Emitter<StoreEvents> {
       entities: new Map(this.entities),
       settings: this.settings,
       assets: this.assets,
+      cameras: this.cameras, // -- CM-A --
       name: this.name,
       selection: [...this.selection],
       label,
@@ -352,6 +359,7 @@ export class SceneStore extends Emitter<StoreEvents> {
     this.entities = new Map(s.entities);
     this.settings = s.settings;
     this.assets = s.assets;
+    this.cameras = s.cameras; // -- CM-A --
     this.name = s.name;
     if (removed.length) this.emit('change', { type: 'remove', ids: removed.map((e) => e.id), removed });
     if (added.length) this.emit('change', { type: 'add', ids: added });
@@ -373,6 +381,7 @@ export class SceneStore extends Emitter<StoreEvents> {
     for (const e of doc.entities) this.entities.set(e.id, e);
     this.settings = doc.settings;
     this.assets = doc.assets;
+    this.cameras = doc.cameras ?? emptyCameras(); // -- CM-A --
     this.name = doc.name;
     this.selection = [];
     this.past = [];
@@ -478,6 +487,14 @@ export class SceneStore extends Emitter<StoreEvents> {
     const pose: Pose = { position: to.position ?? g.position, rotation: to.rotation ?? g.rotation };
     if (veq(pose.position, g.position) && qangle(pose.rotation, g.rotation) < 1e-9) return; // already there
     this.updateMany(groupTransformPatches(this.all(), id, pose), label);
+  }
+
+  /** -- CM-A: replace the saved cameras (undoable); listeners get the `meta` event. -- */
+  setCameras(next: SceneCameras, label = 'Change cameras'): void {
+    if (next === this.cameras) return;
+    this.touch(label);
+    this.cameras = next;
+    this.emit('meta', undefined);
   }
 
   updateSettings(patch: Partial<SceneSettings>, label = 'Change settings'): void {

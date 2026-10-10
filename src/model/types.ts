@@ -698,6 +698,8 @@ export interface SceneDocument {
   entities: Entity[];
   /** Binary payloads referenced by entities (see the asset store section above). */
   assets: Record<string, Asset>;
+  /** -- CM-A: bookmarks, shots and view setups; absent in files from before the camera package. -- */
+  cameras?: SceneCameras;
 }
 
 export const isBody = (e: Entity | undefined | null): e is BodyEntity => !!e && e.kind === 'body';
@@ -710,3 +712,79 @@ export const isPath = (e: Entity | undefined | null): e is PathEntity => !!e && 
 export const isPosed = (e: Entity | undefined | null): e is PosedEntity => !!e && e.kind !== 'joint';
 /** The id of the entity this one is grouped under, if any (joints are never grouped). */
 export const parentOf = (e: Entity): string | undefined => (e.kind === 'joint' ? undefined : e.parent);
+
+// ── CM-A: saved cameras (bookmarks, cinematic shots, split / picture-in-picture setups) ───────────────────────
+/** A named view: where the camera is and what it looks at, with a tiny thumbnail (a data URL, ≤ 24 kB). */
+export interface CameraBookmark {
+  id: string;
+  name: string;
+  position: Vec3;
+  target: Vec3;
+  fov: number;
+  ortho: boolean;
+  /** Visible height in metres of an orthographic view. */
+  orthoSize: number;
+  thumb?: string;
+}
+
+export type ShotEase = 'linear' | 'in' | 'out' | 'inOut';
+
+/** A keyframe of a cinematic shot: at time `t` seconds the camera is at fraction `u` (0…1 of the path) with this lens. */
+export interface ShotKey {
+  t: number;
+  u: number;
+  fov: number;
+  /** Easing of the motion from this key to the next. */
+  ease: ShotEase;
+}
+
+/** A camera on a rail: the path entity is the spline, the keys time the flight along it. */
+export interface CameraShot {
+  id: string;
+  name: string;
+  pathId: string;
+  duration: number;
+  loop: boolean;
+  keys: ShotKey[];
+  /** What the camera looks at: along the path, at a body (tracked) or at a fixed point. */
+  look: { mode: 'tangent' | 'body' | 'point'; bodyId: string; point: Vec3 };
+}
+
+/** One secondary view (a split-screen pane or a picture-in-picture window). */
+export interface ViewPane {
+  id: string;
+  /** `chase`: behind the subject; `topdown`: above it; `mount`: fixed on it (dashcam, drone); `bookmark`: a saved view. */
+  mode: 'chase' | 'topdown' | 'mount' | 'bookmark' | 'shot';
+  /** Body id the view follows / is mounted on (null = the first selected body at draw time). */
+  subject: string | null;
+  /** Bookmark or shot id for those modes. */
+  ref: string;
+  fov: number;
+  /** `mount`: offset in the subject's frame (x right, y up, z back) and look direction yaw / pitch in degrees. */
+  offset: Vec3;
+  yaw: number;
+  pitch: number;
+  /** Picture-in-picture window: left / top / width as fractions of the viewport (ignored for split panes). */
+  x: number;
+  y: number;
+  w: number;
+}
+
+export interface MinimapSettings {
+  enabled: boolean;
+  /** Visible half-extent in metres. */
+  range: number;
+  rotate: boolean;
+  /** Window corner. */
+  corner: 'tl' | 'tr' | 'bl' | 'br';
+}
+
+export interface SceneCameras {
+  bookmarks: CameraBookmark[];
+  shots: CameraShot[];
+  /** Number of viewports in the split layout: 1 (none), 2, 3 or 4; the main view is the first. */
+  split: 1 | 2 | 3 | 4;
+  panes: ViewPane[];
+  pips: ViewPane[];
+  minimap: MinimapSettings;
+}

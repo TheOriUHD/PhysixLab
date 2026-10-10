@@ -72,6 +72,7 @@ export function buildToolbox(app: App): { toolbox: HTMLElement; viewbar: HTMLEle
   renderAll();
 
   app.prefs.on('change', sync);
+  app.cameraRig.on('change', sync); // -- CM-A: the camera-mode chip and the projection toggle follow the rig
   app.store.on('selection', sync);
   app.sim.on('mode', sync);
   return { toolbox, viewbar, chips };
