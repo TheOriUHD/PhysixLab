@@ -46,7 +46,7 @@ void main() {
   float age = uTime - vMark.x;
   float fade = 1.0 - smoothstep(uFadeStart, uFadeEnd, age);
   float side = 1.0 - smoothstep(0.5, 1.0, abs(vMark.y));
-  float grain = 0.7 + 0.3 * vnoise(vWorld.xz * 34.0) + 0.1 * vnoise(vWorld.xz * 9.0);
+  float grain = 0.84 + 0.16 * vnoise(vWorld.xz * 26.0) + 0.06 * vnoise(vWorld.xz * 7.0);
   float a = vMark.z * fade * side * grain;
   if (a < 0.004) discard;
   vec3 dark = uGround * 0.08;

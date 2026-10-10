@@ -60,6 +60,8 @@ export class ParticleEmitter {
   /** Multiplies every size (a mild function of the intensity setting). */
   sizeScale = 1;
   private readonly rng = new Rng(1);
+  /** Particles created per type since the last `resetCounts()` (a counter for tests, tools and the status line). */
+  readonly counts = new Map<string, number>();
 
   constructor(
     private readonly table: ParticleTypeTable,
@@ -217,6 +219,11 @@ export class ParticleEmitter {
       st[o2 + S.frame] = frame;
       st[o2 + S.settled] = 0;
     }
+    this.counts.set(type, (this.counts.get(type) ?? 0) + n);
     return n;
+  }
+
+  resetCounts(): void {
+    this.counts.clear();
   }
 }

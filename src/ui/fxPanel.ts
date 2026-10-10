@@ -36,7 +36,7 @@ export const registerFxPanelSection = (s: FxPanelSection): (() => void) => fxPan
 // -- the particle-effects sections -------------------------------------------------------------------------------
 
 const QUALITY_OPTIONS: { value: FxQuality; label: string }[] = [
-  { value: 'auto', label: 'Auto — follows graphics quality' },
+  { value: 'auto', label: 'Auto' },
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },

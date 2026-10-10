@@ -161,7 +161,6 @@ export class Fx {
   private bursts = 0;
   private explosions = 0;
   private stamp = 0;
-  private readonly byType = new Map<string, number>();
 
   /**
    * @param parent    scene group the particle meshes, the skid marks and the flash light are added to
@@ -237,14 +236,12 @@ export class Fx {
       this.culled++;
       return 0;
     }
-    const n = this.emitter.emit(type, x, y, z, options);
-    if (n > 0) this.byType.set(type, (this.byType.get(type) ?? 0) + n);
-    return n;
+    return this.emitter.emit(type, x, y, z, options);
   }
 
-  /** Particles emitted per type since the last `clear()` (a counter for tests, tools and the status line). */
+  /** Particles emitted per type since the last `clear()`, explosion parts and impact bursts included. */
   emittedByType(): Record<string, number> {
-    return Object.fromEntries(this.byType);
+    return Object.fromEntries(this.emitter.counts);
   }
 
   /** A blast: fireball, shock ring, embers, debris, smoke, and a light flash. Returns false when explosions are off. */
@@ -348,7 +345,7 @@ export class Fx {
     this.normal.clear();
     this.skidBuffer.clear();
     this.flash.clear();
-    this.byType.clear();
+    this.emitter.resetCounts();
     this.renderer.sync(0, 0, 0);
     this.skidMesh.sync(this.time);
   }
