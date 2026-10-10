@@ -729,8 +729,17 @@ test('audio: wind rushes past a camera following a fast body, and the air goes a
   await page.waitForFunction(() => window.physicslab.audioDirector.describeLoops().wind !== null, null, {
     timeout: 90000,
   });
+  // The wind swells in with the body's speed (smoothed over a third of a second): wait until it is blowing properly.
+  await page.waitForFunction(
+    () => {
+      const w = window.physicslab.audioDirector.describeLoops().wind;
+      return w && w.gain > 0.05 && w.cutoff > 800;
+    },
+    null,
+    { timeout: 60000 },
+  );
   const w = (await loops(page)).wind;
-  assert(w.gain > 0.01 && w.cutoff > 800, `wind blows ${JSON.stringify(w)}`);
+  assert(w.gain > 0.05 && w.cutoff > 800, `wind blows ${JSON.stringify(w)}`);
   await shot(page, 'audio-wind');
   // No gravity, no air: the wind and the bed fade out.
   await page.evaluate(() => window.physicslab.store.updateSettings({ gravity: [0, 0, 0] }, 'zero g'));

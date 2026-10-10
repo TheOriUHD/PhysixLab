@@ -102,6 +102,13 @@ category, spatial, Doppler, pitch with time scale, interface sounds); components
 
 **Decisions worth knowing.**
 
+* *The contact feed gives each consumer only what it asked for.* The sound engine wants every small knock (0.02 N·s,
+  every 0.05 s per pair), the particle effects fewer (0.1 N·s, 0.08 s); the worker serves the most eager, so without a
+  filter the effects would receive the extra events whenever the sound is on and their behaviour would depend on who else
+  listens. `ContactFeed` now filters per consumer (the threshold, and a per-pair interval for the consumers that are less
+  eager than the worker's setting; the memory is dropped with each new world) — tests/contactFeedGate.test.ts. (The
+  ball-drop e2e of chunk 1 turned out to be racy by itself — it paused at "18 bursts" and failed with sound off as well,
+  about one run in four — and now waits until every kind has been emitted.)
 * *Mute is Shift+M.* `M` is the Measure tool's key since the first release; the checklist's "mute (M)" would have been a
   shortcut clash (an error at registration), so mute is `Shift+M` (exact Shift match beats the loose `M`), the speaker in
   the top bar and the palette; plain `M` measures as before (checked by the e2e). After a mouse drag the volume sliders
@@ -122,7 +129,8 @@ category, spatial, Doppler, pitch with time scale, interface sounds); components
 * *Loudness is energy, not impulse.* `E = ½·J·v` on a log scale (0.02 J → 0 … 20 kJ → 1), damped for slow hits of heavy
   bodies; timbre follows the speed (a heavy ball touching down is a thump, not a clang). The level → gain curve is
   −50 dB … 0 dB on `L^0.6`, so an everyday hit (a 10 kg ball from a metre) is around −12 dB. Levels were balanced against
-  each other by measuring offline renders (impacts peak −20 … −6 dBFS, engine RMS ≈ −24, rolling −28, wind −30, bed −48).
+  each other by measuring offline renders before the master volume (a 100 J hit peaks at −14 dBFS, a 3 kJ one at 0 dBFS, an explosion
+  −9, an engine at mid load −24 dBFS RMS, rolling −28, sliding −27, wind −31 at 25 m/s).
 * *Who rings.* Each body rings with its own material (a light body hitting a heavy one rings loudly, the heavy one barely),
   a soft partner damps the ring (steel on foam is a short dull clink), the ground adds a deep thump. A brittle material hit
   hard breaks: the ring is cut short and the director adds the `break` event (the material's own spray of fragments).

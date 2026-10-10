@@ -519,7 +519,8 @@ Three more entry points, all in `src/render/fx`:
 
 Contact events are shared through `app.contacts.acquire(owner, needs, handler)` (`src/app/contactFeed.ts`): the feed
 switches the worker's contact events on for as long as anybody holds it and hands every consumer the events, so two
-packages never fight over the configuration. The **Effects panel** is a list of sections too:
+packages never fight over the configuration (the worker serves the most eager consumer; the feed hands each of the
+others only what its own `minImpulse` / `pairInterval` allow, so switching the sound on never changes the effects). The **Effects panel** is a list of sections too:
 `registerFxPanelSection({ id, order, build })` (`src/ui/fxPanel.ts`) adds one — an audio or camera-shake package puts
 its settings there.
 

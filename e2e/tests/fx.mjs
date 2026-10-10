@@ -87,7 +87,18 @@ test('fx: ball drop — sparks, dust, chips, shards and scuffs follow the materi
     a.viewport.setView({ position: [0.5, 2.4, 8.5], target: [0, 0.7, 0] });
   });
   await play(page);
-  await page.waitForFunction(() => window.physicslab.fx.stats.bursts >= 18, null, { timeout: 60000 });
+  // Wait for every kind (the balls land at different times; pausing at "18 bursts" raced with the slow ones).
+  await page.waitForFunction(
+    () => {
+      const by = window.physicslab.fx.emittedByType();
+      return (
+        window.physicslab.fx.stats.bursts >= 18 &&
+        ['spark', 'dust', 'chip.wood', 'shard.glass', 'scuff.rubber', 'chip.stone'].every((t) => by[t] > 0)
+      );
+    },
+    null,
+    { timeout: 60000 },
+  );
   await pause(page);
   await page.waitForTimeout(500);
   await shot(page, 'fx-ball-drop');
