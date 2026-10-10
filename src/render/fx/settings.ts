@@ -70,7 +70,7 @@ export const FX_TIERS: Record<FxTierId, FxTier> = {
     label: 'Low',
     blurb: 'Up to 1,500 particles, 4 impact bursts per frame, no light flash',
     maxParticles: 1500,
-    emission: 0.45,
+    emission: 0.55,
     burstsPerFrame: 4,
     skidSegments: 700,
     lightFlash: false,

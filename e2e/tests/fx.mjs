@@ -338,6 +338,17 @@ test('fx: previews, the clear button and the palette commands act on the real sy
   // They play out in real time while no simulation runs.
   const peak = await live();
   await page.waitForFunction((n) => window.physicslab.fx.stats.live < n * 0.6, peak, { timeout: 60000 });
+  // A preview works even for an effect whose own switch is off (only the master switch rules).
+  await page.evaluate(() => window.physicslab.fxDirector.setSettings({ impacts: false, explosions: false }));
+  const sparks0 = await page.evaluate(() => window.physicslab.fx.emittedByType()['spark'] ?? 0);
+  await page.click('.fx-previews button:has-text("Sparks")');
+  await page.click('.fx-previews button:has-text("Explosion")');
+  assert(
+    (await page.evaluate(() => window.physicslab.fx.emittedByType()['spark'] ?? 0)) > sparks0,
+    'sparks preview with impacts off',
+  );
+  assert((await stats(page)).explosions === before + 2, 'explosion preview with explosions off');
+  await page.evaluate(() => window.physicslab.fxDirector.setSettings({ impacts: true, explosions: true }));
   // Skid marks: lay some by hand, clear them with the button.
   await page.evaluate(() => {
     const fx = window.physicslab.fx;

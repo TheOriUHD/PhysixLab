@@ -360,17 +360,21 @@ export class FxDirector {
     const floor = fx.env.floorY === -Infinity ? t.y : fx.env.floorY;
     const at: Vec3 = [t.x, floor + 0.02, t.z];
     const up: Vec3 = [0, 1, 0];
+    // Previews show the effect even when its own switch is off (that is what a preview is for); the master switch rules.
     const impact = (a: string, speed: number, impulse: number, size = 0.5) =>
-      fx.impact({
-        position: at,
-        normal: up,
-        speed,
-        impulse,
-        a: surfaceFor(a),
-        b: this.groundSurface,
-        bIsGround: true,
-        size,
-      });
+      fx.impact(
+        {
+          position: at,
+          normal: up,
+          speed,
+          impulse,
+          a: surfaceFor(a),
+          b: this.groundSurface,
+          bIsGround: true,
+          size,
+        },
+        true,
+      );
     switch (kind) {
       case 'sparks':
         impact('steel', 10, 3000);
@@ -385,7 +389,7 @@ export class FxDirector {
         fx.emit('smoke.tyre', [at[0], at[1] + 0.1, at[2]], { count: 40, radius: 0.5, scale: 1.4 });
         break;
       case 'explosion':
-        fx.explosion([at[0], floor + 1.2, at[2]], { radius: 5 });
+        fx.explosion([at[0], floor + 1.2, at[2]], { radius: 5 }, true);
         break;
     }
     return true;

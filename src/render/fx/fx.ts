@@ -244,10 +244,13 @@ export class Fx {
     return Object.fromEntries(this.emitter.counts);
   }
 
-  /** A blast: fireball, shock ring, embers, debris, smoke, and a light flash. Returns false when explosions are off. */
-  explosion(position: Vec3Like, options: ExplosionOptions): boolean {
+  /**
+   * A blast: fireball, shock ring, embers, debris, smoke, and a light flash. Returns false when explosions are off.
+   * `force` ignores the explosions switch (a preview of an effect the user has turned off), not the master switch.
+   */
+  explosion(position: Vec3Like, options: ExplosionOptions, force = false): boolean {
     const [x, y, z] = xyz(position);
-    if (!this.settings.explosions || !this.wanted(x, y, z)) {
+    if (!(force || this.settings.explosions) || !this.wanted(x, y, z)) {
       this.emitter.skip();
       this.culled++;
       return false;
@@ -260,11 +263,14 @@ export class Fx {
 
   /**
    * The effects of one impact, from the material pair, the approach speed and the impulse (`impactBursts`). Returns
-   * the bursts that were emitted, so the caller can spawn physical debris from the `physical` ones.
+   * the bursts the caller should know about: the ones drawn, and the debris bursts flagged `physical` when physical
+   * debris is on (they are handed over even if the visual chunks are switched off, so the caller can spawn fragments).
+   * `force` ignores the per-effect switches (previews), not the master switch.
    */
-  impact(ev: FxImpact): ImpactBurst[] {
+  impact(ev: FxImpact, force = false): ImpactBurst[] {
     const s = this.settings;
-    if (!s.enabled || (!s.impacts && !s.debris)) return [];
+    if (!s.enabled) return [];
+    if (!force && !s.impacts && !s.debris && !s.physicalDebris) return [];
     const [x, y, z] = xyz(ev.position);
     if (!this.wanted(x, y, z)) {
       this.culled++;
@@ -282,14 +288,17 @@ export class Fx {
     const done: ImpactBurst[] = [];
     for (const b of bursts) {
       const isDebris = b.type === 'debris';
-      if (isDebris ? !s.debris : !s.impacts) continue;
-      this.emit(b.type, [x + nx * 0.02 * b.dir, y + ny * 0.02 * b.dir, z + nz * 0.02 * b.dir], {
-        count: b.count,
-        scale: b.scale,
-        speed: b.speed,
-        direction: [nx * b.dir, ny * b.dir, nz * b.dir],
-        color: b.color,
-      });
+      const visual = force || (isDebris ? s.debris : s.impacts);
+      const physical = isDebris && b.physical === true && s.physicalDebris;
+      if (!visual && !physical) continue;
+      if (visual)
+        this.emit(b.type, [x + nx * 0.02 * b.dir, y + ny * 0.02 * b.dir, z + nz * 0.02 * b.dir], {
+          count: b.count,
+          scale: b.scale,
+          speed: b.speed,
+          direction: [nx * b.dir, ny * b.dir, nz * b.dir],
+          color: b.color,
+        });
       done.push(b);
     }
     if (done.length) this.bursts++;

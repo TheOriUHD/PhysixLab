@@ -198,6 +198,45 @@ describe('quality tiers, intensity and switches', () => {
     expect(sk2.stats.skidSegments).toBeGreaterThan(5);
   });
 
+  it('physical debris is independent of the visual chips: the burst is handed to the caller, no chunk particles are drawn', () => {
+    const hit = {
+      ...steelHit,
+      a: surfaceFor('steel'),
+      b: surfaceFor('glass'),
+      bIsGround: false,
+      speed: 14,
+      impulse: 60000,
+      position: [0, 1, 0] as [number, number, number],
+      normal: [0, 1, 0] as [number, number, number],
+    };
+    const only = make({ debris: false, physicalDebris: true, impacts: false });
+    const bursts = only.fx.impact(hit);
+    expect(bursts.map((b) => b.type)).toEqual(['debris']);
+    expect(bursts[0].physical).toBe(true);
+    expect(only.fx.emittedByType()['debris']).toBeUndefined(); // no visual chunks
+    const both = make({ physicalDebris: true });
+    both.fx.impact(hit);
+    expect(both.fx.emittedByType()['debris']).toBeGreaterThan(0);
+    expect(make({ physicalDebris: false, debris: false, impacts: false }).fx.impact(hit)).toEqual([]);
+  });
+
+  it('previews ignore the per-effect switches (not the master switch): you can try an effect you have turned off', () => {
+    const off = { impacts: false, explosions: false, debris: false, skidMarks: false };
+    const hit = {
+      ...steelHit,
+      position: [0, 0.02, 0] as [number, number, number],
+      normal: [0, 1, 0] as [number, number, number],
+    };
+    const { fx } = make(off);
+    expect(fx.impact(hit)).toEqual([]);
+    expect(fx.impact(hit, true).length).toBeGreaterThan(0);
+    expect(fx.explosion([0, 1, 0], { radius: 4 })).toBe(false);
+    expect(fx.explosion([0, 1, 0], { radius: 4 }, true)).toBe(true);
+    const masterOff = make({ enabled: false }).fx;
+    expect(masterOff.impact(hit, true)).toEqual([]);
+    expect(masterOff.explosion([0, 1, 0], { radius: 4 }, true)).toBe(false);
+  });
+
   it('effects farther from the camera than the tier allows are not spawned (and counted)', () => {
     const { fx } = make({}, 'low');
     fx.update(0, CAM);
