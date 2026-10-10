@@ -16,7 +16,7 @@ describe('v2 scene settings', () => {
     expect(s.seed).toBe(1);
     expect(s.substeps).toBe(1);
     expect(s.bounds.enabled).toBe(false);
-    expect(s.environment).toEqual({
+    expect(s.environment).toMatchObject({
       sky: 'studio',
       timeOfDay: 12,
       fog: { enabled: false, color: '#9db4cc', density: 0.01 },
@@ -34,9 +34,10 @@ describe('v2 scene settings', () => {
       seed: 424242,
       substeps: 6,
       environment: {
+        ...doc.settings.environment,
         sky: 'sunset',
         timeOfDay: 18.5,
-        fog: { enabled: true, color: '#aabbcc', density: 0.2 },
+        fog: { ...doc.settings.environment.fog, enabled: true, color: '#aabbcc', density: 0.2 },
         exposure: 1.4,
       },
       bounds: { enabled: true, min: [-10, -5, -10], max: [10, 50, 10], policy: 'respawn' },
@@ -62,7 +63,7 @@ describe('v2 scene settings', () => {
     expect(s.substeps).toBe(16);
     expect(s.environment.sky).toBe('studio');
     expect(s.environment.timeOfDay).toBe(24);
-    expect(s.environment.fog).toEqual({ enabled: false, color: '#9db4cc', density: 1 });
+    expect(s.environment.fog).toMatchObject({ enabled: false, color: '#9db4cc', density: 1 });
     expect(s.environment.exposure).toBe(0.1);
     // a corner that is not a finite 3-vector falls back to the default corner
     expect(s.bounds.min).toEqual([5, 5, 5]);

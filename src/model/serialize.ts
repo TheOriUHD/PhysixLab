@@ -17,6 +17,7 @@ import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
 import { dedupeComponentIds, repairComponentRefs, sanitizeComponents } from './componentRegistry';
 import { parentField, sanitizeGroup, sanitizeLight, sanitizePath } from './sanitize/kinds';
 import { sanitizeParts } from './sanitize/parts';
+import { sanitizeVisual } from './sanitize/visual';
 import { SCENE_FORMAT, SCENE_VERSION, migrateDocument } from './migrations';
 import {
   bool,
@@ -53,7 +54,20 @@ import { isLight, isPosed } from './types';
 const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable'];
 const PINS: SoftPin[] = ['none', 'edge', 'corners', 'corners4', 'one-end', 'ends'];
 const JOINTS: JointType[] = ['fixed', 'hinge', 'slider', 'ball', 'spring', 'rope'];
-const SKIES: SkyPreset[] = ['studio', 'day', 'sunset', 'night', 'overcast'];
+const SKIES: SkyPreset[] = [
+  'studio',
+  'day',
+  'sunset',
+  'night',
+  'overcast',
+  'blueprint',
+  'space',
+  'lab',
+  'desert',
+  'snow',
+  'physical',
+  'hdri',
+];
 
 function sanitizeBody(raw: any, report?: LoadReport): BodyEntity {
   const name = nameStr(raw?.name, '');
@@ -87,6 +101,7 @@ function sanitizeBody(raw: any, report?: LoadReport): BodyEntity {
       metalness: clamp(num(mat.metalness, base.material.metalness), 0, 1),
       roughness: clamp(num(mat.roughness, base.material.roughness), 0, 1),
       opacity: clamp(num(mat.opacity, 1), 0.05, 1),
+      ...sanitizeVisual(mat), // -- VZ-A: PBR extras + texture --
     },
     linearDamping: Math.max(0, num(raw?.linearDamping, base.linearDamping)),
     angularDamping: Math.max(0, num(raw?.angularDamping, base.angularDamping)),
@@ -222,6 +237,9 @@ function sanitizeEntity(r: any, report: LoadReport | undefined): Entity | null {
 function sanitizeEnvironment(raw: any): EnvironmentSettings {
   const d = defaultEnvironment();
   const f = raw?.fog ?? {};
+  const sun = raw?.sun ?? {};
+  const cycle = raw?.cycle ?? {};
+  const hdri = raw?.hdri ?? {};
   return {
     sky: oneOf(raw?.sky, SKIES, d.sky),
     timeOfDay: clamp(num(raw?.timeOfDay, d.timeOfDay), 0, 24),
@@ -229,8 +247,32 @@ function sanitizeEnvironment(raw: any): EnvironmentSettings {
       enabled: bool(f.enabled, d.fog.enabled),
       color: hexColor(f.color, d.fog.color),
       density: clamp(num(f.density, d.fog.density), 0, 1),
+      type: oneOf(f.type, ['linear', 'exp', 'height'] as const, d.fog.type),
+      near: clamp(num(f.near, d.fog.near), 0, 5000),
+      far: clamp(num(f.far, d.fog.far), 1, 10000),
+      height: clamp(num(f.height, d.fog.height), -1000, 1000),
+      falloff: clamp(num(f.falloff, d.fog.falloff), 0.001, 10),
     },
     exposure: clamp(num(raw?.exposure, d.exposure), 0.1, 8),
+    toneMapping: oneOf(raw?.toneMapping, ['aces', 'agx', 'neutral', 'linear'] as const, d.toneMapping),
+    sun: {
+      azimuth: clamp(num(sun.azimuth, d.sun.azimuth), 0, 360),
+      elevation: clamp(num(sun.elevation, d.sun.elevation), -90, 90),
+      intensity: clamp(num(sun.intensity, d.sun.intensity), 0, 10),
+      turbidity: clamp(num(sun.turbidity, d.sun.turbidity), 1, 20),
+      rayleigh: clamp(num(sun.rayleigh, d.sun.rayleigh), 0, 4),
+    },
+    cycle: {
+      enabled: bool(cycle.enabled, d.cycle.enabled),
+      hoursPerSecond: clamp(num(cycle.hoursPerSecond, d.cycle.hoursPerSecond), 0.01, 24),
+    },
+    hdri: {
+      assetId: typeof hdri.assetId === 'string' && hdri.assetId ? idStr(hdri.assetId, '') : null,
+      showBackground: bool(hdri.showBackground, d.hdri.showBackground),
+      backgroundBlur: clamp(num(hdri.backgroundBlur, d.hdri.backgroundBlur), 0, 1),
+      rotation: clamp(num(hdri.rotation, d.hdri.rotation), -360, 360),
+      intensity: clamp(num(hdri.intensity, d.hdri.intensity), 0, 10),
+    },
   };
 }
 
@@ -270,6 +312,8 @@ function sanitizeSettings(raw: any): SceneSettings {
       restitution: clamp(num(g.restitution, d.ground.restitution), 0, 1.5),
       halfSize: clamp(num(g.halfSize, d.ground.halfSize), 5, 2000),
       color: str(g.color, d.ground.color),
+      type: oneOf(g.type, ['grid', 'checker', 'plain', 'none', 'water'] as const, 'grid'),
+      horizonBlend: clamp(num(g.horizonBlend, 0.5), 0, 1),
     },
     physicsHz: [60, 120, 240, 480].includes(raw?.physicsHz) ? raw.physicsHz : d.physicsHz,
     solverIterations: clamp(Math.round(num(raw?.solverIterations, d.solverIterations)), 1, 32),
@@ -338,11 +382,19 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
     return undefined;
   });
   if (droppedRefs) warn(report, `${droppedRefs} reference(s) to missing or unusable assets were removed.`);
+  const settings = sanitizeSettings(raw.settings);
+  // -- VZ-A: the scene's HDRI is an asset reference held by the settings --
+  const hid = settings.environment.hdri.assetId;
+  if (hid) {
+    const target = remap.get(hid) ?? hid;
+    settings.environment.hdri.assetId = assets[target]?.kind === 'blob' ? target : null;
+    if (settings.environment.hdri.assetId === null && settings.environment.sky === 'hdri') settings.environment.sky = 'studio';
+  }
   return pruneAssets({
     format: SCENE_FORMAT,
     version: SCENE_VERSION,
     name: nameStr(raw.name, 'Untitled scene'),
-    settings: sanitizeSettings(raw.settings),
+    settings,
     entities: linked,
     assets,
   });

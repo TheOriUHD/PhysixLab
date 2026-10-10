@@ -47,6 +47,56 @@ export interface MaterialSpec {
   metalness: number;
   roughness: number;
   opacity: number;
+  // -- VZ-A: optional PBR extras + textures (absent = plain MeshStandard look) --
+  emissive?: string;
+  emissiveIntensity?: number;
+  clearcoat?: number;
+  clearcoatRoughness?: number;
+  /** Glass-like light transmission 0–1 (with `ior` and `thickness`). */
+  transmission?: number;
+  ior?: number;
+  thickness?: number;
+  sheen?: number;
+  sheenColor?: string;
+  anisotropy?: number;
+  texture?: TextureSpec;
+}
+
+export type ProceduralPattern =
+  | 'checker'
+  | 'stripes'
+  | 'hazard'
+  | 'wood'
+  | 'brick'
+  | 'concrete'
+  | 'marble'
+  | 'noise'
+  | 'grid'
+  | 'dots'
+  | 'carbon';
+
+/** Albedo texture of a material: a procedural pattern or a user image, with UV controls and optional extra maps. */
+export interface TextureSpec {
+  /** Procedural pattern, or 'image' to use the `imageId` asset. */
+  pattern: ProceduralPattern | 'image';
+  /** Second colour of the pattern (the first is the material colour). */
+  color2: string;
+  /** Pattern repeats across a unit of UV (or per metre when triplanar). */
+  scale: [number, number];
+  /** Degrees. */
+  rotation: number;
+  offset: [number, number];
+  /** Project the texture along the three axes in object space instead of using the shape's UVs. */
+  triplanar: boolean;
+  /** Texture assets (kind 'texture'). */
+  imageId?: string;
+  normalId?: string;
+  roughnessId?: string;
+  emissiveId?: string;
+  /** Derive a normal map from the pattern's height (procedural patterns only). */
+  bump: number;
+  /** Strength of the supplied normal map. */
+  normalStrength: number;
 }
 
 /** A constant force/torque (expressed in the body's local frame) — thrusters, rockets, fans. */
@@ -372,7 +422,14 @@ export interface GroundSettings {
   /** Half extent of the square ground slab in metres. */
   halfSize: number;
   color: string;
+  // -- VZ-A --
+  type?: GroundType;
+  /** 0–1: how far the ground fades into the horizon colour in the distance. */
+  horizonBlend?: number;
 }
+
+/** How the ground slab looks (physics is the same for all; 'none' hides it but it still collides). */
+export type GroundType = 'grid' | 'checker' | 'plain' | 'none' | 'water';
 
 export interface SceneSettings {
   gravity: Vec3;
@@ -396,15 +453,70 @@ export interface SceneSettings {
   units: UnitsSettings;
 }
 
-export type SkyPreset = 'studio' | 'day' | 'sunset' | 'night' | 'overcast';
+export type SkyPreset =
+  | 'studio'
+  | 'day'
+  | 'sunset'
+  | 'night'
+  | 'overcast'
+  // -- VZ-A: more presets, the physically based sky and the user HDRI --
+  | 'blueprint'
+  | 'space'
+  | 'lab'
+  | 'desert'
+  | 'snow'
+  | 'physical'
+  | 'hdri';
+
+export type ToneMappingName = 'aces' | 'agx' | 'neutral' | 'linear';
+export type FogType = 'linear' | 'exp' | 'height';
 
 export interface EnvironmentSettings {
   sky: SkyPreset;
-  /** Solar time in hours, 0–24. */
+  /** Solar time in hours, 0–24 (the Time-of-day slider sets the sun from it; the day cycle advances it). */
   timeOfDay: number;
-  fog: { enabled: boolean; color: string; /** Exponential density, 1/m. */ density: number };
+  fog: {
+    enabled: boolean;
+    color: string;
+    /** Exponential / height-fog density, 1/m. */
+    density: number;
+    type: FogType;
+    /** Linear fog: distance where it starts / is complete, metres. */
+    near: number;
+    far: number;
+    /** Height fog: the fog is densest below this world height (m) and thins out upwards at `falloff` 1/m. */
+    height: number;
+    falloff: number;
+  };
   /** Tone-mapping exposure multiplier. */
   exposure: number;
+  // -- VZ-A --
+  toneMapping: ToneMappingName;
+  sun: {
+    /** Compass direction of the sun in degrees (0 = north = −Z, 90 = east = +X). */
+    azimuth: number;
+    /** Degrees above the horizon (negative = below). */
+    elevation: number;
+    /** Multiplier of the sun light's intensity. */
+    intensity: number;
+    /** Physical sky: haze (2 = very clear … 20 = very hazy) and Rayleigh scattering strength. */
+    turbidity: number;
+    rayleigh: number;
+  };
+  /** Animated day-night cycle: the sun sweeps through the day at `hoursPerSecond` (display only, not saved as it runs). */
+  cycle: { enabled: boolean; hoursPerSecond: number };
+  /** A user HDRI (a blob asset in .hdr / .exr / .jpg / .png) used as 'hdri' sky. */
+  hdri: {
+    assetId: string | null;
+    /** Show it as the background (otherwise only as lighting). */
+    showBackground: boolean;
+    /** 0 sharp … 1 fully blurred. */
+    backgroundBlur: number;
+    /** Degrees about the vertical axis. */
+    rotation: number;
+    /** Multiplier of the lighting it casts. */
+    intensity: number;
+  };
 }
 
 export type BoundsPolicy = 'kill' | 'respawn';

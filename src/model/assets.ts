@@ -60,7 +60,36 @@ const handlers: AssetRefHandler[] = [
       return next === undefined ? rest : { ...rest, meshId: next };
     },
   },
+  // -- VZ-A: texture maps of a body's material --
+  {
+    refs: (e) => (isBody(e) ? textureIds(e).map((id) => ({ id, kind: 'texture' as const })) : []),
+    remap: (e, fn) => {
+      const t = isBody(e) ? e.material.texture : undefined;
+      if (!isBody(e) || !t) return null;
+      const next = { ...t };
+      let changed = false;
+      for (const k of ['imageId', 'normalId', 'roughnessId', 'emissiveId'] as const) {
+        const id = t[k];
+        if (!id) continue;
+        const r = fn(id, 'texture');
+        if (r === id) continue;
+        changed = true;
+        if (r === undefined) delete next[k];
+        else next[k] = r;
+      }
+      if (!changed) return null;
+      const material = { ...e.material };
+      if (next.pattern === 'image' && !next.imageId) delete material.texture;
+      else material.texture = next;
+      return { ...e, material };
+    },
+  },
 ];
+
+function textureIds(e: Entity & { kind: 'body' }): string[] {
+  const t = e.material.texture;
+  return t ? ([t.imageId, t.normalId, t.roughnessId, t.emissiveId].filter(Boolean) as string[]) : [];
+}
 
 export function registerAssetRefs(handler: AssetRefHandler): void {
   handlers.push(handler);
@@ -94,6 +123,8 @@ export function pruneAssets(doc: SceneDocument): SceneDocument {
   const ids = Object.keys(doc.assets);
   if (ids.length === 0) return doc;
   const used = countAssetRefs(doc.entities);
+  const hdri = doc.settings.environment.hdri.assetId; // -- VZ-A: the scene HDRI is referenced by the settings --
+  if (hdri) used.set(hdri, (used.get(hdri) ?? 0) + 1);
   if (ids.every((id) => used.has(id))) return doc;
   const assets: Record<string, Asset> = {};
   for (const id of ids) if (used.has(id)) assets[id] = doc.assets[id];
