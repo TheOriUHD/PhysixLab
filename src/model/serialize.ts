@@ -1,5 +1,5 @@
 import { clamp, type Vec3 } from '../core/math';
-import { SceneFormatError, type LoadReport } from './errors';
+import { SceneFormatError, warn, type LoadReport } from './errors';
 import {
   createBody,
   createJoint,
@@ -11,6 +11,7 @@ import {
   softDefaults,
 } from './factory';
 import { LIMITS, formatBytes, formatCount } from './limits';
+import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
 import { SCENE_FORMAT, SCENE_VERSION, migrateDocument } from './migrations';
 import {
   bool,
@@ -42,6 +43,7 @@ import type {
   SoftType,
   UnitsSettings,
 } from './types';
+import { isBody } from './types';
 
 const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable'];
 const PINS: SoftPin[] = ['none', 'edge', 'corners', 'corners4', 'one-end', 'ends'];
@@ -94,6 +96,7 @@ function sanitizeBody(raw: any, report?: LoadReport): BodyEntity {
     ghost: bool(raw?.ghost, false),
     locked: bool(raw?.locked, false),
     hidden: bool(raw?.hidden, false),
+    ...sanitizeBodyFields(raw ?? {}),
   };
 }
 
@@ -269,6 +272,9 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
     seen.add(e.id);
     entities.push(e);
   }
+  // Drop group links that point nowhere (or loop).
+  const parentsFixed = repairParents(entities.filter(isBody));
+  if (parentsFixed) warn(report, `${parentsFixed} grouping link(s) pointed at missing objects and were removed.`);
   // Drop joints that reference bodies that do not exist.
   const bodyIds = new Set(entities.filter((e) => e.kind === 'body').map((e) => e.id));
   const clean = entities.filter(

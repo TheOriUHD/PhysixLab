@@ -196,9 +196,12 @@ export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLEle
       return;
     }
     const liveMass = app.sim.client.active ? app.sim.client.info.mass[b.id] : undefined;
-    const m = liveMass ?? cur().reduce((s, x) => s + x.material.density * shapeVolume(x.shape), 0);
+    const m = liveMass ?? cur().reduce((s, x) => s + (x.massOverride ?? x.material.density * shapeVolume(x.shape)), 0);
     massVal.textContent = `${fmt(m, m < 10 ? 3 : m < 1000 ? 2 : 0)} kg`;
-    massVal.title = `${fmt(shapeVolume(b.shape), 4)} m³ × ${b.material.density} kg/m³`;
+    massVal.title =
+      b.massOverride !== undefined
+        ? 'Mass override'
+        : `${fmt(shapeVolume(b.shape), 4)} m³ × ${b.material.density} kg/m³`;
   });
 
   out.push(

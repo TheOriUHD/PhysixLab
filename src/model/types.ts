@@ -85,6 +85,42 @@ export interface BodyEntity {
   /** Editor-only flags. */
   locked: boolean;
   hidden: boolean;
+
+  // ── FB-5: collision filtering, drag, mass overrides, organisation ──────────────────────────────
+  /** Which bodies this one collides with. */
+  collision: CollisionSpec;
+  /** Quadratic (v²) air / fluid resistance, applied every engine step. */
+  drag: DragSpec;
+  /** Total mass in kg, replacing density × volume (the mass distribution keeps the shape's proportions). */
+  massOverride?: number;
+  /** Centre of mass in the body's local frame, replacing the computed one (the inertia tensor is kept). */
+  comOverride?: Vec3;
+  /** Multiplies the principal moments of inertia: < 1 spins up easily, > 1 resists rotation. */
+  inertiaScale: number;
+  /** Speed (m/s) below which the body may fall asleep. Unset = the engine's default. */
+  sleepThreshold?: number;
+  /** Free-form labels for later features (zones, scripts, selection sets). */
+  tags: string[];
+  /** Named layer for editor visibility / selection filters. */
+  layer: string;
+  /** Id of the entity this one is grouped under. */
+  parent?: string;
+}
+
+/**
+ * Collision filter. A body is a member of exactly one of 16 groups (`group`, 0–15) and collides only with
+ * bodies whose group is set in its `mask` (16-bit set), and vice versa. The default — group 0, every group
+ * in the mask — collides with everything. The ground slab is a member of group 0.
+ */
+export interface CollisionSpec {
+  group: number;
+  mask: number;
+}
+
+/** F = −c·|v|·v and τ = −c·|ω|·ω: `linear2` in N·s²/m², `angular2` in N·m·s². */
+export interface DragSpec {
+  linear2: number;
+  angular2: number;
 }
 
 export type JointType = 'fixed' | 'hinge' | 'slider' | 'ball' | 'spring' | 'rope';

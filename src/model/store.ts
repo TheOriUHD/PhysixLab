@@ -277,7 +277,16 @@ export class SceneStore extends Emitter<StoreEvents> {
       removed.push(this.entities.get(id)!);
       this.entities.delete(id);
     }
+    // Bodies grouped under a removed entity are released rather than left pointing at nothing.
+    const released: string[] = [];
+    for (const e of this.entities.values()) {
+      if (!isBody(e) || e.parent === undefined || !set.has(e.parent)) continue;
+      const { parent: _gone, ...rest } = e;
+      this.entities.set(e.id, rest);
+      released.push(e.id);
+    }
     this.emit('change', { type: 'remove', ids: [...set], removed });
+    if (released.length) this.emit('change', { type: 'update', ids: released, keys: new Set(['parent']) });
     const sel = this.selection.filter((id) => !set.has(id));
     if (sel.length !== this.selection.length) this.setSelection(sel);
   }
@@ -390,6 +399,10 @@ export function cloneEntities(all: Entity[], ids: string[], offset: Vec3 = [0, 0
     const nid = uid('b');
     map.set(b.id, nid);
     out.push({ ...b, id: nid, position: vadd(b.position, offset) });
+  }
+  // A copy grouped under another copy follows that copy; otherwise it stays in the original group.
+  for (const c of out) {
+    if (isBody(c) && c.parent !== undefined && map.has(c.parent)) c.parent = map.get(c.parent);
   }
   for (const s of all) {
     if (isSoft(s) && idSet.has(s.id)) out.push({ ...s, id: uid('s'), position: vadd(s.position, offset) });

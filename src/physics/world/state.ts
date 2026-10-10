@@ -29,6 +29,10 @@ export interface BodyRec {
   vPrev: Vec3;
   force: Vec3;
   forced: boolean;
+  /** Quadratic drag is active (dynamic body with a non-zero drag coefficient). */
+  dragged: boolean;
+  /** Emulated sleep threshold (see dynamics.ts); null = the engine's own sleeping applies. */
+  sleep: { threshold: number; radius: number; calm: number } | null;
 }
 
 export interface SoftRec {

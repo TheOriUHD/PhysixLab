@@ -4,6 +4,7 @@
  * the manual (paused) stepping used by the "step" button.
  */
 import { clamp } from '../../core/math';
+import { applyDrag, emulateSleep } from './dynamics';
 import { applyGrab, applyThrusters } from './forces';
 import { driveMotor, measureJoint, measureSpring } from './joints';
 import { applySoftGrab } from './soft';
@@ -34,7 +35,8 @@ function preStep(s: WorldState, dt: number): void {
   applyGrab(s);
 }
 
-function postStep(s: WorldState): void {
+function postStep(s: WorldState, dt: number): void {
+  emulateSleep(s, dt);
   for (const r of s.order) {
     if (r.disabled || r.def.bodyType === 'static') continue;
     if (r.rb.translation().y < KILL_Y) {
@@ -57,11 +59,15 @@ function postStep(s: WorldState): void {
 export function stepOnce(s: WorldState): void {
   const dt = fixedDt(s);
   preStep(s, dt);
-  for (let i = substepCount(s); i > 0; i--) s.world.step();
+  const n = substepCount(s);
+  for (let i = n; i > 0; i--) {
+    applyDrag(s, dt / n);
+    s.world.step();
+  }
   s.simTime += dt;
   s.simSinceRead += dt;
   s.stepCount++;
-  postStep(s);
+  postStep(s, dt);
 }
 
 /**

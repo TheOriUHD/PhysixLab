@@ -1,6 +1,7 @@
 /** Scene settings applied to the live world: gravity, step rate and sub-steps, solver iterations, air drag, ground. */
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { SceneSettings } from '../../model/types';
+import { GROUND_GROUPS } from './bodyFields';
 import { piecesOf } from './soft';
 import type { WorldState } from './state';
 import { engineDt } from './stepping';
@@ -39,6 +40,7 @@ function buildGround(s: WorldState): void {
     RAPIER.ColliderDesc.cuboid(g.halfSize, 1, g.halfSize)
       .setFriction(g.friction)
       .setRestitution(g.restitution)
+      .setCollisionGroups(GROUND_GROUPS)
       .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Average)
       .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max),
     body,

@@ -5,6 +5,7 @@ import { makeShapeSpec, shapeLabel } from './shapeRegistry';
 import type {
   BodyEntity,
   BoundsSettings,
+  CollisionSpec,
   EnvironmentSettings,
   GroundSettings,
   JointEntity,
@@ -35,6 +36,11 @@ export const DEFAULT_GRAVITY: Vec3 = [0, -9.81, 0];
 export function defaultGround(): GroundSettings {
   return { enabled: true, friction: 0.8, restitution: 0.1, halfSize: 60, color: '#2b3038' };
 }
+
+/** Group 0, colliding with every group. */
+export const ALL_GROUPS = 0xffff;
+export const DEFAULT_LAYER = 'default';
+export const defaultCollision = (): CollisionSpec => ({ group: 0, mask: ALL_GROUPS });
 
 export function defaultEnvironment(): EnvironmentSettings {
   return { sky: 'studio', timeOfDay: 12, fog: { enabled: false, color: '#9db4cc', density: 0.01 }, exposure: 1 };
@@ -108,6 +114,11 @@ export function createBody(init: BodyInit): BodyEntity {
     ghost: false,
     locked: false,
     hidden: false,
+    collision: defaultCollision(),
+    drag: { linear2: 0, angular2: 0 },
+    inertiaScale: 1,
+    tags: [],
+    layer: DEFAULT_LAYER,
     ...(rest as Partial<BodyEntity>),
   };
 }

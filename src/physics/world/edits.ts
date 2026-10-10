@@ -2,6 +2,7 @@
 import type { Quat, Vec3 } from '../../core/math';
 import type { BodyEntity } from '../../model/types';
 import { addBody } from './bodies';
+import { interactionGroups } from './bodyFields';
 import { addJoint, dropJoint } from './joints';
 import { removeSoft } from './soft';
 import type { BodyRec, WorldState } from './state';
@@ -39,9 +40,16 @@ export function updateBody(s: WorldState, next: BodyEntity): void {
     (old.shape !== next.shape && JSON.stringify(old.shape) !== JSON.stringify(next.shape)) ||
     old.material.density !== next.material.density ||
     old.ccd !== next.ccd ||
+    // the engine only takes the sleep flags when a body is created
+    old.canSleep !== next.canSleep ||
+    old.sleepThreshold !== next.sleepThreshold ||
     old.ghost !== next.ghost ||
     old.lockPosition.some((v, i) => v !== next.lockPosition[i]) ||
-    old.lockRotation.some((v, i) => v !== next.lockRotation[i]);
+    old.lockRotation.some((v, i) => v !== next.lockRotation[i]) ||
+    // mass-property overrides are applied while the body is built
+    old.massOverride !== next.massOverride ||
+    old.inertiaScale !== next.inertiaScale ||
+    (old.comOverride !== next.comOverride && JSON.stringify(old.comOverride) !== JSON.stringify(next.comOverride));
   if (structural) {
     rebuildBody(s, rec, next);
     return;
@@ -51,6 +59,11 @@ export function updateBody(s: WorldState, next: BodyEntity): void {
     rec.rb.setLinearDamping(next.linearDamping + s.settings.airDrag);
     rec.rb.setAngularDamping(next.angularDamping);
     rec.rb.setGravityScale(next.gravityScale, true);
+    rec.dragged = next.drag.linear2 > 0 || next.drag.angular2 > 0;
+  }
+  if (old.collision.group !== next.collision.group || old.collision.mask !== next.collision.mask) {
+    const g = interactionGroups(next.collision);
+    for (const c of rec.cols) c.setCollisionGroups(g);
   }
   if (next.bodyType === 'kinematic') {
     rec.rb.setLinvel(rv(next.velocity), true);

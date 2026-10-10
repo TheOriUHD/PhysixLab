@@ -5,6 +5,7 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import { shapeColliders } from '../../model/shapeRegistry';
 import type { BodyEntity } from '../../model/types';
+import { interactionGroups } from './bodyFields';
 import { rq } from './util';
 
 export function makeColliders(def: BodyEntity): RAPIER.ColliderDesc[] {
@@ -15,6 +16,7 @@ export function makeColliders(def: BodyEntity): RAPIER.ColliderDesc[] {
       .setRestitution(def.material.restitution)
       .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Average)
       .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max)
+      .setCollisionGroups(interactionGroups(def.collision))
       .setSensor(def.ghost);
     const [x, y, z] = c.localPos;
     if (x !== 0 || y !== 0 || z !== 0) desc.setTranslation(x, y, z);
