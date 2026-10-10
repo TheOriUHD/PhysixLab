@@ -187,15 +187,15 @@ describe('stepper', () => {
     expect(Math.abs(lag)).toBeLessThan(1.5);
   });
 
-  it('holds a load below its holding torque with the deflection T = T_hold·sin(π/2 · e/step)', async () => {
+  it('holds a load below its holding torque with the deflection e = step · load / T_hold', async () => {
     const load = 1; // N·m against 2 N·m of holding torque
     const { base, rotor, s, j } = rig({ falloffRate: 1e5 });
     const loaded = { ...rotor, components: [comp('constantForce', { force: [0, 0, 0], torque: [0, 0, load] })] };
     const w = await worldOf([base, loaded, j], NO_G);
     run(w, 2);
-    // the rotor sits where the motor's pull equals the load: T_hold·sin(π/2 · e/step) = load  →  e = (2·step/π)·asin(load/hold)
-    const e = ((2 * 1.8) / Math.PI) * Math.asin(load / 2);
-    expect(stateOf(w, s.id)[2]).toBeCloseTo(e, 2); // 0.6°
+    // the rotor sits where the motor's pull equals the load: (T_hold / step)·e = load  →  e = step·load / T_hold
+    const e = (1.8 * load) / 2;
+    expect(stateOf(w, s.id)[2]).toBeCloseTo(e, 2); // 0.9°
   });
 
   it('cannot start a heavy rotor at a high pulse rate (the pull-in limit): it stalls instead of following', async () => {
@@ -324,12 +324,28 @@ describe('hydraulic cylinder', () => {
   });
 
   it('the retract stroke is weaker: the rod takes area away', async () => {
-    const { base, load, h, j } = rig(1, { min: -5 });
-    // pull a vertical load down with a constant force far beyond the cylinder and read the retract-side limit
-    const w = await worldOf([base, withComponents(load, comp('constantForce', { force: [0, 1e6, 0] })), j], NO_G);
+    // a horizontal cylinder pulled outward with 20 kN while it retracts: it stalls at P·(A − A_rod), 13.5 kN
+    const base = anchor();
+    const load = withComponents(cube(100), comp('constantForce', { force: [20000, 0, 0] }));
+    const h = comp('hydraulicCylinder', {
+      pressure: 100,
+      bore: BORE,
+      rod: ROD,
+      flow: 30,
+      min: -5,
+      max: 5,
+      key: 'KeyU',
+      keyReverse: 'KeyJ',
+    });
+    const j = withComponents(
+      createJoint({ type: 'slider', bodyA: base.id, bodyB: load.id, anchorA: [0, 0, 0], axis: [1, 0, 0] }),
+      h,
+    );
+    const w = await worldOf([base, load, j], NO_G);
     w.setKeys(['KeyJ']);
     run(w, 0.3);
     expect(stateOf(w, h.id)[2]).toBeCloseTo(-100 * 1e5 * AREA_RET, -1);
+    expect(w.getPose(load.id)!.linvel[0]).toBeGreaterThan(1); // the surplus 6.5 kN wins
   });
 
   it('holds the load with the valve centred (up to the relief pressure) and floats when open', async () => {

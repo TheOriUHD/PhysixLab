@@ -63,8 +63,17 @@ const map = (over: Partial<MapInfo> = {}): MapInfo => ({
 
 describe('content registries: what ships', () => {
   it('registers every built-in example scene and prefab through the registry, in list order', () => {
-    expect(listTemplates().map((t) => t.id)).toEqual(BUILTIN_TEMPLATES.map((t) => t.id));
-    expect(listPrefabs().map((p) => p.id)).toEqual(BUILTIN_PREFABS.map((p) => p.id));
+    // the built-ins come first; content files dropped into the folder by feature packages follow them
+    expect(
+      listTemplates()
+        .slice(0, BUILTIN_TEMPLATES.length)
+        .map((t) => t.id),
+    ).toEqual(BUILTIN_TEMPLATES.map((t) => t.id));
+    expect(
+      listPrefabs()
+        .slice(0, BUILTIN_PREFABS.length)
+        .map((p) => p.id),
+    ).toEqual(BUILTIN_PREFABS.map((p) => p.id));
     expect(listTemplates().length).toBeGreaterThanOrEqual(16);
     expect(listPrefabs().length).toBeGreaterThanOrEqual(12);
     expect(getTemplate('car')?.name).toBe('Drivable car');
@@ -123,7 +132,9 @@ describe('content registries: registering', () => {
     const off = registerTemplate(template({ category: 'Zebra' }));
     const off2 = registerTemplate(template({ id: 'test-template-2', category: 'Aardvark' }));
     const cats = templateCategories();
-    expect(cats.slice(-2)).toEqual(['Aardvark', 'Zebra']);
+    // new categories (this one, and those feature packages bring) are listed after the well-known ones, alphabetically
+    expect(cats.indexOf('Aardvark')).toBeGreaterThanOrEqual(6);
+    expect(cats.indexOf('Aardvark')).toBeLessThan(cats.indexOf('Zebra'));
     off();
     off2();
     expect(templateCategories()).not.toContain('Zebra');

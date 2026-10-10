@@ -9,13 +9,32 @@
  * own solve right after, and the network sees their effect as a changed speed on the next step.
  */
 import RAPIER from '@dimforge/rapier3d-compat';
-import { qmul, qrot, vcross, vdot, vsub, type Vec3 } from '../../../core/math';
+import { qmul, qrot, vdot, vsub, type Vec3 } from '../../../core/math';
 import { measureJoint } from '../../world/joints';
 import type { BodyRec, JointRec, WorldState } from '../../world/state';
 import { pos, QI, rot, rv, X_AXIS, ZERO } from '../../world/util';
 
 const scratchInertia = new RAPIER.SdpMatrix3(new Float32Array(6));
 const scratchInvInertia = new RAPIER.SdpMatrix3(new Float32Array(6));
+
+/** A stand-in for "no limit" that the engine accepts. */
+const BIG = 1e9;
+
+/** What was last sent to the engine's motor of one joint (keyed by the engine joint, so a rebuilt joint starts fresh). */
+interface MotorCache {
+  mode: 0 | 1;
+  a: number;
+  b: number;
+  c: number;
+  lo: number | null;
+  hi: number | null;
+}
+const motorCaches = new WeakMap<object, MotorCache>();
+function cacheOf(u: object): MotorCache {
+  let c = motorCaches.get(u);
+  if (!c) motorCaches.set(u, (c = { mode: 0, a: NaN, b: NaN, c: NaN, lo: null, hi: null }));
+  return c;
+}
 
 /** nᵀ·W·n for a symmetric matrix stored as [m11, m12, m13, m22, m23, m33]. */
 function quad(e: Float32Array, n: Vec3): number {
@@ -140,30 +159,6 @@ export class JointBinding {
     return quad(b.rb.effectiveAngularInertia(scratchInertia).elements, n) + b.rb.mass() * perp2;
   }
 
-  /**
-   * How much gravity alone will change the joint's speed during the next step. The engine adds gravity *after* our
-   * impulse is applied, so a controller that wants "speed 0 at the end of the step" (a hold, a servo target, a
-   * cylinder speed) has to pre-compensate for it or it creeps by g·dt every step. Only the driven side counts — B,
-   * or A when B cannot move — because the other side is usually held up by something else (the ground, other
-   * joints), and its weight must not be predicted as a motion.
-   */
-  gravityDelta(dt: number): number {
-    const r = this.rec;
-    if (!r) return 0;
-    const g = this.s.settings.gravity;
-    const n = this.axis();
-    const body = usable(r.B) ? r.B : usable(r.A) ? r.A : null;
-    if (!body) return 0;
-    const sign = body === r.B ? 1 : -1; // speeds are B relative to A
-    const k = body.rb.gravityScale();
-    if (this.kind === 'lin') return sign * vdot([g[0] * k, g[1] * k, g[2] * k], n) * dt;
-    const at = body === r.B ? this.anchorB() : this.anchorWorld();
-    const c = body.rb.worldCom();
-    const m = body.rb.mass() * k;
-    const torque = vdot(vcross(vsub([c.x, c.y, c.z], at), [g[0] * m, g[1] * m, g[2] * m]), n);
-    return (sign * torque * dt) / this.axisInertia(body, n, at);
-  }
-
   /** Deliver an impulse: +J on body B and −J on body A, about / along the axis. */
   apply(impulse: number): void {
     const r = this.rec;
@@ -184,6 +179,68 @@ export class JointBinding {
         rv(this.anchorWorld()),
         true,
       );
+  }
+
+  // ---- the engine's own joint motor ----------------------------------------------------------------
+
+  /**
+   * Make the joint follow a speed with the engine's implicit motor: force = clamp(gain·(target − speed), ±maxForce).
+   * The motor is part of the constraint solve, so — unlike an impulse sized from the two bodies' own inertia — it
+   * sees the whole mechanism the joint moves (an arm with a payload, a crane boom) and is stable at any gain. Use a
+   * large gain for "hold this speed", a small one for a torque–speed characteristic.
+   */
+  motorVelocity(target: number, gain: number, maxForce: number): void {
+    const u = this.unit();
+    if (!u) return;
+    const c = cacheOf(u);
+    if (c.mode === 1 && c.a === target && c.b === gain && c.c === maxForce) return;
+    u.configureMotorVelocity(target, gain);
+    u.setMotorMaxForce(maxForce);
+    c.mode = 1;
+    c.a = target;
+    c.b = gain;
+    c.c = maxForce;
+  }
+
+  /** Switch the motor off (no force). */
+  motorOff(): void {
+    const u = this.unit();
+    if (!u) return;
+    const c = cacheOf(u);
+    if (c.mode === 0) return;
+    u.configureMotorVelocity(0, 0);
+    u.setMotorMaxForce(0);
+    c.mode = 0;
+  }
+
+  /**
+   * Restrict the joint to [lo, hi] (the angle or extension relative to the starting pose), in addition to any limit
+   * the joint itself has. `null` removes the restriction again.
+   */
+  travel(lo: number | null, hi: number | null): void {
+    const r = this.rec;
+    const u = this.unit();
+    if (!r || !u) return;
+    const c = cacheOf(u);
+    if (c.lo === lo && c.hi === hi) return;
+    c.lo = lo;
+    c.hi = hi;
+    const own = r.def.limit;
+    const userLo = own.enabled ? Math.min(own.min, own.max) : -BIG;
+    const userHi = own.enabled ? Math.max(own.min, own.max) : BIG;
+    if (lo === null && hi === null) {
+      if (own.enabled) u.setLimits(userLo, userHi);
+      else u.setLimits(-BIG, BIG);
+      return;
+    }
+    u.setLimits(Math.max(userLo, lo ?? -BIG), Math.min(userHi, hi ?? BIG));
+  }
+
+  private unit(): RAPIER.UnitImpulseJoint | null {
+    const r = this.rec;
+    return r?.joint && (r.def.type === 'hinge' || r.def.type === 'slider')
+      ? (r.joint as RAPIER.UnitImpulseJoint)
+      : null;
   }
 
   /** The body that carries reaction forces (A when it can move, else B); null when both are immovable. */

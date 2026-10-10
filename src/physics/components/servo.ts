@@ -5,8 +5,7 @@
  */
 import { clamp, lerp } from '../../core/math';
 import { DEG } from './powered/common';
-import { positionRow, type PositionLoop } from './powered/position';
-import type { Row } from './drive/network';
+import { followTarget, type PositionLoop } from './powered/position';
 import type { ComponentRuntime } from './registry';
 
 interface State extends PositionLoop {
@@ -14,15 +13,18 @@ interface State extends PositionLoop {
   target: number;
   /** The `target` field as last seen (an edit of the field restarts the target). */
   seen: number;
-  row: Row | null;
+  /** Torque the motor is estimated to deliver, N·m. */
+  torque: number;
 }
 
 export const servo: ComponentRuntime<State> = {
   type: 'servo',
-  create: (ctx) => ({ target: ctx.num('target') * DEG, seen: ctx.num('target'), integral: 0, row: null }),
+  create: (ctx) => ({ target: ctx.num('target') * DEG, seen: ctx.num('target'), integral: 0, torque: 0 }),
+  dispose(_s, ctx) {
+    ctx.drive.own()?.motorOff();
+  },
   paramsChanged: () => undefined,
   prestep(state, dt, ctx) {
-    state.row = null;
     const sh = ctx.drive.own();
     if (!sh || sh.kind !== 'rot') return;
     const lo = ctx.num('minAngle') * DEG;
@@ -42,8 +44,7 @@ export const servo: ComponentRuntime<State> = {
       if (dir) state.target += dir * ctx.num('jogRate') * DEG * dt;
     }
     state.target = clamp(state.target, lo, hi);
-    state.row = positionRow(
-      ctx.drive,
+    state.torque = followTarget(
       sh,
       state.target,
       {
@@ -55,12 +56,12 @@ export const servo: ComponentRuntime<State> = {
       },
       state,
       dt,
-    );
+    ).force;
   },
   poststep(state, _dt, ctx) {
     const sh = ctx.drive.own();
     if (!sh) return ctx.state.set([0, 0, 0, 0]); // not on a hinge: the inspector warns; the gauges read zero
-    ctx.state.set([sh.position / DEG, state.target / DEG, sh.speed / DEG, state.row?.torque ?? 0]);
+    ctx.state.set([sh.position / DEG, state.target / DEG, sh.speed / DEG, state.torque]);
   },
   saveState: (s) => ({ target: s.target, seen: s.seen, integral: s.integral }),
   loadState(s, data) {

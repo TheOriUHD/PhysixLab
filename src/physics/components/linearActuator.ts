@@ -4,23 +4,27 @@
  * act when the stroke would be exceeded).
  */
 import { clamp, lerp } from '../../core/math';
-import { positionRow } from './powered/position';
-import type { Row } from './drive/network';
+import { followTarget } from './powered/position';
 import type { ComponentRuntime } from './registry';
 
 interface State {
   target: number;
   seen: number;
   integral: number;
-  row: Row | null;
+  /** Force the motor is estimated to deliver, N. */
+  force: number;
 }
 
 export const linearActuator: ComponentRuntime<State> = {
   type: 'linearActuator',
-  create: (ctx) => ({ target: ctx.num('target'), seen: ctx.num('target'), integral: 0, row: null }),
+  create: (ctx) => ({ target: ctx.num('target'), seen: ctx.num('target'), integral: 0, force: 0 }),
+  dispose(_s, ctx) {
+    const sh = ctx.drive.own();
+    sh?.motorOff();
+    sh?.travel(null, null);
+  },
   paramsChanged: () => undefined,
   prestep(s, dt, ctx) {
-    s.row = null;
     const sh = ctx.drive.own();
     if (!sh || sh.kind !== 'lin') return;
     const lo = ctx.num('min');
@@ -39,23 +43,19 @@ export const linearActuator: ComponentRuntime<State> = {
       if (dir) s.target += dir * ctx.num('speed') * dt;
     }
     s.target = clamp(s.target, lo, hi);
-    s.row = positionRow(
-      ctx.drive,
+    s.force = followTarget(
       sh,
       s.target,
       { kp: ctx.num('kp'), ki: 0, kd: 0, vmax: ctx.num('speed'), fmax: ctx.num('force') },
       s,
       dt,
-    );
-    // end stops: the stroke can never be exceeded (speed bounded by the distance left)
-    const x = sh.position;
-    ctx.drive.limit(sh, (hi - x) / dt, 1, 1e9);
-    ctx.drive.limit(sh, (lo - x) / dt, -1, 1e9);
+    ).force;
+    sh.travel(lo, hi); // hard end stops at the ends of the stroke
   },
   poststep(s, _dt, ctx) {
     const sh = ctx.drive.own();
     if (!sh) return ctx.state.set([0, 0, 0, 0]);
-    ctx.state.set([sh.position, s.target, sh.speed, s.row?.torque ?? 0]);
+    ctx.state.set([sh.position, s.target, sh.speed, s.force]);
   },
   saveState: (s) => ({ target: s.target, seen: s.seen }),
   loadState(s, data) {

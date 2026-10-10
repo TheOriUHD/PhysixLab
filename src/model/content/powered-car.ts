@@ -7,7 +7,7 @@
  *   W throttle · S brake · A / D steer · R reverse · E / Q shift up / down (it also shifts itself) ·
  *   C clutch · L lock the differential
  */
-import { Builder, idleMotor, rotX, rotY } from '../builder';
+import { Builder, idleMotor, rotX } from '../builder';
 import { makeComponent } from '../componentRegistry';
 import type { BodyEntity, Entity } from '../types';
 import { registerPrefab, registerTemplate } from './registry';

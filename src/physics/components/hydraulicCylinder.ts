@@ -8,14 +8,15 @@
  * pressure, or — open centre — lets it move. The stroke ends are hard stops.
  */
 import { clamp } from '../../core/math';
-import type { Row } from './drive/network';
 import { signed } from './powered/common';
+import { HOLD_GAIN } from './powered/position';
 import type { ComponentRuntime } from './registry';
 
 interface State {
-  row: Row | null;
+  /** Speed the motor was told to hold, m/s, and its force limit, N (0 = motor off). */
+  command: number;
+  cap: number;
   area: number;
-  valve: number;
   /** Stroke at the end of the previous step, for the mean speed the gauge shows. */
   last: number;
 }
@@ -24,10 +25,15 @@ const BAR = 1e5;
 
 export const hydraulicCylinder: ComponentRuntime<State> = {
   type: 'hydraulicCylinder',
-  create: () => ({ row: null, area: 1, valve: 0, last: NaN }),
+  create: () => ({ command: 0, cap: 0, area: 1, last: NaN }),
   paramsChanged: () => undefined,
-  prestep(s, dt, ctx) {
-    s.row = null;
+  dispose(_s, ctx) {
+    const sh = ctx.drive.own();
+    sh?.motorOff();
+    sh?.travel(null, null);
+  },
+  prestep(s, _dt, ctx) {
+    s.cap = 0;
     const sh = ctx.drive.own();
     if (!sh || sh.kind !== 'lin') return;
     const bore = ctx.num('bore') / 1000;
@@ -37,28 +43,32 @@ export const hydraulicCylinder: ComponentRuntime<State> = {
     const p = ctx.num('pressure') * BAR;
     const q = ctx.num('flow') / 60000; // L/min → m³/s
     const u = signed(ctx, 'key', 'keyReverse', 'axis', 0);
-    s.valve = u;
     if (Math.abs(u) > 1e-3) {
       const area = u > 0 ? aBore : aRet;
       s.area = area;
-      s.row = ctx.drive.drive(sh, (u * q) / area, Math.abs(u) * p * area);
+      s.command = (u * q) / area;
+      s.cap = Math.abs(u) * p * area;
     } else if (ctx.str('idle') === 'hold') {
       s.area = aRet;
-      s.row = ctx.drive.drive(sh, 0, ctx.num('relief') * BAR * aRet);
+      s.command = 0;
+      s.cap = ctx.num('relief') * BAR * aRet;
     }
-    const x = sh.position;
-    ctx.drive.limit(sh, (ctx.num('max') - x) / dt, 1, 1e9);
-    ctx.drive.limit(sh, (ctx.num('min') - x) / dt, -1, 1e9);
+    // The oil is the engine's own joint motor: it follows the valve's speed with at most the pressure's force, and
+    // with the valve centred it holds the load (or, open centre, lets go). Being part of the constraint solve it moves
+    // the whole mechanism the cylinder pushes — a boom, a payload — not just the two bodies it joins.
+    if (s.cap > 0) sh.motorVelocity(s.command, HOLD_GAIN.lin, s.cap);
+    else sh.motorOff();
+    sh.travel(ctx.num('min'), ctx.num('max')); // the ends of the stroke are hard stops
   },
   poststep(s, dt, ctx) {
     const sh = ctx.drive.own();
     if (!sh) return ctx.state.set([0, 0, 0, 0]);
-    const f = s.row?.torque ?? 0;
     const x = sh.position;
-    // the displacement over the step is the speed that matters (the engine's end-of-step speed differs by what
-    // gravity added inside the step)
+    // the displacement over the step is the speed that matters (the end-of-step speed differs by what gravity added)
     const speed = Number.isNaN(s.last) ? 0 : (x - s.last) / dt;
     s.last = x;
+    // the force the motor delivered: gain × (commanded − actual speed), which saturates at the pressure's limit
+    const f = s.cap > 0 ? clamp(HOLD_GAIN.lin * (s.command - sh.speed), -s.cap, s.cap) : 0;
     ctx.state.set([x * 1000, speed * 1000, f, clamp(Math.abs(f) / s.area / BAR, 0, 1e6)]);
   },
 };

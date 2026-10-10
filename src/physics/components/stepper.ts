@@ -1,13 +1,15 @@
 /**
  * Runtime of the `stepper` component (definition: `src/model/components/stepper.ts`).
  *
- * A two-phase stepper's torque-angle characteristic is a sine: with the rotor `e` away from the commanded position
- * the motor pulls back with T = −T_hold·sin(π/2 · e / step). It is zero at the commanded position (stable), peaks at
- * one full step of lag (the holding torque), and is zero again — but unstable — at two steps, beyond which the rotor
- * falls into the next stable position four steps further on: a *lost step*. The restoring spring and its damping are
- * integrated implicitly (the network adds `dt·k` to the shaft's inertia), so the stiff characteristic of a small
- * stepper on a light rotor is stable at any physics rate. The available torque falls off with pulse rate.
+ * Every pulse (a key press, an axis pulse train, a constant rate) moves the commanded position by one step angle. The
+ * rotor is pulled toward the nearest stable position with a spring that saturates at the holding torque (reached at one
+ * step of displacement, as in a real motor): it holds against loads up to that torque, settles after a step with a
+ * damping set by the damping ratio, and — pushed beyond two steps of lag by an overload or by pulses it cannot follow —
+ * falls into the next stable position, four full steps along: a *lost step*. The available torque falls off with the
+ * pulse rate. The spring and damper are realised by the engine's own implicit joint motor, so they move whatever the
+ * joint is attached to.
  */
+import { clamp } from '../../core/math';
 import { approach, DEG, Edge } from './powered/common';
 import type { ComponentRuntime } from './registry';
 
@@ -24,6 +26,10 @@ interface State {
   heldR: number;
   torque: number;
   lag: number;
+  /** What the motor was told this step (to estimate the torque it delivered). */
+  cmd: number;
+  hold: number;
+  gain: number;
 }
 
 const REPEAT_DELAY = 0.35;
@@ -44,9 +50,15 @@ export const stepper: ComponentRuntime<State> = {
       heldR: 0,
       torque: 0,
       lag: 0,
+      cmd: 0,
+      hold: 0,
+      gain: 0,
     };
   },
   paramsChanged: () => undefined,
+  dispose(_s, ctx) {
+    ctx.drive.own()?.motorOff();
+  },
   prestep(s, dt, ctx) {
     const sh = ctx.drive.own();
     if (!sh || sh.kind !== 'rot') return;
@@ -80,21 +92,27 @@ export const stepper: ComponentRuntime<State> = {
     s.steps += n;
     s.rate = approach(s.rate, Math.abs(n) / dt, 0.08, dt);
     // ---- torque-angle characteristic about the commanded position ----
-    const e = sh.position - s.steps * step;
+    // The rotor is pulled toward the nearest stable position — the commanded one, or one a whole electrical cycle (four
+    // full steps) away from it, which is where a rotor that is overloaded past two steps of lag falls to: a lost step.
+    const cycle = 4 * step;
+    const target = s.steps * step;
+    const equilibrium = target + cycle * Math.round((sh.position - target) / cycle);
+    const e = sh.position - equilibrium;
     const hold = ctx.num('holdTorque') / (1 + (s.rate / ctx.num('falloffRate')) ** 2);
-    const phase = (Math.PI / 2) * (e / step);
-    const t = -hold * Math.sin(phase);
-    const kNom = (hold * Math.PI) / 2 / step;
-    const slope = -kNom * Math.cos(phase); // dT/dθ
-    const c = 2 * ctx.num('damping') * Math.sqrt(kNom * Math.min(sh.effInertia, 1e6));
-    ctx.drive.torque(sh, t, c + dt * Math.max(0, -slope));
-    s.torque = t;
-    s.lag = e / step;
+    const k = hold / step; // the pull rises to the holding torque at one step of displacement
+    // spring + damper as the engine's velocity motor: force = clamp(c·(−(k/c)·e − v), ±hold) = clamp(−k·e − c·v)
+    const c = Math.max(2 * ctx.num('damping') * Math.sqrt(k * Math.min(sh.effInertia, 1e6)), k * dt);
+    s.cmd = -(k / c) * e;
+    s.hold = hold;
+    s.gain = c;
+    sh.motorVelocity(s.cmd, c, hold);
+    s.lag = (sh.position - target) / step;
   },
   poststep(s, _dt, ctx) {
     const sh = ctx.drive.own();
     if (!sh) return ctx.state.set([0, 0, 0, 0, 0]);
     const step = ctx.num('stepAngle') * DEG;
+    s.torque = clamp(s.gain * (s.cmd - sh.speed), -s.hold, s.hold);
     ctx.state.set([s.steps, (s.steps * step) / DEG, sh.position / DEG, s.lag, s.torque]);
   },
   saveState: (s) => ({ steps: s.steps, acc: s.acc, rate: s.rate, heldF: s.heldF, heldR: s.heldR }),

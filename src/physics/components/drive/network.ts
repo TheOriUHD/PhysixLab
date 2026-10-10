@@ -44,8 +44,6 @@ export class Shaft {
   node = -1;
   /** Inverse effective inertia of a joint shaft in the current step. */
   invI = 0;
-  /** Speed change gravity will cause in the coming step (joint shafts; compensated by the controllers). */
-  ext = 0;
   /** A virtual shaft that has not been through a solve yet: its first speed is made consistent with its neighbours. */
   fresh = true;
   /** Impulse the solver delivered to this shaft in the last step (N·m·s) — what the physical world received. */
@@ -83,6 +81,18 @@ export class Shaft {
   }
   set speed(v: number) {
     this.omega = v;
+  }
+
+  /** Follow a speed with the engine's own implicit joint motor (joint shafts only): see `JointBinding.motorVelocity`. */
+  motorVelocity(target: number, gain: number, maxForce: number): void {
+    this.bind?.motorVelocity(target, gain, maxForce);
+  }
+  motorOff(): void {
+    this.bind?.motorOff();
+  }
+  /** Limit the joint's travel (relative to its starting pose); `null` lifts the limit. */
+  travel(lo: number | null, hi: number | null): void {
+    this.bind?.travel(lo, hi);
   }
 
   /** World axis of a joint shaft (unit); zero for a virtual shaft. */
@@ -322,14 +332,9 @@ export class DriveNetwork {
   solve(): void {
     const sv = this.solver;
     const dt = this.dt;
-    // The engine integrates a step in N = (solver iterations × sub-steps) equal parts, so what gravity adds to the
-    // *average* speed of the step (the one that sets the displacement) is (N+1)/(2N) of g·dt, not all of it.
-    const n =
-      Math.max(1, Math.round(this.s.settings.solverIterations)) * Math.max(1, Math.round(this.s.settings.substeps));
-    const meanShare = (n + 1) / (2 * n);
     if (this.list.some((sh) => sh.fresh && !sh.bind)) this.initialise();
     sv.clear();
-    this.addNodes(dt, meanShare);
+    this.addNodes(dt);
     this.addRows();
     sv.solve();
     this.collect();
@@ -369,7 +374,7 @@ export class DriveNetwork {
   }
 
   /** Solver nodes: free speed after the explicit part of the sources, inverse effective inertia. */
-  private addNodes(dt: number, meanShare: number): void {
+  private addNodes(dt: number): void {
     const sv = this.solver;
     for (const sh of this.list) {
       let inertia: number;
@@ -379,13 +384,10 @@ export class DriveNetwork {
         w = sh.bind.alive() ? sh.speed : 0;
         if (sh.invI <= 1e-12) {
           sh.invI = 0;
-          sh.ext = 0;
           sh.node = sv.addNode(0, w);
           continue;
         }
         inertia = 1 / sh.invI;
-        sh.ext = sh.bind.gravityDelta(dt) * meanShare;
-        w += sh.ext; // gravity acts after our impulse: aim the step's mean speed at the target
       } else {
         inertia = Math.max(sh.inertia, MIN_INERTIA);
         w = sh.omega;
@@ -426,7 +428,7 @@ export class DriveNetwork {
     for (const sh of this.list) {
       const v = sv.v[sh.node];
       if (sh.bind && sh.invI > 0) {
-        const impulse = (v - sh.speed - sh.ext) / sh.invI;
+        const impulse = (v - sh.speed) / sh.invI;
         sh.impulse = impulse;
         sh.bind.apply(impulse);
       }
