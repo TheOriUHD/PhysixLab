@@ -512,7 +512,11 @@ test('menus, toolbox and the shortcut help are generated from the registries —
   await page.mouse.click(pos.x, pos.y, { button: 'right' });
   await page.waitForSelector('.menu');
   const ctx = await page.locator('.menu .menu-item .grow').allTextContents();
-  assert(ctx.join() === 'Frame,Duplicate,Hide / show,Lock / unlock,Delete,Simulate', `context menu: ${ctx}`);
+  // -- ED-B: the menu also offers the kind-aware body entries (ED-31) --
+  assert(
+    ctx.join() === 'Frame,Duplicate,Hide / show,Lock / unlock,Make static,Material,Pin to world,Delete,Simulate',
+    `context menu: ${ctx}`,
+  );
   await page.keyboard.press('Escape');
 
   // Shortcut help = the registry.
