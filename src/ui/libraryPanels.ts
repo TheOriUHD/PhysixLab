@@ -189,11 +189,22 @@ function prefabTab(app: App): HTMLElement {
     for (const p of prefabs) {
       const c = h(
         'button',
-        { class: 'card', type: 'button', title: 'Insert at the centre of the view' },
+        // -- ED-A snap: cards can be dragged onto a surface of the scene (ED-15) --
+        {
+          class: 'card',
+          type: 'button',
+          draggable: true,
+          title: 'Click to insert at the centre of the view, or drag onto a surface',
+        },
         h('h4', null, icon(p.icon), p.name),
         h('p', null, p.blurb),
       );
       c.addEventListener('click', () => app.insertPrefab(p.id));
+      c.addEventListener('dragstart', (e) => {
+        e.dataTransfer?.setData('text/x-physicslab-prefab', p.id);
+        e.dataTransfer?.setData('text/plain', p.name);
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
+      });
       cards.appendChild(c);
     }
     root.appendChild(cards);

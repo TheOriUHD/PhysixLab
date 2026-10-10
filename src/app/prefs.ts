@@ -20,6 +20,16 @@ export interface Prefs {
   snap: boolean;
   snapGrid: number;
   snapAngle: number;
+  // -- ED-A snap: object snapping modes (src/model/edit/snap.ts); `snap` above stays the grid toggle --
+  snapVertex: boolean;
+  snapEdge: boolean;
+  snapFace: boolean;
+  snapBounds: boolean;
+  /** Dragging / dropping puts objects flush on the surface under the pointer. */
+  snapSurface: boolean;
+  /** …and turns their up axis onto the surface normal. */
+  snapAlignNormal: boolean;
+  // -- /ED-A snap --
   timeScale: number;
   colorMode: ColorMode;
   overlays: OverlayOptions;
@@ -53,6 +63,14 @@ export const DEFAULT_PREFS: Prefs = {
   snap: true,
   snapGrid: 0.25,
   snapAngle: 15,
+  // -- ED-A snap --
+  snapVertex: true,
+  snapEdge: false,
+  snapFace: false,
+  snapBounds: false,
+  snapSurface: true,
+  snapAlignNormal: false,
+  // -- /ED-A snap --
   timeScale: 1,
   colorMode: 'material',
   overlays: { ...DEFAULT_OVERLAYS },

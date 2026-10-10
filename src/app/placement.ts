@@ -1,10 +1,9 @@
 /** Picking and placement helpers: what is under the pointer, and where new objects should appear. */
-import { Vector3 } from 'three';
 import type { Vec3 } from '../core/math';
-import { halfHeight } from '../model/shapes';
 import type { ShapeType } from '../model/types';
 import type { PickHit } from '../render/picking';
 import type { App } from './app';
+import { dropPoseForShape } from './edit/surfaceDrop';
 
 export class Placement {
   constructor(private app: App) {}
@@ -49,25 +48,7 @@ export class Placement {
   }
 
   placementAt(ev: { clientX: number; clientY: number }, shapeType: ShapeType, size: Vec3): Vec3 {
-    const { app } = this;
-    const hh = halfHeight({ type: shapeType, size });
-    let p: Vec3;
-    const hit = app.picker.pick(ev, app.bodies.pickables());
-    const g = app.picker.groundPoint(ev, 0);
-    if (hit && hit.normal && (!g || hit.distance < app.camera.position.distanceTo(g))) {
-      const n = hit.normal.clone().normalize();
-      const off = n.y > 0.7 ? new Vector3(0, hh + 0.01, 0) : n.clone().multiplyScalar(hh + 0.01);
-      p = [hit.point.x + off.x, hit.point.y + off.y, hit.point.z + off.z];
-    } else if (g && g.distanceTo(app.camera.position) < 150) {
-      p = [g.x, hh + 0.001, g.z];
-    } else {
-      const t = app.viewport.controls.target;
-      p = [t.x, hh + 0.001, t.z];
-    }
-    if (app.prefs.value.snap) {
-      const s = app.prefs.value.snapGrid;
-      p = [Math.round(p[0] / s) * s, p[1], Math.round(p[2] / s) * s];
-    }
-    return p;
+    // -- ED-A snap: the pointer ray lands the shape flush on the surface under it (src/app/edit/surfaceDrop.ts) --
+    return dropPoseForShape(this.app, ev, shapeType, size).position;
   }
 }

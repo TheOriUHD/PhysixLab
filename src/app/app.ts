@@ -17,7 +17,7 @@
  */
 import { Color, Vector3 } from 'three';
 import { Emitter } from '../core/events';
-import type { Vec3 } from '../core/math';
+import type { Quat, Vec3 } from '../core/math';
 import type {
   BodyEntity,
   Entity,
@@ -336,8 +336,8 @@ export class App extends Emitter<AppEvents> {
   // high level commands used by the UI
   // ------------------------------------------------------------------------------------------
 
-  addShape(type: ShapeType, at?: Vec3): BodyEntity {
-    return this.commands.addShape(type, at);
+  addShape(type: ShapeType, at?: Vec3, rotation?: Quat): BodyEntity {
+    return this.commands.addShape(type, at, rotation);
   }
 
   addSoft(type: SoftType): void {
@@ -366,8 +366,9 @@ export class App extends Emitter<AppEvents> {
     this.gizmos.setPathPoint(id === null ? null : { id, index });
   }
 
-  insertPrefab(id: string): void {
-    this.commands.insertPrefab(id);
+  /** `drop` (ED-A snap): where the prefab goes; without it the view target is used. */
+  insertPrefab(id: string, drop?: { position: Vec3; rotation?: Quat }): void {
+    this.commands.insertPrefab(id, drop);
   }
 
   loadDocument(doc: SceneDocument, view?: 'frame'): void {
