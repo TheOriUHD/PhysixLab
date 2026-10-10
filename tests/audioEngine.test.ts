@@ -460,6 +460,7 @@ describe('time scale and spatial state reach the voices (FX-10, FX-14)', () => {
     engine.beginFrame();
     engine.playEvent('launch', [0, 0, -40], { level: 0.6 }, [0, 0, 30]);
     expect(engine.recent.at(-1)?.rate).toBeGreaterThan(1.05);
+    engine.beginFrame(); // a fresh synthesis budget: under CPU load the launch render alone can use up this frame's 5 ms
     engine.playEvent('ui.error', [50, 0, -40]);
     expect(engine.recent.at(-1)).toMatchObject({ pan: 0, category: 'ui' });
   });

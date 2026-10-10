@@ -20,6 +20,8 @@ import { fixedDt } from '../world/stepping';
 import { pos, rot, rq, rv } from '../world/util';
 import { watchContacts } from '../world/events';
 import type { ComponentHost } from './host';
+// -- ZN: the zone system (races, score, respawn, spawn)
+import type { ZoneSystem } from '../zones/system';
 
 export type { ContactPoint };
 
@@ -112,6 +114,8 @@ export interface ComponentContext {
 
   /** Raise a `component` event for the page (`SimClient` re-emits it as an `'event'`). */
   emit(name: string, data?: unknown): void;
+  // -- ZN: races, score, respawn points, spawning and rigid unit moves, shared by every zone and the world bounds
+  readonly zones: ZoneSystem;
   readonly input: {
     /** Is the key (`KeyboardEvent.code`) held? */
     key(code: string): boolean;
@@ -398,6 +402,10 @@ export class ComponentCtx implements ComponentContext {
 
   emit(name: string, data?: unknown): void {
     this.host.emit(this, name, data);
+  }
+  // -- ZN
+  get zones(): ZoneSystem {
+    return this.host.zones;
   }
   readonly input = {
     key: (code: string): boolean => this.s.keys.has(code),

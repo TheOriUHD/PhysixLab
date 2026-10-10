@@ -416,6 +416,54 @@ export interface BoundsSettings {
   max: Vec3;
   /** 'kill' switches a body that leaves the box off; 'respawn' returns it to its starting pose. */
   policy: BoundsPolicy;
+  // ── ZN-34: what each face of the box does, soft walls, the respawn policy ──
+  /** What happens at each face of the box (default: every face kills, as a plain kill box). */
+  edges: BoundsEdges;
+  /** The spring wall of 'soft' faces. */
+  soft: BoundsSoftWall;
+  /** Used when `policy` is 'respawn'. */
+  respawn: BoundsRespawn;
+}
+
+/**
+ * What a face of the bounds box does to a dynamic body whose centre goes past it:
+ *  - `open`   nothing (the world just continues; bodies are still switched off 400 m below the origin);
+ *  - `kill`   the body is lost (removed, or respawned, by the policy) — a kill wall, or with the bottom face a kill plane;
+ *  - `soft`   an invisible spring wall pushes the body back before it gets there (never kills);
+ *  - `water`  like `kill`, reported as drowned and drawn as a sea (the bottom face is the one it is made for).
+ */
+export type BoundsEdge = 'open' | 'kill' | 'soft' | 'water';
+export interface BoundsEdges {
+  /** −x, +x, −y (the floor), +y (the ceiling), −z, +z. */
+  nx: BoundsEdge;
+  px: BoundsEdge;
+  ny: BoundsEdge;
+  py: BoundsEdge;
+  nz: BoundsEdge;
+  pz: BoundsEdge;
+}
+/** Soft wall: starts `margin` metres inside the face and pushes with an acceleration `stiffness`·depth, damped outward. */
+export interface BoundsSoftWall {
+  /** Thickness of the wall, metres. */
+  margin: number;
+  /** Spring constant as an acceleration per metre of depth, 1/s². */
+  stiffness: number;
+  /** Damping of the outward velocity, 1/s. */
+  damping: number;
+}
+export interface BoundsRespawn {
+  /** Where the body comes back: its starting pose, or the last checkpoint / respawn point it passed (else the start). */
+  to: 'start' | 'checkpoint';
+  /** Seconds the body is out of the world before it returns. */
+  delay: number;
+  /** Seconds added to the racer's times for every respawn. */
+  penaltySeconds: number;
+  /** Points taken off the score for every respawn. */
+  penaltyPoints: number;
+  /** Respawns allowed per body (or group) before it is removed for good (0 = unlimited). */
+  max: number;
+  /** Bodies that share a group (a vehicle) are lost and respawned together. */
+  wholeGroups: boolean;
 }
 
 export type LengthUnit = 'm' | 'cm' | 'ft' | 'in';

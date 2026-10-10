@@ -11,7 +11,10 @@
  *                 approach speed and the materials involved. Off by default (`SimOp 'events'` switches it on);
  *                 aggregated per pair and rate-limited, see `EventConfig`.
  *      `sensor`   a body entered / left a sensor collider (a compound part with `sensor`, or a ghost body). Always on.
- *      `component` a component's own notification (`ctx.emit`).
+ *      `component` a component's own notification (`ctx.emit`). Zones raise them with `type: 'zone'` (enter, exit, stay,
+ *                 checkpoint, lap, finish, kill, respawn, teleport, launch, spawn, sound, score … — names and payloads in
+ *                 `model/zones.ts`), the world bounds with `type: 'bounds'` (kill, respawn); the race standings and the score
+ *                 are published as component state `@zones`.
  *      `jointBroken` a breakable joint failed.
  *  - **Component state**: a component publishes numbers (`ctx.state.set`) or JSON (`ctx.state.setJson`) that the
  *    page reads by component id (`SimClient.stateOf`) — gauges, sensors, readouts. Only changes are sent.

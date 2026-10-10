@@ -12,6 +12,7 @@ import {
 } from './controls';
 import { GRAVITY_PRESETS } from '../model/gravityPresets';
 import { h } from './dom';
+import { buildBoundsSection } from './boundsSection'; // -- ZN
 
 /** Scene-wide physics + environment settings. */
 export function buildWorldPanel(app: App): HTMLElement {
@@ -166,6 +167,11 @@ export function buildWorldPanel(app: App): HTMLElement {
       { id: 'world-solver' },
     ),
   );
+  // -- ZN: world bounds (ZN-34)
+  const bounds = buildBoundsSection(app);
+  el.append(bounds.el);
+  upd.push(bounds.refresh);
+
   const refresh = () => upd.forEach((u) => u());
   store.on('change', refresh);
   refresh();

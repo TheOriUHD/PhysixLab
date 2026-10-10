@@ -51,7 +51,16 @@ export function defaultEnvironment(): EnvironmentSettings {
 }
 
 export function defaultBounds(): BoundsSettings {
-  return { enabled: false, min: [-100, -50, -100], max: [100, 100, 100], policy: 'kill' };
+  return {
+    enabled: false,
+    min: [-100, -50, -100],
+    max: [100, 100, 100],
+    policy: 'kill',
+    // -- ZN-34
+    edges: { nx: 'kill', px: 'kill', ny: 'kill', py: 'kill', nz: 'kill', pz: 'kill' },
+    soft: { margin: 3, stiffness: 40, damping: 4 },
+    respawn: { to: 'checkpoint', delay: 0, penaltySeconds: 0, penaltyPoints: 0, max: 0, wholeGroups: false },
+  };
 }
 
 export function defaultUnits(): UnitsSettings {

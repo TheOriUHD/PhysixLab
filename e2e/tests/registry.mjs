@@ -597,7 +597,13 @@ test('panels: the three regions are generated from the panel registry, follow it
   const tabs = async (sel) => (await page.locator(`${sel} .tab`).allTextContents()).map((t) => t.trim());
   assert((await tabs('.panel.left')).join() === 'Add,Prefabs,Maps,Scenes', `left: ${await tabs('.panel.left')}`);
   assert((await tabs('.panel.right')).join() === 'Inspector,Outliner,World,Effects', 'right');
-  assert((await tabs('.dock')).join() === 'Energy,Selection', 'bottom dock');
+  // -- ZN: packages add their own dock tabs (Zones, ...), so the built-in ones are checked in order, not the whole list.
+  const dockTabs = await tabs('.dock');
+  assert(
+    dockTabs.filter((t) => t === 'Energy' || t === 'Selection').join() === 'Energy,Selection',
+    `bottom dock: ${dockTabs}`,
+  );
+  assert(dockTabs.includes('Zones'), `the Zones tab is in the bottom dock: ${dockTabs}`);
 
   // Tab semantics.
   const aria = await page.evaluate(() => {

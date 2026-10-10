@@ -50,7 +50,7 @@ in the page, in the worker and in the Node unit tests.
 | `src/model/` | the document: types, factory, `SceneStore`, serialisation + sanitising, migrations, limits, asset store, shape / component registries, `builder.ts` (the DSL the content is written in), `mapKit.ts` |
 | `src/model/shapes/`, `components/`, `sanitize/`, `assets/` | one file per built-in shape / component definition; the per-kind sanitisers; the asset codec |
 | `src/model/content/` | **content registries** and the built-in templates, prefabs and maps; auto-collected (§5) |
-| `src/physics/` | the worker, the client, the protocol; `world/` is the simulation (§7), `components/` the component runtimes |
+| `src/physics/` | the worker, the client, the protocol; `world/` is the simulation (§7), `components/` the component runtimes, `zones/` the zone system (§6a) |
 | `src/render/` | three.js: viewport, body / soft / joint / light / path / group views, overlays, gizmo, picking |
 | `src/render/fx/` | the effects system (§8a): particle types, pooled simulation, instanced renderer, impact surfaces, ground-contact slip, skid marks, explosions |
 | `src/app/fx/` | the glue to the app: `FxDirector`, effects clock, per-body facts, contact queue, physical debris |
@@ -204,6 +204,35 @@ halves registered under the same `type`:
 setJson` (published to the page), `ctx.time / dt / step`. Forces are applied as impulses `F·dt` over the fixed step, so they
 never fight the engine's persistent force accumulators. The two reference components, `constantForce` and `sineMover`, are
 verified against analytic results (`tests/components.test.ts`).
+
+## 6a. Zones, races and world bounds (`model/zones.ts`, `physics/zones/`, `physics/world/bounds.ts`)
+
+A **zone** is a body whose colliders are sensors (a *ghost*, static or kinematic) carrying a `zone` component; the body's
+shape is the volume. The engine's `sensor` enter / exit events reach the zone through the component event mechanism; the
+runtime (`physics/components/zone.ts`) keeps the set of bodies inside (one count per overlapping collider pair), applies
+the filter (kind of body, tags, layers) and raises `enter` / `exit` / `stay` events. A unit that enters — a body, or its
+whole group — is queued and acted on at the end of the same fixed step (`physics/zones/actions.ts`, never from inside the
+engine's event drain): race lines, kill / respawn, respawn points, teleport, launch, spawn, sound, score / label, enable
+/ disable, custom event; gravity overrides and force fields act every step on the bodies inside.
+
+* **`ZoneSystem`** (`physics/zones/system.ts`, one per world, owned by the component host) is what the zones share: the
+  registry of running zones, the **race book** (`race.ts`: pure ordered-checkpoint / lap / split / best-lap / penalty
+  rules), the score, respawn points, delayed respawns, teleport immunity, spawn lifetimes and rigid moves of a unit. It is
+  saved in snapshots (`@zones`) and **publishes its state as JSON** (`ZONES_STATE_ID`; races with every racer's lap, splits
+  and times, the score and the last message), so time travel restores the standings and the page never reduces events to
+  know them.
+* **World bounds** (`SceneSettings.bounds`, `physics/world/bounds.ts`): each face of a box is `open`, `kill`, `soft` or
+  `water`. Soft faces are spring walls applied as impulses before the step; kill / water faces lose a body whose centre
+  passed them after it, through `ZoneSystem.lose` — the same loss / respawn machinery as the kill zone (remove, or respawn
+  at the start / last checkpoint after a delay, with time and score penalties and a limit).
+* **Events** are protocol-v2 `component` events with `type: 'zone'` (or `'bounds'`); names and payloads are typed in
+  `model/zones.ts`. `App.zones` (`app/zones.ts`) turns the stream into an API for the HUD, the Zones tab, logic, scripts and the
+  game layer, adopts the bodies a spawner creates as simulation-only bodies, and plays the synthesised sounds.
+* **Page side:** `render/zoneViews.ts` draws zone bodies as translucent coloured volumes with outlines and captions (picked
+  last, so objects inside a zone stay clickable) and the bounds box; `ui/zonesPanel.ts` (bottom dock), `ui/zoneHud.ts` (race
+  board, score, feed), `ui/boundsSection.ts` (World tab) and `ui/zoneTiles.ts` (Add tab). `model/zonePresets.ts` builds a
+  correctly set-up zone (and its helper bodies) for every action; the Add tab, the commands (`ui/extensions/zones.ts`), the
+  prefabs and the example scenes (`model/content/zn-zones.ts`) all use it.
 
 ## 7. Simulation (`physics/`)
 

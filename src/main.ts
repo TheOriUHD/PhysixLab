@@ -14,6 +14,7 @@ import { importDocument } from './ui/sceneActions';
 import { mountToasts } from './ui/toasts';
 import { showWelcome } from './ui/dialogs';
 import { openMenu } from './ui/menu';
+import { mountZoneHud } from './ui/zoneHud'; // -- ZN
 import { resolveMenu } from './app/registry/menus';
 import { loadExtensions, registerBuiltins } from './ui/builtin';
 
@@ -60,6 +61,7 @@ async function boot(): Promise<void> {
   const { toolbox, viewbar } = buildToolbox(app);
   shell.floatSlot.replaceWith(toolbox, viewbar);
   mountToasts(app);
+  mountZoneHud(app, shell.stage); // -- ZN: race board, score and event feed over the viewport
   wireShell(app, shell);
   const input = new InputController(app);
   app.viewport.controls.addEventListener('change', () => {

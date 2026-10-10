@@ -624,6 +624,24 @@ If what you want is a *behaviour* rather than a new constraint — a motor with 
 under load, a gear coupling between two hinges — write a **component** with `appliesTo: 'joint'` instead: no
 union to extend, and the inspector, undo, saving and the worker integration come for free.
 
+## How to add a zone action
+
+Zones (package ZN, `docs/ARCHITECTURE.md` §6a) are bodies with a `zone` component; what a zone *does* is its `action`.
+Actions are not a registry yet, so a new one touches three known places (guarded by `tests/zonePresets.test.ts`, which
+builds, saves, loads and runs a zone of every action):
+
+1. `src/model/zones.ts` — an entry in `ZONE_ACTIONS` (id, label, one-line help, icon, colour) and, if it raises a new
+   event, its name and payload in `ZoneEventData`.
+2. `src/model/components/zone.ts` — the fields it needs, each with `showIf: only('myAction')` so the inspector shows them
+   only for that action.
+3. `src/physics/zones/actions.ts` — a case in `fire` (once per unit that enters; `ctx.zones` has the loss / respawn,
+   rigid-move, spawn and score machinery, `zones.emit` raises the event) or in `applyField` (every step, for each body
+   inside). Add a preset in `src/model/zonePresets.ts` for the Add tab and the command palette, and a physics test with an
+   analytic expectation (`tests/zones.actions.test.ts` has one per action).
+
+A behaviour that is not "something happens to the bodies that enter" — a force field with its own visuals, a fluid, a
+surface — is a **component** (above), not a zone action.
+
 ---
 
 ## Testing an extension

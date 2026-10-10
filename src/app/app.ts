@@ -55,6 +55,8 @@ import { FxDirector } from './fx/fxDirector';
 // ── FX: sound ──
 import type { AudioEngine } from '../audio/engine';
 import { AudioDirector } from './audio/audioDirector';
+import { ZoneBridge } from './zones'; // -- ZN
+import { ZoneViews } from '../render/zoneViews'; // -- ZN
 
 export type { Shell, ToastKind } from './appTypes';
 
@@ -96,6 +98,9 @@ export class App extends Emitter<AppEvents> {
   readonly commands: SceneCommands;
   readonly projectiles: Projectiles;
   readonly frameLoop: FrameLoop;
+  // -- ZN: zones, races, world bounds (events and state as an API; the volumes drawn in the viewport)
+  readonly zones: ZoneBridge;
+  readonly zoneViews: ZoneViews;
 
   constructor(readonly shell: Shell) {
     super();
@@ -129,6 +134,8 @@ export class App extends Emitter<AppEvents> {
     this.fx = this.fxDirector.fx;
     this.audioDirector = new AudioDirector(this); // ── FX: after the store, the preferences, the simulation and the camera exist ──
     this.audio = this.audioDirector.engine;
+    this.zones = new ZoneBridge(this); // -- ZN
+    this.zoneViews = new ZoneViews(this); // -- ZN
 
     shell.stage.appendChild(this.labels.layer);
     this.measureTool = new MeasureTool(this);
