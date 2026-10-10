@@ -2,16 +2,17 @@
  * Ellipsoid: a sphere with independent radii along x, y and z, as one convex hull.
  *
  * The hull's vertices are the *support points* of an evenly spaced lattice of directions (see `lattice.ts`): the
- * point of the ellipsoid whose surface normal is that direction. They all lie on the true ellipsoid, are spaced by
- * normal angle (so the faces crowd where the surface curves most, never where it is nearly flat), and no two
- * neighbouring faces are near-coplanar — which is what keeps the engine's hull builder exact: the integrated mass
- * equals `density × volume()` to better than 0.1 % for every shape this module allows. `volume()` is the exact
- * volume of that polyhedron, which is inscribed in the ellipsoid and holds 97 % of its volume at the default detail
- * for a ball, ~93 % for the flattest allowed ellipsoid; raise *Detail* to approach the smooth solid.
+ * point of the ellipsoid whose surface normal is that direction. They all lie on the true ellipsoid and are spaced by
+ * normal angle, so the faces crowd where the surface curves most, never where it is nearly flat. Every face is a
+ * triangle, which is what keeps the engine's hull builder exact: the integrated mass equals `density × volume()` to
+ * better than 0.1 % for every shape this module allows. `volume()` is the exact volume of that polyhedron, which is
+ * inscribed in the ellipsoid and holds 97 % of its volume at the default detail for a ball, ~90 % for the flattest
+ * allowed ellipsoid; raise *Detail* to approach the smooth solid.
  *
- * Size: the three full diameters; no axis may be shorter than a quarter of the longest — thinner than that the
- * engine's hull builder merges the nearly flat faces of the caps and mis-computes the mass (use a cylinder for a
- * disc). The mesh is the very same polyhedron with the exact ellipsoid normals.
+ * Size: the three full diameters; no axis may be shorter than a quarter of the longest — a thinner lens has caps
+ * whose neighbouring faces are almost coplanar, which the engine's hull builder merges into one flat face and then
+ * mis-computes the mass by up to 95 % (use a cylinder for a disc). The mesh is the very same polyhedron with the
+ * exact ellipsoid normals.
  */
 import type { Vec3 } from '../../core/math';
 import type { ShapeDef } from '../shapeRegistry';
@@ -27,7 +28,7 @@ import { SHAPE_ICONS } from './shapeIcons';
 export const ELLIPSOID_MIN_RATIO = 0.25;
 
 export const ellipsoidDetail = (spec: ShapeSpec): number =>
-  Math.max(4, Math.min(16, Math.round(Number(spec.params?.detail ?? 8))));
+  Math.max(4, Math.min(12, Math.round(Number(spec.params?.detail ?? 8))));
 
 interface Solid {
   hull: Hull;
@@ -67,7 +68,7 @@ export const ellipsoid: ShapeDef = {
       label: 'Detail',
       kind: 'int',
       min: 4,
-      max: 16,
+      max: 12,
       step: 1,
       default: 8,
       hint: 'Subdivision of the convex collider (4 L² + 2 corners): rounder when higher, but dearer to simulate',

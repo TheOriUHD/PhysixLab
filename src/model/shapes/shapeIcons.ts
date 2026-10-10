@@ -16,8 +16,7 @@ export const SHAPE_ICONS = {
   dome: '<path d="M3 17c0-5.5 4-9.5 9-9.5s9 4 9 9.5z"/><path d="M3 17c0 1.8 4 3 9 3s9-1.2 9-3"/><path d="M7 12.5a6 6 0 0 1 3-2.6" opacity=".6"/>',
   frustum:
     '<path d="M8.2 5.5h7.6l4.4 12c0 1.9-3.9 3.5-8.2 3.5S3.8 19.4 3.8 17.5z"/><ellipse cx="12" cy="5.5" rx="3.8" ry="1.5"/>',
-  ellipsoid:
-    '<ellipse cx="12" cy="12" rx="9.5" ry="6.4"/><path d="M5.6 9.6c1.5-1.5 3.6-2.3 6.4-2.3" opacity=".55"/>',
+  ellipsoid: '<ellipse cx="12" cy="12" rx="9.5" ry="6.4"/><path d="M5.6 9.6c1.5-1.5 3.6-2.3 6.4-2.3" opacity=".55"/>',
   pyramid: '<path d="M12 3.5 3.5 17.5l8.5 3 8.5-3z"/><path d="M12 3.5v17M3.5 17.5l8.5 3" opacity=".55"/>',
   tetrahedron: '<path d="M12 3.5 3.5 18l9 2.5 8-4.8z"/><path d="M12 3.5l.5 17M3.5 18l17-2.3" opacity=".55"/>',
   octahedron: '<path d="M12 2.5 3.5 12l8.5 9.5 8.5-9.5z"/><path d="M3.5 12h17M12 2.5v19" opacity=".55"/>',
@@ -34,8 +33,10 @@ export const SHAPE_ICONS = {
   'curved-ramp': '<path d="M3 19.5h18V5.5c-2.2 8.6-8.2 14-18 14z"/><path d="M3 19.5c7 0 12.2-4 15.6-10" opacity=".5"/>',
   'quarter-pipe': '<path d="M3 20h18V4c0 9.5-8 16-18 16z"/><path d="M21 4v16" opacity=".55"/>',
   'half-pipe': '<path d="M3 4h18v16H3z"/><path d="M3 4c0 8.6 4 12.5 9 12.5S21 12.6 21 4" fill="none"/>',
-  'rounded-box': '<rect x="3.5" y="3.5" width="17" height="17" rx="6"/><path d="M7.5 9.2c.5-1.2 1.4-2 2.7-2.4" opacity=".6"/>',
-  'rounded-cylinder': '<path d="M5 8.2c0-2.4 3-4.2 7-4.2s7 1.8 7 4.2v7.6c0 2.4-3 4.2-7 4.2s-7-1.8-7-4.2z"/><path d="M5 8.4c0 2.2 3.1 3.6 7 3.6s7-1.4 7-3.6" opacity=".6"/>',
+  'rounded-box':
+    '<rect x="3.5" y="3.5" width="17" height="17" rx="6"/><path d="M7.5 9.2c.5-1.2 1.4-2 2.7-2.4" opacity=".6"/>',
+  'rounded-cylinder':
+    '<path d="M5 8.2c0-2.4 3-4.2 7-4.2s7 1.8 7 4.2v7.6c0 2.4-3 4.2-7 4.2s-7-1.8-7-4.2z"/><path d="M5 8.4c0 2.2 3.1 3.6 7 3.6s7-1.4 7-3.6" opacity=".6"/>',
   'i-beam': '<path d="M4 4.5h16v3.8h-6.1v7.4H20v3.8H4v-3.8h6.1V8.3H4z"/>',
   'l-beam': '<path d="M5 4h5.2v11.2H19V20H5z"/><path d="M10.2 15.2H5" opacity=".55"/>',
   't-beam': '<path d="M3 5h18v4.4h-6.4V20H9.4V9.4H3z"/>',

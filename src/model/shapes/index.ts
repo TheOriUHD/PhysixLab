@@ -28,6 +28,8 @@ import { tube } from './tube';
 import { ellipsoid } from './ellipsoid';
 import { pyramid, tetrahedron } from './pyramid';
 import { dodecahedron, octahedron } from './platonicShapes';
+import { roundedBox } from './roundedBox';
+import { roundedCylinder } from './roundedCylinder';
 
 export const BUILTIN_SHAPES: readonly ShapeDef[] = [
   box,
@@ -57,4 +59,6 @@ export const BUILTIN_SHAPES: readonly ShapeDef[] = [
   tetrahedron,
   octahedron,
   dodecahedron,
+  roundedBox,
+  roundedCylinder,
 ];

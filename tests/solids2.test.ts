@@ -2,7 +2,6 @@
  * Package SH, chunk 2 — ellipsoid (SH-8) and the regular solids: pyramid, tetrahedron, octahedron, dodecahedron
  * (SH-9). Analytic volumes, the engine's integrated mass, bounding boxes, and how each body comes to rest.
  */
-import RAPIER from '@dimforge/rapier3d-compat';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { qfromAxisAngle, qrot, vlen, type Vec3 } from '../src/core/math';
 import { createBody } from '../src/model/factory';
@@ -10,54 +9,18 @@ import {
   makeShapeSpec,
   normalizeShapeSize,
   shapeBoundingRadius,
-  shapeColliders,
   shapeConvexPoints,
-  shapeGeometry,
-  shapeVisualScale,
   shapeVolume,
 } from '../src/model/shapeRegistry';
 import { ELLIPSOID_MIN_RATIO } from '../src/model/shapes/ellipsoid';
 import { extentOf } from '../src/model/shapes/convexSolid';
 import { initRapier } from '../src/physics/world';
-import { GEOMETRY_KIT } from '../src/render/geometryKit';
+import { engineMass, meshVolume } from './shapeTestKit';
 import { run, worldOf } from './helpers';
 
 beforeAll(async () => {
   await initRapier();
 });
-
-function engineMass(type: string, size?: Vec3, params?: Record<string, number>): number {
-  const spec = makeShapeSpec(type, size, params);
-  const world = new RAPIER.World({ x: 0, y: 0, z: 0 });
-  const rb = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
-  for (const c of shapeColliders(RAPIER, spec)) {
-    const d = c.desc.setDensity(1000).setTranslation(...c.localPos);
-    d.setRotation({ x: c.localRot[0], y: c.localRot[1], z: c.localRot[2], w: c.localRot[3] });
-    world.createCollider(d, rb);
-  }
-  const m = rb.mass();
-  world.free();
-  return m;
-}
-
-/** Signed volume enclosed by a non-indexed triangle mesh. */
-function meshVolume(type: string, size?: Vec3, params?: Record<string, number>): number {
-  const spec = makeShapeSpec(type, size, params);
-  const geo = shapeGeometry(GEOMETRY_KIT, spec);
-  const s = shapeVisualScale(spec);
-  const p = geo.getAttribute('position');
-  let v = 0;
-  for (let i = 0; i + 2 < p.count; i += 3) {
-    const a = [p.getX(i) * s[0], p.getY(i) * s[1], p.getZ(i) * s[2]];
-    const b = [p.getX(i + 1) * s[0], p.getY(i + 1) * s[1], p.getZ(i + 1) * s[2]];
-    const c = [p.getX(i + 2) * s[0], p.getY(i + 2) * s[1], p.getZ(i + 2) * s[2]];
-    v +=
-      (a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])) /
-      6;
-  }
-  geo.dispose();
-  return v;
-}
 
 const plastic = { preset: 'plastic', restitution: 0, friction: 0.8 };
 
@@ -90,7 +53,7 @@ describe('ellipsoid (SH-8)', () => {
   });
 
   it('the engine integrates density × volume for balls, eggs and the flattest allowed ellipsoid', () => {
-    for (const detail of [4, 8, 12, 16]) {
+    for (const detail of [4, 8, 12]) {
       for (const size of [
         [1, 1, 1],
         [1.7, 0.7, 1.1],
@@ -105,16 +68,22 @@ describe('ellipsoid (SH-8)', () => {
     }
   });
 
-  it('approaches the smooth volume as the detail grows', () => {
+  it('approaches the smooth volume as the detail grows (97.7 % of a ball at the default detail, 99 % at the top)', () => {
     const smooth = (size: Vec3) => (Math.PI / 6) * size[0] * size[1] * size[2];
     const ratio = (d: number, size: Vec3) =>
       shapeVolume(makeShapeSpec('ellipsoid', size, { detail: d })) / smooth(size);
-    expect(ratio(8, [1, 1, 1])).toBeGreaterThan(0.96);
-    expect(ratio(16, [1, 1, 1])).toBeGreaterThan(0.99);
-    expect(ratio(8, [1.4, 0.9, 1])).toBeGreaterThan(0.95);
-    expect(ratio(16, [1.4, 0.9, 1])).toBeGreaterThan(0.985);
-    expect(ratio(4, [1, 1, 1])).toBeLessThan(ratio(8, [1, 1, 1]));
-    for (const d of [4, 8, 12, 16]) expect(ratio(d, [1.4, 0.9, 1])).toBeLessThan(1); // inscribed, never bigger
+    expect(ratio(8, [1, 1, 1])).toBeGreaterThan(0.975);
+    expect(ratio(12, [1, 1, 1])).toBeGreaterThan(0.989);
+    expect(ratio(8, [1.4, 0.9, 1])).toBeGreaterThan(0.973);
+    expect(ratio(12, [1.4, 0.9, 1])).toBeGreaterThan(0.988);
+    expect(ratio(8, [2, 0.5, 2])).toBeGreaterThan(0.938); // the flattest allowed ellipsoid
+    let last = 0;
+    for (const d of [4, 6, 8, 10, 12]) {
+      const r = ratio(d, [1.4, 0.9, 1]);
+      expect(r).toBeGreaterThan(last);
+      expect(r).toBeLessThan(1); // inscribed, never bigger than the smooth solid
+      last = r;
+    }
   });
 
   it('no axis may be shorter than a quarter of the longest (the engine would mis-compute a thin lens)', () => {
@@ -122,6 +91,25 @@ describe('ellipsoid (SH-8)', () => {
     expect(normalizeShapeSize('ellipsoid', [4, 0.1, 2])).toEqual([4, 1, 2]);
     expect(normalizeShapeSize('ellipsoid', [1, 1, 1])).toEqual([1, 1, 1]);
     expect(normalizeShapeSize('ellipsoid', [0, 0, 0])).toEqual([0.02, 0.02, 0.02]);
+  });
+
+  it('the engine integrates density × volume for 300 random ellipsoids of every allowed proportion', () => {
+    let seed = 12345;
+    const rnd = () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+    let worst = 0;
+    for (let i = 0; i < 300; i++) {
+      const size: Vec3 = [0.3 + rnd() * 3, 0.3 + rnd() * 3, 0.3 + rnd() * 3];
+      const detail = 4 + Math.floor(rnd() * 9);
+      const spec = makeShapeSpec('ellipsoid', size, { detail });
+      const want = shapeVolume(spec) * 1000;
+      const err = Math.abs(engineMass('ellipsoid', spec.size, { detail }) - want) / want;
+      worst = Math.max(worst, err);
+      expect(err, `${spec.size.join('×')} detail ${detail}`).toBeLessThan(2e-3);
+    }
+    process.stderr.write(`ellipsoid: worst engine mass error over 300 random shapes ${(worst * 100).toFixed(3)} %\n`);
   });
 
   it('a prolate egg lies down, an oblate lens settles on its short axis (real physics)', async () => {

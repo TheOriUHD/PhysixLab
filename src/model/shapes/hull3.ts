@@ -317,61 +317,89 @@ export function convexVolume(pts: readonly Vec3[]): number {
 /**
  * Merge the hull's coplanar triangles into polygonal faces (a cube has six, not twelve). Vertices of each face
  * are ordered counter-clockwise seen from outside. `angleTol` (radians) and `offsetTol` (relative to the
- * cloud's extent) say how close two planes must be to count as the same.
+ * cloud's extent) say how close two neighbouring planes must be to count as the same.
  */
 export function hullFaces(h: Hull, angleTol = 1e-6, offsetTol = 1e-7): HullFace[] {
   let extent = 0;
   for (const p of h.points) extent = Math.max(extent, Math.abs(p[0]), Math.abs(p[1]), Math.abs(p[2]));
-  const planeOf = (t: Tri): { n: Vec3; d: number } => {
+  const tolD = offsetTol * Math.max(extent, 1e-12);
+  const cosTol = Math.cos(angleTol);
+  const T = h.tris.length;
+  const planes = h.tris.map((t): { n: Vec3; d: number } => {
     const [a, b, c] = t;
     const n = cross(sub(h.points[b], h.points[a]), sub(h.points[c], h.points[a]));
-    const l = Math.hypot(...n) || 1;
+    const l = Math.hypot(n[0], n[1], n[2]) || 1;
     const nn: Vec3 = [n[0] / l, n[1] / l, n[2] / l];
     return { n: nn, d: dot(nn, h.points[a]) };
+  });
+  // union-find over triangles that share an edge and lie in one plane
+  const parent = Array.from({ length: T }, (_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) {
+      parent[i] = parent[parent[i]];
+      i = parent[i];
+    }
+    return i;
   };
-  const groups: { n: Vec3; d: number; tris: Tri[] }[] = [];
-  for (const t of h.tris) {
-    const pl = planeOf(t);
-    const g = groups.find(
-      (q) => dot(q.n, pl.n) > Math.cos(angleTol) && Math.abs(q.d - pl.d) <= offsetTol * Math.max(extent, 1e-12),
-    );
-    if (g) g.tris.push(t);
-    else groups.push({ n: pl.n, d: pl.d, tris: [t] });
+  const N = h.points.length;
+  const edgeOwner = new Map<number, number>();
+  h.tris.forEach(([a, b, c], ti) => {
+    edgeOwner.set(a * N + b, ti);
+    edgeOwner.set(b * N + c, ti);
+    edgeOwner.set(c * N + a, ti);
+  });
+  h.tris.forEach(([a, b, c], ti) => {
+    for (const [x, y] of [
+      [a, b],
+      [b, c],
+      [c, a],
+    ] as [number, number][]) {
+      const other = edgeOwner.get(y * N + x);
+      if (other === undefined || other < ti) continue;
+      const p = planes[ti],
+        q = planes[other];
+      if (dot(p.n, q.n) > cosTol && Math.abs(p.d - q.d) <= tolD) parent[find(other)] = find(ti);
+    }
+  });
+  const groups = new Map<number, number[]>();
+  for (let ti = 0; ti < T; ti++) {
+    const r = find(ti);
+    const g = groups.get(r);
+    if (g) g.push(ti);
+    else groups.set(r, [ti]);
   }
   const out: HullFace[] = [];
-  for (const g of groups) {
-    const directed = new Map<number, number[]>();
-    const has = new Set<string>();
-    for (const [a, b, c] of g.tris) {
-      has.add(`${a},${b}`);
-      has.add(`${b},${c}`);
-      has.add(`${c},${a}`);
+  for (const members of groups.values()) {
+    const has = new Set<number>();
+    for (const ti of members) {
+      const [a, b, c] = h.tris[ti];
+      has.add(a * N + b);
+      has.add(b * N + c);
+      has.add(c * N + a);
     }
-    for (const [a, b, c] of g.tris)
+    const next = new Map<number, number>();
+    for (const ti of members) {
+      const [a, b, c] = h.tris[ti];
       for (const [x, y] of [
         [a, b],
         [b, c],
         [c, a],
       ] as [number, number][]) {
-        if (has.has(`${y},${x}`)) continue; // interior edge of the face
-        const list = directed.get(x);
-        if (list) list.push(y);
-        else directed.set(x, [y]);
+        if (has.has(y * N + x)) continue; // interior edge of the face
+        next.set(x, y);
       }
-    const first = directed.keys().next();
+    }
+    const first = next.keys().next();
     if (first.done) continue;
     const verts: number[] = [first.value];
     let cur = first.value;
-    for (let guard = 0; guard < h.points.length + 2; guard++) {
-      const nexts = directed.get(cur);
-      if (!nexts || !nexts.length) break;
-      const nx = nexts[0];
-      if (nx === verts[0]) break;
+    for (let guard = 0; guard < N + 2; guard++) {
+      const nx = next.get(cur);
+      if (nx === undefined || nx === verts[0]) break;
       verts.push(nx);
       cur = nx;
     }
-    // average the triangle normals for a cleaner plane
-    out.push({ normal: g.n, d: g.d, verts });
+    out.push({ normal: planes[members[0]].n, d: planes[members[0]].d, verts });
   }
   return out;
 }
@@ -386,4 +414,77 @@ export function centroidOf(pts: readonly Vec3[]): Vec3 {
   }
   const n = Math.max(1, pts.length);
   return [c[0] / n, c[1] / n, c[2] / n];
+}
+
+// ── hulls the engine can digest ─────────────────────────────────────────────────────────────────────
+
+/**
+ * The engine's hull builder (parry) mis-handles a vertex that lies within about 0.25 % of the hull's size of the
+ * plane of a *polygonal* face (four or more vertices: a flat cap, a band of a revolved profile) it does not belong
+ * to: it is treated as lying on that plane, and faces are then merged or dropped unpredictably — a rounded cylinder
+ * came out up to 30 % too heavy or too light, or the builder produced no shape at all (measured in
+ * `tests/engineHull.test.ts`). Triangle-only hulls (the lattice of an ellipsoid) are not affected; they have the
+ * related weakness that neighbouring faces whose normals differ by under about 1.35° are merged, which only hurts
+ * when a whole cap of them chains together — a lens flatter than 1 : 4 (see `ELLIPSOID_MIN_RATIO`).
+ *
+ * Hulls handed to the engine keep a clearance of `ENGINE_CLEARANCE` (1.2 × the largest value that still misbehaved),
+ * relative to the diagonal of their bounding box;
+ * `firstSafeHull` picks, from a list of candidate point sets, the most detailed one that does.
+ */
+export const ENGINE_CLEARANCE = 0.003;
+
+/** Diagonal of the axis-aligned bounding box (the scale the engine's tolerance is measured against). */
+export function hullDiameter(h: Hull): number {
+  const e = extentOfPoints(h.points);
+  return Math.hypot(e[0], e[1], e[2]);
+}
+
+function extentOfPoints(pts: readonly Vec3[]): Vec3 {
+  const lo: Vec3 = [Infinity, Infinity, Infinity];
+  const hi: Vec3 = [-Infinity, -Infinity, -Infinity];
+  for (const p of pts)
+    for (let a = 0; a < 3; a++) {
+      lo[a] = Math.min(lo[a], p[a]);
+      hi[a] = Math.max(hi[a], p[a]);
+    }
+  return [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]];
+}
+
+/** Indices of the vertices closer than `tau × diameter` to the plane of a polygonal face they are not on. */
+export function crowdedVertices(h: Hull, tau = ENGINE_CLEARANCE): Set<number> {
+  const limit = tau * hullDiameter(h);
+  const out = new Set<number>();
+  for (const f of hullFaces(h)) {
+    if (f.verts.length < 4) continue;
+    const on = new Set(f.verts);
+    for (let i = 0; i < h.points.length; i++) {
+      if (on.has(i)) continue;
+      const p = h.points[i];
+      const dist = Math.abs(f.normal[0] * p[0] + f.normal[1] * p[1] + f.normal[2] * p[2] - f.d);
+      if (dist < limit && dist > 1e-9 * limit) out.add(i);
+    }
+  }
+  return out;
+}
+
+/**
+ * The first candidate point set whose hull keeps the clearance — candidates are tried in order, so list the most
+ * detailed first and coarser ones after it: a fillet that is too fine gets fewer facets (down to a chamfer, then a
+ * sharp edge). The polyhedron the collider, the volume and the mesh share is then one the engine reproduces exactly;
+ * vertices are never dropped from a finished hull (removing the crowded ones cascades — every fillet vertex crowds
+ * its neighbours). Returns the hull and the index of the candidate it came from; when none qualifies the last usable
+ * one; null when every candidate is degenerate.
+ */
+export function firstSafeHull(
+  candidates: readonly (() => Vec3[])[],
+  tau = ENGINE_CLEARANCE,
+): { hull: Hull; index: number } | null {
+  let last: { hull: Hull; index: number } | null = null;
+  for (let index = 0; index < candidates.length; index++) {
+    const hull = convexHull3(candidates[index]());
+    if (!hull) continue;
+    last = { hull, index };
+    if (crowdedVertices(hull, tau).size === 0) return last;
+  }
+  return last;
 }

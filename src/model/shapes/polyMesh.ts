@@ -44,6 +44,9 @@ export class PolyMesh {
 
   /** One triangle, counter-clockwise from outside. Omitted normals are the face normal, omitted uvs zero. */
   tri(a: Vec3, b: Vec3, c: Vec3, n?: readonly [Vec3, Vec3, Vec3], uv?: readonly [UV, UV, UV]): void {
+    // a collapsed triangle (a pole of a revolved profile) adds nothing and would carry a meaningless normal
+    const area2 = cross(sub(b, a), sub(c, a));
+    if (Math.hypot(area2[0], area2[1], area2[2]) < 1e-14) return;
     const fn = n ? null : faceNormal(a, b, c);
     const pts = [a, b, c];
     for (let i = 0; i < 3; i++) {
