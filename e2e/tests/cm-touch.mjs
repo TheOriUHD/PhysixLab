@@ -261,7 +261,7 @@ test('touch: tap selects, tap on empty space deselects, a second finger cancels 
   await tap(page, pa.x, pa.y);
   await waitFor(page, (id) => window.physicslab.store.selection.join() === id, a, 'tap selects the box');
   // tap on empty sky deselects
-  await tap(page, 550, 130);
+  await tap(page, 1000, 330);
   await waitFor(page, () => window.physicslab.store.selection.length === 0, null, 'tap on empty space deselects');
 
   // marquee + second finger: nothing is selected, the marquee disappears
@@ -407,7 +407,7 @@ test('touch: long-press opens the context menu without select-dragging; a short 
   await page.waitForTimeout(150);
   await up(page, 1);
   assert((await page.locator('.menu').count()) === 0, 'no menu after a tap');
-  await tap(page, 550, 130); // deselect with a real tap
+  await tap(page, 1000, 330); // deselect with a real tap
   await page.waitForFunction(() => !window.physicslab.gizmo.controls.object, null, { timeout: 15000 });
   // long press
   await holdTime(page, 900);
