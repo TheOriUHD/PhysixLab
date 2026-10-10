@@ -1,7 +1,11 @@
 {
   // Cloudflare Workers static assets: `npm run build` writes dist/, `npx wrangler deploy` uploads it.
-  // "name" must match the Worker's name in the Cloudflare dashboard (Workers Builds fails on a mismatch).
-  "name": "physixlab",
+  // "name" must match the Worker's name in the Cloudflare dashboard (Workers Builds fails on a mismatch); a Worker
+  // cannot be renamed, so this stays whatever it was created as. The custom domain is attached to the Worker in the
+  // dashboard (Settings > Domains & Routes); the default workers.dev address and preview URLs are switched off here.
+  "name": "physicssandbox",
   "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
   "assets": { "directory": "./dist" }
 }
