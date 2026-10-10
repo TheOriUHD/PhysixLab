@@ -116,6 +116,44 @@ test('prefabs: a number variable drives the size at insert time', async () => {
   await page.close();
 });
 
+test('prefabs: dragging a tile into the viewport drops it on the surface under the pointer', async () => {
+  const page = await newPage();
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    const b = a.addShape('box', [0, 0.5, 0]);
+    a.store.setSelection([b.id]);
+  });
+  await saveSelection(page, 'Dropped box', '');
+  await openMyPrefabs(page);
+  const tile = page.locator('.ed-pf-tile[data-name="Dropped box"]');
+  await tile.waitFor();
+  assert((await tile.locator('.ed-pf-main').getAttribute('draggable')) === 'true', 'tile is draggable');
+  const id = await tile.getAttribute('data-prefab');
+  const before = await count(page);
+  const at = await page.evaluate(() => {
+    const r = window.physicslab.viewport.dom.getBoundingClientRect();
+    return { x: r.left + r.width * 0.3, y: r.top + r.height * 0.85 };
+  });
+  await page.evaluate(
+    ({ id, at }) => {
+      const dom = window.physicslab.viewport.dom;
+      const dt = new DataTransfer();
+      dt.setData('text/x-physicslab-user-prefab', id);
+      const init = { bubbles: true, cancelable: true, dataTransfer: dt, clientX: at.x, clientY: at.y };
+      dom.dispatchEvent(new DragEvent('dragover', init));
+      dom.dispatchEvent(new DragEvent('drop', init));
+    },
+    { id, at },
+  );
+  await page.waitForFunction((n) => window.physicslab.store.all().length === n + 1, before);
+  const y = await page.evaluate(() => {
+    const s = window.physicslab.store;
+    return s.get(s.selection[0]).position[1];
+  });
+  assert(y > 0.3 && y < 1.2, `dropped onto a surface, not floating or sunk (y = ${y})`);
+  await page.close();
+});
+
 test('prefabs: export a pack and import it in a fresh browser context', async () => {
   const page = await newPage();
   await addTwoBoxes(page);
