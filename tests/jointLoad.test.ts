@@ -251,3 +251,51 @@ describe('breakage document field', () => {
     expect(b).toEqual({ force: 0, torque: 0, fatigue: { enabled: false, start: 0.99, life: 0.01 } });
   });
 });
+
+describe('estimator edge cases', () => {
+  it('a chain of two welds: each weld carries the weight below it', async () => {
+    const ceiling = createBody({ bodyType: 'static', shape: { type: 'box', size: [1, 0.5, 1] }, position: [0, 10, 0] });
+    const mk = (y: number) =>
+      createBody({
+        shape: { type: 'box', size: [1, 1, 1] },
+        position: [0, y, 0],
+        material: { preset: 'custom', density: 10 },
+        ...noDamp,
+      });
+    const a = mk(8.75);
+    const b = mk(7.5);
+    const j1 = createJoint({ type: 'fixed', bodyA: ceiling.id, bodyB: a.id, anchorA: [0, -0.25, 0] });
+    const j2 = createJoint({ type: 'fixed', bodyA: a.id, bodyB: b.id, anchorA: [0, -0.625, 0] });
+    const w = await worldOf([ceiling, a, b, j1, j2]);
+    w.watchLoads(true);
+    run(w, 2);
+    expect(w.getJointRec(j1.id)!.load / (20 * G)).toBeCloseTo(1, 1);
+    expect(w.getJointRec(j2.id)!.load / (10 * G)).toBeCloseTo(1, 1);
+  });
+
+  it('two welds to the ceiling share a centred load; updating a joint keeps it broken and keeps fatigue', async () => {
+    const ceiling = createBody({ bodyType: 'static', shape: { type: 'box', size: [3, 0.5, 1] }, position: [0, 10, 0] });
+    const m = createBody({
+      shape: { type: 'box', size: [2, 1, 1] },
+      position: [0, 8.75, 0],
+      material: { preset: 'custom', density: 20 },
+      ...noDamp,
+    });
+    const l = createJoint({ type: 'fixed', bodyA: ceiling.id, bodyB: m.id, anchorA: [-0.7, -0.25, 0] });
+    const r = createJoint({ type: 'fixed', bodyA: ceiling.id, bodyB: m.id, anchorA: [0.7, -0.25, 0] });
+    const w = await worldOf([ceiling, m, l, r]);
+    w.watchLoads(true);
+    run(w, 2);
+    const weight = 40 * G;
+    expect(w.getJointRec(l.id)!.load / (weight / 2)).toBeGreaterThan(0.9);
+    expect(w.getJointRec(l.id)!.load / (weight / 2)).toBeLessThan(1.1);
+    expect(w.getJointRec(l.id)!.load + w.getJointRec(r.id)!.load).toBeGreaterThan(weight * 0.95);
+    // a broken joint stays broken when its definition is edited
+    const fat = { enabled: false, start: 0.6, life: 2 };
+    w.updateJoint({ ...l, breakage: { force: 1, torque: 0, fatigue: fat } });
+    run(w, 0.2);
+    expect(w.getJointRec(l.id)!.broken).toBe(true);
+    w.updateJoint({ ...l, breakage: { force: 1e6, torque: 0, fatigue: fat } });
+    expect(w.getJointRec(l.id)!.broken).toBe(true);
+  });
+});

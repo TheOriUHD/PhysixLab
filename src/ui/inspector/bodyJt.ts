@@ -68,7 +68,9 @@ export function bodyJtSections(ctx: InspectorContext, sel: BodyEntity[]): HTMLEl
     const layers = app.store.settings.layers;
     const nm = names();
     const sel0 = layerSel.el.querySelector('select');
-    if (sel0) {
+    const key = nm.join('\u0000');
+    if (sel0 && sel0.dataset.names !== key) {
+      sel0.dataset.names = key;
       sel0.replaceChildren(
         ...nm.map((n, i) => {
           const o = document.createElement('option');
@@ -242,7 +244,8 @@ export function bodyJtSections(ctx: InspectorContext, sel: BodyEntity[]): HTMLEl
     { cls: 'small', title: 'Drag the centre of mass with the move gizmo' },
   );
   const handleOn = () => app.gizmos.com.bodyId === ids[0];
-  app.on('comEdit', () => handle.classList.toggle('active', handleOn()));
+  ctx.live.push(() => handle.classList.toggle('active', handleOn()));
+  ctx.updaters.push(() => handle.classList.toggle('active', handleOn()));
   const inertia = numberField({
     step: 0.1,
     min: 0.001,
