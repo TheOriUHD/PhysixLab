@@ -50,6 +50,8 @@ body.qol-presenting .viewport-host { position: fixed; inset: 0; }
 .fav-star { margin-left: auto; padding: 0 3px; line-height: 1; font-size: 15px; color: var(--text-3); cursor: pointer; border-radius: 4px; user-select: none; }
 .fav-star:hover, .fav-star:focus-visible { color: var(--warn); outline: none; background: var(--hover); }
 .fav-star.on { color: #ffcf4d; }
+.fav-star::before { content: "☆"; }
+.fav-star.on::before { content: "★"; }
 .tile .fav-star { position: absolute; top: 2px; right: 2px; margin: 0; font-size: 13px; opacity: 0; transition: opacity 0.12s; }
 .tile:hover .fav-star, .tile .fav-star.on, .tile .fav-star:focus-visible { opacity: 1; }
 .card.has-thumb { display: flex; gap: 10px; align-items: center; }

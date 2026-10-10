@@ -9,19 +9,15 @@ import { favouriteStore, thumbStore } from './stores';
  */
 export function favStar(kind: FavKind, id: string, label: string): HTMLElement {
   const on = favouriteStore().has(kind, id);
-  const star = h(
-    'span',
-    {
-      class: `fav-star ${on ? 'on' : ''}`,
-      role: 'button',
-      tabindex: 0,
-      'aria-pressed': on ? 'true' : 'false',
-      'aria-label': `${on ? 'Remove from' : 'Add to'} favourites: ${label}`,
-      title: on ? 'Remove from favourites' : 'Add to favourites',
-      dataset: { fav: `${kind}:${id}` },
-    },
-    on ? '★' : '☆',
-  );
+  const star = h('span', {
+    class: `fav-star ${on ? 'on' : ''}`,
+    role: 'button',
+    tabindex: 0,
+    'aria-pressed': on ? 'true' : 'false',
+    'aria-label': `${on ? 'Remove from' : 'Add to'} favourites: ${label}`,
+    title: on ? 'Remove from favourites' : 'Add to favourites',
+    dataset: { fav: `${kind}:${id}` },
+  }); // the glyph is drawn by CSS (::before), so the star never changes a card's or tile's text
   const toggle = (e: Event) => {
     e.stopPropagation();
     e.preventDefault();
