@@ -21,6 +21,7 @@
  * the ground drives the flywheel hinged to it) — so two copies of a car in one
  * scene each have their own "crank"; a name that starts with `@` is shared by the whole scene.
  */
+import type { Vec3 } from '../../../core/math';
 import type { JointType } from '../../../model/types';
 import type { WorldState } from '../../world/state';
 import { JointBinding } from './bindings';
@@ -82,6 +83,15 @@ export class Shaft {
   }
   set speed(v: number) {
     this.omega = v;
+  }
+
+  /** World axis of a joint shaft (unit); zero for a virtual shaft. */
+  axisWorld(out: Vec3 = [0, 0, 0]): Vec3 {
+    return this.bind ? this.bind.axis(out) : out;
+  }
+  /** World position of a joint shaft's pivot. */
+  pivotWorld(out: Vec3 = [0, 0, 0]): Vec3 {
+    return this.bind ? this.bind.anchorWorld(out) : out;
   }
 
   /** Effective inertia (kg·m² or kg) the network moves this shaft with; Infinity for an immovable joint shaft. */

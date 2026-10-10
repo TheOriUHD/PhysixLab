@@ -7,10 +7,14 @@ import { driveShaft } from './driveShaft';
 import { engine } from './engine';
 import { gearbox } from './gearbox';
 import { hydraulicCylinder } from './hydraulicCylinder';
+import { jet } from './jet';
 import { linearActuator } from './linearActuator';
 import { motor } from './motor';
+import { propeller } from './propeller';
+import { rotor } from './rotor';
 import { servo } from './servo';
 import { stepper } from './stepper';
+import { thruster } from './thruster';
 
 /** In Add-component menu order (categories appear in first-seen order). */
 export const POWERED_COMPONENTS: readonly ComponentDef[] = [
@@ -25,4 +29,8 @@ export const POWERED_COMPONENTS: readonly ComponentDef[] = [
   differential,
   driveShaft,
   brake,
+  thruster,
+  jet,
+  propeller,
+  rotor,
 ];

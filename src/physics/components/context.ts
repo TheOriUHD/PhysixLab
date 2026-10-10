@@ -76,6 +76,9 @@ export interface JointHandle {
   readonly speed: number;
   readonly force: number;
   readonly broken: boolean;
+  // -- CP: the bodies the joint connects (null = the world)
+  readonly bodyA: string | null;
+  readonly bodyB: string | null;
 }
 
 export interface ComponentContext {
@@ -293,6 +296,12 @@ class JointHandleImpl implements JointHandle {
   }
   get broken(): boolean {
     return this.rec?.broken ?? false;
+  }
+  get bodyA(): string | null {
+    return this.rec?.def.bodyA ?? null;
+  }
+  get bodyB(): string | null {
+    return this.rec?.def.bodyB ?? null;
   }
 }
 
