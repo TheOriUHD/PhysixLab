@@ -35,6 +35,7 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 * **The "sand" of the Sandbox box map is 104 rigid cubes** (a stepped heap that piles, slides and topples), not a granular-media simulation; the engine has no particle fluid or sand solver.
 * **The command palette searches commands, settings, example scenes, saved scenes, prefabs and maps** — not the objects in the current scene (use the outliner). A word of the query matches a label letter by letter ("sg" → "Snap grid size") but matches keywords and descriptions only as a whole piece of text, so it never finds a command through scattered letters of a long sentence.
 * The left panel's four tab labels (Add, Prefabs, Maps, Scenes) are shown without icons: four icon + label tabs do not fit the 268 px panel.
+* **At 1280 px wide the centred transport (Simulate, step, reset, speed, clock) overlaps the Edit / View / Help menus** in the top bar (File stays reachable; below 980 px the menu bar is hidden altogether). The layout is unchanged from the first release; a responsive top bar belongs to the UI package (`docs/features/18-ui.md`).
 
 ## Components and protocol v2
 
