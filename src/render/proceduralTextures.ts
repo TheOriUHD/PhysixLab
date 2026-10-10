@@ -139,7 +139,7 @@ export interface PatternBuffers {
 }
 
 const hex = (c: string): [number, number, number] => {
-  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})/i.exec(c);
+  const m = /^#?([0-9a-f]{6}|[0-9a-f]{3})/i.exec(c);
   let s = m ? m[1] : 'ffffff';
   if (s.length === 3) s = s[0] + s[0] + s[1] + s[1] + s[2] + s[2];
   const n = parseInt(s, 16);

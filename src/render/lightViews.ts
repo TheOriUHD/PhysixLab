@@ -279,6 +279,22 @@ export class LightView {
     this.wireMat.opacity = this.selected ? 0.95 : 0.5;
   }
 
+  /** Intensity animation (flicker / pulse): multiplies the entity's intensity; no-op for steady lights. */
+  tick(t: number): void {
+    const f = this.def.flicker;
+    const l = this.light;
+    if (!f || !l) return;
+    const w = t * f.speed * Math.PI * 2;
+    const dip =
+      f.mode === 'pulse'
+        ? 0.5 - 0.5 * Math.cos(w)
+        : Math.min(
+            1,
+            Math.max(0, 0.5 + 0.35 * Math.sin(w * 1.0) * Math.sin(w * 2.7 + 1.3) + 0.25 * Math.sin(w * 5.1 + 0.4)),
+          );
+    l.intensity = this.def.intensity * (1 - f.amount * dip);
+  }
+
   /** Rect-area lights cannot cast shadows in three.js; the others get a map sized for their kind. */
   private setShadow(l: ShadowedLight, on: boolean): void {
     l.castShadow = on;
@@ -371,6 +387,18 @@ export class LightViews {
     let n = 0;
     for (const v of this.views.values()) if (v.overBudget) n++;
     return n;
+  }
+
+  /** Per frame: advance the flicker / pulse animation of lights that have one. */
+  tick(t: number): boolean {
+    let any = false;
+    for (const v of this.views.values()) {
+      if (v.def.flicker && v.def.enabled && !v.def.hidden) {
+        v.tick(t);
+        any = true;
+      }
+    }
+    return any;
   }
 
   /** Click targets: the icon sprites of visible lights. */

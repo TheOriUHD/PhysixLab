@@ -1,6 +1,7 @@
 /** VZ-A: material presets, material sanitising, procedural patterns, environment settings, sun maths, height fog. */
 import { describe, expect, it } from 'vitest';
-import { createBody, newDocument } from '../src/model/factory';
+import { isLight } from '../src/model/types';
+import { createBody, createLight, newDocument } from '../src/model/factory';
 import { MATERIAL_GROUPS, MATERIAL_PRESETS, materialFromPreset } from '../src/model/materials';
 import { makeBlobAsset, makeTextureAsset } from '../src/model/assets';
 import { parseDocument, sanitizeDocument, serializeDocument } from '../src/model/serialize';
@@ -165,6 +166,13 @@ describe('VZ-2 procedural patterns', () => {
     expect(valueNoise(0, 0.3, 8, 1)).toBeCloseTo(valueNoise(1, 0.3, 8, 1), 6);
   });
 
+  it('six- and three-digit hex colours are read correctly', () => {
+    const a = renderPattern('checker', '#ff8000', '#ff8000', 8);
+    expect([a.color[0], a.color[1], a.color[2]]).toEqual([255, 128, 0]);
+    const b = renderPattern('checker', '#f80', '#f80', 8);
+    expect([b.color[0], b.color[1], b.color[2]]).toEqual([255, 136, 0]);
+  });
+
   it('heightToNormal makes a flat surface point straight out and a ramp lean', () => {
     const flat = heightToNormal(new Float32Array(16).fill(0.5), 4, 2);
     expect([flat[0], flat[1], flat[2]]).toEqual([128, 128, 255]);
@@ -261,5 +269,25 @@ describe('VZ-10..13 environment settings', () => {
     expect(p.near).toBeCloseTo(0.02, 8);
     expect(p.far).toBeCloseTo(-0.2, 8);
     expect(heightFogParams(0.02, 5, 0.2).near).toBeCloseTo(0.02 * Math.exp(1), 6);
+  });
+});
+
+describe('VZ-12 light flicker / pulse', () => {
+  it('is stored on the light, sanitised, and absent for steady lights', () => {
+    const doc = newDocument('t');
+    const l = createLight('point');
+    l.flicker = { mode: 'pulse', amount: 0.5, speed: 3 };
+    const steady = createLight('spot');
+    doc.entities.push(l, steady);
+    const back = parseDocument(serializeDocument(doc));
+    const lights = back.entities.filter(isLight);
+    expect(lights[0].flicker).toEqual({ mode: 'pulse', amount: 0.5, speed: 3 });
+    expect(lights[1].flicker).toBeUndefined();
+    (l as unknown as Record<string, unknown>).flicker = { mode: 'strobe', amount: 9, speed: -1 };
+    const bad = sanitizeDocument(JSON.parse(JSON.stringify(doc)));
+    expect((bad.entities[0] as typeof l).flicker).toBeUndefined();
+    l.flicker = { mode: 'flicker', amount: 9, speed: 0 };
+    const clamped = sanitizeDocument(JSON.parse(JSON.stringify(doc)));
+    expect((clamped.entities[0] as typeof l).flicker).toEqual({ mode: 'flicker', amount: 1, speed: 0.05 });
   });
 });

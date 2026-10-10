@@ -24,8 +24,13 @@ export class VisualsSync {
     };
     const applyEnv = () => env.apply(store.settings.environment, store.settings.ground);
     applyEnv();
+    // flicker / pulse of light entities
+    app.on('frame', () => {
+      if (app.lightViews.tick(performance.now() / 1000)) app.viewport.needsRender = true;
+    });
     store.on('change', (c) => {
-      if (c.type === 'reset' || (c.type === 'settings' && (c.keys.has('environment') || c.keys.has('ground')))) applyEnv();
+      if (c.type === 'reset' || (c.type === 'settings' && (c.keys.has('environment') || c.keys.has('ground'))))
+        applyEnv();
       // A texture asset arrived / changed: bodies that use textures pick it up.
       if (c.type === 'assets') {
         for (const v of app.bodies.views.values()) if (isBody(v.def) && v.def.material.texture) v.applyMaterial(v.def);

@@ -364,6 +364,15 @@ export type LightType = 'point' | 'spot' | 'directional' | 'area';
  * rotation of a spot / directional / area light points it straight down. Lights have no physical behaviour: they
  * are stored in the document, drawn as an editor helper and rendered by a real three.js light (`render/lightViews.ts`).
  */
+/** Candle-like flicker or a smooth pulse of a light's intensity. */
+export interface LightFlicker {
+  mode: 'flicker' | 'pulse';
+  /** 0–1: how deep the intensity dips below its set value. */
+  amount: number;
+  /** Cycles per second. */
+  speed: number;
+}
+
 export interface LightEntity {
   kind: 'light';
   id: string;
@@ -382,6 +391,8 @@ export interface LightEntity {
   /** Width × height of an area light, metres. */
   size: [number, number];
   castShadow: boolean;
+  // -- VZ-A: optional intensity animation (absent = steady) --
+  flicker?: LightFlicker;
   /** Switched off lights stay in the scene but emit nothing. */
   enabled: boolean;
   locked: boolean;

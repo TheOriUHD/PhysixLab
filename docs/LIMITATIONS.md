@@ -86,3 +86,9 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 5. Instanced rendering and GPU-side picking for very large scenes.
 6. Community gallery on top of the existing share-link format.
 7. Challenges/objectives (reach a target, hold a load) evaluated by the same telemetry.
+
+## Visuals (VZ-A)
+* Triplanar mapping applies to the colour texture only; normal maps are turned off while it is on.
+* Height fog is exponential, integrated analytically along the view ray per fragment (no volumetric scattering); it needs the patched shader chunks in `src/render/fogChunks.ts`.
+* The "water" ground type is a visual surface (reflective, animated normal map); it does not buoy bodies.
+* Physical-sky lighting is re-baked at most twice a second while the day cycle runs.

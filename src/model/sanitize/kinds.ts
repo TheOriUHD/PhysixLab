@@ -6,7 +6,7 @@
 import { clamp } from '../../core/math';
 import { createGroup, createLight, createPath, defaultPathPoints, lightDefaults, LIGHT_TYPES } from '../factory';
 import { LIMITS } from '../limits';
-import type { GroupEntity, LightEntity, LightType, PathEntity } from '../types';
+import type { GroupEntity, LightEntity, LightFlicker, LightType, PathEntity } from '../types';
 import { bool, hexColor, idStr, isFiniteVec, nameStr, num, obj, oneOf, position3, quat } from './primitives';
 
 /** `parent` of a raw entity: a non-empty id, validated later once every entity id is known. */
@@ -29,6 +29,14 @@ export function sanitizeGroup(input: unknown): GroupEntity {
   };
 }
 
+function sanitizeFlicker(x: unknown): { flicker?: LightFlicker } {
+  const r = obj(x);
+  if (r.mode !== 'flicker' && r.mode !== 'pulse') return {};
+  return {
+    flicker: { mode: r.mode, amount: clamp(num(r.amount, 0.3), 0, 1), speed: clamp(num(r.speed, 2), 0.05, 30) },
+  };
+}
+
 export function sanitizeLight(input: unknown): LightEntity {
   const raw = obj(input);
   const type: LightType = oneOf(raw.lightType, LIGHT_TYPES, 'point');
@@ -48,6 +56,7 @@ export function sanitizeLight(input: unknown): LightEntity {
     penumbra: clamp(num(raw.penumbra, d.penumbra), 0, 1),
     size: [clamp(size[0], 0.01, 1000), clamp(size[1], 0.01, 1000)],
     castShadow: bool(raw.castShadow, d.castShadow),
+    ...sanitizeFlicker(raw.flicker), // -- VZ-A --
     enabled: bool(raw.enabled, true),
     locked: bool(raw.locked, false),
     hidden: bool(raw.hidden, false),

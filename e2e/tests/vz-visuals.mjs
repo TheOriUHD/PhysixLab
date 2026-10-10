@@ -66,6 +66,18 @@ test('VZ-A: material editor: picker search + preset click, preview sphere, textu
   }, id);
   await settle(page);
   await shot(page, 'vz-material-triplanar');
+  // the editor applies to a multi-selection
+  const two = await page.evaluate(() => {
+    const a = window.physicslab;
+    const ids = a.store.bodies().filter((x) => x.shape.type === 'sphere').slice(0, 2).map((x) => x.id);
+    a.store.setSelection(ids);
+    return ids;
+  });
+  await page.waitForSelector('.material-swatch');
+  await page.fill('input[aria-label="Search materials"]', 'copper');
+  await page.locator('.material-swatch:visible').click();
+  const presets = await page.evaluate((ids) => ids.map((i) => window.physicslab.store.body(i).material.preset), two);
+  assert(presets.every((p) => p === 'copper'), `multi-selection edit applies to all (${presets})`);
   assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
 });
 
@@ -141,7 +153,9 @@ test('VZ-A: time of day moves the sun, its light and its shadow direction; the c
   assert(noon.i > dawn.i && dawn.i > night.i && night.i === 0, `sun intensity ${noon.i} > ${dawn.i} > ${night.i}`);
   await setEnv(page, { timeOfDay: 6, cycle: { enabled: true, hoursPerSecond: 6 } });
   const h0 = (await read()).hours;
-  await page.waitForTimeout(700);
+  await page
+    .waitForFunction((h) => window.physicslab.viewport.env.hours !== h, h0, { timeout: 15000 })
+    .catch(() => {});
   const h1 = (await read()).hours;
   assert(h1 !== h0, `day cycle advances (${h0} → ${h1})`);
   await setEnv(page, { cycle: { enabled: false, hoursPerSecond: 6 } });
@@ -211,4 +225,31 @@ test('VZ-A: World panel: environment controls edit the scene settings', async ()
   const found = await page.evaluate(() => [...document.querySelectorAll('.section-head span')].map((e) => e.textContent));
   assert(['Sky & sun', 'Display', 'Fog', 'Ground look'].every((t) => found.includes(t)), `world sections present: ${found.join(', ')}`);
   await shot(page, 'vz-world-panel');
+});
+
+test('VZ-A: light entities render as real lights; flicker animates the intensity; shadow casters are capped', async () => {
+  const page = await newPage('&scene=pit&quality=medium');
+  await page.waitForTimeout(600);
+  const res = await page.evaluate(async () => {
+    const a = window.physicslab;
+    const { createLight } = await import('/src/model/factory.ts');
+    const mk = (type, pos, extra = {}) => ({ ...createLight(type), position: pos, castShadow: true, ...extra });
+    const lights = [mk('point', [2, 4, 0], { flicker: { mode: 'flicker', amount: 0.8, speed: 8 } }), mk('spot', [-2, 5, 0]), mk('directional', [0, 8, 0]), mk('point', [4, 3, 3]), mk('spot', [-4, 3, 3])];
+    a.store.add(lights);
+    await new Promise((r) => setTimeout(r, 600));
+    const v = a.lightViews.get(lights[0].id);
+    const seen = new Set();
+    // software GL renders only a few frames per second: sample once per rendered frame
+    for (let i = 0; i < 12; i++) {
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      seen.add(Math.round(v.light.intensity * 100));
+    }
+    const shadows = [...a.lightViews.views.values()].filter((x) => x.light && x.light.castShadow).length;
+    return { distinct: seen.size, base: lights[0].intensity, shadows, count: a.lightViews.views.size };
+  });
+  assert(res.count === 5, 'five light views');
+  assert(res.distinct >= 4, `flicker changes the intensity over time (${res.distinct} distinct values)`);
+  assert(res.shadows === 3, `at most 3 lights cast shadows (${res.shadows})`);
+  await shot(page, 'vz-lights');
+  assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
 });
