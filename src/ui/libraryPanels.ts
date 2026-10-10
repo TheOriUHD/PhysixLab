@@ -20,6 +20,7 @@ import { button } from './controls';
 import { clear, h } from './dom';
 import { icon } from './icons';
 import { confirmReplace, importDocument } from './sceneActions';
+import { zoneTiles } from './zoneTiles'; // -- ZN
 
 // ── Add ───────────────────────────────────────────────────────────────────────────────────────────
 
@@ -91,6 +92,8 @@ function addTab(app: App): HTMLElement {
   groupTile.addEventListener('click', () => app.addGroup());
   sc.append(pathTile, groupTile);
   root.appendChild(sc);
+
+  root.append(...zoneTiles(app)); // -- ZN: trigger zones, race lines, launch pads …
 
   root.appendChild(h('div', { class: 'group-title' }, 'Connect & constrain'));
   const jt = h('div', { class: 'tiles three' });
