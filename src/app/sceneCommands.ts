@@ -10,6 +10,8 @@ import type { BodyEntity, LightType, SceneDocument, ShapeType, SoftType } from '
 import type { App } from './app';
 import { dropPoseForShape } from './edit/surfaceDrop';
 import { placeEntities } from '../model/edit/shapeSupport';
+import { riskyOperation } from './storage/restorePoints'; // -- DT-11
+import type { SceneSource } from './appTypes';
 
 export class SceneCommands {
   constructor(private app: App) {}
@@ -98,19 +100,23 @@ export class SceneCommands {
     app.toast(`${pf.name} inserted`, 'success');
   }
 
-  loadDocument(doc: SceneDocument, view?: 'frame'): void {
+  loadDocument(doc: SceneDocument, view?: 'frame', source?: SceneSource): void {
     const { app } = this;
     app.sim.reset();
+    // -- DT-11: keep the scene that is about to be replaced as a "before" restore point --
+    if (app.store.size > 0) riskyOperation(`Before opening “${doc.name}”`);
     app.store.load(doc);
     app.persistence.saveNow();
     if (view === 'frame') app.frameAll(false);
+    // -- UI-B: tell the recent-scenes list and the thumbnail cache --
+    app.emit('sceneLoaded', { source, name: doc.name, bodies: doc.entities.filter((e) => e.kind === 'body').length });
   }
 
   loadTemplate(id: string): void {
     const { app } = this;
     const t = getTemplate(id);
     if (!t) return;
-    this.loadDocument(t.build(), t.view ? undefined : 'frame');
+    this.loadDocument(t.build(), t.view ? undefined : 'frame', { kind: 'template', id });
     if (t.view) app.viewport.flyTo(new Vector3(...t.view.position), new Vector3(...t.view.target), 0.6);
     if (t.follow) {
       const b = app.store.bodies().find((x) => x.name === t.follow);
@@ -125,7 +131,7 @@ export class SceneCommands {
     const { app } = this;
     const m = getMap(id);
     if (!m) return;
-    this.loadDocument(m.build());
+    this.loadDocument(m.build(), undefined, { kind: 'map', id });
     app.viewport.flyTo(new Vector3(...m.camera.position), new Vector3(...m.camera.target), 0.6);
     app.prefs.set({ followSelection: false });
     app.toast(m.objective, 'info');

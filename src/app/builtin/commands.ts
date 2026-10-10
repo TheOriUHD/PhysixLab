@@ -15,6 +15,7 @@ import { COLOR_MODE_LABELS, type ColorMode } from '../../render/bodyViews';
 import type { Quality } from '../../render/viewport';
 import type { App } from '../app';
 import { JOINT_ITEMS, LIGHT_ITEMS, SOFT_ITEMS } from '../addCatalog';
+import { pasteClaimedSince } from '../pasteClaim';
 import type { CommandDef } from '../registry/commands';
 import { registerHelp } from '../registry/help';
 import { jointCommands } from './jointCommands'; // -- JT-A
@@ -103,7 +104,15 @@ const editCommands: CommandDef[] = [
     label: 'Paste',
     category: 'Edit',
     shortcut: 'Mod+V',
-    run: ({ app }) => app.editor.paste(),
+    // -- UI-B: the browser's paste event must fire so a scene on the clipboard can be offered instead (qol/clipboard.ts) --
+    preventDefault: false,
+    run: ({ app, source }) => {
+      if (source !== 'shortcut') return app.editor.paste();
+      const t = performance.now();
+      setTimeout(() => {
+        if (!pasteClaimedSince(t)) app.editor.paste();
+      }, 0);
+    },
   },
   {
     id: 'edit.delete',

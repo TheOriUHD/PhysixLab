@@ -26,7 +26,7 @@ export async function importDocument(app: App, file: File): Promise<void> {
     const report = newReport();
     const doc = await app.persistence.importFile(file, report);
     await confirmReplace(app, () => {
-      app.loadDocument(doc, 'frame');
+      app.loadDocument(doc, 'frame', { kind: 'file' });
       app.toast(`Imported “${doc.name}”`, 'success');
       // Problems the loader repaired (an unknown shape, a broken link …) are worth knowing about.
       for (const w of report.warnings.slice(0, 2)) app.toast(w, 'warn');

@@ -22,10 +22,17 @@ export class VisualsSync {
       const a = store.getAsset(id);
       return a && a.kind === 'blob' ? a : undefined;
     };
+    env.onError = (m) => app.toast(m, 'error');
     const applyEnv = () => env.apply(store.settings.environment, store.settings.ground);
     applyEnv();
     // flicker / pulse of light entities
     app.on('frame', () => {
+      // glass transmission costs an extra scene pass: off in the Low tier
+      const wantTransmission = app.viewport.graphicsInfo.tier !== 'low';
+      if (wantTransmission !== materialContext.transmission) {
+        materialContext.transmission = wantTransmission;
+        for (const v of app.bodies.views.values()) v.applyMaterial(v.def);
+      }
       if (app.lightViews.tick(performance.now() / 1000)) app.viewport.needsRender = true;
     });
     store.on('change', (c) => {

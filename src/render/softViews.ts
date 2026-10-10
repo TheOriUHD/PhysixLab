@@ -10,6 +10,7 @@ import {
   BufferAttribute,
   BufferGeometry,
   Color,
+  type InterleavedBufferAttribute,
   DoubleSide,
   Group,
   Mesh,
@@ -44,6 +45,7 @@ class SoftView {
   readonly material: MeshStandardMaterial | MeshPhysicalMaterial;
   readonly lineMaterial: LineMaterial | null;
   private proxyGeo: BufferGeometry | null = null;
+  private lineScratch = new Float32Array(0);
 
   constructor(
     public def: SoftEntity,
@@ -169,22 +171,32 @@ class SoftView {
       mesh.visible = !this.def.hidden;
     } else {
       let seg = this.dyn as LineSegments2 | null;
-      const arr = new Float32Array(indices.length * 3);
+      const need = indices.length * 3;
+      if (this.lineScratch.length !== need) this.lineScratch = new Float32Array(need);
+      const arr = this.lineScratch;
       for (let i = 0; i < indices.length; i++) {
         const p = indices[i] * 3;
         arr[i * 3] = positions[p];
         arr[i * 3 + 1] = positions[p + 1];
         arr[i * 3 + 2] = positions[p + 2];
       }
-      if (!seg || !(seg instanceof LineSegments2)) {
+      if (!seg || !(seg instanceof LineSegments2) || layoutChanged) {
         this.disposeDyn();
         seg = new LineSegments2(new LineSegmentsGeometry(), this.lineMaterial!);
         seg.frustumCulled = false;
         seg.userData.entityId = this.def.id;
         this.dyn = seg;
         this.root.parent?.add(seg);
+        if (arr.length >= 6) seg.geometry.setPositions(arr);
+      } else if (arr.length >= 6) {
+        // Same topology: write into the existing interleaved buffer instead of letting setPositions allocate (and orphan) a new one.
+        const start = seg.geometry.getAttribute('instanceStart') as InterleavedBufferAttribute; // three types the attribute generically
+        const data = start.data.array as Float32Array;
+        if (data.length === arr.length) {
+          data.set(arr);
+          start.data.needsUpdate = true;
+        } else seg.geometry.setPositions(arr);
       }
-      if (arr.length >= 6) seg.geometry.setPositions(arr);
       seg.visible = !this.def.hidden;
     }
     this.proxy.visible = false;

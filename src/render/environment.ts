@@ -81,6 +81,10 @@ export class EnvironmentController {
   private skyBake: Sky | null = null;
   private hdri: { key: string; tex: Texture; rt: WebGLRenderTarget } | null = null;
   private hdriLoading = '';
+  private hdriFailed = '';
+  private lastTimeOfDay = -1;
+  /** Reports problems (an unreadable HDRI) to the user. Wired by the application. */
+  onError: ((message: string) => void) | null = null;
   private readonly dir = new Vector3(0, 1, 0);
   private cycleHours: number | null = null;
   private readonly tmpA = new Color();
@@ -129,7 +133,8 @@ export class EnvironmentController {
     this.env = env;
     this.ground = ground;
     if (!env.cycle.enabled) this.cycleHours = null;
-    else if (this.cycleHours === null) this.cycleHours = env.timeOfDay;
+    else if (this.cycleHours === null || env.timeOfDay !== this.lastTimeOfDay) this.cycleHours = env.timeOfDay;
+    this.lastTimeOfDay = env.timeOfDay;
     this.update(true);
   }
 
@@ -224,13 +229,14 @@ export class EnvironmentController {
       : physical
         ? `phys|${q(az)}|${q(el)}|${env.sun.turbidity}|${env.sun.rayleigh}`
         : `preset|${env.sky}|${dyn ? `${q(az)}|${q(el)}` : `${Math.round(az)}|${Math.round(el)}`}`;
-    if (key !== this.envKey || force) {
-      if (key !== this.envKey && this.sinceBake < REBAKE_MIN_INTERVAL && !force) this.pendingBake = true;
+    if (key !== this.envKey) {
+      if (this.sinceBake < REBAKE_MIN_INTERVAL && !force) this.pendingBake = true;
       else this.bake(key);
     }
     vp.scene.environmentIntensity =
       (hdri ? env.hdri.intensity : preset.envIntensity * (physical ? 0.9 : 1)) * (dynamic ? 0.12 + 0.88 * day : 1);
 
+    if (hdri && this.hdri) this.applyHdri(this.hdri);
     this.updateFog();
     if (this.ground) this.updateGround(this.ground);
     vp.needsRender = true;
@@ -305,9 +311,9 @@ export class EnvironmentController {
     const { vp, env } = this;
     const id = env.hdri.assetId;
     const asset = id ? this.assetLookup(id) : undefined;
-    if (!asset) {
-      // nothing usable yet: studio lighting until the user supplies a file
-      this.envKey = '';
+    const failed = asset && this.hdriFailed === `${asset.id}:${asset.hash}`;
+    if (!asset || failed) {
+      // nothing usable: studio lighting until the user supplies a (readable) file
       const scene = buildEnvScene(STUDIO, this.dir);
       const next = this.pmrem.fromScene(scene, 0.03);
       disposeEnvScene(scene);
@@ -330,7 +336,15 @@ export class EnvironmentController {
         return;
       }
       this.hdriLoading = '';
-      if (!tex) return;
+      if (!tex) {
+        this.hdriFailed = cacheKey;
+        this.onError?.(
+          `“${asset.name}” could not be read as an HDRI (use a Radiance .hdr, an OpenEXR .exr or a .jpg / .png panorama).`,
+        );
+        this.envKey = '';
+        this.update(true);
+        return;
+      }
       tex.mapping = EquirectangularReflectionMapping;
       const rt = this.pmrem.fromEquirectangular(tex);
       if (this.hdri) {
@@ -339,7 +353,10 @@ export class EnvironmentController {
       }
       this.hdri = { key: cacheKey, tex, rt };
       this.envKey = key;
-      if (this.env.sky === 'hdri') this.update(true);
+      if (this.env.sky === 'hdri') {
+        this.applyHdri(this.hdri);
+        this.update(false);
+      }
     });
     void key;
   }
@@ -369,7 +386,9 @@ export class EnvironmentController {
         const data = new EXRLoader().parse(buf);
         return dataTexture(data);
       }
-      const bmp = await createImageBitmap(new Blob([buf], { type: asset.mime || 'image/jpeg' }));
+      const bmp = await createImageBitmap(new Blob([buf], { type: asset.mime || 'image/jpeg' }), {
+        imageOrientation: 'flipY',
+      });
       const tex = new Texture(bmp as unknown as HTMLImageElement);
       tex.colorSpace = 'srgb';
       tex.needsUpdate = true;
@@ -500,12 +519,15 @@ interface RawImage {
   height?: number;
   type?: TextureDataType;
   format?: PixelFormat;
+  flipY?: boolean;
+  colorSpace?: string;
 }
 
 function dataTexture(img: RawImage): Texture {
   // Loader output is a plain image description; DataTexture is created lazily to keep this file's imports small.
   const tex = new DataTexture(img.data as Float32Array, img.width ?? 1, img.height ?? 1, img.format, img.type);
-  tex.colorSpace = 'srgb-linear';
+  tex.colorSpace = img.colorSpace ?? 'srgb-linear';
+  tex.flipY = img.flipY ?? false;
   tex.minFilter = tex.magFilter = LinearFilter;
   tex.needsUpdate = true;
   return tex;

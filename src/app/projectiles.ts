@@ -88,6 +88,7 @@ export class Projectiles {
     // ── FX: a particle explosion; the wireframe shock wave remains when effects are off ──
     if (!app.fxDirector.blast(at, p.blastRadius, p.blastStrength)) app.effects.shockwave(at, p.blastRadius);
     app.audioDirector.explosion([at.x, at.y, at.z], p.blastRadius, p.blastStrength); // ── FX: the sound is independent of the visual switch ──
+    app.cameraRig.shakeAt(at, p.blastStrength * scale, p.blastRadius); // -- CM-A: the view shakes with the blast --
   }
 
   /** Index (within the entity's particle block) of the soft particle closest to a world point. */

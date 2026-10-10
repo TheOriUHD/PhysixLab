@@ -38,6 +38,9 @@ export class InputHub {
   private dirty = true;
   private prevPad: Record<PadButton, boolean> = emptyPad().buttons;
   private captureCbs = new Set<(code: string) => void>();
+  /** Keys this hub currently holds in `sim.keys` (and the scratch set the next frame fills). */
+  private owned = new Set<string>();
+  private wanted = new Set<string>();
   private lastAxisSent = new Map<string, number>();
 
   constructor(private app: App) {
@@ -58,7 +61,11 @@ export class InputHub {
     // Saved bindings → the map; later edits in the map → saved.
     inputMap.load(this.settings.bindings, this.settings.preset);
     inputMap.on('change', () => this.update_settings({ bindings: inputMap.bindings, preset: inputMap.preset }));
-    app.store.on('change', () => (this.dirty = true));
+    app.store.on('change', (c) => {
+      // Dragging bodies around changes poses only: the axes and keys the scene listens to stay the same.
+      if (c.type === 'update' && [...c.keys].every((k) => k === 'position' || k === 'rotation')) return;
+      this.dirty = true;
+    });
     app.sim.on('layout', () => (this.dirty = true));
     app.prefs.on('change', (k) => {
       if (k.includes('input')) {
@@ -115,6 +122,7 @@ export class InputHub {
   clearKeys(): void {
     this.down.clear();
     this.physical.clear();
+    this.owned.clear();
     this.app.sim.keys.clear();
   }
 
@@ -196,20 +204,27 @@ export class InputHub {
       this.prevPad[b] = now;
     }
 
-    // Simulation key set
+    // Simulation key set. Other parts of the app (the Controls panel's key caps) add keys to the same set, so only
+    // the keys this hub put there are ever removed.
     const keys = app.sim.keys;
-    keys.clear();
+    const wanted = this.wanted;
+    wanted.clear();
     const ramp = s.keyboardRamp;
     for (const code of this.physical) {
       if (ramp && this.axisKeys.has(code)) continue;
-      keys.add(code);
+      wanted.add(code);
     }
     for (const b of PAD_BUTTONS) {
       if (!c.buttons[b]) continue;
-      keys.add(padKeyCode(b));
+      wanted.add(padKeyCode(b));
       const mapped = PAD_TO_KEY[b];
-      if (mapped) keys.add(mapped);
+      if (mapped) wanted.add(mapped);
     }
+    for (const k of this.owned) if (!wanted.has(k)) keys.delete(k);
+    for (const k of wanted) keys.add(k);
+    // swap: this frame's set is the owned one, the old one is next frame's scratch set
+    this.wanted = this.owned;
+    this.owned = wanted;
 
     // Analog axes
     const client = app.sim.client;

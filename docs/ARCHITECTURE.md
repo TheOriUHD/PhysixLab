@@ -456,6 +456,20 @@ uncontested. The outliner is a tree (groups fold, drag to re-parent); the teleme
 buffer; live readouts refresh at ~11 Hz. Number fields scrub by dragging their axis label. Design tokens live in
 `styles/app.css`, icons in `ui/icons.ts`.
 
+## 10a. Cameras and input (`app/camera/`, `app/input/`, package CM-A)
+
+**Input pipeline.** Every device ends up as two things the physics worker already understands — pressed key codes (`sim.keys`) and named analog axes (`client.setAxis`):
+
+```
+keyboard ──┐                                   ┌─► sim.keys   (raw keys, Pad<Button> codes, D-pad → arrows …)
+gamepad  ──┼─► InputHub.update(dt) ─ profile ──┤
+touch    ──┘   (src/app/input/hub.ts)          └─► sim.setAxis(name, −1…1)   (dead zone · curve · smoothing · key ramp)
+```
+
+`InputMap` (`input/inputMap.ts`) is the table of every bindable thing: each command's shortcuts and the held actions of the camera modes, with the user's overrides. The keymap, the shortcut help, menus and tooltips ask it for the effective shortcuts (`shortcutsOf(def)` in `registry/commands.ts`), so a rebinding shows up everywhere. A vehicle *profile* (`input/profiles.ts`) says which pad input drives which axis name; a joint motor or a component reads the name (`motor.axis`, or a text field with `role: 'axis'`).
+
+**Camera.** `CameraRig` (`app/camera/rig.ts`, `app.cameraRig`) owns the mode and the lens. *Orbit-based* modes (orbit, orbit point, top-down) constrain the orbit controls; *driven* modes (fly, first person, third person, chase) set `viewport.externalCamera` and write the pose themselves every frame (`pose()` of a registered `CameraModeDef`, maths in `poses.ts`); a cinematic shot or any `rig.override` takes the camera the same way. The camera object is a `DualCamera` (perspective ⇄ orthographic in place), so nothing that holds `viewport.camera` changes. Extra views (split screen, picture-in-picture) are DOM canvases filled by `PaneRenderer` from off-screen renders of the same scene; saved cameras (bookmarks, shots, view setups) are `SceneDocument.cameras`.
+
 ## 11. Verification
 
 * **Unit tests** (`tests/`, Vitest, environment `node`) run the real Rapier engine and assert against analytic results:

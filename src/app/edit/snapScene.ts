@@ -25,19 +25,31 @@ export interface SnapModes extends FeatureModes {
 }
 
 /**
- * The snap switches in effect. Holding Ctrl (or ⌘) inverts every switch for as long as it is held: with snapping on it
- * suspends it, with everything off it turns the lot on. (`invert` is false for events that have no modifier.)
+ * The snap switches in effect. Holding Ctrl (or ⌘) inverts snapping for as long as it is held: with any snap on, every
+ * snap is suspended; with all of them off, grid and surface snapping are switched on. (`invert` is false for events
+ * that have no modifier.)
  */
 export function effectiveModes(app: App, invert = false): SnapModes {
   const p = app.prefs.value;
-  const f = (v: boolean) => v !== invert;
+  const anyOn = p.snap || p.snapVertex || p.snapEdge || p.snapFace || p.snapBounds || p.snapSurface;
+  if (invert) {
+    return {
+      grid: !anyOn,
+      vertex: false,
+      edge: false,
+      face: false,
+      bounds: false,
+      surface: !anyOn,
+      alignNormal: p.snapAlignNormal,
+    };
+  }
   return {
-    grid: f(p.snap),
-    vertex: f(p.snapVertex),
-    edge: f(p.snapEdge),
-    face: f(p.snapFace),
-    bounds: f(p.snapBounds),
-    surface: f(p.snapSurface),
+    grid: p.snap,
+    vertex: p.snapVertex,
+    edge: p.snapEdge,
+    face: p.snapFace,
+    bounds: p.snapBounds,
+    surface: p.snapSurface,
     alignNormal: p.snapAlignNormal,
   };
 }

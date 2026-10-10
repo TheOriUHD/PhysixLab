@@ -14,7 +14,7 @@ import {
 import { LIMITS, formatBytes, formatCount } from './limits';
 import { pruneAssets, remapAssetRefs } from './assets';
 import { sanitizeAssetMap } from './sanitize/assets';
-import { sanitizeCameras } from './sanitize/cameras'; // -- CM-A --
+import { isDefaultCameras, sanitizeCameras } from './sanitize/cameras'; // -- CM-A --
 import { sanitizeWeatherField } from './sanitize/weather'; // -- VZ-B: weather --
 import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
 import { dedupeComponentIds, repairComponentRefs, sanitizeComponents } from './componentRegistry';
@@ -40,6 +40,7 @@ import {
   vec3,
 } from './sanitize/primitives';
 import { sanitizeShapeSpec } from './shapeRegistry';
+import { softParticleCount } from './softBudget';
 import type {
   BodyEntity,
   BoundsSettings,
@@ -93,7 +94,6 @@ const SKIES: SkyPreset[] = [
   'physical',
   'hdri',
 ];
-
 
 function sanitizeBody(raw: any, report?: LoadReport): BodyEntity {
   const name = nameStr(raw?.name, '');
@@ -221,8 +221,10 @@ function sanitizeAttachments(raw: any): SoftAttachment[] {
   const out: SoftAttachment[] = [];
   for (const a of raw.slice(0, 64)) {
     if (!a || typeof a !== 'object' || typeof a.body !== 'string' || !a.body) continue;
+    let id = idStr(a.id, `a${out.length + 1}`);
+    while (out.some((x) => x.id === id)) id += '_';
     const att: SoftAttachment = {
-      id: idStr(a.id, `a${out.length + 1}`),
+      id,
       body: idStr(a.body, ''),
       kind: a.kind === 'rim' ? 'rim' : 'region',
       center: vec3(a.center, [0, 0, 0]),
@@ -239,7 +241,20 @@ function sanitizeSoft(raw: any, report?: LoadReport): SoftEntity {
   const type: SoftType = SOFTS.includes(raw?.type) ? raw.type : 'jelly';
   const base = createSoft(type);
   const d = softDefaults(type);
-  const size = vec3(raw?.size, d.size).map((v, i) => (v <= 0 && d.size[i] === 0 ? 0 : Math.max(0.05, v))) as Vec3;
+  const size = vec3(raw?.size, d.size).map((v, i) => (v <= 0 && d.size[i] === 0 ? 0 : clamp(v, 0.05, 100))) as Vec3;
+  // -- SF: a document must not be able to ask the worker for billions of lattice cells --
+  if (type === 'tyre') {
+    size[0] = Math.min(size[0], 4);
+    size[1] = clamp(size[1], 0.08, 2);
+    size[2] = clamp(size[2], 0.06, 1);
+  }
+  if (type === 'mesh') for (let i = 0; i < 3; i++) size[i] = Math.min(size[i], 20);
+  let cell = clamp(num(raw?.cell, d.cell), Math.min(1, Math.max(0.04, Math.max(...size) / 40)), 1);
+  if (type === 'mesh') {
+    // hard cap on the voxel lattice a document may ask for
+    while (cell < 1 && softParticleCount({ type, size, resolution: 5, cell, pneumatic: true }) > 20000)
+      cell = Math.min(1, cell * 1.15);
+  }
   const maxRes =
     type === 'jelly'
       ? 10
@@ -285,7 +300,7 @@ function sanitizeSoft(raw: any, report?: LoadReport): SoftEntity {
     friction: clamp(num(raw?.friction, d.friction), 0, 5),
     particleRadius: raw?.particleRadius === 0 ? 0 : clamp(num(raw?.particleRadius, 0), 0, 0.2),
     shape: sanitizeShapeSpec(raw?.shape ?? d.shape, report, 'a soft mesh'),
-    cell: clamp(num(raw?.cell, d.cell), 0.04, 1),
+    cell,
     pneumatic: bool(raw?.pneumatic, d.pneumatic),
     ...outlinerMetaFields(raw ?? {}, true), // -- UI-A --
   };
@@ -504,7 +519,8 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
   if (hid) {
     const target = remap.get(hid) ?? hid;
     settings.environment.hdri.assetId = assets[target]?.kind === 'blob' ? target : null;
-    if (settings.environment.hdri.assetId === null && settings.environment.sky === 'hdri') settings.environment.sky = 'studio';
+    if (settings.environment.hdri.assetId === null && settings.environment.sky === 'hdri')
+      settings.environment.sky = 'studio';
   }
   return pruneAssets({
     format: SCENE_FORMAT,
@@ -513,7 +529,10 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
     settings,
     entities: linked,
     assets,
-    cameras: sanitizeCameras(raw.cameras), // -- CM-A --
+    // -- CM-A: only when something is saved --
+    ...(raw.cameras && !isDefaultCameras(sanitizeCameras(raw.cameras))
+      ? { cameras: sanitizeCameras(raw.cameras) }
+      : {}),
   });
 }
 

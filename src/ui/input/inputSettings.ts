@@ -6,6 +6,13 @@ import { PAD_BUTTONS, padLabel } from '../../app/input/gamepad';
 import { inputMap, type BindingRow } from '../../app/input/inputMap';
 import { PRESETS, presetById } from '../../app/input/presets';
 import { PROFILES, profileById } from '../../app/input/profiles';
+import {
+  DEFAULT_TOUCH,
+  TOUCH_BUTTON_CHOICES,
+  type TouchSettings,
+  type TouchSticks,
+  type TwoFingerDrag,
+} from '../../app/touch/settings'; // -- CM-A touch --
 import { COMMAND_CATEGORY_ORDER } from '../../app/registry/commands';
 import { formatShortcut } from '../../app/registry/shortcuts';
 import { button, selectField, sliderField, toggleField, row } from '../controls';
@@ -406,27 +413,129 @@ function gamepadTab(app: App, onStop: (stop: () => void) => void): HTMLElement {
   return root;
 }
 
-// ---- touch (filled in by the touch package of this work) --------------------------------------
+// ---- touch -------------------------------------------------------------------------------------
 
 function touchTab(app: App): HTMLElement {
   const hub = app.input;
+  const t = (): TouchSettings => hub.settings.touch;
+  const patch = (p: Partial<TouchSettings>) => hub.update_settings({ touch: { ...t(), ...p } });
   const mode = selectField({
     options: [
-      { value: 'auto', label: 'Automatic (touch devices)' },
+      { value: 'auto', label: 'Automatic (touch devices, while simulating)' },
       { value: 'on', label: 'Always show' },
       { value: 'off', label: 'Hide' },
     ],
     value: hub.settings.touchControls,
     onChange: (v) => hub.update_settings({ touchControls: v }),
   });
+  const sticks = selectField<TouchSticks>({
+    options: [
+      { value: 'both', label: 'Both joysticks' },
+      { value: 'left', label: 'Left joystick only' },
+      { value: 'right', label: 'Right joystick only' },
+      { value: 'none', label: 'No joysticks' },
+    ],
+    value: t().sticks,
+    onChange: (v) => patch({ sticks: v }),
+  });
+  const size = sliderField({
+    min: 0.7,
+    max: 1.6,
+    step: 0.05,
+    digits: 2,
+    value: t().size,
+    unit: '×',
+    onChange: (v) => patch({ size: v }),
+  });
+  const opacity = sliderField({
+    min: 0.25,
+    max: 1,
+    step: 0.05,
+    digits: 2,
+    value: t().opacity,
+    onChange: (v) => patch({ opacity: v }),
+  });
+  const hand = toggleField({
+    value: t().leftHanded,
+    onChange: (v) => patch({ leftHanded: v }),
+    title: 'Swap the left and right halves of the layout',
+  });
+  const chips = h('div', { class: 'tc-choice' });
+  for (const c of TOUCH_BUTTON_CHOICES) {
+    const b = h(
+      'button',
+      { class: 'chip', type: 'button', title: c.title, dataset: { btn: c.id }, 'aria-pressed': 'false' },
+      c.label,
+    );
+    const sync = () => {
+      const on = t().buttons.includes(c.id);
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+    };
+    b.addEventListener('click', () => {
+      const cur = t().buttons;
+      patch({ buttons: cur.includes(c.id) ? cur.filter((x) => x !== c.id) : [...cur, c.id] });
+      sync();
+    });
+    sync();
+    chips.appendChild(b);
+  }
+  const drag = selectField<TwoFingerDrag>({
+    options: [
+      { value: 'orbit', label: 'Orbit' },
+      { value: 'pan', label: 'Pan' },
+    ],
+    value: t().twoFingerDrag,
+    onChange: (v) => patch({ twoFingerDrag: v }),
+  });
+  const holdTime = sliderField({
+    min: 200,
+    max: 3000,
+    step: 50,
+    value: t().longPressMs,
+    unit: 'ms',
+    onChange: (v) => patch({ longPressMs: v }),
+  });
+  const move = toggleField({
+    value: t().moveWithTwoFingers,
+    onChange: (v) => patch({ moveWithTwoFingers: v }),
+    title: 'Edit mode, something selected: a two-finger drag moves the selection instead of the camera',
+  });
+  const reset = button(
+    'Reset layout',
+    () => {
+      hub.update_settings({ touch: DEFAULT_TOUCH });
+      showInputSettings(app, 'touch');
+    },
+    { title: 'Restore the default touch layout and gestures' },
+  );
   return h(
     'div',
     { class: 'touch-tab' },
-    row('On-screen controls', mode.el, 'Virtual joysticks and buttons that drive the same axes as a gamepad'),
+    h('div', { class: 'cm-group' }, 'On-screen controls'),
+    row(
+      'Show controls',
+      mode.el,
+      'Virtual joysticks and buttons that drive the same axes as a gamepad. Automatic shows them on touch devices while the simulation is running.',
+    ),
+    row('Joysticks', sticks.el, 'The left stick is the gamepad’s left stick, the right one its right stick'),
+    row('Buttons', chips, 'Choose which buttons are on screen; triggers and bumpers drive vehicles and motors'),
+    row('Size', size.el),
+    row('Opacity', opacity.el),
+    row('Left-handed layout', hand.el),
+    h('div', { class: 'cm-group' }, 'Gestures'),
+    row('Long-press time', holdTime.el, 'How long to hold a finger still to open the context menu'),
+    row('Two-finger drag', drag.el, 'A pinch always zooms and a three-finger drag always pans'),
+    row(
+      'Move selection with two fingers',
+      move.el,
+      'Off by default. When on, in edit mode with something selected, a two-finger drag moves the selected objects on the ground and the camera orbits only when nothing is selected.',
+    ),
     h(
       'p',
       { class: 'hint-text' },
-      'Left joystick = left stick, right joystick = right stick, A / B buttons = South / East. Use two fingers to orbit, pan and pinch-zoom the camera; long-press for the context menu.',
+      'One finger: tap selects, drag on empty space draws a selection box, drag on an object moves it, long-press opens the context menu. A second finger cancels the one-finger gesture. Two fingers: pinch to zoom, drag to orbit (or pan). Three fingers: pan.',
     ),
+    h('div', { class: 'cm-actions' }, reset),
   );
 }

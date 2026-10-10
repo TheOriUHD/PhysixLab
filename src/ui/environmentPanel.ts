@@ -56,7 +56,7 @@ export function buildEnvironmentSections(app: App): { sections: HTMLElement[]; r
   const sky = selectField<SkyPreset>({
     options: [
       ...ENV_PRESETS.map((p) => ({ value: p.id, label: p.label })),
-      { value: 'physical', label: 'Physical sky (time of day)' },
+      { value: 'physical', label: 'Physical sky' },
       { value: 'hdri', label: 'Your HDRI…' },
     ],
     onChange: (v) => {
@@ -176,8 +176,13 @@ export function buildEnvironmentSections(app: App): { sections: HTMLElement[]; r
     }
     try {
       const bytes = new Uint8Array(await f.arrayBuffer());
-      const id = store.addAsset(makeBlobAsset(f.name, f.type || guessMime(f.name), bytes), 'Add HDRI');
-      setEnv({ sky: 'hdri', hdri: { ...env().hdri, assetId: id } }, 'Use HDRI');
+      store.begin('Use HDRI'); // the asset and the setting are one undo step
+      try {
+        const id = store.addAsset(makeBlobAsset(f.name, f.type || guessMime(f.name), bytes), 'Use HDRI');
+        setEnv({ sky: 'hdri', hdri: { ...env().hdri, assetId: id } }, 'Use HDRI');
+      } finally {
+        store.end();
+      }
       app.toast(`Using “${f.name}” as the environment`, 'success');
     } catch (e) {
       app.toast(e instanceof Error ? e.message : `Could not use “${f.name}” as an HDRI.`, 'error');
@@ -229,8 +234,7 @@ export function buildEnvironmentSections(app: App): { sections: HTMLElement[]; r
     hdriBg.el,
     row('Blur', hdriBlur.el),
     row('Rotation', hdriRot.el),
-    row('Light ×', hdriInt.el, 'Multiplier of the lighting the HDRI casts'),
-    input,
+    row('HDRI light', hdriInt.el, 'Multiplier of the lighting the HDRI casts'),
   ];
 
   // ---- display -----------------------------------------------------------------------------------
@@ -322,6 +326,12 @@ export function buildEnvironmentSections(app: App): { sections: HTMLElement[]; r
     ...grouped('Horizon blend'),
     onChange: (v) => setGround({ horizonBlend: v }, 'Horizon blend'),
   });
+  const cycleRow = row(
+    'Cycle speed',
+    cycleSpeed.el,
+    'Hours of scene time per real second (display only; physics is unaffected)',
+  );
+  const fogControls: HTMLElement[] = [];
   const note = h('p', { class: 'hint-text' });
 
   const vis = (el: HTMLElement, on: boolean) => (el.style.display = on ? '' : 'none');
@@ -358,6 +368,12 @@ export function buildEnvironmentSections(app: App): { sections: HTMLElement[]; r
 
     for (const r of physicalRows) vis(r, e.sky === 'physical');
     for (const r of hdriRows) vis(r, e.sky === 'hdri');
+    vis(cycle.el, e.sky !== 'hdri');
+    vis(cycleRow, e.sky !== 'hdri');
+    for (const r of fogControls) {
+      r.style.opacity = e.fog.enabled ? '' : '0.45';
+      r.style.pointerEvents = e.fog.enabled ? '' : 'none';
+    }
     const lin = e.fog.type === 'linear';
     const hgt = e.fog.type === 'height';
     vis(fogDensityRow, !lin);
@@ -371,6 +387,15 @@ export function buildEnvironmentSections(app: App): { sections: HTMLElement[]; r
         : 'Presets set the sky, the image-based lighting and a sun; the sun angles can be changed freely. The Physical sky and the day-night cycle give the most natural light.';
   });
 
+  fogControls.push(
+    rowEl(fogType.el),
+    row('Colour', fogColor.el),
+    fogDensityRow,
+    fogNearRow,
+    fogFarRow,
+    fogHeightRow,
+    fogFallRow,
+  );
   const sections = [
     section(
       'Sky & sun',
@@ -383,7 +408,8 @@ export function buildEnvironmentSections(app: App): { sections: HTMLElement[]; r
         ...physicalRows,
         ...hdriRows,
         cycle.el,
-        row('Cycle speed', cycleSpeed.el, 'Hours of scene time per real second (display only; physics is unaffected)'),
+        cycleRow,
+        input,
         note,
       ],
       { id: 'world-sky' },

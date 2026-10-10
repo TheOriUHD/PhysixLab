@@ -6,7 +6,7 @@
  */
 import type { BufferGeometry, Group, Object3D } from 'three';
 import { Color, Group as ThreeGroup, Mesh, MeshPhysicalMaterial, Quaternion, SRGBColorSpace, Vector3 } from 'three';
-import { applyMaterialSpec, disposeMaterialTextures } from './materialBuild';
+import { applyMaterialSpec, disposeMaterialTextures, resetMaterialState } from './materialBuild';
 import { isCompound, partMaterial } from '../model/compound';
 import { shapeDef, shapeGeometry, shapeGeometryKey, shapeVisualScale } from '../model/shapeRegistry';
 import type { BodyEntity, ColliderPart, MaterialSpec, ShapeSpec } from '../model/types';
@@ -232,6 +232,9 @@ export class BodyView implements PoolMember, SkinBodyPose {
       piece.mesh.geometry = geo;
     }
     applyShapeSurface(piece.material, piece.mesh.geometry, def.shape); // -- SH: the new shape's surface
+    // -- VZ-A: the surface step reset the maps and shader patches; put the material's textures back --
+    resetMaterialState(piece.material);
+    this.applyMaterial(def);
     const s = shapeVisualScale(def.shape);
     piece.mesh.scale.set(s[0], s[1], s[2]);
     this.scale = [s[0], s[1], s[2]];
@@ -388,7 +391,7 @@ export class BodyViews {
       delete (mat.userData as { damage?: DamageHandle }).damage; // the clone's shader patch is its own
       patchDamage(mat, damageKindOf(leader.def.material), true);
       mat.color.setRGB(1, 1, 1);
-      mat.emissive.setRGB(0, 0, 0);
+      mat.emissive.set(leader.pieces[0].baseEmissive); // -- VZ-A: keep the material's glow, drop the highlight tint --
       pool = new InstancePool(key, geo, mat, this.group);
       this.pools.set(key, pool);
       this.lodLevels.set(key, leader.lod);

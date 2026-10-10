@@ -474,7 +474,9 @@ export function sourceBoxes(all: readonly Entity[], ids: readonly string[]): Ori
             ? [x, 0.06, 0.06]
             : e.type === 'balloon'
               ? [x, x, x]
-              : [x, y, z];
+              : e.type === 'tyre'
+                ? [x, y, x] // -- SF: axle along local Y --
+                : [x, y, z];
       local = { c: [0, 0, 0], h: scale3(dims, 0.5) };
     } else if (isPath(e)) {
       local = aabbOfPoints(e.points.length ? e.points : [[0, 0, 0]]);

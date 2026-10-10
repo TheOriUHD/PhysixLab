@@ -22,6 +22,11 @@ import { icon } from './icons';
 import { confirmReplace, importDocument } from './sceneActions';
 import { zoneTiles } from './zoneTiles'; // -- ZN
 import { buildShapePalette } from './shapePalette'; // -- SH
+// -- UI-B: favourites, thumbnails, recent scenes --
+import { attachThumb, favStar } from './qol/favUi';
+import { recentSection } from './qol/recentUi';
+import { favouriteStore, recentScenes, thumbStore } from './qol/stores';
+// -- end UI-B --
 
 // ── Add ───────────────────────────────────────────────────────────────────────────────────────────
 
@@ -157,6 +162,10 @@ export const addPanel: PanelDef = {
 function prefabTab(app: App): HTMLElement {
   const root = h('div');
   const groups = new Map<string, ReturnType<typeof listPrefabs>[number][]>();
+  // -- UI-B: starred prefabs first --
+  const favPrefabs = listPrefabs().filter((p) => favouriteStore().has('prefab', p.id));
+  if (favPrefabs.length) groups.set('★ Favourites', favPrefabs);
+  // -- end UI-B --
   for (const p of listPrefabs()) {
     const title = p.category ?? 'Insert an assembly';
     const list = groups.get(title);
@@ -176,7 +185,7 @@ function prefabTab(app: App): HTMLElement {
           draggable: true,
           title: 'Click to insert at the centre of the view, or drag onto a surface',
         },
-        h('h4', null, icon(p.icon), p.name),
+        h('h4', null, icon(p.icon), p.name, favStar('prefab', p.id, p.name)), // -- UI-B: star --
         h('p', null, p.blurb),
       );
       c.addEventListener('click', () => app.insertPrefab(p.id));
@@ -207,6 +216,9 @@ export const prefabsPanel: PanelDef = {
     };
     onContentChange((c) => {
       if (c.kind === 'prefab' && ctx.active()) render();
+    });
+    favouriteStore().onChange((k) => {
+      if (k === 'prefab' && ctx.active()) render(); // -- UI-B --
     });
     return { el, onShow: render };
   },
@@ -278,7 +290,12 @@ function mapsTab(app: App, query: string): HTMLElement {
     if (list) list.push(m);
     else byCategory.set(m.category, [m]);
   }
-  for (const [category, list] of [...byCategory.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+  // -- UI-B: starred maps first --
+  const favMaps = maps.filter((m) => favouriteStore().has('map', m.id));
+  const sections = [...byCategory.entries()].sort(([a], [b]) => a.localeCompare(b));
+  if (favMaps.length) sections.unshift(['★ Favourites', favMaps]);
+  // -- end UI-B --
+  for (const [category, list] of sections) {
     root.appendChild(h('div', { class: 'group-title' }, category));
     const cards = h('div', { class: 'cards' });
     for (const m of list) {
@@ -294,7 +311,7 @@ function mapsTab(app: App, query: string): HTMLElement {
         h(
           'span',
           { class: 'map-info' },
-          h('h4', null, m.name),
+          h('h4', null, m.name, favStar('map', m.id, m.name)),
           h('p', null, m.description),
           // The difficulty sits in the tag row: next to a short name it made the title wrap in the 268 px panel.
           h(
@@ -343,6 +360,9 @@ export const mapsPanel: PanelDef = {
     onContentChange((c) => {
       if (c.kind === 'map' && ctx.active()) renderList();
     });
+    favouriteStore().onChange((k) => {
+      if (k === 'map' && ctx.active()) renderList(); // -- UI-B --
+    });
     return { el, onShow: renderList };
   },
 };
@@ -351,6 +371,10 @@ export const mapsPanel: PanelDef = {
 
 function scenesTab(app: App, rerender: () => void): HTMLElement {
   const root = h('div');
+  // -- UI-B: recent scenes --
+  const recent = recentSection(app);
+  if (recent) root.appendChild(recent);
+  // -- end UI-B --
   root.appendChild(h('div', { class: 'group-title' }, 'My scenes'));
   const lib = app.persistence.library();
   const mine = h('div', { class: 'cards', style: { paddingBottom: '2px' } });
@@ -369,9 +393,10 @@ function scenesTab(app: App, rerender: () => void): HTMLElement {
       h('h4', null, icon('folder'), e.name),
       h('p', null, `${e.bodies} bodies · ${new Date(e.savedAt).toLocaleString()}`),
     );
+    attachThumb(open, `library:${e.id}`); // -- UI-B --
     open.addEventListener('click', () => {
       const doc = app.persistence.openFromLibrary(e.id);
-      if (doc) void confirmReplace(app, () => app.loadDocument(doc, 'frame'));
+      if (doc) void confirmReplace(app, () => app.loadDocument(doc, 'frame', { kind: 'library', id: e.id })); // -- UI-B: source --
     });
     const del = h('button', { class: 'icon-btn', type: 'button', title: 'Delete from library' }, icon('trash'));
     del.addEventListener('click', () => {
@@ -405,16 +430,30 @@ function scenesTab(app: App, rerender: () => void): HTMLElement {
   );
   root.appendChild(actions);
 
-  for (const cat of templateCategories()) {
+  // -- UI-B: starred examples first, stars and thumbnails on the cards --
+  const favTemplates = listTemplates().filter((x) => favouriteStore().has('template', x.id));
+  const sections: [string, ReturnType<typeof listTemplates>][] = templateCategories().map((cat) => [
+    cat,
+    listTemplates().filter((x) => x.category === cat),
+  ]);
+  if (favTemplates.length) sections.unshift(['★ Favourites', favTemplates]);
+  for (const [cat, list] of sections) {
     root.appendChild(h('div', { class: 'group-title' }, cat));
     const cards = h('div', { class: 'cards' });
-    for (const t of listTemplates().filter((x) => x.category === cat)) {
-      const c = h('button', { class: 'card', type: 'button' }, h('h4', null, t.name), h('p', null, t.blurb));
+    for (const t of list) {
+      const c = h(
+        'button',
+        { class: 'card', type: 'button', dataset: { template: t.id } },
+        h('h4', null, t.name, favStar('template', t.id, t.name)),
+        h('p', null, t.blurb),
+      );
+      attachThumb(c, `template:${t.id}`);
       c.addEventListener('click', () => void confirmReplace(app, () => app.loadTemplate(t.id)));
       cards.appendChild(c);
     }
     root.appendChild(cards);
   }
+  // -- end UI-B --
   return root;
 }
 
@@ -433,6 +472,16 @@ export const scenesPanel: PanelDef = {
     };
     onContentChange((c) => {
       if (c.kind === 'template' && ctx.active()) render();
+    });
+    // -- UI-B: stars, new thumbnails and the recent list refresh the Scenes tab --
+    favouriteStore().onChange((k) => {
+      if (k === 'template' && ctx.active()) render();
+    });
+    thumbStore().onChange(() => {
+      if (ctx.active()) render();
+    });
+    recentScenes().onChange(() => {
+      if (ctx.active()) render();
     });
     return { el, onShow: render };
   },

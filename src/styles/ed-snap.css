@@ -1,16 +1,6 @@
 /* ED-A: snap styles (snap indicator label, numeric entry feedback, rotate-by row) */
 .v-label.snap { border-color: var(--warn); color: var(--warn); transform: translate(-50%, -190%); pointer-events: none; }
 
-/* expression entry: a field whose entry could not be parsed shows the reason under it */
-.num-field { position: relative; }
-.num-field.bad { border-color: var(--danger, #ff6b6b); box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.16); }
-.num-err { display: none; }
-.num-field.bad .num-err {
-  display: block; position: absolute; z-index: 40; left: 0; top: calc(100% + 4px); max-width: 260px; width: max-content;
-  padding: 4px 8px; border-radius: 6px; background: rgba(9, 12, 18, 0.96); border: 1px solid var(--danger, #ff6b6b);
-  color: var(--text); font: 11.5px var(--font, inherit); white-space: normal; pointer-events: none;
-}
-
 /* inspector: "Rotate by" and the multi-selection centre rows */
 .rotate-by { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; width: 100%; }
 .rotate-by .segmented { flex: 1 1 100%; }

@@ -6,7 +6,7 @@
  * it so that its support function touches the hit point exactly (no gap, no penetration), optionally with its up axis
  * turned onto the surface normal (preference `snapAlignNormal`, "Align to surface normal"). On top of that the same
  * snap switches as for dragging apply: grid (horizontal surfaces only, so a slope is never left), vertex / edge /
- * face / bounds of nearby objects. Holding Ctrl while dropping inverts the switches (see `effectiveModes`).
+ * face / bounds of nearby objects. Holding Ctrl while dropping suspends them (see `effectiveModes`).
  */
 import type { Quat, Vec3 } from '../../core/math';
 import { qrot } from '../../core/math';

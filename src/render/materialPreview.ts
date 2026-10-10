@@ -55,6 +55,7 @@ export class MaterialPreview {
   private readonly mesh: Mesh;
   private readonly ctx: CanvasRenderingContext2D | null;
   readonly available: boolean;
+  private lastKey = '';
 
   constructor() {
     this.canvas.width = this.canvas.height = SIZE;
@@ -70,6 +71,9 @@ export class MaterialPreview {
   update(spec: MaterialSpec): void {
     const s = getShared();
     if (!s || !this.ctx) return;
+    const key = JSON.stringify(spec);
+    if (key === this.lastKey) return; // inspector updaters fire on every document change
+    this.lastKey = key;
     applyMaterialSpec(this.material, spec);
     // the sphere has a proper UV set only for pattern textures; keep it simple: spherical UVs from the normal
     const geo = this.mesh.geometry;
@@ -79,6 +83,11 @@ export class MaterialPreview {
     s.scene.remove(this.mesh);
     this.ctx.clearRect(0, 0, SIZE, SIZE);
     this.ctx.drawImage(s.renderer.domElement, 0, 0);
+  }
+
+  /** Force the next `update` to redraw (an image finished loading). */
+  invalidate(): void {
+    this.lastKey = '';
   }
 
   dispose(): void {

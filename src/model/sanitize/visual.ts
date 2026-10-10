@@ -59,7 +59,7 @@ export function sanitizeTexture(raw: unknown): TextureSpec | undefined {
     if (typeof r[k] === 'string' && r[k]) t[k] = idStr(r[k], '');
   }
   // an image pattern without an image is a dangling texture: drop it
-  if (t.pattern === 'image' && !t.imageId) return undefined;
+  if (t.pattern === 'image' && !t.imageId && !t.normalId && !t.roughnessId && !t.emissiveId) return undefined;
   return t;
 }
 

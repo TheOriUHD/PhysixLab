@@ -28,6 +28,14 @@ export class Persistence {
   private writes: Promise<void> = Promise.resolve();
   onError: ((msg: string) => void) | null = null;
   onSaved: (() => void) | null = null;
+  // -- DT-13: further listeners (folder sync) that run after each successful autosave --
+  private saveListeners = new Set<() => void>();
+  addSaveListener(fn: () => void): () => void {
+    this.saveListeners.add(fn);
+    return () => this.saveListeners.delete(fn);
+  }
+  // -- UI-B: lets the QoL layer cache a thumbnail and record a recent scene when a scene is saved to the library --
+  onLibrarySaved: ((entry: LibraryEntry) => void) | null = null;
 
   constructor(private store: SceneStore) {
     store.on('change', () => this.schedule());
@@ -73,6 +81,7 @@ export class Persistence {
     this.write(async (s) => {
       await s.put('meta', 'autosave', json);
       this.onSaved?.();
+      for (const fn of this.saveListeners) fn();
     }, 'Autosave failed — browser storage is full. Free space in Settings → Storage or export the scene to keep it.');
   }
 
@@ -104,6 +113,7 @@ export class Persistence {
     };
     this.libraryCache = existing ? list.map((e) => (e.id === existing.id ? entry : e)) : [entry, ...list];
     this.write((s) => s.put('scenes', entry.id, entry), 'Could not save — browser storage is full.');
+    this.onLibrarySaved?.(entry);
     return entry;
   }
 

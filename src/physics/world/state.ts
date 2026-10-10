@@ -115,6 +115,8 @@ export interface SoftRec {
   released: Set<string>;
   /** Current target volume factor (decays with `def.leakRate`). */
   volumeFactor: number;
+  /** Step count at construction: fastening may move the lattice only on the build step. */
+  builtAt: number;
   /** Cached rest lengths per engine soft body (handle:topologyVersion) for the elastic energy. */
   restLen: Map<number, SoftEdgeCache>;
 }

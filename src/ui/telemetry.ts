@@ -11,6 +11,9 @@ import { B } from '../physics/protocol';
 import { fmt } from './controls';
 import { h } from './dom';
 import { iconButton } from './controls';
+import { listDataSources, registerDataSource, type DataTable } from '../app/export/dataExport'; // -- DT-3
+import { openMenu } from './menu'; // -- DT-3
+import { exportTable } from '../app/export/dataExport'; // -- DT-3
 import { cssColor, onThemeChange } from './theme';
 
 interface SeriesDef {
@@ -58,6 +61,22 @@ class Chart {
       this.legend.appendChild(item);
       void i;
     });
+  }
+
+  // -- DT-3: the recorded samples as a table (time + one column per series), for CSV / JSON / report export --
+  toTable(name: string): DataTable {
+    return {
+      name,
+      columns: [
+        { key: 't', label: 'Time (s)' },
+        ...this.defs.map((d) => ({ key: d.id, label: d.unit ? `${d.label} (${d.unit})` : d.label })),
+      ],
+      rows: this.t.map((t, k) => [t, ...this.data.map((col) => col[k])]),
+    };
+  }
+
+  hasData(): boolean {
+    return this.t.length > 1;
   }
 
   reset(defs?: SeriesDef[]): void {
@@ -280,7 +299,41 @@ function createTelemetry(app: App): Telemetry {
     energy.reset();
     selection.reset();
   });
-  const toolbar = [note, winSel, clearBtn];
+  // -- DT-3: both charts are export sources; the toolbar button offers CSV / JSON / clipboard for each --
+  for (const [id, label, chart] of [
+    ['telemetry.energy', 'Energy', energy],
+    ['telemetry.selection', 'Selection', selection],
+  ] as const) {
+    try {
+      registerDataSource({
+        id,
+        label,
+        table: () => (chart.hasData() ? chart.toTable(`${app.store.name} - ${label}`) : null),
+      });
+    } catch {
+      /* registered already (a second App in tests) */
+    }
+  }
+  const exportBtn = iconButton('download', 'Export recorded data (CSV, JSON, clipboard)', () => {
+    const items = listDataSources()
+      .filter((src) => src.id.startsWith('telemetry.'))
+      .flatMap((src) =>
+        (['csv', 'json', 'clipboard'] as const).map((format) => ({
+          label: `${src.label}: ${format === 'csv' ? 'save CSV' : format === 'json' ? 'save JSON' : 'copy for spreadsheet'}`,
+          action: async () => {
+            const t = src.table(app);
+            if (!t) return app.toast('Nothing recorded yet - press Play first.', 'warn');
+            try {
+              app.toast(await exportTable(t, format), 'success');
+            } catch (e) {
+              app.toast((e as Error).message, 'error');
+            }
+          },
+        })),
+      );
+    openMenu(items, exportBtn);
+  });
+  const toolbar = [note, winSel, exportBtn, clearBtn];
 
   const energyBody = h('div', { class: 'dock-body' }, energy.wrap, energy.legend);
   const selectionBody = h('div', { class: 'dock-body' }, selection.wrap, selection.legend);

@@ -232,5 +232,60 @@ Plugins can register commands, declarative panels and example scenes (templates)
 * **Light shafts** are screen-space: the sun only produces shafts when it is in the frame (the orbit camera cannot look that high), spotlights always (up to three, nearest-first scan twice a second).
 * **Damage visuals** are procedural (cracks / scorch / dent-tint in the body shader) and accumulate from approach speed per material kind; skinned bodies and compound bodies' parts share the body's damage but skins are not damaged.
 * **Auto quality** judges by frame time on the main thread: a slow *simulation* step lowers quality too.
+* Themes (VZ-50): colour literals remain in other packages' canvases and stylesheets (`src/app/camera/minimap.ts`, `src/ui/timeTravel/timelinePanel.ts`, `src/ui/diag/panels.ts`, `cm.css`, `tm.css`, `diag.css`); they keep their own look in every theme until migrated to the `--canvas-*` / `--chart-*` tokens. The 3D viewport background is scene-driven.
+* Procedural pattern textures are cached per (pattern, colours, bump); dragging a colour slider adds cache entries that live until reload.
 ## DT-42: first load is not under 1.2 MB gzip
 The Rapier WebAssembly binary alone is about 1.15 MB gzip (served as a separate cached asset), so the cold-start download is about 1.9 MB gzip; the JavaScript part is well below the target. Numbers and the lazy-loading policy are in docs/PERFORMANCE.md; `npm run size` enforces budgets in CI.
+
+## Export (DT-1)
+
+* **Soft bodies are not exported** to glTF / OBJ / STL: they are simulated particles with a surface rebuilt every frame, and the exporters work from the document. The export reports them in a toast and leaves them out.
+* **Baked glTF animation is a real-time capture** of the running simulation (~30 samples per second for the chosen number of seconds), not a deterministic replay of the time-travel recording, so two exports of a chaotic scene can differ slightly and the clip length follows the wall clock.
+* **Not representable**: area lights, paths, joints, render-only skins and texture maps are not written. OBJ has no hierarchy or lights; STL is geometry only (one merged solid, optionally in millimetres and Z-up).
+* **Screenshots are not anti-aliased above 2560 px** (the viewport renderer has no MSAA; smaller images are rendered at 2x and averaged). Transparent PNGs recover alpha by rendering twice (over black and white), so the ground shadow is kept but selection outlines and ambient occlusion are not drawn. Maximum size is 3840 px per side and the graphics card's texture limit.
+
+
+## Video, GIF and turntable capture (DT-2)
+
+* **Video is real-time.** WebM/MP4 come from `MediaRecorder`, which stamps frames with the wall clock. Deterministic mode makes the *pictures* reproducible (fixed physics steps per frame, scripted camera) and holds each frame for its nominal duration, but a machine too slow to render a frame within 1/fps stretches the video. The GIF path has exact frame delays and is the one whose whole output is independent of machine speed.
+* **Codecs depend on the browser.** The Record dialog offers only containers for which `MediaRecorder.isTypeSupported` says yes (Chromium: WebM, recent versions MP4/H.264; Firefox: WebM only; Safari: MP4). Where none is available the dialog says so and GIF still works. We ship no video encoder.
+* **GIF limits.** At most 960 px wide, 30 fps, 30 s and 600 frames; 256 colours per frame (median-cut, no dithering), so gradients band. A real-time GIF buffers its frames as RGBA (capped at 256 MB); deterministic GIFs are encoded frame by frame.
+* **Deterministic capture covers the physics and the camera, not every effect.** Particle effects, motion trails and sound use the wall-clock frame time of the render loop, so a scene with active effects can differ slightly between two captures; the physics state at every frame is identical. Tab visibility matters: a hidden tab stops `requestAnimationFrame`, and the capture then stops with an explanation.
+* Deterministic capture with *Restart simulation* rebuilds the simulation from the scene, so the state a paused run had reached is not preserved (the simulation returns to running/edit as before the capture, but not to the same moment).
+
+## Embed viewer and share dialog (DT-21, DT-22)
+
+* The viewer has no `bg=transparent|light|dark` option: the renderer draws an opaque sky and has no alpha buffer, so a transparent or light background would need renderer changes. The viewer always looks like the editor's viewport.
+* An embed carries its scene in the link, so it is limited to the share-link size (about 32 kB); larger scenes cannot be embedded this way.
+* QR codes hold at most 2953 bytes (2331 at error correction M); longer links are shown as text with the file alternative. Scanning a QR code for a long link (above roughly 1 kB) needs a good camera and a large code.
+* The preview card (Open Graph) needs a host: the scene is in the URL fragment, which crawlers never see, so a static deployment cannot render per-scene previews by itself. The dialog produces the thumbnail and the tags; `docs/EMBED.md` explains the landing page.
+* "Copy image + link" depends on the browser's async clipboard (`ClipboardItem` with `image/png`); where it is missing or refused, only the link is copied and the toast says so.
+* The viewer's message API without an `origin=` allow-list accepts commands from any parent page (it can play, pause and load scenes, nothing more).
+
+## Data platform (DT-A)
+
+* **Folder sync** needs the File System Access API (Chromium browsers). It polls every 3 s for external changes (no file-watcher API exists); the native picker/permission flow is not covered by an automated browser test.
+* **Crash detection** relies on a localStorage heartbeat; a crash is not noticed while the tab is in the background, and a second tab with a fresh heartbeat is treated as "not crashed".
+* **Restore points** store whole serialized scenes (no delta storage); the default 64 MB cap keeps the oldest automatic ones out.
+* **Table export** covers what registers a data source (the two telemetry charts); other panels adopt it by calling `registerDataSource`.
+
+## Presentation mode and quality of life (UI-41, UI-42)
+* **Drag and drop imports scene files only.** Meshes, images, audio, replays and prefab packs have no importer on this branch, so dropping one shows an explicit "… aren't supported yet" message (and the overlay says so while dragging) instead of pretending. `registerDropHandler(kind, handler)` in `src/ui/qol/dropHandlers.ts` is where another package plugs one in.
+* **Open recent is a headed block in the File menu**, not a nested submenu: the menu model has no nesting. At most 8 scenes are listed there (12 are remembered; the Scenes tab shows the newest 5).
+* **Recent scenes opened from a file or the clipboard keep their JSON only while it fits a small budget** (4 scenes, 700k characters in total, 300k each). A larger scene is listed but must be imported again to reopen it. Everything is per browser (localStorage).
+* **Thumbnails** are small JPEGs of the viewport (160 × 90), taken after a scene loads, saved or is edited; an example scene has none until it has been opened once. A browser with full storage shows no thumbnails.
+* **Hi-res capture** is limited by the GPU: the scale is reduced (and the saved-image toast says so) when the picture would exceed the largest renderable edge (at most 8192 px) or 36 megapixels. HTML overlays (body labels, measurements, quick bars) are not part of the image; the caption is drawn in separately. Software GL renders a 4× capture slowly.
+* **Reading the clipboard from the "Paste scene from clipboard" command** needs the browser's clipboard permission; when it is refused the command says so and Ctrl+V still works. Ctrl+V takes a scene over only when the clipboard text is a PhysicsLab scene; entity copy / paste is unchanged.
+* **Lighting presets change the scene** (they are the VZ environment presets, saved with the scene; Undo restores them); depth of field presets change the graphics preferences, not the scene.
+
+
+## Cameras and input (CM-A)
+
+* **Bookmark keys.** Plain `1`…`9` already add shapes, and `Ctrl+1`…`9` is reserved by browsers (tab switching), so bookmarks are recalled with `Shift+1`…`9` and saved with `Ctrl+Shift+1`…`9`. Everything is rebindable in Settings › Keyboard.
+* **Split-screen panes and picture-in-picture windows** are rendered by the viewport's own renderer into off-screen targets and read back into 2D canvases: they have no outline, ambient occlusion, depth of field or anti-aliasing, run at most at the display rate (every second frame with three or more views) and cost one extra scene render each. Only the main view is interactive (picking, gizmo, camera control); the other panes follow their own cameras. At most 3 split panes and 4 picture-in-picture windows.
+* **Orthographic views** switch the perspective-only passes off (ambient occlusion, depth of field, screen-space reflections, light shafts, motion blur); the orthographic camera sits 120 m from its target, so geometry nearer than the near plane (0.05 m) to that point is not clipped but a scene taller than ~2 km would be.
+* **Body cameras** (first person, third person, chase, mounted) need to know which local axis of a body is "forward": the setting defaults to +X (the car and vehicle templates point along +X) and is changeable per browser in the Camera panel, not per body. Third-person arm collision tests the visible body meshes and the ground plane, not soft bodies.
+* **Fly mode owns its keys** (W A S D Q E, Shift): while it runs they are not sent to the simulation, so a car cannot be driven with the keyboard while flying — use another camera mode, or the gamepad / touch controls.
+* **Cinematic recording** writes the viewport canvas as WebM through `MediaRecorder` in real time (so frame pacing follows the machine, not the shot's duration); the recorder registry (`registerShotRecorder`) is the hook for a deterministic frame-by-frame exporter. The view cube is hidden while recording. Shots follow a path's spline in world space; a path that is moved while a shot plays moves the shot.
+* **Gamepads** are read through the browser's Gamepad API: browsers hide the pad until a button is pressed once, only the first connected pad is used, and non-"standard" devices fall back to axes 0–3 for the sticks and 4/5 (or buttons 6/7) for the triggers. Automated tests use a stubbed `getGamepads`, not hardware.
+* **Axis-driven vehicles.** The bundled scenes with analog axes are the car, the powered wheel and the pistons; the plane, tank and crane profiles map a pad onto their axis names (`pitch`/`roll`/`yaw`/`throttle`, `left`/`right`, `slew`/`trolley`/`lift`/`hoist`), and any motor or thruster whose axis name matches is driven, but there is no bundled plane, tank or crane scene yet.

@@ -187,11 +187,17 @@ export class Viewport {
   externalCamera = false;
   /** Hidden while a shot is recorded so the video holds the scene only. */
   viewHelperVisible = true;
+  // -- UI-B: presentation / photo mode hides the outline, gizmos and axis cube --
+  private photoMode = false;
+  private viewHelperBefore = true;
+  // -- end UI-B --
   readonly viewGrid = new ViewGrid();
   private viewPlane: ViewPlane = null;
   private thumbRequests: { w: number; h: number; done: (url: string | null) => void }[] = [];
   /** Called every frame before rendering with the frame delta in seconds. */
   onFrame: ((dt: number) => void) | null = null;
+  // -- DT-2: called right after a frame was rendered, while the canvas still holds it (capture reads pixels here) --
+  afterRender: ((canvas: HTMLCanvasElement) => void) | null = null;
   needsRender = true;
 
   constructor(readonly container: HTMLElement) {
@@ -414,6 +420,11 @@ export class Viewport {
     }
   }
 
+  // -- DT-1: the scene parts a still-image export hides or keeps (src/app/export/capture.ts) --
+  captureParts(): { sky: Object3D; slab: Object3D; grid: Object3D; shadowCatcher: Object3D } {
+    return { sky: this.skyMesh, slab: this.slab, grid: this.grid, shadowCatcher: this.shadowCatcher };
+  }
+
   /** Choose a quality tier — or 'auto', which lets the governor pick and adapt (VZ-22). */
   setQuality(q: Quality): void {
     this.quality = q;
@@ -569,6 +580,11 @@ export class Viewport {
     };
   }
 
+  /** -- CM-A: a camera rig takes over: a fly-to that was still running must not resume when it hands back. -- */
+  cancelTween(): void {
+    this.tween = null;
+  }
+
   /** Camera position + target, for persistence. */
   getView(): { position: [number, number, number]; target: [number, number, number] } {
     const p = this.camera.position,
@@ -678,14 +694,122 @@ export class Viewport {
     profiler.mark(OTHER); // -- UI-B: frame timing --
     this.post.focusDistance = this.camera.position.distanceTo(this.controls.target);
     this.weather.update(dt, this.camera, this.controls.target, this.activeTier); // -- VZ-B: weather --
-    this.post.render(dt);
+    this.renderPost(dt); // -- UI-B: photo mode hides the gizmo --
     this.renderer.autoClear = false;
     if (this.viewHelperVisible) this.viewHelper.render(this.renderer);
     this.renderer.autoClear = true;
     profiler.mark(RENDER); // -- UI-B: frame timing --
     profiler.end(); // -- UI-B: frame timing --
     if (this.thumbRequests.length) this.flushThumbnails();
+    this.afterRender?.(this.dom); // -- DT-2 --
   }
+
+  // -- UI-B: photo / presentation mode and hi-res capture --
+
+  /** Render through the post stack; in photo mode the transform gizmo is hidden for the duration. */
+  private renderPost(dt: number): void {
+    if (!this.photoMode) {
+      this.post.render(dt);
+      return;
+    }
+    const hidden: Object3D[] = [];
+    for (const c of this.scene.children) {
+      // TransformControls' helper toggles its own `visible`, so it is hidden only around the render.
+      if ((c as { isTransformControlsRoot?: boolean }).isTransformControlsRoot && c.visible) {
+        c.visible = false;
+        hidden.push(c);
+      }
+    }
+    try {
+      this.post.render(dt);
+    } finally {
+      for (const c of hidden) c.visible = true;
+    }
+  }
+
+  /** Vertical field of view in degrees (the "lens"). */
+  setFov(deg: number): void {
+    this.camera.fov = MathUtils.clamp(deg, 8, 100);
+    this.camera.updateProjectionMatrix();
+    this.needsRender = true;
+  }
+
+  /** Hide the selection outline, transform gizmo / helpers and the axis cube (photo and presentation mode). */
+  setPhotoMode(on: boolean): void {
+    if (on === this.photoMode) return;
+    this.photoMode = on;
+    this.outline.enabled = !on;
+    this.helpers.visible = !on;
+    if (on) {
+      this.viewHelperBefore = this.viewHelperVisible;
+      this.viewHelperVisible = false;
+    } else this.viewHelperVisible = this.viewHelperBefore;
+    this.needsRender = true;
+  }
+
+  /** The largest edge, in pixels, the GPU can render to. */
+  get maxCaptureEdge(): number {
+    return Math.min(this.renderer.capabilities.maxTextureSize, 8192);
+  }
+
+  /** CSS-pixel size of the viewport. */
+  get cssSize(): { width: number; height: number } {
+    return { width: this.width, height: this.height };
+  }
+
+  /**
+   * Render the current view at `scale` × its CSS size (the caller keeps the result within `maxCaptureEdge`) and
+   * return it as a 2D canvas. The drawing buffer is not preserved, so the frame is rendered through the full post
+   * stack and copied in one go; the viewport is restored afterwards. `clean` hides the selection outline, gizmos
+   * and the axis cube.
+   */
+  captureCanvas(scale: number, clean = true): HTMLCanvasElement {
+    const w = this.width,
+      h = this.height;
+    const prevPhoto = this.photoMode;
+    const prevRatio = this.pixelRatioNow;
+    if (clean) this.setPhotoMode(true);
+    this.renderer.setPixelRatio(scale);
+    this.renderer.setSize(w, h, false);
+    this.post.setSize(w, h, scale);
+    const out = document.createElement('canvas');
+    try {
+      this.renderPost(0);
+      out.width = this.dom.width;
+      out.height = this.dom.height;
+      out.getContext('2d')?.drawImage(this.dom, 0, 0);
+    } finally {
+      this.renderer.setPixelRatio(prevRatio);
+      this.renderer.setSize(w, h, false);
+      this.post.setSize(w, h, prevRatio);
+      this.dom.style.width = '100%';
+      this.dom.style.height = '100%';
+      if (clean) this.setPhotoMode(prevPhoto);
+      this.needsRender = true;
+    }
+    return out;
+  }
+
+  /** A small cover-cropped JPEG of the current frame, without outline / gizmos, for scene thumbnails. */
+  thumbnail(width = 160, height = 90): string {
+    const prevPhoto = this.photoMode;
+    this.setPhotoMode(true);
+    this.renderPost(0);
+    this.setPhotoMode(prevPhoto);
+    const out = document.createElement('canvas');
+    out.width = width;
+    out.height = height;
+    const ctx = out.getContext('2d');
+    if (!ctx) return '';
+    const sw = this.dom.width,
+      sh = this.dom.height;
+    const k = Math.max(width / sw, height / sh);
+    const dw = sw * k,
+      dh = sh * k;
+    ctx.drawImage(this.dom, (width - dw) / 2, (height - dh) / 2, dw, dh);
+    return out.toDataURL('image/jpeg', 0.72);
+  }
+  // -- end UI-B --
 
   /** A small JPEG data URL of the next rendered frame (cropped to w:h), or null when it cannot be made. */
   captureThumbnail(w: number, h: number): Promise<string | null> {

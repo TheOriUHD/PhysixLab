@@ -32,7 +32,7 @@ type MapKey = 'imageId' | 'normalId' | 'roughnessId' | 'emissiveId';
 const MAP_ROWS: { key: MapKey; label: string; hint: string }[] = [
   { key: 'imageId', label: 'Albedo', hint: 'Colour image (the surface colour)' },
   { key: 'normalId', label: 'Normal map', hint: 'Tangent-space normal map (OpenGL / glTF convention)' },
-  { key: 'roughnessId', label: 'Roughness map', hint: 'Greyscale: the green channel multiplies Roughness' },
+  { key: 'roughnessId', label: 'Rough. map', hint: 'Greyscale: the green channel multiplies Roughness' },
   { key: 'emissiveId', label: 'Emissive map', hint: 'Colour image that glows (scaled by Emissive intensity)' },
 ];
 
@@ -373,13 +373,19 @@ export function materialSection(ctx: InspectorContext, sel: BodyEntity[]): HTMLE
     void (async () => {
       try {
         const img = await readImage(f);
-        const id = app.store.addAsset(makeTextureAsset(f.name, img.dataUrl, img.width, img.height), 'Add texture');
-        texEdit('Texture image', (t) => ({ [key]: id, pattern: key === 'imageId' ? 'image' : t.pattern }));
+        app.store.begin('Texture image'); // the asset and the material edit are one undo step
+        try {
+          const id = app.store.addAsset(makeTextureAsset(f.name, img.dataUrl, img.width, img.height), 'Texture image');
+          texEdit('Texture image', (t) => ({ [key]: id, pattern: key === 'imageId' ? 'image' : t.pattern }));
+        } finally {
+          app.store.end();
+        }
       } catch (e) {
         app.toast(e instanceof Error ? e.message : `Could not use “${f.name}” as a texture.`, 'error');
       }
     })();
   });
+  const clears = {} as Record<MapKey, HTMLButtonElement>;
   const mapRows = MAP_ROWS.map((r) => {
     const choose = button(
       'Choose…',
@@ -397,6 +403,7 @@ export function materialSection(ctx: InspectorContext, sel: BodyEntity[]): HTMLE
         return next;
       }),
     );
+    clears[r.key] = clear;
     return row(r.label, h('div', { class: 'row-actions' }, mapStatus[r.key], choose, clear), r.hint);
   });
   ctx.updaters.push(() => {
@@ -405,6 +412,7 @@ export function materialSection(ctx: InspectorContext, sel: BodyEntity[]): HTMLE
     for (const r of MAP_ROWS) {
       const id = t?.[r.key];
       mapStatus[r.key].textContent = id ? (app.store.getAsset(id)?.name ?? 'missing') : '—';
+      clears[r.key].disabled = !id;
     }
   });
   const isImage = (m: MaterialSpec) => m.texture?.pattern === 'image';

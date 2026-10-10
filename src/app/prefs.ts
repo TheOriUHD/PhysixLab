@@ -175,6 +175,8 @@ const KEY = 'physicslab:prefs:v1';
 /** Reactive, persisted UI preferences. */
 export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
   value: Prefs;
+  /** -- DT-22: the embedded viewer must not overwrite the editor's preferences (same origin, same storage) -- */
+  ephemeral = false;
 
   constructor() {
     super();
@@ -223,6 +225,7 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
     if (!keys.length) return;
     this.value = { ...this.value, ...patch };
     this.emit('change', keys);
+    if (this.ephemeral) return;
     try {
       localStorage.setItem(KEY, JSON.stringify(this.value));
     } catch {

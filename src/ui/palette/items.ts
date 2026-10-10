@@ -94,7 +94,7 @@ export function buildPaletteItems(app: App): PaletteItem[] {
       keywords: ['open', 'load', 'scene', 'library', 'saved'],
       run: () => {
         const doc = app.persistence.openFromLibrary(e.id);
-        if (doc) void confirmReplace(app, () => app.loadDocument(doc, 'frame'));
+        if (doc) void confirmReplace(app, () => app.loadDocument(doc, 'frame', { kind: 'library', id: e.id }));
       },
     });
 

@@ -119,6 +119,8 @@ function partSupport(parts: readonly ColliderPart[]): Support {
 function softSupport(e: SoftEntity): Support {
   const [sx, sy, sz] = e.size;
   if (e.type === 'balloon') return (u) => (sx / 2) * Math.hypot(u[0], u[1], u[2]);
+  // -- SF: a tyre is round about its local Y axle: diameter × width × diameter --
+  if (e.type === 'tyre') return (u) => boxSupport([sx / 2, sy / 2, sx / 2], u);
   return (u) => boxSupport([sx / 2, sy / 2, sz / 2], u);
 }
 

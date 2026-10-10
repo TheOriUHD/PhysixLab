@@ -20,7 +20,7 @@ export class PaneRenderer {
 
   private ensure(w: number, h: number): void {
     if (this.scene && this.w === w && this.h === h) return;
-    this.dispose();
+    this.releaseTargets();
     this.w = w;
     this.h = h;
     this.scene = new WebGLRenderTarget(w, h, { type: HalfFloatType, samples: 0 });
@@ -44,11 +44,16 @@ export class PaneRenderer {
     ctx.putImageData(this.image, 0, 0);
   }
 
-  dispose(): void {
+  private releaseTargets(): void {
     this.scene?.dispose();
     this.out?.dispose();
     this.scene = this.out = null;
     this.image = null;
     this.w = this.h = 0;
+  }
+
+  dispose(): void {
+    this.releaseTargets();
+    this.pass.dispose();
   }
 }
