@@ -7,6 +7,7 @@ import './styles/ed-prefabs.css';
 import './styles/ed-path.css';
 import './styles/ui-a.css';
 import './styles/cm.css'; // -- CM-A --
+import './styles/capture.css'; // -- DT-2 --
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';

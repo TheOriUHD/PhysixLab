@@ -117,3 +117,11 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 ## Share links v2 (DT-20)
 
 The compact share link stores non-integer numbers with 6 significant digits and renames entity ids to `e0`, `e1` … when opened, so a scene opened from a link is physically equivalent to the original but not bit-identical (chaotic scenes can diverge over a long run). Use *Export file* for exact transfer. Old `#scene=` (v1) links keep working.
+
+## Video, GIF and turntable capture (DT-2)
+
+* **Video is real-time.** WebM/MP4 come from `MediaRecorder`, which stamps frames with the wall clock. Deterministic mode makes the *pictures* reproducible (fixed physics steps per frame, scripted camera) and holds each frame for its nominal duration, but a machine too slow to render a frame within 1/fps stretches the video. The GIF path has exact frame delays and is the one whose whole output is independent of machine speed.
+* **Codecs depend on the browser.** The Record dialog offers only containers for which `MediaRecorder.isTypeSupported` says yes (Chromium: WebM, recent versions MP4/H.264; Firefox: WebM only; Safari: MP4). Where none is available the dialog says so and GIF still works. We ship no video encoder.
+* **GIF limits.** At most 960 px wide, 30 fps, 30 s and 600 frames; 256 colours per frame (median-cut, no dithering), so gradients band. A real-time GIF buffers its frames as RGBA (capped at 256 MB); deterministic GIFs are encoded frame by frame.
+* **Deterministic capture covers the physics and the camera, not every effect.** Particle effects, motion trails and sound use the wall-clock frame time of the render loop, so a scene with active effects can differ slightly between two captures; the physics state at every frame is identical. Tab visibility matters: a hidden tab stops `requestAnimationFrame`, and the capture then stops with an explanation.
+* Deterministic capture with *Restart simulation* rebuilds the simulation from the scene, so the state a paused run had reached is not preserved (the simulation returns to running/edit as before the capture, but not to the same moment).

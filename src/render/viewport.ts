@@ -153,6 +153,8 @@ export class Viewport {
   private aoOn = false;
   /** Called every frame before rendering with the frame delta in seconds. */
   onFrame: ((dt: number) => void) | null = null;
+  // -- DT-2: called right after a frame was rendered, while the canvas still holds it (capture reads pixels here) --
+  afterRender: ((canvas: HTMLCanvasElement) => void) | null = null;
   needsRender = true;
 
   constructor(readonly container: HTMLElement) {
@@ -500,6 +502,7 @@ export class Viewport {
     this.renderer.autoClear = false;
     this.viewHelper.render(this.renderer);
     this.renderer.autoClear = true;
+    this.afterRender?.(this.dom); // -- DT-2 --
   }
 
   dispose(): void {
