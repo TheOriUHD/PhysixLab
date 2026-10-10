@@ -16,6 +16,7 @@ import { clear, h } from '../dom';
 import { icon } from '../icons';
 import { InspectorContext } from './shared';
 // -- UI-A: inspector upgrades (toolbar, filter, resets, label scrubbing) --
+import { onUiModeChange } from '../uiMode';
 import { enhanceInspector } from './upgrades/enhance';
 
 export class Inspector {
@@ -44,6 +45,8 @@ export class Inspector {
     app.on('pathPoint', () => this.refresh());
     // A section registered (or removed) later shows up at once.
     inspectorSectionRegistry.onChange(() => this.render());
+    // -- UI-A: Simple / Advanced mode rewords the labels --
+    onUiModeChange(() => this.render());
     this.render();
   }
 

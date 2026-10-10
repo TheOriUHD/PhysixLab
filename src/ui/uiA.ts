@@ -9,15 +9,7 @@ import { registerMenuEntry, type MenuEntryDef } from '../app/registry/menus';
 import { getDock, peekDock } from './dock/dockManager';
 import { h } from './dom';
 import { mountQuickBar, quickBarEnabled, setQuickBarEnabled } from './quickBar';
-import {
-  applyUiMode,
-  getUiMode,
-  initAdvancedStyle,
-  markModeAsked,
-  onUiModeChange,
-  setUiMode,
-  wasModeChosen,
-} from './uiMode';
+import { applyUiMode, getUiMode, initAdvancedStyle, markModeAsked, setUiMode, wasModeChosen } from './uiMode';
 
 const INSPECTOR = 'inspector';
 
@@ -105,7 +97,6 @@ export function mountUiA(app: App): void {
   mountQuickBar(app, app.shell.stage);
   // First run: offer Simple mode once (never again, whatever the answer).
   if (!wasModeChosen()) setTimeout(() => offerSimpleMode(app), 2500);
-  onUiModeChange(() => app.store.emit('selection', app.store.selection));
 }
 
 function offerSimpleMode(app: App): void {
