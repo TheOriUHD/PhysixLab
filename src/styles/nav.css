@@ -96,6 +96,16 @@ html, body { overscroll-behavior: none; }
 /* The compact top bar keeps play / step / stop and undo / redo; Drive and Play are in the View menu and the palette there. */
 @media (max-width: 900px) { .topbar .tbtn.drive, .topbar .tbtn.play-mode { display: none; } }
 
+/* The centred transport slides right and sheds parts when the window is narrow (src/ui/topbarFit.ts). */
+@media (min-width: 901px) {
+  .topbar .transport { margin-left: var(--tb-shift, 0px); }
+  .topbar.fit-drive .tbtn.drive > span { display: none; }
+  .topbar.fit-drive .tbtn.drive { padding: 0; }
+  .topbar.fit-chip .mode-chip { display: none; }
+  .topbar.fit-clock .sim-clock { display: none; }
+  .topbar.fit-scale .transport .timescale { display: none; }
+}
+
 /* ── the immersive modes: the viewport and its overlays are all that is left ── */
 .imm-hidden { display: none !important; }
 body.immersive #app .workspace { grid-template-columns: minmax(0, 1fr) !important; }

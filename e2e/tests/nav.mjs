@@ -773,3 +773,50 @@ test('nav: touch — one finger orbits on empty space, two fingers pan, a pinch 
 async function downAllOne(page, id, x, y) {
   await downAll(page, [[id, x, y]]);
 }
+
+test('top bar: the centred transport (with Drive and Play) never covers the menus or the right cluster', async () => {
+  for (const width of [1920, 1600, 1440, 1280]) {
+    const page = await newPage('&scene=car', { width, height: 800 });
+    await page.waitForFunction(() => !!document.querySelector('.topbar'), null, { timeout: 30000 });
+    const clear = async (when) => {
+      await page
+        .waitForFunction(
+          () => {
+            const r = (s) => document.querySelector(s)?.getBoundingClientRect();
+            const t = r('.transport');
+            const help = [...document.querySelectorAll('.menubar .menu-btn')].pop().getBoundingClientRect();
+            const first = r('.topbar-right button');
+            const chip = document.querySelector('.mode-chip');
+            const chipRect = chip && getComputedStyle(chip).display !== 'none' ? chip.getBoundingClientRect() : null;
+            return t.left >= help.right && t.right <= first.left && (!chipRect || t.left >= chipRect.right);
+          },
+          null,
+          { timeout: 10000 },
+        )
+        .catch(async (e) => {
+          const m = await page.evaluate(() => ({
+            cls: document.querySelector('.topbar').className,
+            t: document.querySelector('.transport').getBoundingClientRect().toJSON(),
+          }));
+          throw new Error(`${when} at ${width}px the transport overlaps its neighbours: ${JSON.stringify(m)}`, {
+            cause: e,
+          });
+        });
+    };
+    await clear('idle');
+    // the real click: Help opens (the transport used to sit on top of it)
+    await page.locator('.menubar .menu-btn', { hasText: 'Help' }).click({ timeout: 15000 });
+    await page.waitForSelector('.menu', { timeout: 10000 });
+    await page.keyboard.press('Escape');
+    // Drive and Play are reachable buttons at every width
+    for (const sel of ['.tbtn.drive', '.tbtn.play-mode', '.tbtn.play']) {
+      assert(await page.locator(sel).isVisible(), `${sel} is visible at ${width}px`);
+    }
+    // the mode chip changes width with the mode; the transport must follow
+    await page.locator('.tbtn.play').click();
+    await page.waitForFunction(() => window.physicslab.sim.active, null, { timeout: 30000 });
+    await clear('running');
+    if (width === 1600) await shot(page, 'nav-topbar-1600');
+    await page.close();
+  }
+});

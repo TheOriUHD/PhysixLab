@@ -523,7 +523,10 @@ export class InputController {
     // A released key is released whatever has the focus now (a field may have taken it since the press).
     if (!down) {
       app.input.down.delete(e.code);
-      this.grabHeld.delete(e.code);
+      if (this.grabHeld.has(e.code)) {
+        this.tickGrab(0); // a tap shorter than a frame (slow machine) still moves the body for as long as the key was down
+        this.grabHeld.delete(e.code);
+      }
       app.nav.keyUp(e);
       if (e.code === 'KeyR') this.rHeld = false;
     }
@@ -609,6 +612,7 @@ export class InputController {
       this.lastTurnAt = now;
       this.turnHeld(code, e.shiftKey);
     } else {
+      if (!this.grabHeld.size) this.grabT = performance.now(); // time starts at the press, not at the next frame
       this.grabHeld.add(code);
     }
   }

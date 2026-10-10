@@ -9,6 +9,7 @@ import { openMenu } from './menu';
 import { createImportInput } from './sceneActions';
 import { buildSoundButton } from './soundButton'; // ── FX ──
 import { appearanceButton } from './appearance';
+import { fitTransport } from './topbarFit'; // -- NAV --
 
 const TIME_SCALES = [0.1, 0.25, 0.5, 1, 2, 4];
 
@@ -94,6 +95,7 @@ export function buildTopbar(app: App): HTMLElement {
     {
       class: 'tbtn drive',
       type: 'button',
+      'aria-label': 'Drive',
       title: withShortcut(
         'Drive the selected vehicle — a chase camera and only the vehicle’s controls',
         'drive.toggle',
@@ -217,7 +219,7 @@ export function buildTopbar(app: App): HTMLElement {
     help,
     appearanceButton(app), // -- VZ-50 --
   );
-  return h(
+  const header = h(
     'header',
     { class: 'topbar' },
     brand,
@@ -229,4 +231,6 @@ export function buildTopbar(app: App): HTMLElement {
     transport,
     createImportInput(app),
   );
+  fitTransport(app, header); // -- NAV: the transport grew (Drive, Play) --
+  return header;
 }
