@@ -8,7 +8,7 @@ const G = 9.81;
 const LN = Math.log;
 
 describe('thruster / rocket', () => {
-  const rocket = (params: Record<string, number | string | boolean> = {}, dry = 2) => {
+  const rocket = (params: Record<string, number | string | boolean | number[]> = {}, dry = 2) => {
     const t = comp('thruster', {
       thrust: 100,
       fuelMass: 8,
@@ -144,7 +144,7 @@ describe('thruster / rocket', () => {
 });
 
 describe('jet', () => {
-  const jet = (params: Record<string, number | string | boolean> = {}, mass = 10) => {
+  const jet = (params: Record<string, number | string | boolean | number[]> = {}, mass = 10) => {
     const j = comp('jet', {
       thrust: 100,
       spool: 1,
@@ -343,7 +343,7 @@ describe('rotor', () => {
     const tip = ((rpm * 2 * Math.PI) / 60) * R;
     return CT * collective * RHO * Math.PI * R * R * tip * tip;
   };
-  const heli = (params: Record<string, number | string | boolean> = {}, mass = 20) => {
+  const heli = (params: Record<string, number | string | boolean | number[]> = {}, mass = 20) => {
     const r = comp('rotor', {
       radius: R,
       thrustCoeff: CT,
