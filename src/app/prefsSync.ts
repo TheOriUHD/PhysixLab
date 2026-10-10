@@ -1,5 +1,9 @@
 /** Preferences → renderer / simulation / gizmo: applies stored preferences and reacts to changes. */
+import { QUALITY_CHOICES } from '../render/graphics';
 import type { App } from './app';
+
+/** `?instancing=0`: every body gets its own mesh (the draw-call benchmark baseline). */
+const URL_NO_INSTANCING = new URLSearchParams(location.search).get('instancing') === '0';
 import { hintForMode, toolModes } from './registry/tools';
 
 export class PrefsSync {
@@ -8,9 +12,12 @@ export class PrefsSync {
   applyAll(): void {
     const { app } = this;
     const p = app.prefs.value;
-    // -- VZ-B: `?quality=low|medium|high` overrides the stored tier for this session (fast headless tests) --
+    // -- VZ-B: `?quality=auto|low|medium|high|ultra` overrides the stored tier for this session (fast headless tests) --
     const urlQ = new URLSearchParams(location.search).get('quality');
-    app.viewport.setQuality(urlQ === 'low' || urlQ === 'medium' || urlQ === 'high' ? urlQ : p.quality);
+    const urlTier = QUALITY_CHOICES.find((q) => q === urlQ);
+    app.viewport.setQuality(urlTier ?? p.quality);
+    app.viewport.setGraphics(p.graphics); // -- VZ-B --
+    app.bodies.setInstancing(p.graphics.instancing && !URL_NO_INSTANCING);
     app.bodies.mode = p.colorMode;
     app.joints.visible = p.showJoints;
     app.overlays.options = { ...p.overlays };
@@ -31,6 +38,11 @@ export class PrefsSync {
       switch (k) {
         case 'quality':
           app.viewport.setQuality(p.quality);
+          break;
+        case 'graphics':
+          app.viewport.setGraphics(p.graphics);
+          app.bodies.setInstancing(p.graphics.instancing && !URL_NO_INSTANCING);
+          app.invalidateColors();
           break;
         case 'colorMode':
           app.bodies.mode = p.colorMode;

@@ -100,6 +100,8 @@ export class BodyView implements PoolMember, SkinBodyPose {
   /** Highlighted (selected / hovered): drawn through its own mesh even though a pool exists. */
   promoted = false;
   poolVisible = true;
+  /** World velocity of the body (m/s), read by the motion-blur velocity pass through `mesh.userData.vel`. */
+  readonly vel = new Vector3();
   /** Visual skin (VZ-42) drawn in place of the shape, or null. */
   skin: SkinInstance | null = null;
   get id(): string {
@@ -157,6 +159,7 @@ export class BodyView implements PoolMember, SkinBodyPose {
     // The pose carrier is scaled by the shape size; the skin is authored in metres, so undo that scale.
     const k = this.first.mesh.scale;
     this.skin.root.scale.set(1 / (k.x || 1), 1 / (k.y || 1), 1 / (k.z || 1));
+    this.skin.root.traverse((o) => (o.userData.vel = this.vel));
     this.first.mesh.add(this.skin.root);
     this.first.material.visible = false;
   }
@@ -171,6 +174,7 @@ export class BodyView implements PoolMember, SkinBodyPose {
     mesh.userData.entityId = this.def.id;
     const s = shapeVisualScale(shape);
     mesh.scale.set(s[0], s[1], s[2]);
+    mesh.userData.vel = this.vel;
     const piece: Piece = { mesh, material, geoKey: key, part, baseColor: this.def.material.color };
     this.pieces.push(piece);
     return piece;
@@ -495,12 +499,14 @@ export class BodyViews {
     v.mesh.position.set(poses[o + B.px], poses[o + B.py], poses[o + B.pz]);
     v.mesh.quaternion.set(poses[o + B.qx], poses[o + B.qy], poses[o + B.qz], poses[o + B.qw]);
     v.position.copy(v.mesh.position);
+    v.vel.set(poses[o + B.vx], poses[o + B.vy], poses[o + B.vz]);
     v.state = poses[o + B.state];
     v.mesh.visible = !v.def.hidden && v.state !== 2;
   }
 
   resetStates(): void {
     for (const v of this.views.values()) {
+      v.vel.set(0, 0, 0);
       v.state = 0;
       v.mesh.visible = !v.def.hidden;
     }

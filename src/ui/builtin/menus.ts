@@ -96,7 +96,7 @@ export function registerBuiltinMenus(): (() => void)[] {
     { id: 'menu.view.joints', menu: 'view', group: 'scene', order: 300, command: 'view.joints' },
     { id: 'menu.view.follow', menu: 'view', group: 'scene', order: 310, command: 'view.follow' },
     { id: 'menu.view.qualityHeading', menu: 'view', group: 'quality', order: 400, heading: 'Graphics quality' },
-    ...(['low', 'medium', 'high'] as const).map((q, i): MenuEntryDef => ({
+    ...(['auto', 'low', 'medium', 'high', 'ultra'] as const).map((q, i): MenuEntryDef => ({
       id: `menu.view.quality.${q}`,
       menu: 'view',
       group: 'quality',

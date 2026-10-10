@@ -261,9 +261,11 @@ function overlayToggle(
 }
 
 const QUALITY_LABELS: Record<Quality, string> = {
+  auto: 'Auto — adapts to this GPU and the frame rate',
   low: 'Low — fastest',
-  medium: 'Medium — shadows + MSAA',
-  high: 'High — shadows + AO + MSAA',
+  medium: 'Medium — shadows + FXAA',
+  high: 'High — shadows + AO + bloom + MSAA',
+  ultra: 'Ultra — adds reflections, light shafts, motion blur',
 };
 
 /** Menu labels of the graphics-quality choices (the command labels are the palette-friendly short forms). */
@@ -381,7 +383,7 @@ const viewCommands: CommandDef[] = [
     checked: (app) => app.prefs.value.colorMode === m,
     run: ({ app }) => app.prefs.set({ colorMode: m }),
   })),
-  ...(['low', 'medium', 'high'] as const).map((q): CommandDef => ({
+  ...(['auto', 'low', 'medium', 'high', 'ultra'] as const).map((q): CommandDef => ({
     id: `view.quality.${q}`,
     label: `Graphics quality: ${q[0].toUpperCase()}${q.slice(1)}`,
     category: 'View',

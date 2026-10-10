@@ -6,6 +6,7 @@
  * Everything shown is real: the toggles are `Prefs.fx` (persisted, validated on load), the previews fire the real
  * effects at the point the camera looks at, the status line reads the live particle pools.
  */
+import { legacyTier } from '../render/graphics';
 import type { PanelContext, PanelView } from '../app/registry/panels';
 import type { App } from '../app/app';
 import { Registry } from '../core/registry';
@@ -129,7 +130,7 @@ function masterSection(app: App) {
     on.set(s.enabled);
     quality.set(s.quality);
     intensity.set(s.intensity);
-    const tier = resolveTier(s.quality, app.prefs.value.quality);
+    const tier = resolveTier(s.quality, legacyTier(app.prefs.value.quality, app.viewport.graphicsInfo.tier));
     tierHint.textContent = `${s.quality === 'auto' ? `Auto → ${tier.label}` : tier.label}: ${tier.blurb}.`;
     el.classList.toggle('fx-disabled', !s.enabled);
     setDisabled(inner, !s.enabled);
