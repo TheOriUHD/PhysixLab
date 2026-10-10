@@ -42,12 +42,20 @@ export class MeshBuilder {
   private uvs: number[] = [];
   private tris: number[] = [];
   private creases: number[] = [];
+  private cols: number[] = [];
+  private colored = false;
   /** Crease angle (degrees) of the triangles added from now on. */
   crease = 40;
+  /** Colour (linear 0..1) of the vertices added from now on; null leaves them white. The renderer multiplies it with the material colour. */
+  tint: Vec3 | null = null;
 
   vertex(x: number, y: number, z: number, u = 0, v = 0): number {
     this.pos.push(x, y, z);
     this.uvs.push(u, v);
+    if (this.tint) {
+      this.colored = true;
+      this.cols.push(this.tint[0], this.tint[1], this.tint[2]);
+    } else this.cols.push(1, 1, 1);
     return this.pos.length / 3 - 1;
   }
 
@@ -132,6 +140,7 @@ export class MeshBuilder {
     const outPos = new Float32Array(kept * 9);
     const outNrm = new Float32Array(kept * 9);
     const outUv = new Float32Array(kept * 6);
+    const outCol = this.colored ? new Float32Array(kept * 9) : null;
     let o = 0;
     for (let f = 0; f < nTri; f++) {
       if (!live[f]) continue;
@@ -169,6 +178,11 @@ export class MeshBuilder {
         outNrm[o * 9 + c * 3 + 2] = sz;
         outUv[o * 6 + c * 2] = this.uvs[vi * 2];
         outUv[o * 6 + c * 2 + 1] = this.uvs[vi * 2 + 1];
+        if (outCol) {
+          outCol[o * 9 + c * 3] = this.cols[vi * 3];
+          outCol[o * 9 + c * 3 + 1] = this.cols[vi * 3 + 1];
+          outCol[o * 9 + c * 3 + 2] = this.cols[vi * 3 + 2];
+        }
       }
       o++;
     }
@@ -176,6 +190,7 @@ export class MeshBuilder {
     g.setAttribute('position', new T.Float32BufferAttribute(outPos, 3));
     g.setAttribute('normal', new T.Float32BufferAttribute(outNrm, 3));
     g.setAttribute('uv', new T.Float32BufferAttribute(outUv, 2));
+    if (outCol) g.setAttribute('color', new T.Float32BufferAttribute(outCol, 3));
     return g;
   }
 }

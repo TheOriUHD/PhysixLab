@@ -29,8 +29,10 @@ import { ellipsoid } from './ellipsoid';
 import { pyramid, tetrahedron } from './pyramid';
 import { dodecahedron, octahedron } from './platonicShapes';
 import { curvedRamp, quarterPipe } from './curvedRamp';
+import { gear } from './gear';
 import { halfPipe } from './halfPipe';
 import { roundedBox } from './roundedBox';
+import { wheel } from './wheel';
 import { roundedCylinder } from './roundedCylinder';
 
 export const BUILTIN_SHAPES: readonly ShapeDef[] = [
@@ -66,4 +68,6 @@ export const BUILTIN_SHAPES: readonly ShapeDef[] = [
   curvedRamp,
   quarterPipe,
   halfPipe,
+  gear,
+  wheel,
 ];
