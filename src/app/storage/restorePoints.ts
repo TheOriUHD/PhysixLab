@@ -184,8 +184,9 @@ export class RestorePoints {
         if (!this.settings.enabled || rev === this.lastAutoRevision) return;
         this.lastAutoRevision = rev;
         void (async () => {
+          const doc = getDoc(); // before the thumbnail wait: the scene may change meanwhile
           const t = await thumb?.().catch(() => undefined);
-          await this.create(getDoc(), 'Automatic snapshot', 'auto', t);
+          await this.create(doc, 'Automatic snapshot', 'auto', t);
         })();
       },
       Math.max(0.1, this.settings.autoMinutes) * 60_000,

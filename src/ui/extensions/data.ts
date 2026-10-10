@@ -37,6 +37,16 @@ registerCommand({
   run: async ({ app }) => (await import('../data/storageDialog')).showStorageDialog(app),
 });
 
+registerCommand({
+  id: 'file.folderSync',
+  label: 'Folder sync…',
+  category: 'File',
+  icon: 'folder',
+  description: 'Save scenes into a folder that Dropbox, Drive, iCloud or OneDrive syncs (the cloud-save alternative)',
+  keywords: ['cloud', 'dropbox', 'drive', 'icloud', 'onedrive', 'sync', 'folder', 'backup'],
+  run: async ({ app }) => (await import('../data/folderSyncDialog')).showFolderSync(app),
+});
+
 registerMenuEntry({
   id: 'menu.file.restorePoints',
   menu: 'file',

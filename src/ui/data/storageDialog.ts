@@ -108,6 +108,8 @@ export function showStorageDialog(app: App): void {
       );
     }
   };
-  void render();
+  render().catch((e: Error) =>
+    body.replaceChildren(h('p', { class: 'data-warning' }, `Could not read storage: ${e.message}`)),
+  );
   void modal;
 }

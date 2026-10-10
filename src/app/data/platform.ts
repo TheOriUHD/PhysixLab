@@ -47,8 +47,9 @@ export async function initDataPlatform(app: App): Promise<DataPlatform> {
   }
 
   const snapshot = async (label: string, kind: 'manual' | 'before') => {
+    const doc = app.store.toDocument(); // the scene as it is NOW, not after the thumbnail wait
     const thumb = await captureThumbnail(app.viewport).catch(() => undefined);
-    await restore.create(app.store.toDocument(), label, kind, thumb);
+    await restore.create(doc, label, kind, thumb);
   };
   setRiskyOperationHook((label) => {
     // Synchronous capture of the document now; the thumbnail is skipped here because the scene is about to change.
