@@ -16,6 +16,7 @@ import type { Quality } from '../../render/viewport';
 import type { App } from '../app';
 import { JOINT_ITEMS, LIGHT_ITEMS, SOFT_ITEMS } from '../addCatalog';
 import { pasteClaimedSince } from '../pasteClaim';
+import { lightPlaceable, pathPlaceable, shapePlaceable, softPlaceable } from '../placeables'; // -- ghost placement
 import type { CommandDef } from '../registry/commands';
 import { registerHelp } from '../registry/help';
 import { jointCommands } from './jointCommands'; // -- JT-A
@@ -502,8 +503,11 @@ function addCommands(): CommandDef[] {
       keywords: ['new', 'create', 'shape', 'body', ...shapeKeywords(def)], // -- SH: the palette's search words too
       shortcut: i < 9 ? String(i + 1) : undefined,
       help: false,
-      run: ({ app }) => {
-        app.addShape(def.id);
+      // -- ghost placement: the number keys and the palette arm a ghost that follows the pointer (placementGhost.ts);
+      // programmatic calls (`api`) still add at the view centre at once
+      run: ({ app, source }) => {
+        if (source === 'api') app.addShape(def.id);
+        else app.placement.ghost.arm(shapePlaceable(def.id));
       },
     });
   });
@@ -515,7 +519,8 @@ function addCommands(): CommandDef[] {
       icon: s.icon,
       description: s.blurb,
       keywords: ['new', 'create', 'soft body', 'deformable'],
-      run: ({ app }) => app.addSoft(s.type),
+      run: ({ app, source }) =>
+        source === 'api' ? app.addSoft(s.type) : app.placement.ghost.arm(softPlaceable(s.type)),
     });
   for (const l of LIGHT_ITEMS)
     out.push({
@@ -525,7 +530,8 @@ function addCommands(): CommandDef[] {
       icon: l.icon,
       description: l.blurb,
       keywords: ['new', 'create', 'lamp'],
-      run: ({ app }) => app.addLight(l.type),
+      run: ({ app, source }) =>
+        source === 'api' ? app.addLight(l.type) : app.placement.ghost.arm(lightPlaceable(l.type)),
     });
   out.push({
     id: 'add.path',
@@ -534,7 +540,7 @@ function addCommands(): CommandDef[] {
     icon: 'path',
     description: 'A spline through points — a track for movers and cameras',
     keywords: ['new', 'create', 'spline', 'track'],
-    run: ({ app }) => app.addPath(),
+    run: ({ app, source }) => (source === 'api' ? app.addPath() : app.placement.ghost.arm(pathPlaceable())),
   });
   for (const j of JOINT_ITEMS)
     out.push({

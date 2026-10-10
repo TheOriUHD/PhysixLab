@@ -47,6 +47,8 @@ export interface SurfaceDropOptions {
   rotation?: Quat;
   /** Body ids that must not count as surfaces or snap targets. */
   exclude?: ReadonlySet<string>;
+  /** -- ghost placement: suspend the grid and the vertex / edge / face / bounds snaps (the Alt key); the thing still rests flush. */
+  noSnap?: boolean;
 }
 
 export interface DropPose {
@@ -60,6 +62,8 @@ export interface DropPose {
   snap: SnapKind | null;
   /** Where the snap indicator belongs. */
   snapPoint: Vec3 | null;
+  /** -- ghost placement: the surface point the thing touches (after the grid, moved with any feature snap). */
+  point: Vec3;
 }
 
 const IDENT: Quat = [0, 0, 0, 1];
@@ -99,7 +103,7 @@ export function surfaceDropPose(
   opts: SurfaceDropOptions = {},
 ): DropPose {
   const ev = { clientX, clientY };
-  const modes: SnapModes = effectiveModes(app, !!opts.invert);
+  const modes: SnapModes = opts.noSnap ? withoutSnaps(effectiveModes(app, false)) : effectiveModes(app, !!opts.invert);
   const frame = frameOf(bounds);
   const startRot = opts.rotation ?? IDENT;
 
@@ -157,6 +161,7 @@ export function surfaceDropPose(
     const hitF = featureSnapFor(app, [moving], modes, exclude ?? new Set());
     if (hitF) {
       centrePos = [centrePos[0] + hitF.delta[0], centrePos[1] + hitF.delta[1], centrePos[2] + hitF.delta[2]];
+      point = [point[0] + hitF.delta[0], point[1] + hitF.delta[1], point[2] + hitF.delta[2]];
       snap = hitF.kind;
       snapPoint = hitF.point;
     }
@@ -169,7 +174,12 @@ export function surfaceDropPose(
   // the pose origin is the support centre moved back by the (rotated) offset
   const off = qrot(rotation, frame.centre);
   const position: Vec3 = [centrePos[0] - off[0], centrePos[1] - off[1], centrePos[2] - off[2]];
-  return { position, rotation, where, normal, snap, snapPoint };
+  return { position, rotation, where, normal, snap, snapPoint, point };
+}
+
+/** -- ghost placement: every snap off except resting flush on the surface. */
+function withoutSnaps(m: SnapModes): SnapModes {
+  return { ...m, grid: false, vertex: false, edge: false, face: false, bounds: false, surface: true };
 }
 
 /** Half height of a frame's support along Y (legacy placement only). */

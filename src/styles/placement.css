@@ -1,0 +1,132 @@
+/* Ghost placement (src/app/placementGhost.ts): tiles, the hint bar, the drag chip and the ghost's label. */
+
+.placeable {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.placeable.armed {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--accent-bg);
+}
+canvas.placing {
+  cursor: crosshair;
+}
+
+.place-hud {
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  bottom: 52px;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  max-width: min(94%, 880px);
+  padding: 8px 14px 9px;
+  border-radius: 14px;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--accent-line);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: center;
+}
+.place-hud[hidden] {
+  display: none;
+}
+.place-hud-main {
+  color: var(--text);
+  font-weight: 600;
+}
+.place-hud-sub {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 12px;
+  color: var(--text-2);
+  font-size: 11.5px;
+}
+.place-hud-sub b {
+  color: var(--accent);
+  font-weight: 650;
+}
+.place-hud-sub .muted {
+  color: var(--text-3);
+}
+.place-flag {
+  padding: 0 7px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.place-flag.warn {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+.place-flag.bad {
+  color: var(--danger);
+  background: rgba(255, 93, 115, 0.12);
+}
+.place-hud-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+.place-hud-actions[hidden] {
+  display: none;
+}
+
+.place-chip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 10000;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 7px;
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--accent-line);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow);
+}
+.place-chip[hidden] {
+  display: none;
+}
+.place-chip.cancel {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.place-chip-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+}
+.place-chip-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.v-label.place-label {
+  font-weight: 600;
+}
+.v-label.place-label.ok {
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+.v-label.place-label.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.v-label.place-label.bad {
+  border-color: var(--danger);
+  color: var(--danger);
+}

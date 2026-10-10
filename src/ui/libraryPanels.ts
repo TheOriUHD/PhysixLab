@@ -5,6 +5,7 @@
 import type { App } from '../app/app';
 import { JOINT_ITEMS, LIGHT_ITEMS, SOFT_ITEMS } from '../app/addCatalog';
 import type { PanelDef } from '../app/registry/panels';
+import { lightPlaceable, pathPlaceable, prefabPlaceable, softPlaceable } from '../app/placeables'; // -- ghost placement
 import { shortcutTokens } from '../app/registry/shortcuts';
 import {
   listMaps,
@@ -20,6 +21,7 @@ import { button } from './controls';
 import { clear, h } from './dom';
 import { emptyState } from './emptyState'; // -- UI-B: empty states --
 import { icon } from './icons';
+import { bindPlaceable } from './placementTiles'; // -- ghost placement
 import { confirmReplace, importDocument } from './sceneActions';
 import { zoneTiles } from './zoneTiles'; // -- ZN
 import { buildShapePalette } from './shapePalette'; // -- SH
@@ -40,8 +42,17 @@ function addTab(app: App): HTMLElement {
   root.appendChild(h('div', { class: 'group-title' }, 'Soft bodies'));
   const st = h('div', { class: 'tiles' });
   for (const s of SOFT_ITEMS) {
-    const t = h('button', { class: 'tile', type: 'button', title: `${s.blurb} — click to add` }, icon(s.icon), s.label);
-    t.addEventListener('click', () => app.addSoft(s.type));
+    const t = h(
+      'button',
+      {
+        class: 'tile',
+        type: 'button',
+        title: `${s.blurb}\nDrag into the scene, or click and then click where it should go`,
+      },
+      icon(s.icon),
+      s.label,
+    );
+    bindPlaceable(app, t, `soft:${s.type}`, () => softPlaceable(s.type)); // -- ghost placement --
     st.appendChild(t);
   }
   root.appendChild(st);
@@ -51,20 +62,29 @@ function addTab(app: App): HTMLElement {
   for (const l of LIGHT_ITEMS) {
     const t = h(
       'button',
-      { class: 'tile', type: 'button', title: `${l.blurb} — click to add a ${l.label.toLowerCase()} light` },
+      {
+        class: 'tile',
+        type: 'button',
+        title: `${l.blurb}\nDrag into the scene, or click and then click where the ${l.label.toLowerCase()} light should go`,
+      },
       icon(l.icon),
       l.label,
     );
-    t.addEventListener('click', () => app.addLight(l.type));
+    bindPlaceable(app, t, `light:${l.type}`, () => lightPlaceable(l.type)); // -- ghost placement --
     sc.appendChild(t);
   }
   const pathTile = h(
     'button',
-    { class: 'tile', type: 'button', title: 'A spline through points — a track for movers and cameras. Click to add' },
+    {
+      class: 'tile',
+      type: 'button',
+      title:
+        'A spline through points — a track for movers and cameras.\nDrag into the scene, or click and then click where it should go',
+    },
     icon('path'),
     'Path',
   );
-  pathTile.addEventListener('click', () => app.addPath());
+  bindPlaceable(app, pathTile, 'path', () => pathPlaceable()); // -- ghost placement --
   const groupTile = h(
     'button',
     {
@@ -120,7 +140,14 @@ function addTab(app: App): HTMLElement {
         h('kbd', null, '1'),
         '–',
         h('kbd', null, String(keys)),
-        ' to add shapes at the view centre.',
+        ' to pick a shape, then click where it should go.',
+      ),
+      h(
+        'li',
+        null,
+        'Drag a tile into the scene: a ghost shows where it will land. ',
+        h('kbd', null, 'Esc'),
+        ' cancels.',
       ),
       h('li', null, 'Drag a body to move it; hold ', h('kbd', null, 'Shift'), ' to lift it.'),
       h('li', null, 'Press ', h('kbd', null, 'Space'), ' to simulate — then drag bodies to throw them.'),
@@ -179,22 +206,17 @@ function prefabTab(app: App): HTMLElement {
     for (const p of prefabs) {
       const c = h(
         'button',
-        // -- ED-A snap: cards can be dragged onto a surface of the scene (ED-15) --
+        // -- ED-A snap: cards can be dragged onto a surface of the scene (ED-15; now with a ghost, see placementGhost.ts) --
         {
           class: 'card',
           type: 'button',
-          draggable: true,
-          title: 'Click to insert at the centre of the view, or drag onto a surface',
+          title:
+            'Drag onto a surface, or click and then click where it should go.\nDouble-click: insert at the centre of the view',
         },
         h('h4', null, icon(p.icon), p.name, favStar('prefab', p.id, p.name)), // -- UI-B: star --
         h('p', null, p.blurb),
       );
-      c.addEventListener('click', () => app.insertPrefab(p.id));
-      c.addEventListener('dragstart', (e) => {
-        e.dataTransfer?.setData('text/x-physicslab-prefab', p.id);
-        e.dataTransfer?.setData('text/plain', p.name);
-        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
-      });
+      bindPlaceable(app, c, `prefab:${p.id}`, () => prefabPlaceable(p.id)); // -- ghost placement --
       cards.appendChild(c);
     }
     root.appendChild(cards);
