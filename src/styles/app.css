@@ -403,3 +403,20 @@ input[type="text"].plain:focus { border-color: var(--accent-line); }
 @media (max-width: 1180px) { :root { --left-w: 232px; --right-w: 268px; } .scene-name { width: 120px; } }
 @media (max-width: 980px) { .brand span.word { display: none; } .menubar { display: none; } }
 @media (max-width: 860px) { #app:not(.no-left) .workspace { grid-template-columns: 0 minmax(0, 1fr) var(--right-w); } #app:not(.no-left) .panel.left { display: none; } }
+
+/* ── FX: Effects panel ─────────────────────────────────────────────────────────────────────────────────────── */
+.fx-panel .switch { display: flex; padding: 4px 0 1px; }
+.fx-kind-hint { margin: 0 0 6px 38px; }
+.fx-previews { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+.fx-off-note { display: none; color: var(--warn); }
+.section.fx-disabled .fx-off-note { display: block; }
+.section.fx-dim.fx-disabled > .section-body { opacity: 0.4; pointer-events: none; filter: saturate(0.4); }
+.fx-stat { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; font-size: 12px; }
+.fx-stat-l { color: var(--text-3); }
+.fx-stat-v { font: 12px var(--mono); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.fx-bar { height: 4px; border-radius: 3px; background: var(--bg); margin: 2px 0 6px; overflow: hidden; }
+.fx-bar-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent-2), var(--accent)); transition: width 0.2s; }
+/* ── FX: a tab strip with more tabs than fit keeps the label of the selected tab only (icons stay) ── */
+.tabs.compact .tab:not(.on) .tab-label { display: none; }
+.tabs.compact .tab { padding-left: 9px; padding-right: 9px; }
+.section.fx-disabled .fx-dim-inner { opacity: 0.4; pointer-events: none; filter: saturate(0.4); }

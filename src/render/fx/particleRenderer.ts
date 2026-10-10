@@ -38,6 +38,7 @@ varying vec2 vUv;
 varying vec4 vColor;
 varying float vWorldY;
 varying float vSoft;
+varying vec3 vLocal;
 void main() {
   float size = iData.x;
   float rot = iData.y;
@@ -74,6 +75,7 @@ void main() {
   gl_Position = projectionMatrix * mv;
   vec2 cell = vec2(mod(frame, uCols), floor(frame / uCols));
   vUv = (cell + position.xy + 0.5) / uCols;
+  vLocal = vec3(position.xy + 0.5, frame);
   vColor = iColor;
   vWorldY = world.y;
   vSoft = soft;
@@ -87,8 +89,25 @@ varying vec2 vUv;
 varying vec4 vColor;
 varying float vWorldY;
 varying float vSoft;
+varying vec3 vLocal;
 void main() {
   vec4 t = texture2D(uMap, vUv);
+  // The two ring sprites are drawn analytically: a ring is a thin curve that a 64-pixel cell cannot hold when it is
+  // stretched across thirteen metres, and its edge should be as sharp as the screen allows at any size.
+  if (vLocal.z > 8.5 && vLocal.z < 10.5) {
+    float r = length(vLocal.xy * 2.0 - 1.0);
+    float aa = max(fwidth(r), 1e-4) * 1.4;
+    float a;
+    if (vLocal.z < 9.5) {
+      a = 1.0 - smoothstep(0.03 - aa * 0.5, 0.03 + aa, abs(r - 0.86));
+      a = max(a, 0.05 * (1.0 - smoothstep(0.0, 0.86, r)));
+      a *= 1.0 - smoothstep(0.93, 0.99, r);
+    } else {
+      float k = (r - 0.74) / 0.1;
+      a = exp(-k * k) * (1.0 - smoothstep(0.88, 0.97, r));
+    }
+    t = vec4(1.0, 1.0, 1.0, a);
+  }
   float a = t.a * vColor.a;
   if (vSoft > 0.5) a *= smoothstep(uFloorY, uFloorY + uSoftness, vWorldY);
   if (a < 0.003) discard;

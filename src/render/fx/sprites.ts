@@ -165,11 +165,11 @@ const SHAPES: Record<SpriteName, Shape> = {
   ring(u, v, o) {
     const r = Math.hypot(u, v);
     o[0] = 1;
-    o[1] = clamp01(smooth(0.1, 0.0, Math.abs(r - 0.83)) + 0.05 * smooth(0.83, 0.0, r)) * smooth(0.97, 0.9, r);
+    o[1] = clamp01(smooth(0.055, 0.0, Math.abs(r - 0.86)) + 0.035 * smooth(0.86, 0.0, r)) * smooth(0.97, 0.9, r);
   },
   ringSoft(u, v, o) {
     const r = Math.hypot(u, v);
-    const k = (r - 0.72) / 0.17;
+    const k = (r - 0.74) / 0.1;
     o[0] = 1;
     o[1] = Math.exp(-k * k) * smooth(0.97, 0.88, r);
   },

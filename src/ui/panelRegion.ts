@@ -66,9 +66,10 @@ export function buildPanelRegion(app: App, o: RegionOptions): HTMLElement {
         title: def.title ?? def.label,
         'aria-selected': 'false',
         'aria-controls': `panel-${def.id}`,
+        'aria-label': def.label, // ── FX: the label span may be hidden when the strip is compact ──
       },
       o.icons ? icon(def.icon) : null,
-      def.label,
+      h('span', { class: 'tab-label' }, def.label),
     );
     t.addEventListener('click', () => prefs.set({ [keys.tab]: def.id }));
     return t;
@@ -95,7 +96,16 @@ export function buildPanelRegion(app: App, o: RegionOptions): HTMLElement {
     head.replaceChildren(...defs.map((d) => (entries.get(d.id) as Entry).tab), toolbar);
     host.replaceChildren(...defs.map((d) => (entries.get(d.id) as Entry).view.el));
     show();
+    fit();
   };
+
+  // ── FX: more tabs than fit the strip (Inspector, Outliner, World, Effects …) → only the selected tab keeps its label ──
+  const fit = () => {
+    if (!o.icons) return;
+    head.classList.remove('compact');
+    if (head.clientWidth > 0 && head.scrollWidth > head.clientWidth + 1) head.classList.add('compact');
+  };
+  if (o.icons && typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(head);
 
   /** Show the tab the preference names (and tell the panel when it newly became visible). */
   const show = () => {
@@ -138,7 +148,10 @@ export function buildPanelRegion(app: App, o: RegionOptions): HTMLElement {
   });
 
   prefs.on('change', (changed) => {
-    if (changed.includes(keys.tab)) show();
+    if (changed.includes(keys.tab)) {
+      show();
+      fit();
+    }
     if (changed.includes(keys.show)) collapse();
   });
   panelRegistry.onChange(sync);

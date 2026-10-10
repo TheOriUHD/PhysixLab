@@ -48,6 +48,10 @@ import { Projectiles } from './projectiles';
 import { SceneCommands } from './sceneCommands';
 import { SimController } from './simController';
 import { ViewSync } from './viewSync';
+// ── FX: contact feed and particle effects ──
+import type { Fx } from '../render/fx';
+import { ContactFeed } from './contactFeed';
+import { FxDirector } from './fx/fxDirector';
 
 export type { Shell, ToastKind } from './appTypes';
 
@@ -69,6 +73,10 @@ export class App extends Emitter<AppEvents> {
   readonly picker: Picker;
   readonly gizmo: Gizmo;
   readonly effects: Effects;
+  // ── FX: the contact-event feed, the effects director and its particle system (`app.fx.emit(type, position)`) ──
+  readonly contacts: ContactFeed;
+  readonly fxDirector: FxDirector;
+  readonly fx: Fx;
   readonly labels = new Labels();
   hoverId: string | null = null;
 
@@ -86,6 +94,7 @@ export class App extends Emitter<AppEvents> {
   constructor(readonly shell: Shell) {
     super();
     this.sim = new SimController(this.store);
+    this.contacts = new ContactFeed(this.sim); // ── FX ──
     this.editor = new Editor(this.store, this.sim);
     this.persistence = new Persistence(this.store);
 
@@ -109,6 +118,9 @@ export class App extends Emitter<AppEvents> {
     this.commands = new SceneCommands(this);
     this.projectiles = new Projectiles(this);
     this.frameLoop = new FrameLoop(this);
+    // ── FX: after the viewport, the store, the preferences and the simulation exist ──
+    this.fxDirector = new FxDirector(this);
+    this.fx = this.fxDirector.fx;
 
     shell.stage.appendChild(this.labels.layer);
     this.measureTool = new MeasureTool(this);

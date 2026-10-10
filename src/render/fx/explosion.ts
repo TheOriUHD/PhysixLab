@@ -48,8 +48,8 @@ export function explode(e: ParticleEmitter, x: number, y: number, z: number, o: 
   // Core flash and fireball.
   e.emit('blast.flash', x, y, z, { scale: R * (small ? 0.9 : 1.25), color: [1, 1, 1] });
   e.emit('blast.fire', x, y, z, {
-    count: (small ? 5 : 15) * Math.pow(s, 0.6) * en,
-    scale: R * 0.27,
+    count: (small ? 6 : 20) * Math.pow(s, 0.6) * en,
+    scale: R * 0.34,
     speed: 0.8 + 0.7 * k,
     pattern: 'sphere',
     radius: R * 0.1,

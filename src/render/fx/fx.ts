@@ -161,6 +161,7 @@ export class Fx {
   private bursts = 0;
   private explosions = 0;
   private stamp = 0;
+  private readonly byType = new Map<string, number>();
 
   /**
    * @param parent    scene group the particle meshes, the skid marks and the flash light are added to
@@ -236,7 +237,14 @@ export class Fx {
       this.culled++;
       return 0;
     }
-    return this.emitter.emit(type, x, y, z, options);
+    const n = this.emitter.emit(type, x, y, z, options);
+    if (n > 0) this.byType.set(type, (this.byType.get(type) ?? 0) + n);
+    return n;
+  }
+
+  /** Particles emitted per type since the last `clear()` (a counter for tests, tools and the status line). */
+  emittedByType(): Record<string, number> {
+    return Object.fromEntries(this.byType);
   }
 
   /** A blast: fireball, shock ring, embers, debris, smoke, and a light flash. Returns false when explosions are off. */
@@ -340,6 +348,7 @@ export class Fx {
     this.normal.clear();
     this.skidBuffer.clear();
     this.flash.clear();
+    this.byType.clear();
     this.renderer.sync(0, 0, 0);
     this.skidMesh.sync(this.time);
   }
@@ -358,6 +367,21 @@ export class Fx {
       skidSegments: this.skidBuffer.count,
       skidStrips: this.skidBuffer.activeStrips,
     };
+  }
+
+  /** How many live particles are of a registered type (tests and tools). */
+  liveOfType(id: string): number {
+    const slot = this.types.slotOf(id);
+    if (slot < 0) return 0;
+    let n = 0;
+    for (const pool of [this.additive, this.normal])
+      for (let i = 0; i < pool.count; i++) if (pool.state[i * S.STRIDE + S.type] === slot) n++;
+    return n;
+  }
+
+  /** Current intensity of the explosion light, candela (0 when idle). */
+  get flashIntensity(): number {
+    return this.flash.light.intensity;
   }
 
   /** A 32-bit digest of the live particle state (FNV-1a over the float bits): equal digests mean equal particles. */

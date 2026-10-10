@@ -72,6 +72,7 @@ export class FrameLoop {
 
     app.effects.update(dt);
     app.cameraControl.updateFollow(dt);
+    app.fxDirector.update(dt); // ── FX: particles, trails, skid marks ──
     app.measureTool.updateLabel();
     const rect = app.viewport.dom.getBoundingClientRect();
     app.viewSync.frameAux(rect.width, rect.height);
