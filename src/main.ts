@@ -23,6 +23,7 @@ import './styles/jointtool.css';
 import './styles/sf-inspector.css'; // -- SF --
 import './styles/data.css'; // -- DT --
 import './styles/capture.css'; // -- DT-2 --
+import './styles/embed.css'; // -- DT-22 --
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { initDataPlatform } from './app/data/platform'; // -- DT
@@ -58,6 +59,7 @@ import { installTour } from './ui/tour';
 import { initPwa } from './pwa'; // -- DT-40 --
 
 installDiagnostics(); // -- UI-B: error boundary --
+import { readEmbedOptions } from './app/embed/options'; // -- DT-22 --
 
 async function boot(): Promise<void> {
   if (!preflight()) return; // -- UI-B: capability check --
@@ -71,6 +73,17 @@ async function boot(): Promise<void> {
   const shell = createShell(root);
   const app = new App(shell);
   attachDiagnostics(app); // -- UI-B --
+  // -- DT-22: `?embed=1` boots the minimal-chrome viewer instead of the editor --
+  const embedOptions = readEmbedOptions(location.search);
+  if (embedOptions) {
+    const { bootEmbed } = await import('./ui/embed/boot');
+    const bridge = await bootEmbed(app, shell, embedOptions);
+    app.start();
+    (window as unknown as { physicslab: App }).physicslab = app;
+    bridge.announceReady();
+    return;
+  }
+  // -- end DT-22 --
 
   shell.topSlot.replaceWith(buildTopbar(app));
   // The three docked regions are generated from the panel registry.

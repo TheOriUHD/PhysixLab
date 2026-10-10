@@ -252,3 +252,12 @@ The Rapier WebAssembly binary alone is about 1.15 MB gzip (served as a separate 
 * **GIF limits.** At most 960 px wide, 30 fps, 30 s and 600 frames; 256 colours per frame (median-cut, no dithering), so gradients band. A real-time GIF buffers its frames as RGBA (capped at 256 MB); deterministic GIFs are encoded frame by frame.
 * **Deterministic capture covers the physics and the camera, not every effect.** Particle effects, motion trails and sound use the wall-clock frame time of the render loop, so a scene with active effects can differ slightly between two captures; the physics state at every frame is identical. Tab visibility matters: a hidden tab stops `requestAnimationFrame`, and the capture then stops with an explanation.
 * Deterministic capture with *Restart simulation* rebuilds the simulation from the scene, so the state a paused run had reached is not preserved (the simulation returns to running/edit as before the capture, but not to the same moment).
+
+## Embed viewer and share dialog (DT-21, DT-22)
+
+* The viewer has no `bg=transparent|light|dark` option: the renderer draws an opaque sky and has no alpha buffer, so a transparent or light background would need renderer changes. The viewer always looks like the editor's viewport.
+* An embed carries its scene in the link, so it is limited to the share-link size (about 32 kB); larger scenes cannot be embedded this way.
+* QR codes hold at most 2953 bytes (2331 at error correction M); longer links are shown as text with the file alternative. Scanning a QR code for a long link (above roughly 1 kB) needs a good camera and a large code.
+* The preview card (Open Graph) needs a host: the scene is in the URL fragment, which crawlers never see, so a static deployment cannot render per-scene previews by itself. The dialog produces the thumbnail and the tags; `docs/EMBED.md` explains the landing page.
+* "Copy image + link" depends on the browser's async clipboard (`ClipboardItem` with `image/png`); where it is missing or refused, only the link is copied and the toast says so.
+* The viewer's message API without an `origin=` allow-list accepts commands from any parent page (it can play, pause and load scenes, nothing more).
