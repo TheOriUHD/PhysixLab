@@ -12,8 +12,8 @@ import type { WorldState } from './state';
  * principal axis with that axis' moment of inertia, so non-spherical bodies decelerate anisotropically.
  */
 export function applyDrag(s: WorldState, dt: number): void {
-  for (const r of s.order) {
-    if (!r.dragged || r.disabled || r.rb.isSleeping()) continue;
+  for (const r of s.draggers) {
+    if (r.disabled || r.rb.isSleeping()) continue;
     const { linear2, angular2 } = r.def.drag;
     const rb = r.rb;
     if (linear2 > 0 && r.mass > 0) {
@@ -52,7 +52,7 @@ export const SLEEP_AFTER = 0.5;
  * an awake body wakes them as usual.
  */
 export function emulateSleep(s: WorldState, dt: number): void {
-  for (const r of s.order) {
+  for (const r of s.sleepers) {
     const sl = r.sleep;
     if (!sl || r.disabled || r.rb.isSleeping()) continue;
     if (s.grab?.rec === r || r.forced) {

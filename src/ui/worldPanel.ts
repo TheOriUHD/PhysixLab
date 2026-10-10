@@ -118,9 +118,18 @@ export function buildWorldPanel(app: App): HTMLElement {
     ...grouped('Solver iterations'),
     onChange: (v) => set({ solverIterations: Math.round(v) }, 'Solver iterations'),
   });
+  const subs = sliderField({
+    min: 1,
+    max: 16,
+    step: 1,
+    digits: 0,
+    ...grouped('Sub-steps'),
+    onChange: (v) => set({ substeps: Math.round(v) }, 'Sub-steps'),
+  });
   upd.push(() => {
     hz.set(String(store.settings.physicsHz));
     iters.set(store.settings.solverIterations);
+    subs.set(store.settings.substeps);
   });
 
   el.append(
@@ -153,11 +162,12 @@ export function buildWorldPanel(app: App): HTMLElement {
       'Solver',
       [
         row('Step rate', hz.el),
+        row('Sub-steps', subs.el, 'Engine steps per fixed step: the step is divided into this many equal parts'),
         row('Iterations', iters.el),
         h(
           'p',
           { class: 'hint-text' },
-          'Higher rates and iteration counts make stacks, fast bodies and long joint chains more accurate, at a cost per step. Very large mass ratios across joints (e.g. a 1 kg link carrying a 1000 kg weight) need more iterations.',
+          'Higher rates, sub-steps and iteration counts make stacks, fast bodies, stiff springs and long joint chains more accurate, at a cost per step (sub-steps multiply it). Very large mass ratios across joints (e.g. a 1 kg link carrying a 1000 kg weight) need more iterations.',
         ),
       ],
       { id: 'world-solver' },

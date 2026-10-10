@@ -5,7 +5,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import { qfromAxisAngle, qrot, qtwist, vlen, type Vec3 } from '../src/core/math';
-import { isCompound, makePart, massEstimate, naturalMass, partMaterial, scaleParts } from '../src/model/compound';
+import {
+  compoundVolume,
+  isCompound,
+  makePart,
+  massEstimate,
+  naturalMass,
+  partMaterial,
+  scaleParts,
+} from '../src/model/compound';
 import { newReport } from '../src/model/errors';
 import { createBody, createJoint, newDocument } from '../src/model/factory';
 import { LIMITS } from '../src/model/limits';
@@ -265,6 +273,59 @@ describe('dynamics of a compound body', () => {
     expect(toBallast[1]).toBeLessThan(-0.97); // the ballast ended up straight below the centre
     expect(vlen(p.angvel)).toBeLessThan(0.05);
     w.dispose();
+  });
+});
+
+describe('energy accounting of a compound body', () => {
+  it("uses the compound's own mass, centre of mass and inertia", async () => {
+    // origin is not the centre of mass; spin about z (a principal axis of the planar dumbbell) while drifting
+    const heavy = sphere(0.2, [0.5, 0, 0], { material: { density: 8000 } });
+    const light = sphere(0.2, [-0.5, 0, 0]);
+    const body = compound([heavy, light], {
+      position: [0, 50, 0],
+      velocity: [2, 0, 0],
+      angularVelocity: [0, 0, 3],
+      gravityScale: 0,
+    });
+    const { w, recs } = await build([body], { ...noGround });
+    const rec = recs[0];
+    const m = rec.mass;
+    const I = rec.rb.principalInertia();
+    const Izz = Math.max(I.x, I.y, I.z);
+    const com = rec.rb.worldCom();
+    w.readPoses(1);
+    const e = w.stats().energy;
+    expect(e.kinetic).toBeCloseTo(0.5 * m * 4, 2); // ½ m v² with the COM velocity
+    expect(e.rotational).toBeCloseTo(0.5 * Izz * 9, 1); // ½ I ω² about the COM
+    // gravitational potential is measured at the centre of mass, not at the body origin
+    expect(e.potential).toBeCloseTo(0, 6); // gravityScale 0 -> no potential energy booked
+    const falling = {
+      ...body,
+      id: 'g',
+      position: [30, 50, 0] as Vec3,
+      gravityScale: 1,
+      velocity: [0, 0, 0] as Vec3,
+      angularVelocity: [0, 0, 0] as Vec3,
+    };
+    const rg = w.addBody(falling, false);
+    w.readPoses(1);
+    const comG = rg.rb.worldCom();
+    expect(w.stats().energy.potential).toBeCloseTo(rg.mass * G * comG.y + 0, 0); // the first body adds none (gravityScale 0)
+    expect(comG.y).toBeCloseTo(50, 5);
+    expect(com.x).toBeGreaterThan(0.3); // sanity: the COM really is off the origin
+    // the spin energy stays put while it drifts
+    for (let i = 0; i < 240; i++) w.stepOnce();
+    w.readPoses(1);
+    const after = w.stats().energy;
+    expect(Math.abs(after.rotational - e.rotational) / e.rotational).toBeLessThan(0.005); // spin energy is conserved
+    w.dispose();
+  });
+
+  it('volume and mass estimates are Σ over the parts', () => {
+    const b = compound([sphere(0.25, [-1, 0, 0]), box([1, 1, 1], [1, 0, 0], { material: { density: 10 } })]);
+    expect(compoundVolume(b)).toBeCloseTo(sphereVol(0.25) + 1, 12);
+    expect(naturalMass(b)).toBeCloseTo(RHO * sphereVol(0.25) + 10, 9);
+    expect(compoundVolume({ ...b, parts: undefined })).toBeCloseTo(1, 12); // the primary 1×1×1 box
   });
 });
 

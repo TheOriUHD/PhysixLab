@@ -27,6 +27,8 @@ export function removeEntities(s: WorldState, ids: string[]): void {
     s.world.removeRigidBody(b.rb);
     s.bodies.delete(id);
     s.order = s.order.filter((r) => r !== b);
+    if (b.dragged) s.draggers = s.draggers.filter((r) => r !== b);
+    if (b.sleep) s.sleepers = s.sleepers.filter((r) => r !== b);
   }
   s.layoutVersion++;
 }
@@ -61,7 +63,11 @@ export function updateBody(s: WorldState, next: BodyEntity): void {
     rec.rb.setLinearDamping(next.linearDamping + s.settings.airDrag);
     rec.rb.setAngularDamping(next.angularDamping);
     rec.rb.setGravityScale(next.gravityScale, true);
-    rec.dragged = next.drag.linear2 > 0 || next.drag.angular2 > 0;
+    const dragged = next.drag.linear2 > 0 || next.drag.angular2 > 0;
+    if (dragged !== rec.dragged) {
+      rec.dragged = dragged;
+      s.draggers = dragged ? [...s.draggers, rec] : s.draggers.filter((r) => r !== rec);
+    }
   }
   if (old.collision.group !== next.collision.group || old.collision.mask !== next.collision.mask) {
     const g = interactionGroups(next.collision);

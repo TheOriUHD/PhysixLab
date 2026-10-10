@@ -440,3 +440,43 @@ test('asset store: assets travel in share links, autosave and exported files; un
   assert(/too large for a share link/.test(tooBig) && /Export it as a file/.test(tooBig), `big scene: ${tooBig}`);
   assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
 });
+
+test('world settings: sub-steps from the World tab reach the store and a running simulation', async () => {
+  const page = await newPage();
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.editor.addShape('sphere', [0, 4, 0]);
+  });
+  await page.click('.panel.right .tab:has-text("World")');
+  const subs = page.locator('.panel.right .row:has(.row-label:text-is("Sub-steps")) .num-input:visible');
+  await subs.fill('4');
+  await subs.press('Enter');
+  const set = await page.evaluate(() => window.physicslab.store.settings);
+  assert(set.substeps === 4, `sub-steps stored (${set.substeps})`);
+  assert(
+    set.seed === 1 && set.bounds.enabled === false && set.units.length === 'm',
+    'the other v2 settings keep their defaults',
+  );
+  await shot(page, 'fb-world-substeps');
+  // simulate: the fixed step still advances by 1/120 s per step while the engine takes four sub-steps
+  await page.keyboard.press('Space');
+  await simTime(page, 0.5);
+  await subs.fill('8'); // live change while running
+  await subs.press('Enter');
+  await page.waitForTimeout(400);
+  const y1 = (await page.evaluate(() => window.physicslab.sim.poseOf(window.physicslab.store.bodies()[0].id)))
+    .position[1];
+  await simTime(page, 1.5);
+  const info = await page.evaluate(() => ({
+    t: window.physicslab.sim.client.stats.simTime,
+    steps: window.physicslab.sim.client.stats.stepCount,
+    y: window.physicslab.sim.poseOf(window.physicslab.store.bodies()[0].id).position[1],
+  }));
+  assert(Math.abs(info.t - info.steps / 120) < 1e-3, `simulated time is steps / 120 Hz (${info.t} vs ${info.steps})`);
+  assert(info.y < y1 || info.y < 0.6, `the ball keeps falling / settles (y ${y1} -> ${info.y})`);
+  await page.click('.tbtn[title^="Stop"]');
+  await page.keyboard.press('Control+z');
+  assert((await page.evaluate(() => window.physicslab.store.settings.substeps)) === 4, 'undo steps the setting back');
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});

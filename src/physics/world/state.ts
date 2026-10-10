@@ -72,6 +72,9 @@ export class WorldState {
 
   bodies = new Map<string, BodyRec>();
   order: BodyRec[] = [];
+  /** Bodies with quadratic drag / an emulated sleep threshold: the per-step loops visit only these. */
+  draggers: BodyRec[] = [];
+  sleepers: BodyRec[] = [];
   joints = new Map<string, JointRec>();
   jointOrder: JointRec[] = [];
   ground: { body: RAPIER.RigidBody; col: RAPIER.Collider } | null = null;

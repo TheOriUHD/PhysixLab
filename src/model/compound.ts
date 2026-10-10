@@ -38,6 +38,12 @@ export function partMaterial(body: Pick<BodyEntity, 'material'>, part: ColliderP
   return part.material ? { ...body.material, ...part.material } : body.material;
 }
 
+/** Σ volume of the parts (or the body's own shape). Overlapping parts are counted twice, as the engine counts their mass. */
+export function compoundVolume(b: BodyEntity): number {
+  if (!isCompound(b)) return shapeVolume(b.shape);
+  return (b.parts as ColliderPart[]).reduce((sum, p) => sum + shapeVolume(p.shape), 0);
+}
+
 /** Σ density × volume over the parts, or of the body's own shape — before any `massOverride`. */
 export function naturalMass(b: BodyEntity): number {
   if (!isCompound(b)) return b.material.density * shapeVolume(b.shape);

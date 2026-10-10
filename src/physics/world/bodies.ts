@@ -56,6 +56,8 @@ export function addBody(s: WorldState, def: BodyEntity, ephemeral: boolean): Bod
   };
   s.bodies.set(def.id, rec);
   s.order.push(rec);
+  if (rec.dragged) s.draggers.push(rec);
+  if (rec.sleep) s.sleepers.push(rec);
   s.layoutVersion++;
   return rec;
 }
