@@ -95,7 +95,7 @@ test('ED-1 lasso: replace, Shift adds, Ctrl subtracts; click picks one; outline 
   // A click on a body picks it; a click on empty ground clears.
   await page.mouse.click(p.N0.x, p.N0.y);
   assert(JSON.stringify(await names(page)) === '["N0"]', `click picks: ${await names(page)}`);
-  await page.mouse.click(700, 120);
+  await page.mouse.click(700, 300);
   assert((await sel(page)).length === 0, 'click on empty clears');
   // Escape during a drag cancels and leaves the selection as it was.
   await page.evaluate((id) => window.physicslab.store.setSelection([id]), ids.N3);
@@ -134,8 +134,8 @@ test('ED-1 paint select: brush strokes select what they touch; Shift adds, Ctrl 
   const page = await newPage();
   const ids = await setup(page);
   await page.click('.viewport-canvas', { position: { x: 700, y: 120 } });
-  await page.keyboard.press('v');
-  assert((await page.evaluate(() => window.physicslab.prefs.value.tool)) === 'paintselect', 'V activates paint select');
+  await page.keyboard.press('s');
+  assert((await page.evaluate(() => window.physicslab.prefs.value.tool)) === 'paintselect', 'S activates paint select');
   const p = {};
   for (const n of ['N0', 'N1', 'N2', 'N3']) p[n] = await screenOf(page, ids[n]);
 
@@ -292,8 +292,11 @@ test('ED-1 Select panel: name / tag / shape filters with live count; Replace, Ad
   await page.selectOption('.ed-sel-shape', '');
   await page.locator('.ed-select-panel .switch').click();
   await page.fill('.ed-select-panel input[aria-label="Name contains"]', '^Ball (one|two)$');
-  assert((await count()).trim() === '2 matches', `regex: ${await count()}`);
+  await page.waitForTimeout(300); // the regex count is debounced (150 ms)
+  const rx = await count();
+  assert(rx.trim() === '2 matches', `regex: ${JSON.stringify(rx)} then ${JSON.stringify(await count())}`);
   await page.fill('.ed-select-panel input[aria-label="Name contains"]', '(');
+  await page.waitForTimeout(300);
   assert((await count()).includes('Invalid'), `invalid regex reported: ${await count()}`);
   await shot(page, 'ed-select-panel');
   assert(page.errors.length === 0, `no page errors: ${page.errors.join(' | ')}`);

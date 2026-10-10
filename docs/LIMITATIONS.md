@@ -299,3 +299,7 @@ The Rapier WebAssembly binary alone is about 1.15 MB gzip (served as a separate 
 * The full editor can be framed by other sites; set `frame-ancestors` / `X-Frame-Options` at the host if that matters.
 
 * **Path handles (ED-23).** Path control points have translate handles and the whole path has one tension value; per-point tangent handles or per-point tension would change the spline that the physics worker also evaluates, so they are not offered. Reverse, respace, subdivide and simplify cover direction and density.
+* **Drop onto surface (ED-10)** rests an object on the top of the bounding box of the highest body below it, not on its exact surface; the surface-snap used while dragging (ED-14) is exact.
+* **Non-uniform group scale (ED-20)** is exact only for uniform factors and for members aligned with the group's axes; a member turned against them gets an approximate size and the UI says so. "Merge group into compound" is disabled until the shapes package provides its compound-merge command.
+* **Lasso and paint select (ED-1)** select by projected position and sampled bounding-box points: they ignore occlusion (hidden-behind objects are selected) and do not pick joints.
+* **Symmetry (ED-11)** pairs are re-derived from mirrored poses when the mode is switched on, the plane changes or a scene loads; they are not stored in the scene. **Linked arrays (ED-12)** regenerate their instances from the source, so direct edits to an instance are lost on the next rebuild.
