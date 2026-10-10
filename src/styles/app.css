@@ -459,7 +459,7 @@ input[type="text"].plain:focus { border-color: var(--accent-line); }
 
 @media (max-width: 1180px) { :root { --left-w: 232px; --right-w: 268px; } .scene-name { width: 120px; } }
 @media (max-width: 980px) { .brand span.word { display: none; } .menubar { display: none; } }
-@media (max-width: 860px) { #app:not(.no-left) .workspace { grid-template-columns: 0 minmax(0, 1fr) var(--right-w); } #app:not(.no-left) .panel.left { display: none; } }
+/* (the old 860px "hide the library" rule is superseded by the sheet layout in cm-mobile.css) */
 
 /* ── FX: Effects panel ─────────────────────────────────────────────────────────────────────────────────────── */
 .fx-panel .switch { display: flex; padding: 4px 0 1px; }

@@ -22,6 +22,7 @@ test('instancing: the 300-ball pit needs ≥ 3× fewer draw calls than one mesh 
   const on = await newPage('&scene=pit&quality=low');
   await on.waitForTimeout(600);
   const a = await calls(on);
+  await on.close(); // two live 300-ball pits starve each other of CPU in software GL: measure one at a time
   const off = await newPage('&scene=pit&quality=low&instancing=0');
   await off.waitForTimeout(600);
   const b = await calls(off);

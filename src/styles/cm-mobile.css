@@ -1,0 +1,88 @@
+/* CM-A mobile / tablet layout (CM-13). Narrow windows: panels become drawers / a bottom sheet, the toolbar compacts, the
+   viewport takes the window. Sheet state lives in `src/ui/mobile/layout.ts` (classes on #app: m-narrow, m-sheet,
+   m-open-left|right|bottom, m-tools, m-view). Wide windows are untouched: everything below sits in media queries. */
+
+.m-nav, .m-scrim, .m-close { display: none; }
+
+@media (max-width: 900px) {
+  :root { --m-top: calc(48px + env(safe-area-inset-top, 0px)); --m-nav: calc(58px + env(safe-area-inset-bottom, 0px)); --m-sheet-w: min(86vw, 340px); --m-dock-h: min(52vh, 420px); }
+
+  /* ---- frame: top bar, viewport, bottom navigation ---- */
+  #app { grid-template-rows: var(--m-top) minmax(0, 1fr) var(--m-nav); min-width: 0; }
+  #app .workspace, #app.no-left .workspace, #app.no-right .workspace, #app.no-left.no-right .workspace { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+  #app .workspace > .stage-col { grid-column: 1; grid-row: 1; min-width: 0; }
+  .statusbar { display: none; }
+
+  /* ---- top bar ---- */
+  .topbar { padding: env(safe-area-inset-top, 0px) calc(8px + env(safe-area-inset-right, 0px)) 0 calc(8px + env(safe-area-inset-left, 0px)); gap: 6px; min-width: 0; overflow: hidden; }
+  .topbar .brand { order: 0; flex: none; }
+  .topbar .scene-name, .topbar .menubar, .topbar .mode-chip { display: none; }
+  .topbar .transport { order: 1; position: static; transform: none; left: auto; background: none; border: 0; box-shadow: none; padding: 0; gap: 6px; flex: none; }
+  .topbar .transport .timescale, .topbar .transport .sim-clock { display: none; }
+  .topbar .spacer { order: 2; flex: 1; min-width: 0; }
+  .topbar .topbar-right { order: 3; flex: none; gap: 2px; }
+  .topbar .topbar-right > :not([title^="Undo"]):not([title^="Redo"]) { display: none; }
+  .tbtn, .topbar .icon-btn { min-height: 44px; }
+  .tbtn { min-width: 44px; }
+  .tbtn.play, .tbtn.pause { min-width: 0; padding: 0 12px; }
+  .topbar .icon-btn { min-width: 44px; }
+
+  /* ---- bottom navigation ---- */
+  .m-nav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-row: 3; grid-column: 1; background: var(--panel); border-top: 1px solid var(--border); padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); position: relative; z-index: 60; }
+  .m-nav-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 52px; min-width: 44px; padding: 4px 2px; background: none; border: 0; color: var(--text-2); font: 600 10.5px var(--font); letter-spacing: 0.02em; -webkit-tap-highlight-color: transparent; }
+  .m-nav-btn .icon { width: 21px; height: 21px; }
+  .m-nav-btn.on { color: var(--accent); box-shadow: inset 0 2px 0 var(--accent); background: var(--accent-bg); }
+  .m-nav-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+  .m-nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+  /* ---- drawers and the bottom sheet ---- */
+  #app .panel.left, #app .panel.right { position: fixed; top: var(--m-top); bottom: var(--m-nav); width: var(--m-sheet-w); max-width: none; z-index: 50; grid-column: auto; grid-row: auto; box-shadow: var(--shadow); }
+  #app .panel.left { left: 0; border-right: 1px solid var(--border-2); animation: m-from-left 0.18s ease-out; }
+  #app .panel.right { right: 0; border-left: 1px solid var(--border-2); animation: m-from-right 0.18s ease-out; }
+  #app .dock { position: fixed; left: 0; right: 0; bottom: var(--m-nav); height: var(--m-dock-h); z-index: 50; border-top: 1px solid var(--border-2); border-radius: 14px 14px 0 0; box-shadow: var(--shadow); animation: m-from-bottom 0.18s ease-out; }
+  #app .dock.collapsed, #app.no-left .panel.left, #app.no-right .panel.right { display: none; }
+  .dock-rsplit, .dock-gbtns, .dock-resize { display: none !important; }
+  .dock-tabs, .tabs { overflow-x: auto; scrollbar-width: none; }
+  .dock-tabs::-webkit-scrollbar, .tabs::-webkit-scrollbar { display: none; }
+  .tab { min-height: 44px; flex: none; }
+  .m-scrim { position: fixed; left: 0; right: 0; top: var(--m-top); bottom: var(--m-nav); z-index: 45; background: rgba(4, 7, 12, 0.58); }
+  #app.m-sheet .m-scrim { display: block; }
+  .m-close { position: fixed; z-index: 55; width: 44px; height: 44px; align-items: center; justify-content: center; border-radius: 50%; background: var(--raised); border: 1px solid var(--border-2); color: var(--text); box-shadow: var(--shadow); padding: 0; }
+  .m-close .icon { width: 18px; height: 18px; }
+  #app.m-open-left .m-close { display: flex; top: calc(var(--m-top) + 8px); left: calc(var(--m-sheet-w) + 8px); }
+  #app.m-open-right .m-close { display: flex; top: calc(var(--m-top) + 8px); right: calc(var(--m-sheet-w) + 8px); }
+  #app.m-open-bottom .m-close { display: flex; right: 8px; bottom: calc(var(--m-nav) + var(--m-dock-h) + 8px); }
+  @keyframes m-from-left { from { transform: translateX(-100%); } }
+  @keyframes m-from-right { from { transform: translateX(100%); } }
+  @keyframes m-from-bottom { from { transform: translateY(100%); } }
+
+  /* ---- floating bars over the viewport: shown on demand ---- */
+  .stage .toolbox, .stage .viewbar { display: none; }
+  #app.m-tools .stage .toolbox { display: flex; flex-direction: column; flex-wrap: wrap; align-content: flex-start; top: 8px; left: 8px; max-height: calc(100% - 16px); max-width: calc(100% - 16px); overflow: auto; z-index: 9; }
+  #app.m-tools .stage .toolbox hr { display: none; }
+  #app.m-view .stage .viewbar { display: flex; flex-wrap: wrap; justify-content: center; top: 8px; left: 8px; right: 8px; max-width: calc(100% - 16px); z-index: 9; }
+  #app.m-view .stage .viewbar .sep { display: none; }
+
+  /* ---- other floating things stay inside the stage ---- */
+  .stage .quickbar, .stage .tool-options { left: 8px; right: 8px; bottom: 10px; transform: none; max-width: none; overflow-x: auto; justify-content: safe center; }
+  .stage .quickbar > *, .stage .tool-options > * { flex: none; }
+  .stage .mode-suggest { left: 8px; right: 8px; transform: none; flex-wrap: wrap; justify-content: center; max-width: none; }
+  .menu { max-width: calc(100vw - 16px); max-height: calc(100dvh - var(--m-top) - var(--m-nav) - 8px); }
+  .menu-item { min-height: 44px; }
+  .modal { max-width: calc(100vw - 16px) !important; max-height: calc(100dvh - 16px); }
+}
+
+/* phones: even the tablet scene name goes */
+@media (min-width: 640px) and (max-width: 900px) {
+  .topbar .scene-name { display: block; width: 150px; flex: 0 1 150px; min-width: 60px; }
+  .topbar .transport .sim-clock { display: block; }
+}
+
+/* touch hardware, any width: finger-sized controls */
+@media (pointer: coarse) {
+  .icon-btn, .tbtn, .tab, .menu-btn, .menu-item, .seg-btn { min-height: 44px; }
+  .icon-btn { min-width: 44px; }
+  .btn, .chip, .select, .num-field, .num-input, .hex-input { min-height: 36px; }
+  input, select, textarea { font-size: 16px; } /* iOS zooms into smaller inputs */
+  .num-input { font-size: 14px; }
+}

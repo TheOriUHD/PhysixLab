@@ -297,3 +297,5 @@ The Rapier WebAssembly binary alone is about 1.15 MB gzip (served as a separate 
 * The crash-detection heartbeat is not restarted after a bfcache restore or a cancelled `beforeunload`.
 * GIF capture keeps all frames in memory (limits: 600 frames, 960 px).
 * The full editor can be framed by other sites; set `frame-ancestors` / `X-Frame-Options` at the host if that matters.
+
+* **Path handles (ED-23).** Path control points have translate handles and the whole path has one tension value; per-point tangent handles or per-point tension would change the spline that the physics worker also evaluates, so they are not offered. Reverse, respace, subdivide and simplify cover direction and density.
