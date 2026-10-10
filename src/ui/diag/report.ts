@@ -144,7 +144,13 @@ export function diagSections(r: ReportInput): Section[] {
       rows: [
         {
           label: 'Status',
-          value: w.lastError ? 'error' : w.protocol === null ? 'starting…' : w.active ? 'simulating' : 'idle (edit mode)',
+          value: w.lastError
+            ? 'error'
+            : w.protocol === null
+              ? 'starting…'
+              : w.active
+                ? 'simulating'
+                : 'idle (edit mode)',
           tone: w.lastError ? 'bad' : w.active ? 'ok' : undefined,
         },
         {
@@ -169,8 +175,15 @@ export function diagSections(r: ReportInput): Section[] {
     out.push({
       title: 'Frame timing',
       rows: [
-        { label: 'Frame rate', value: `${Math.round(t.fps)} fps`, tone: t.fps < 25 ? 'bad' : t.fps < 50 ? 'warn' : undefined },
-        { label: 'Frame interval', value: t.intervalAvg > 0 ? `${ms(t.intervalAvg)} avg, ${ms(t.intervalMax)} max` : '—' },
+        {
+          label: 'Frame rate',
+          value: `${Math.round(t.fps)} fps`,
+          tone: t.fps < 25 ? 'bad' : t.fps < 50 ? 'warn' : undefined,
+        },
+        {
+          label: 'Frame interval',
+          value: t.intervalAvg > 0 ? `${ms(t.intervalAvg)} avg, ${ms(t.intervalMax)} max` : '—',
+        },
         ...t.sections.map((s) => ({ label: s.label, value: `${ms(s.avg)} avg, ${ms(s.max)} max` })),
       ],
     });
@@ -242,6 +255,7 @@ export function formatReport(r: ReportInput): string {
       kind: e.kind,
       message: e.message,
       source: e.source,
+      count: e.count,
       stack: e.stack?.split('\n').slice(0, 8).join('\n'),
     })),
   };

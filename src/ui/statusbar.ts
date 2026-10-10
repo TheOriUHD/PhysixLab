@@ -1,6 +1,7 @@
 import type { App } from '../app/app';
 import { fmt } from './controls';
 import { h } from './dom';
+import { mountStatusTips } from './statusTips'; // -- UI-B: tip slot --
 
 export function buildStatusbar(app: App): HTMLElement {
   const mk = (label: string) => {
@@ -51,5 +52,6 @@ export function buildStatusbar(app: App): HTMLElement {
     g.v.textContent = fmt(Math.hypot(...app.store.settings.gravity), 2);
     fps.v.textContent = String(Math.round(app.framesPerSecond));
   });
+  mountStatusTips(app, bar); // -- UI-B: tip slot --
   return bar;
 }

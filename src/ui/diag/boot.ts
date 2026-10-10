@@ -74,8 +74,10 @@ export function installDiagnostics(): void {
   const original = console.error.bind(console);
   console.error = (...args: unknown[]) => {
     try {
-      const message = args.map((a) => (a instanceof Error ? a.message : typeof a === 'string' ? a : describeError(a).message)).join(' ');
-      const first = args.find((a) => a instanceof Error) as Error | undefined;
+      const message = args
+        .map((a) => (a instanceof Error ? a.message : typeof a === 'string' ? a : describeError(a).message))
+        .join(' ');
+      const first = args.find((a): a is Error => a instanceof Error);
       errorLog.push({ t: performance.now(), kind: 'console', message: message.slice(0, 500), stack: first?.stack });
     } catch {
       /* logging must never throw */
@@ -103,7 +105,11 @@ export function attachDiagnostics(app: App): void {
   const caps = capabilityReport();
   if (!caps.degraded) return;
   const warn = caps.items.filter((i) => i.status === 'warn');
-  const close = h('button', { class: 'icon-btn small', type: 'button', title: 'Dismiss', 'aria-label': 'Dismiss this notice' }, '×');
+  const close = h(
+    'button',
+    { class: 'icon-btn small', type: 'button', title: 'Dismiss', 'aria-label': 'Dismiss this notice' },
+    '×',
+  );
   const bar = h(
     'div',
     { class: 'degraded-bar', role: 'status' },

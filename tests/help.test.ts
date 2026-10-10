@@ -108,7 +108,7 @@ describe('bundled help pages', () => {
   it('has the expected pages', () => {
     expect(HELP_PAGES.length).toBeGreaterThanOrEqual(10);
     const ids = new Set(HELP_PAGES.map((p) => p.id));
-    for (const id of ['getting-started', 'the-editor', 'keyboard-shortcuts']) expect(ids.has(id)).toBe(true);
+    for (const id of ['getting-started', 'the-editor', 'keyboard-shortcuts', 'troubleshooting']) expect(ids.has(id)).toBe(true);
   });
 
   it('every page starts with a title and a one-line summary', () => {

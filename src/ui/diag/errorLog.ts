@@ -8,6 +8,8 @@ export interface LogEntry {
   stack?: string;
   /** file:line:col when the browser gave it. */
   source?: string;
+  /** How many times this same error happened in a row (a loop collapses into one entry). */
+  count?: number;
 }
 
 /** The last `max` entries, oldest first. Allocation happens only when something goes wrong, never per frame. */
@@ -20,6 +22,11 @@ export class ErrorLog {
 
   push(e: LogEntry): void {
     this.total++;
+    const last = this.entries[this.entries.length - 1];
+    if (last && last.kind === e.kind && last.message === e.message && last.source === e.source) {
+      last.count = (last.count ?? 1) + 1;
+      return;
+    }
     this.entries.push(e);
     if (this.entries.length > this.max) this.entries.shift();
   }
@@ -125,7 +132,7 @@ export class ErrorGate {
   /** Are errors repeating right now (the card then says so and recommends reloading)? */
   looping(now: number): boolean {
     let n = 0;
-    for (let i = this.recentTimes.length - 1; i >= 0 && now - this.recentTimes[i]! <= this.o.loopWindowMs; i--) n++;
+    for (let i = this.recentTimes.length - 1; i >= 0 && now - this.recentTimes[i] <= this.o.loopWindowMs; i--) n++;
     return n >= this.o.loopCount;
   }
 }

@@ -92,7 +92,7 @@ export class Profiler {
   end(): void {
     if (!this.open) return;
     this.open = false;
-    for (let s = 0; s < SECTION_COUNT; s++) this.rings[s]![this.head] = this.acc[s]!;
+    for (let s = 0; s < SECTION_COUNT; s++) this.rings[s][this.head] = this.acc[s]!;
     this.head = (this.head + 1) % this.capacity;
     this.frames++;
   }
@@ -111,15 +111,15 @@ export class Profiler {
   stats(section: number, window = this.capacity): SectionStats {
     const n = Math.min(this.count, window);
     if (!n) return { avg: 0, max: 0, last: 0 };
-    const ring = this.rings[section]!;
+    const ring = this.rings[section];
     let sum = 0;
     let max = 0;
     for (let i = 0; i < n; i++) {
-      const v = ring[this.indexOfRecent(i)]!;
+      const v = ring[this.indexOfRecent(i)];
       sum += v;
       if (v > max) max = v;
     }
-    return { avg: sum / n, max, last: ring[this.indexOfRecent(0)]! };
+    return { avg: sum / n, max, last: ring[this.indexOfRecent(0)] };
   }
 
   /** The same for the frame interval (the first frame's zero interval is ignored). */
@@ -129,13 +129,13 @@ export class Profiler {
     let max = 0;
     let k = 0;
     for (let i = 0; i < n; i++) {
-      const v = this.interval[this.indexOfRecent(i)]!;
+      const v = this.interval[this.indexOfRecent(i)];
       if (v <= 0) continue;
       sum += v;
       k++;
       if (v > max) max = v;
     }
-    return { avg: k ? sum / k : 0, max, last: n ? this.interval[this.indexOfRecent(0)]! : 0 };
+    return { avg: k ? sum / k : 0, max, last: n ? this.interval[this.indexOfRecent(0)] : 0 };
   }
 
   reset(): void {

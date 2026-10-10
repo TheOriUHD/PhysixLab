@@ -66,10 +66,12 @@ export function probeGl(gl: WebGL2RenderingContext | WebGLRenderingContext): Gpu
 }
 
 /** GPU info from the app's own context (the one that really draws), or a throw-away context before the app exists. */
+let gpuCache: GpuInfo | null = null;
 export function gpuInfo(app: App | null): GpuInfo | null {
+  if (gpuCache) return gpuCache;
   try {
     const live = app?.viewport?.renderer?.getContext();
-    if (live) return probeGl(live);
+    if (live) return (gpuCache = probeGl(live));
     const c = document.createElement('canvas');
     const gl = c.getContext('webgl2');
     if (!gl) return null;
@@ -82,8 +84,9 @@ export function gpuInfo(app: App | null): GpuInfo | null {
 }
 
 export function memoryInfo(): MemoryInfo | null {
-  const m = (performance as unknown as { memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } })
-    .memory;
+  const m = (
+    performance as unknown as { memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }
+  ).memory;
   if (!m) return null;
   const MB = 1024 * 1024;
   return { usedMB: m.usedJSHeapSize / MB, totalMB: m.totalJSHeapSize / MB, limitMB: m.jsHeapSizeLimit / MB };

@@ -9,7 +9,7 @@ PhysicsLab is a physics sandbox: build something, press **Simulate**, and watch 
 - **Viewport** – the 3D scene in the middle. The tool buttons float on its left edge, the view options on its right.
 - **Right panel** – **Inspector** (properties of the selection), **Outliner** (every object as a tree), **World** (gravity, ground, solver settings) and **Help** (this panel).
 - **Bottom dock** – live charts while the simulation runs, see [Telemetry and charts](telemetry).
-- **Status bar** – object counts, physics step time, speed and frame rate.
+- **Status bar** – object counts, physics step time, speed and frame rate, plus a tip.
 
 ## Your first five minutes
 
@@ -34,3 +34,4 @@ PhysicsLab is a physics sandbox: build something, press **Simulate**, and watch 
 - [Joints and motors](joints-and-motors)
 - [The editor](the-editor)
 - [Keyboard shortcuts](keyboard-shortcuts)
+- [Troubleshooting and diagnostics](troubleshooting)

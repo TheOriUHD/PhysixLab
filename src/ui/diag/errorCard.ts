@@ -6,6 +6,7 @@
  */
 import type { App } from '../../app/app';
 import type { CapReport } from './capabilities';
+import { describeError } from './errorLog';
 import { h } from '../dom';
 import { formatReport, type ReportInput } from './report';
 
@@ -95,7 +96,8 @@ function actionButton(a: ActionSpec): HTMLButtonElement {
 export function copyDiagnosticsButton(getReport: () => ReportInput): HTMLButtonElement {
   const b = actionButton({
     label: 'Copy diagnostics',
-    title: 'Copy a text report (browser, graphics card, limits, recent errors, scene summary) to paste into a bug report',
+    title:
+      'Copy a text report (browser, graphics card, limits, recent errors, scene summary) to paste into a bug report',
     run: async () => {
       const ok = await copyText(formatReport(getReport()));
       b.textContent = ok ? 'Copied' : 'Copy failed: select it in the Diagnostics panel';
@@ -186,7 +188,12 @@ export function showRuntimeCard(a: RuntimeCardArgs): CardHandle {
     a.onClose();
   };
   const actions: ActionSpec[] = [
-    { label: 'Keep working', title: 'Close this card and carry on; the app may still be fine', run: close, primary: true },
+    {
+      label: 'Keep working',
+      title: 'Close this card and carry on; the app may still be fine',
+      run: close,
+      primary: true,
+    },
   ];
   if (app) {
     const auto = app.persistence.loadAutosave();
@@ -256,7 +263,7 @@ export function showRuntimeCard(a: RuntimeCardArgs): CardHandle {
     getReport: a.getReport,
   });
   document.body.appendChild(handle.el);
-  (handle.el.querySelector('.btn.primary') as HTMLElement | null)?.focus();
+  handle.el.querySelector<HTMLElement>('.btn.primary')?.focus();
   handle.el.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') close();
   });
@@ -265,8 +272,11 @@ export function showRuntimeCard(a: RuntimeCardArgs): CardHandle {
 
 // ── the start-up failure screen ────────────────────────────────────────────────────────────────
 
-export function showBootScreen(root: HTMLElement, o: { error: unknown; caps: CapReport; getReport: () => ReportInput }): void {
-  const msg = o.error instanceof Error ? o.error.message : String(o.error ?? '');
+export function showBootScreen(
+  root: HTMLElement,
+  o: { error: unknown; caps: CapReport; getReport: () => ReportInput },
+): void {
+  const msg = o.error instanceof Error ? o.error.message : describeError(o.error).message;
   const stack = o.error instanceof Error ? o.error.stack : undefined;
   const missing = o.caps.fatal;
   const handle = buildCard({

@@ -141,7 +141,7 @@ export function checkCapabilities(env: CapEnv): CapReport {
 
 /** Fill a `CapEnv` from the real browser (or from the objects given, for tests). */
 export function probeEnvironment(
-  g: Record<string, unknown> = globalThis as unknown as Record<string, unknown>,
+  g: Record<string, unknown> = globalThis,
   makeCanvas: () => { getContext(id: string): unknown } | null = () =>
     typeof document === 'undefined' ? null : document.createElement('canvas'),
 ): CapEnv {
@@ -157,10 +157,12 @@ export function probeEnvironment(
       return false;
     }
   };
-  let webgl2: boolean | null = false;
+  let webgl2: boolean | null;
   try {
     const c = makeCanvas();
-    const gl = c ? (c.getContext('webgl2') as { getExtension?(n: string): { loseContext(): void } | null } | null) : null;
+    const gl = c
+      ? (c.getContext('webgl2') as { getExtension?(n: string): { loseContext(): void } | null } | null)
+      : null;
     webgl2 = c ? !!gl : null;
     // Do not keep a spare context alive (browsers allow only a handful).
     gl?.getExtension?.('WEBGL_lose_context')?.loseContext();
@@ -168,7 +170,7 @@ export function probeEnvironment(
     webgl2 = false;
   }
   const WorkerCtor = g.Worker as (new (url: string, o?: unknown) => { terminate(): void }) | undefined;
-  let moduleWorker: boolean | null = null;
+  let moduleWorker: boolean | null;
   if (WorkerCtor) {
     try {
       // The `type` option is read only by browsers that know module workers.
