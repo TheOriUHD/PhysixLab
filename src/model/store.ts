@@ -2,7 +2,7 @@ import { Emitter } from '../core/events';
 import { qangle, vadd, veq, type Vec3 } from '../core/math';
 import { newDocument, uid } from './factory';
 import { addAssetTo, countAssetRefs, remapAssetRefs } from './assets';
-import { emptyCameras } from './sanitize/cameras'; // -- CM-A --
+import { emptyCameras, isDefaultCameras } from './sanitize/cameras'; // -- CM-A --
 import { cloneComponents, releaseComponentRefs } from './componentRegistry';
 import { childIndex, descendantIds, groupTransformPatches, withDescendants, type Pose } from './groups';
 import { SCENE_FORMAT, SCENE_VERSION } from './migrations';
@@ -162,7 +162,7 @@ export class SceneStore extends Emitter<StoreEvents> {
       settings: this.settings,
       entities: this.all(),
       assets: this.assets,
-      cameras: this.cameras, // -- CM-A --
+      ...(isDefaultCameras(this.cameras) ? {} : { cameras: this.cameras }), // -- CM-A --
     };
   }
 

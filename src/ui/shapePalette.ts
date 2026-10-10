@@ -15,6 +15,10 @@ import { h } from './dom';
 import { icon } from './icons';
 import { groupByCategory, searchShapes, type ShapeHit } from './shapeSearch';
 import '../styles/shapePalette.css';
+// -- UI-B: favourites --
+import { favStar } from './qol/favUi';
+import { favouriteStore } from './qol/stores';
+// -- end UI-B --
 
 const COLLAPSED_KEY = 'physicslab.shapePalette.collapsed';
 
@@ -66,6 +70,7 @@ function tile(app: App, hit: ShapeHit, tabbable: boolean): HTMLButtonElement {
     const img = h('img', { src: url, alt: '', draggable: false, width: 40, height: 40 });
     art.replaceChildren(img);
   });
+  t.appendChild(favStar('shape', def.id, def.label)); // -- UI-B --
   t.addEventListener('click', () => app.addShape(def.id));
   t.addEventListener('focus', () => (state.focusId = def.id));
   t.addEventListener('dragstart', (e) => {
@@ -174,6 +179,27 @@ export function buildShapePalette(app: App): HTMLElement {
       );
       return;
     }
+    // -- UI-B: starred shapes first --
+    const favHits = hits.filter((x) => favouriteStore().has('shape', x.def.id));
+    if (favHits.length)
+      body.appendChild(
+        h(
+          'div',
+          { dataset: { favourites: 'shape' } },
+          h(
+            'div',
+            { class: 'group-title shape-group-title static' },
+            h('span', null, '★ Favourites'),
+            h('i', null, String(favHits.length)),
+          ),
+          h(
+            'div',
+            { class: 'tiles shape-tiles', role: 'group', 'aria-label': 'Favourite shapes' },
+            favHits.map((x) => tile(app, x, false)),
+          ),
+        ),
+      );
+    // -- end UI-B --
     const collapsed = collapsedSet();
     for (const group of groupByCategory(hits)) {
       const open = !collapsed.has(group.category);
@@ -286,5 +312,11 @@ export function buildShapePalette(app: App): HTMLElement {
   });
 
   render();
+  // -- UI-B: a star toggled anywhere redraws the palette (and the subscription ends with the palette) --
+  const off = favouriteStore().onChange((k) => {
+    if (!root.isConnected) off();
+    else if (k === 'shape') render();
+  });
+  // -- end UI-B --
   return root;
 }

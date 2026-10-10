@@ -46,6 +46,8 @@ interface View {
   camera: PerspectiveCamera;
   follow: FollowState;
   title: HTMLElement;
+  /** One off-screen target per view: panes differ in size, a shared one would be reallocated every frame. */
+  renderer: PaneRenderer;
   /** Size in CSS pixels. */
   w: number;
   h: number;
@@ -56,7 +58,6 @@ const GAP = 2;
 export class ViewManager {
   private layer: HTMLElement;
   private views = new Map<string, View>();
-  private renderer: PaneRenderer;
   private frame = 0;
   private pose: Pose = newPose();
   private observer: ResizeObserver;
@@ -66,7 +67,6 @@ export class ViewManager {
     private app: App,
     private rig: CameraRig,
   ) {
-    this.renderer = new PaneRenderer(app.viewport);
     this.layer = document.createElement('div');
     this.layer.className = 'cm-views';
     app.shell.stage.appendChild(this.layer);
@@ -95,6 +95,7 @@ export class ViewManager {
     for (const [key, v] of this.views)
       if (!ids.has(key)) {
         v.el.remove();
+        v.renderer.dispose();
         this.views.delete(key);
       }
     for (const w of wanted) {
@@ -134,6 +135,7 @@ export class ViewManager {
       camera: new PerspectiveCamera(spec.fov, 16 / 9, 0.1, 2000),
       follow: newFollow(),
       title,
+      renderer: new PaneRenderer(this.app.viewport),
       w: 0,
       h: 0,
     };
@@ -332,13 +334,13 @@ export class ViewManager {
       v.camera.aspect = w / h;
       v.camera.updateProjectionMatrix();
       v.camera.updateMatrixWorld();
-      this.renderer.render(v.camera, v.canvas, v.ctx, w, h);
+      v.renderer.render(v.camera, v.canvas, v.ctx, w, h);
     }
   }
 
   dispose(): void {
     this.observer.disconnect();
-    this.renderer.dispose();
+    for (const v of this.views.values()) v.renderer.dispose();
     this.layer.remove();
   }
 }

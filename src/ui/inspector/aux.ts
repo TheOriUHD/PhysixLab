@@ -313,7 +313,7 @@ export function lightInspector(ctx: InspectorContext, sel: LightEntity[]): HTMLE
       }),
   });
   const fxAmount = num(
-    'Depth',
+    'Flicker depth',
     (l) => l.flicker?.amount ?? 0.4,
     (v) => ({
       flicker: {

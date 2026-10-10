@@ -16,7 +16,7 @@ import { keymap, shouldPreventDefault } from './registry/keymap';
 import { toolForMode } from './registry/tools';
 // -- ED-A snap --
 import { applyObjectSnap, endObjectSnap, showGridSnap } from './edit/snapDrag';
-import { invertKey } from './edit/snapScene';
+import { effectiveModes, invertKey } from './edit/snapScene';
 
 type Gesture =
   | { kind: 'none' }
@@ -49,6 +49,8 @@ export class InputController {
   private pointer = { x: 0, y: 0, inside: false };
   // ── JT-20/21: draggable handles of the selected joint, and the joint tool (anchor snapping, chain) ──
   readonly jointHandles: JointHandles;
+  // -- CM-A touch: fingers currently down on the canvas; a second one abandons the one-finger gesture --
+  private touchIds = new Set<number>();
 
   constructor(private app: App) {
     this.jointHandles = new JointHandles(app);
@@ -117,6 +119,14 @@ export class InputController {
     const app = this.app;
     const dom = app.viewport.dom;
     dom.focus({ preventScroll: true });
+    // -- CM-A touch: a second finger belongs to the camera (pinch / orbit / pan), never to a one-finger tool --
+    if (e.pointerType === 'touch') {
+      this.touchIds.add(e.pointerId);
+      if (this.touchIds.size > 1) {
+        this.cancelGesture();
+        return;
+      }
+    }
     if (e.button === 2) {
       this.rightDown = [e.clientX, e.clientY];
       return;
@@ -137,7 +147,12 @@ export class InputController {
     const store = app.store;
     // A control handle of the selected path comes first: clicking one hands it to the gizmo.
     if (!app.sim.active) {
-      const handle = app.pathViews.pickPoint(e, this.cam, app.viewport.dom.getBoundingClientRect());
+      const handle = app.pathViews.pickPoint(
+        e,
+        this.cam,
+        app.viewport.dom.getBoundingClientRect(),
+        e.pointerType === 'touch' ? 26 : 12, // -- CM-A touch: fingers are fat --
+      );
       if (handle) {
         app.setPathPoint(handle.id, handle.index);
         return;
@@ -278,6 +293,7 @@ export class InputController {
 
   private onMove(e: PointerEvent): void {
     const app = this.app;
+    if (e.pointerType === 'touch' && this.touchIds.size > 1) return; // -- CM-A touch: camera gesture in progress --
     this.pointer = { x: e.clientX, y: e.clientY, inside: true };
     const g = this.g;
 
@@ -402,7 +418,7 @@ export class InputController {
   private moveMarquee(e: PointerEvent, g: Extract<Gesture, { kind: 'marquee' }>): void {
     const dx = e.clientX - g.x0,
       dy = e.clientY - g.y0;
-    if (!g.moved && Math.hypot(dx, dy) < 4) return;
+    if (!g.moved && Math.hypot(dx, dy) < (e.pointerType === 'touch' ? 10 : 4)) return;
     g.moved = true;
     const r = this.app.shell.stage.getBoundingClientRect();
     const x = Math.min(e.clientX, g.x0) - r.left,
@@ -419,7 +435,8 @@ export class InputController {
   private moveDrag(e: PointerEvent, g: Extract<Gesture, { kind: 'dragMove' }>): void {
     const app = this.app;
     if (!g.moved) {
-      if (Math.hypot(e.clientX - g.startClient[0], e.clientY - g.startClient[1]) < 5) return;
+      if (Math.hypot(e.clientX - g.startClient[0], e.clientY - g.startClient[1]) < (e.pointerType === 'touch' ? 10 : 5))
+        return;
       g.moved = true;
       app.store.begin(g.ids.length > 1 ? `Move ${g.ids.length} objects` : 'Move');
       app.viewport.dom.classList.add('grabbing');
@@ -438,8 +455,9 @@ export class InputController {
     if (applyObjectSnap(app, e, { ids: g.ids, starts: g.starts, primary: g.primary, delta, vertical })) return;
     // -- /ED-A snap --
     let d = delta;
-    // -- ED-A snap: holding Ctrl inverts the grid switch as well --
-    if (app.prefs.value.snap !== invertKey(e)) {
+    // -- ED-A snap: Ctrl suspends the grid too (or turns it on when all snapping is off) --
+    const gridOn = effectiveModes(app, invertKey(e)).grid;
+    if (gridOn) {
       const s = app.prefs.value.snapGrid;
       const snapped = vadd(base, delta).map((v) => Math.round(v / s) * s) as Vec3;
       d = [
@@ -450,11 +468,12 @@ export class InputController {
     }
     app.editor.moveTo(new Map(g.ids.map((id) => [id, vadd(g.starts.get(id)!, d)])));
     // -- ED-A snap: marker for the grid snap --
-    if (app.prefs.value.snap !== invertKey(e)) showGridSnap(app, vadd(base, d));
+    if (gridOn) showGridSnap(app, vadd(base, d));
   }
 
   private onUp(e: PointerEvent): void {
     const app = this.app;
+    this.touchIds.delete(e.pointerId); // -- CM-A touch --
     const g = this.g;
     this.g = { kind: 'none' };
     app.viewport.dom.classList.remove('grabbing');
@@ -485,6 +504,29 @@ export class InputController {
       case 'none':
         break;
     }
+  }
+
+  // -- CM-A touch: gesture hand-over --
+  /** Kind of the one-pointer gesture in progress (`none` when idle). */
+  get gestureKind(): Gesture['kind'] {
+    return this.g.kind;
+  }
+
+  /**
+   * Abandon the gesture in progress without applying it: the marquee disappears (selection untouched), a drag-move is
+   * undone (no history entry is left), a physics grab is released. Called when a second finger lands or a long
+   * press takes over.
+   */
+  cancelGesture(): void {
+    const app = this.app;
+    const g = this.g;
+    this.g = { kind: 'none' };
+    this.marquee.style.display = 'none';
+    app.viewport.dom.classList.remove('grabbing');
+    if (g.kind === 'dragMove' && g.moved) {
+      app.store.end();
+      app.store.undo();
+    } else if (g.kind === 'grab') app.sim.client.op({ op: 'release' });
   }
 
   /** Set by the UI to show the viewport context menu. */

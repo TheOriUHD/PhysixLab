@@ -38,6 +38,7 @@ export function addSoft(s: WorldState, def: SoftEntity): void {
     released: new Set(),
     volumeFactor: def.volumeFactor,
     restLen: new Map(),
+    builtAt: s.stepCount,
   };
   s.softs.set(def.id, rec);
   s.softOrder.push(rec);
@@ -60,12 +61,23 @@ export function softPrestep(s: WorldState, dt: number): void {
 
 /** All engine bodies (root + tear pieces) that belong to a soft entity. */
 export function piecesOf(s: WorldState, rec: SoftRec): RAPIER.SoftBody[] {
+  const all = s.world.softBodies.getAll();
+  const origin = new Map<number, number | null>();
+  for (const sb of all) origin.set(sb.handle, sb.origin());
   const out: RAPIER.SoftBody[] = [];
-  for (const sb of s.world.softBodies.getAll()) {
-    const origin = sb.origin();
-    if (sb.handle === rec.root.handle || origin === rec.root.handle) out.push(sb);
-  }
+  for (const sb of all) if (rootHandle(origin, sb.handle) === rec.root.handle) out.push(sb);
   return out.length ? out : [rec.root];
+}
+
+/** The root of a tear lineage: `origin()` is the immediate parent, so pieces torn off pieces need a walk. */
+function rootHandle(origin: Map<number, number | null>, handle: number): number {
+  let h = handle;
+  for (let guard = 0; guard < 64; guard++) {
+    const o = origin.get(h);
+    if (o === null || o === undefined) return h;
+    h = o;
+  }
+  return h;
 }
 
 export function removeSoft(s: WorldState, id: string): void {
@@ -75,7 +87,7 @@ export function removeSoft(s: WorldState, id: string): void {
   for (const sb of piecesOf(s, rec)) if (sb.isValid()) s.world.removeSoftBody(sb);
   s.softs.delete(id);
   s.softOrder = s.softOrder.filter((r) => r !== rec);
-  s.softSig = '';
+  s.softSig = s.softOrder.length ? '' : '#removed'; // lets readSoft announce an empty layout once
   s.layoutVersion++;
 }
 
@@ -155,12 +167,17 @@ export function readSoft(s: WorldState): { layout?: SoftLayoutEntry[]; positions
   if (!s.softOrder.length) {
     s.softBlocks = [];
     s.softParticles = 0;
-    return { positions: new Float32Array(0) };
+    // the last soft body is gone: tell the renderer once so it drops the stale topology
+    const gone = s.softSig !== '';
+    s.softSig = '';
+    return gone ? { layout: [], positions: new Float32Array(0) } : { positions: new Float32Array(0) };
   }
   const all = s.world.softBodies.getAll();
   const byRoot = new Map<number, RAPIER.SoftBody[]>();
+  const origin = new Map<number, number | null>();
+  for (const sb of all) origin.set(sb.handle, sb.origin());
   for (const sb of all) {
-    const key = sb.origin() ?? sb.handle;
+    const key = rootHandle(origin, sb.handle);
     const list = byRoot.get(key);
     if (list) list.push(sb);
     else byRoot.set(key, [sb]);

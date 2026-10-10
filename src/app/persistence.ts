@@ -34,6 +34,8 @@ export class Persistence {
     this.saveListeners.add(fn);
     return () => this.saveListeners.delete(fn);
   }
+  // -- UI-B: lets the QoL layer cache a thumbnail and record a recent scene when a scene is saved to the library --
+  onLibrarySaved: ((entry: LibraryEntry) => void) | null = null;
 
   constructor(private store: SceneStore) {
     store.on('change', () => this.schedule());
@@ -111,6 +113,7 @@ export class Persistence {
     };
     this.libraryCache = existing ? list.map((e) => (e.id === existing.id ? entry : e)) : [entry, ...list];
     this.write((s) => s.put('scenes', entry.id, entry), 'Could not save — browser storage is full.');
+    this.onLibrarySaved?.(entry);
     return entry;
   }
 

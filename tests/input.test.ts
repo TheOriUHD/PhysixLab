@@ -328,3 +328,55 @@ describe('analog axes drive motors in the engine', () => {
     expect(w.getJointRec(id)!.speed).toBeGreaterThan(7.4);
   });
 });
+
+describe('gamepad hot-plugging', () => {
+  it('announces a controller when it connects, reads it, and clears the state when it leaves', async () => {
+    const { GamepadPoller } = await import('../src/app/input/gamepad');
+    const g = globalThis as unknown as Record<string, unknown>;
+    const had = { window: g.window, navigator: g.navigator };
+    const win = new EventTarget();
+    const pad = {
+      id: 'Wireless Controller (STANDARD GAMEPAD Vendor: 054c Product: 09cc)',
+      index: 2,
+      connected: true,
+      mapping: 'standard',
+      axes: [0.5, 0, 0, 0],
+      buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === 0, value: i === 0 ? 1 : 0 })),
+    };
+    let present: typeof pad | null = null;
+    g.window = win;
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { getGamepads: () => [null, null, present, null] },
+      configurable: true,
+    });
+    try {
+      const log: string[] = [];
+      const poller = new GamepadPoller({
+        onConnect: (id, family) => log.push(`+${family}:${id.slice(0, 10)}`),
+        onDisconnect: (id) => log.push(`-${id.slice(0, 10)}`),
+      });
+      poller.start();
+      expect(poller.poll()).toBe(false); // nothing plugged in
+      present = pad;
+      win.dispatchEvent(Object.assign(new Event('gamepadconnected'), { gamepad: pad }));
+      expect(log).toEqual(['+playstation:Wireless C']);
+      expect(poller.connected).toBe(true);
+      expect(poller.poll()).toBe(true);
+      expect(poller.state.LX).toBe(0.5);
+      expect(poller.state.buttons.South).toBe(true);
+      expect(poller.family).toBe('playstation');
+      present = null;
+      win.dispatchEvent(Object.assign(new Event('gamepaddisconnected'), { gamepad: pad }));
+      expect(log[1]).toBe('-Wireless C');
+      expect(poller.connected).toBe(false);
+      expect(poller.state.LX).toBe(0);
+      expect(poller.state.buttons.South).toBe(false);
+      poller.stop();
+      win.dispatchEvent(Object.assign(new Event('gamepadconnected'), { gamepad: pad }));
+      expect(log).toHaveLength(2); // stopped: no more events
+    } finally {
+      g.window = had.window;
+      Object.defineProperty(globalThis, 'navigator', { value: had.navigator, configurable: true });
+    }
+  });
+});

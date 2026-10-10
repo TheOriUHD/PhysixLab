@@ -89,7 +89,6 @@ export function registerCameraBuiltins(): void {
     order: 40,
     driven: true,
     blurb: 'Free flight: W A S D move, Q / E down / up, Shift to go faster, right-drag to look, wheel sets the speed.',
-    shortcut: undefined,
     enter(rig) {
       const cam = rig.app.camera;
       const f = new Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
@@ -138,7 +137,7 @@ export function registerCameraBuiltins(): void {
     label: 'Camera: next mode',
     category: 'Camera',
     icon: 'camera',
-    shortcut: 'V',
+    shortcut: 'Z',
     keywords: ['switch', 'view', 'fly', 'chase'],
     run: ({ app }) => app.cameraRig.cycleMode(1),
   });
@@ -146,7 +145,7 @@ export function registerCameraBuiltins(): void {
     id: 'camera.cyclePrev',
     label: 'Camera: previous mode',
     category: 'Camera',
-    shortcut: 'Shift+V',
+    shortcut: undefined,
     help: false,
     run: ({ app }) => app.cameraRig.cycleMode(-1),
   });
@@ -230,7 +229,6 @@ export function registerCameraBuiltins(): void {
     label: 'Camera: minimap',
     category: 'Camera',
     icon: 'map',
-    shortcut: 'Shift+N',
     description: 'A live top-down map in the corner of the viewport: click it to move the camera',
     keywords: ['map', 'overview', 'radar'],
     checked: (app) => app.store.cameras.minimap.enabled,

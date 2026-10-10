@@ -14,6 +14,15 @@ import { releaseSoftAttachments } from './softAttach';
 import { cutSoft, tearSoftAt } from './softCut';
 import type { WorldState } from './state';
 
+/** A soft body the engine cannot build (degenerate mesh) must not abort the rest of the op batch. */
+function addSoftSafe(s: WorldState, def: Parameters<typeof addSoft>[1]): void {
+  try {
+    addSoft(s, def);
+  } catch (err) {
+    console.error(`soft body "${def.name}" could not be built:`, err);
+  }
+}
+
 export function applyOp(s: WorldState, op: SimOp): void {
   if (!s.recorder.onOp(s, op)) return; // -- TM: logs the op; a replay viewer ignores live edits --
   switch (op.op) {
@@ -65,11 +74,11 @@ export function applyOp(s: WorldState, op: SimOp): void {
       explode(s, op.center, op.strength, op.radius, op.kind, op.falloff, op.dir);
       break;
     case 'addSoft':
-      addSoft(s, op.soft);
+      addSoftSafe(s, op.soft);
       break;
     case 'updateSoft':
       removeSoft(s, op.soft.id);
-      addSoft(s, op.soft);
+      addSoftSafe(s, op.soft);
       break;
     case 'grabSoft':
       beginSoftGrab(s, op.id, op.index, op.target, op.strength);

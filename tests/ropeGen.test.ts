@@ -1,6 +1,6 @@
 /** SF-3 — rope / chain generator: sagging, carrying a heavy body, the mass-ratio guard. */
 import { describe, expect, it } from 'vitest';
-import { vdist } from '../src/core/math';
+import { qrot, vdist } from '../src/core/math';
 import { createBody } from '../src/model/factory';
 import { generateChain, MAX_MASS_RATIO, massGuard } from '../src/model/ropeGen';
 import { worldOf } from './helpers';
@@ -88,6 +88,20 @@ describe('SF-3 rope and chain generator', () => {
       expect(wb.translation().y).toBeLessThan(3.3);
     },
   );
+
+  it('end joints coincide with the requested points at build time (no initial snap)', () => {
+    const r = generateChain({ kind: 'rope', start: [0, 5, 0], end: [3, 5, 0], links: 6, endBody: null });
+    const world = (link: (typeof r.bodies)[number], local: [number, number, number]) => {
+      const q = qrot(link.rotation, local);
+      return [link.position[0] + q[0], link.position[1] + q[1], link.position[2] + q[2]];
+    };
+    const start = r.joints[r.joints.length - 2];
+    const end = r.joints[r.joints.length - 1];
+    const a = world(r.bodies[0], start.anchorB);
+    const b = world(r.bodies[5], end.anchorB);
+    expect(vdist(a as [number, number, number], [0, 5, 0])).toBeLessThan(1e-6);
+    expect(vdist(b as [number, number, number], [3, 5, 0])).toBeLessThan(1e-6);
+  });
 
   it('the mass guard leaves a light load alone', () => {
     const r = generateChain({ kind: 'rope', start: [0, 3, 0], end: [0, 1, 0], links: 10, load: 0.5, mass: 2 });

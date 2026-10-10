@@ -368,9 +368,8 @@ test('charts: screenshots at 1600x900 and 1280x720', async () => {
     const page = await newPage('', { width: vw, height: vh });
     await startCrate(page);
     await openCharts(page);
-    await page.click('.ch-addchart');
-    await page.click('.menu-item:has-text("Selected object: speed and height")');
-    await page.click('.ch-addchart');
+    await page.click('.ch-presets >> text=Selected object: speed and height');
+    await page.click('.ch-addtile');
     await page.click('.menu-item:has-text("Energy of the whole scene")');
     await simTime(page, 2);
     await page.waitForTimeout(400);

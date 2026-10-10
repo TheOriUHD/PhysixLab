@@ -123,6 +123,7 @@ class ChartsPanel implements WidgetHost {
   readonly toolbar: HTMLElement[];
   private readonly grid: HTMLElement;
   private readonly empty: HTMLElement;
+  private readonly tile: HTMLElement;
   private widgets: ChartWidget[] = [];
   private readonly source: AppSource;
   private saveTimer = 0;
@@ -146,11 +147,20 @@ class ChartsPanel implements WidgetHost {
     this.grid = h('div', { class: 'ch-grid' });
     this.empty = h('div', { class: 'ch-emptystate' });
     this.el = h('div', { class: 'ch-panel' }, this.grid, this.empty);
-    const add = h(
+    // Also in the grid: the tab strip of the dock can be too crowded to show the toolbar button (narrow windows).
+    this.tile = h(
       'button',
-      { class: 'btn small ch-addchart', type: 'button', title: 'Add a chart to the dock' },
+      { class: 'ch-addtile', type: 'button', title: 'Add a chart', 'aria-label': 'Add chart' },
       icon('plus'),
       h('span', null, 'Add chart'),
+    );
+    this.tile.addEventListener('click', () => this.addMenu(this.tile));
+    this.grid.appendChild(this.tile);
+    const add = h(
+      'button',
+      { class: 'btn small ch-addchart', type: 'button', title: 'Add chart', 'aria-label': 'Add chart' },
+      icon('plus'),
+      h('span', { class: 'ch-addlabel' }, 'Add chart'),
     );
     add.addEventListener('click', () => this.addMenu(add));
     this.toolbar = [add];
@@ -187,7 +197,7 @@ class ChartsPanel implements WidgetHost {
     const w = new ChartWidget(model, this);
     if (at < 0 || at >= this.widgets.length) {
       this.widgets.push(w);
-      this.grid.appendChild(w.el);
+      this.grid.insertBefore(w.el, this.tile);
     } else {
       this.grid.insertBefore(w.el, this.widgets[at].el);
       this.widgets.splice(at, 0, w);
@@ -197,6 +207,7 @@ class ChartsPanel implements WidgetHost {
 
   private refreshEmpty(): void {
     this.empty.style.display = this.widgets.length ? 'none' : '';
+    this.grid.style.display = this.widgets.length ? '' : 'none';
     if (this.widgets.length) return;
     this.empty.replaceChildren(
       h('div', { class: 'ch-empty-title' }, 'Charts'),
@@ -355,7 +366,7 @@ class ChartsPanel implements WidgetHost {
   }
 
   private relayout(): void {
-    this.grid.replaceChildren(...this.widgets.map((w) => w.el));
+    this.grid.replaceChildren(...this.widgets.map((w) => w.el), this.tile);
     this.save();
   }
 
@@ -424,10 +435,12 @@ class ChartsPanel implements WidgetHost {
 }
 
 const panels = new WeakMap<App, ChartsPanel>();
+/** The panel of the running app: `window.physicslab` is a Proxy of the App, so lookups by identity can miss. */
+let current: ChartsPanel | undefined;
 
 /** The charts panel of an app (created on first use); for tests, tools and other panels. */
 export function chartsFor(app: App): ChartsPanel | undefined {
-  return panels.get(app);
+  return panels.get(app) ?? current;
 }
 
 export type { ChartsPanel };
@@ -442,6 +455,7 @@ export const chartsPanel: PanelDef = {
   build(app, ctx) {
     const panel = new ChartsPanel(app, ctx.active);
     panels.set(app, panel);
+    current = panel;
     return {
       el: panel.el,
       toolbar: panel.toolbar,
@@ -449,6 +463,7 @@ export const chartsPanel: PanelDef = {
       dispose: () => {
         panel.dispose();
         panels.delete(app);
+        if (current === panel) current = undefined;
       },
     };
   },

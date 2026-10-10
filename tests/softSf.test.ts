@@ -4,6 +4,7 @@ import { qfromAxisAngle, qrot, vadd, type Vec3 } from '../src/core/math';
 import { convexHullMesh } from '../src/core/hull';
 import { createBody, createJoint, createSoft } from '../src/model/factory';
 import { sanitizeDocument, serializeDocument } from '../src/model/serialize';
+import { softParticleCount } from '../src/model/softBudget';
 import { formatPascal, softYoungModulus, stiffnessForYoungModulus } from '../src/model/softMaterial';
 import { softSurface } from '../src/model/softMesh';
 import type { SoftAttachment } from '../src/model/types';
@@ -71,7 +72,6 @@ describe('SF-1 attachments', () => {
     expect(rb.translation().y).toBeGreaterThan(2.55);
     expect(rb.translation().y).toBeLessThan(2.85);
     // momentum balance of the whole hanging system: the pin carries (m_weight + m_cable)·g on average
-    const g = 9.81;
     const probe: number[] = [];
     for (let k = 0; k < 120; k++) {
       w.stepOnce();
@@ -80,7 +80,6 @@ describe('SF-1 attachments', () => {
     }
     const mean = probe.reduce((a, b) => a + b, 0) / probe.length;
     expect(Math.abs(mean)).toBeLessThan(0.05); // no net acceleration ⇒ tension T = m·g
-    expect(m * g).toBeGreaterThan(40);
   });
 
   it('the attachment follows the body: rotating and moving the body carries the fastened particles', async () => {
@@ -161,6 +160,17 @@ describe('SF-1 attachments', () => {
     expect(priv(w).softOrder[0].root.numAttachments()).toBe(0);
   });
 
+  it('hostile mesh / tyre sizes cannot request a huge lattice', () => {
+    const doc = docOf([createSoft('mesh'), createSoft('tyre')]);
+    const raw = JSON.parse(serializeDocument(doc)) as { entities: { size?: number[]; cell?: number }[] };
+    raw.entities[0].size = [1e6, 1e6, 1e6];
+    raw.entities[0].cell = 0.04;
+    raw.entities[1].size = [500, 0.0001, 0.0001];
+    const [m, t] = sanitizeDocument(raw).entities;
+    expect(m.kind === 'soft' && softParticleCount(m)).toBeLessThan(100000);
+    expect(t.kind === 'soft' && softParticleCount(t)).toBeLessThan(20000);
+  });
+
   it('attachments survive a save / load round trip and untrusted JSON is repaired', () => {
     const { weight, cable } = hangingCable();
     const doc = docOf([weight, cable]);
@@ -234,6 +244,57 @@ describe('SF-2 cutting', () => {
     w.applyOp({ op: 'cutSoft', id: cable.id, origin: [0, 3, 6], a: [0, 6, -6], b: [0, 0, -6] });
     run(w, 1.5);
     expect(w.world.softBodies.getAll().length).toBe(2);
+  });
+});
+
+describe('SF-2 review regressions: cuts together with lineage, attachments and rebuilds', () => {
+  it('a cloth cut twice keeps every piece visible and removal frees every engine body', async () => {
+    const cloth = createSoft('cloth', {
+      position: [0, 2, 0],
+      size: [2, 0, 2],
+      resolution: 14,
+      rotation: qfromAxisAngle([1, 0, 0], Math.PI / 2),
+    });
+    const w = await worldOf([cloth]);
+    run(w, 0.2);
+    w.applyOp({ op: 'cutSoft', id: cloth.id, origin: [0, 2, 6], a: [0, 6, -6], b: [0, -2, -6] });
+    w.readSoft();
+    run(w, 0.2);
+    w.applyOp({ op: 'cutSoft', id: cloth.id, origin: [0.5, 2, 6], a: [0.5, 6, -6], b: [0.5, -2, -6] });
+    run(w, 0.2);
+    const engineTotal = w.world.softBodies.getAll().reduce((a, b) => a + b.numParticles(), 0);
+    expect(w.world.softBodies.getAll().length).toBeGreaterThanOrEqual(3); // pieces torn off pieces
+    expect(w.readSoft().positions.length / 3).toBe(engineTotal); // nothing invisible
+    w.applyOp({ op: 'remove', ids: [cloth.id] });
+    expect(w.world.softBodies.getAll().length).toBe(0);
+    expect(w.readSoft().layout).toEqual([]); // the renderer is told the last soft body is gone
+  });
+
+  it('a fastening still releases after the cable it belongs to was cut', async () => {
+    const { weight, cable } = hangingCable();
+    const w = await worldOf([weight, cable]);
+    run(w, 0.5);
+    w.applyOp({ op: 'cutSoft', id: cable.id, origin: [3, 4.5, 0], a: [-3, 7, 0], b: [-3, 2, 0] }); // across the middle, from the side
+    run(w, 0.2);
+    w.applyOp({ op: 'releaseSoft', id: cable.id });
+    run(w, 1.5);
+    const attached = w.world.softBodies.getAll().reduce((n, b) => n + b.numAttachments(), 0);
+    expect(attached).toBe(0);
+    expect(priv(w).bodies.get(weight.id)!.rb.translation().y).toBeLessThan(1); // the weight dropped
+  });
+
+  it('rebuilding the fastened rigid body during the run re-fastens it instead of dropping the weight', async () => {
+    const { weight, cable } = hangingCable();
+    const w = await worldOf([weight, cable]);
+    run(w, 1);
+    w.applyOp({
+      op: 'updateBody',
+      body: { ...weight, material: { ...weight.material, density: weight.material.density * 1.1 } },
+    });
+    run(w, 1);
+    const s = priv(w);
+    expect(s.softOrder[0].attached.length).toBe(1);
+    expect(s.bodies.get(weight.id)!.rb.translation().y).toBeGreaterThan(2.3);
   });
 });
 

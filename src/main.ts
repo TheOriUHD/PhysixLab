@@ -11,6 +11,7 @@ import './styles/themes.css';
 import './styles/vz-a.css';
 import './styles/tm.css'; // -- TM --
 import './styles/cm.css'; // -- CM-A --
+import './styles/cm-touch.css'; // -- CM-A touch --
 import './styles/diag.css';
 import './styles/tour.css';
 import './styles/vzb.css'; // -- VZ-B --
@@ -24,6 +25,7 @@ import './styles/sf-inspector.css'; // -- SF --
 import './styles/data.css'; // -- DT --
 import './styles/capture.css'; // -- DT-2 --
 import './styles/embed.css'; // -- DT-22 --
+import './styles/qol.css';
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { initDataPlatform } from './app/data/platform'; // -- DT
@@ -36,7 +38,6 @@ import { buildStatusbar } from './ui/statusbar';
 import { createShell, wireShell } from './ui/shell';
 import { buildToolbox } from './ui/toolbox';
 import { buildTopbar } from './ui/topbar';
-import { importDocument } from './ui/sceneActions';
 import { mountToasts } from './ui/toasts';
 import { mountUiA } from './ui/uiA';
 import { showWelcome } from './ui/dialogs';
@@ -57,6 +58,8 @@ import { attachDiagnostics, installDiagnostics, preflight, showBootFailure } fro
 import { publishApi } from './api/install';
 import { installTour } from './ui/tour';
 import { initPwa } from './pwa'; // -- DT-40 --
+import { mountTouch } from './ui/touch'; // -- CM-A touch --
+import { installQol } from './ui/qol/install';
 
 installDiagnostics(); // -- UI-B: error boundary --
 import { readEmbedOptions } from './app/embed/options'; // -- DT-22 --
@@ -126,6 +129,7 @@ async function boot(): Promise<void> {
   mountZoneHud(app, shell.stage); // -- ZN: race board, score and event feed over the viewport
   wireShell(app, shell);
   const input = new InputController(app);
+  mountTouch(app, input); // -- CM-A touch: gestures + on-screen controls --
   app.viewport.controls.addEventListener('change', () => {
     /* camera moved */
   });
@@ -196,23 +200,14 @@ async function boot(): Promise<void> {
   app.updateToolHint();
   data.announceRecovery(restoredFrom); // -- DT-12
 
-  // Drag & drop a scene file anywhere to import it.
-  window.addEventListener('dragover', (e) => {
-    if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
-  });
-  window.addEventListener('drop', (e) => {
-    const f = e.dataTransfer?.files?.[0];
-    if (f && /\.json$/i.test(f.name)) {
-      e.preventDefault();
-      void importDocument(app, f);
-    }
-  });
+  // Drag & drop of files (scenes …) is installed by installQol(app) below, with its drop overlay.
 
   for (const f of extensionFailures) app.toast(`Extension ${f.file} failed to load: ${f.error.message}`, 'error');
   initPwa(app); // -- DT-40: service worker (production only), update banner, file / share intake --
   installTimeTravel(app); // -- TM: timeline, rewind, replays, ghosts --
   app.start();
   installTour(app); // -- UI-B: guided tours, context hints, tips --
+  installQol(app); // UI-B: presentation mode, recents, drop overlay, clipboard paste
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
   // -- DT-30: the versioned public API (src/api); falls through to the App for the internal members --
   (window as unknown as { physicslab: App }).physicslab = publishApi(app);
