@@ -59,7 +59,7 @@ registerTool({
   label: 'Paint select',
   title: 'Paint select — brush over objects to select them ([ ] resize)',
   icon: ICON_BRUSH,
-  shortcut: 'V',
+  shortcut: 'S',
   keywords: ['brush', 'select', 'paint', 'scrub'],
   mode: PAINT_MODE,
   activate: (app) => {
