@@ -1,16 +1,15 @@
 import type { App } from '../app/app';
 import { JOINT_TYPE_LABELS } from '../model/factory';
 import { PREFABS } from '../model/prefabs';
-import { SHAPE_LABELS } from '../model/shapes';
+import { listShapes } from '../model/shapeRegistry';
 import { TEMPLATES } from '../model/templates';
 import { SOFT_LABELS } from '../model/factory';
-import type { JointType, ShapeType, SoftType } from '../model/types';
+import type { JointType, SoftType } from '../model/types';
 import { button } from './controls';
 import { h, clear } from './dom';
 import { icon } from './icons';
 import { confirmReplace, importDocument } from './topbar';
 
-const SHAPES: ShapeType[] = ['box', 'sphere', 'cylinder', 'capsule', 'cone', 'wedge', 'prism', 'icosahedron'];
 const SOFTS: { type: SoftType; blurb: string }[] = [
   { type: 'jelly', blurb: 'Squishy volumetric block' },
   { type: 'balloon', blurb: 'Inflated elastic shell' },
@@ -63,22 +62,22 @@ function addTab(app: App): HTMLElement {
   const root = h('div');
   root.appendChild(h('div', { class: 'group-title' }, 'Shapes'));
   const tiles = h('div', { class: 'tiles' });
-  SHAPES.forEach((s, i) => {
+  listShapes().forEach((def, i) => {
     const t = h(
       'button',
       {
         class: 'tile',
         type: 'button',
         draggable: true,
-        title: `${SHAPE_LABELS[s]} — click to add, or drag into the scene (${i + 1})`,
+        title: `${def.label}${def.blurb ? ` — ${def.blurb}` : ''}\nClick to add, or drag into the scene${i < 9 ? ` (${i + 1})` : ''}`,
       },
-      icon(s),
-      SHAPE_LABELS[s],
+      icon(def.icon),
+      def.label,
     );
-    t.addEventListener('click', () => app.addShape(s));
+    t.addEventListener('click', () => app.addShape(def.id));
     t.addEventListener('dragstart', (e) => {
-      e.dataTransfer?.setData('text/x-physicslab-shape', s);
-      e.dataTransfer?.setData('text/plain', s);
+      e.dataTransfer?.setData('text/x-physicslab-shape', def.id);
+      e.dataTransfer?.setData('text/plain', def.id);
       if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
     });
     tiles.appendChild(t);

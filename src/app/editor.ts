@@ -6,7 +6,8 @@
 import { qconj, qmul, qrot, qrotInv, vadd, vlen, vnorm, vsub, type Quat, type Vec3 } from '../core/math';
 import { createBody, createJoint, createSoft, SOFT_LABELS } from '../model/factory';
 import { MATERIAL_PRESETS } from '../model/materials';
-import { defaultSize, normalizeSize, SHAPE_LABELS } from '../model/shapes';
+import { makeShapeSpec, shapeDef, shapeLabel } from '../model/shapeRegistry';
+import { normalizeSize } from '../model/shapes';
 import { cloneEntities, type SceneStore } from '../model/store';
 import type { BodyEntity, Entity, JointEntity, JointType, ShapeType, SoftEntity, SoftType } from '../model/types';
 import { isBody, isSoft } from '../model/types';
@@ -35,17 +36,17 @@ export class Editor {
 
   /** Add a primitive resting on the ground (or at an explicit position). */
   addShape(type: ShapeType, at?: Vec3, over: Partial<BodyEntity> = {}): BodyEntity {
-    const size = defaultSize(type);
+    const shape = makeShapeSpec(type);
     const material = SPAWN_MATERIALS[this.spawnCounter++ % SPAWN_MATERIALS.length];
-    const pos: Vec3 = at ?? [0, size[1] / 2, 0];
+    const pos: Vec3 = at ?? [0, shape.size[1] / 2, 0];
     const body = createBody({
-      name: this.store.uniqueName(SHAPE_LABELS[type]),
-      shape: { type, size, ...(type === 'prism' ? { sides: 6 } : {}) },
+      name: this.store.uniqueName(shapeLabel(type)),
+      shape,
       position: pos,
       material,
       ...over,
     });
-    this.store.add([body], `Add ${SHAPE_LABELS[type]}`);
+    this.store.add([body], `Add ${shapeLabel(type)}`);
     return body;
   }
 
@@ -115,11 +116,7 @@ export class Editor {
   defaultAxis(type: JointType, bodyA: string | null, bodyB: string | null): Vec3 {
     for (const id of [bodyA, bodyB]) {
       const b = id ? this.store.body(id) : undefined;
-      if (
-        b &&
-        (b.shape.type === 'cylinder' || b.shape.type === 'cone' || b.shape.type === 'capsule') &&
-        (type === 'hinge' || type === 'slider')
-      ) {
+      if (b && shapeDef(b.shape.type).axial && (type === 'hinge' || type === 'slider')) {
         const pose = this.sim.poseOf(b.id);
         return qrot(pose?.rotation ?? b.rotation, [0, 1, 0]);
       }
@@ -149,7 +146,8 @@ export class Editor {
       }
       if (!isBody(e)) continue;
       const patch: Partial<BodyEntity> = { position: u.position, rotation: u.rotation };
-      if (u.scale) patch.shape = { ...e.shape, size: normalizeSize(e.shape.type, u.scale, e.shape.size) };
+      if (u.scale)
+        patch.shape = { ...e.shape, size: normalizeSize(e.shape.type, u.scale, e.shape.size, e.shape.params) };
       patches.push([u.id, patch]);
     }
     this.store.updateMany(patches, 'Transform');

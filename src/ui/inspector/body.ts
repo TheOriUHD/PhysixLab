@@ -5,7 +5,8 @@
 import { DEG, qfromEuler, qtoEuler, RAD, vlen } from '../../core/math';
 import type { Vec3 } from '../../core/math';
 import { MATERIAL_PRESETS, PRESET_BY_ID } from '../../model/materials';
-import { normalizeSize, SHAPE_LABELS, shapeVolume } from '../../model/shapes';
+import { shapeDef } from '../../model/shapeRegistry';
+import { normalizeSize, shapeVolume } from '../../model/shapes';
 import type { BodyEntity } from '../../model/types';
 import {
   checkChips,
@@ -25,6 +26,7 @@ import {
 import type { Field } from '../controls';
 import { h } from '../dom';
 import type { InspectorContext } from './shared';
+import { shapeParamRows } from './shapeParams';
 
 export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLElement[] {
   const { app } = ctx;
@@ -399,17 +401,14 @@ export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLEle
 function sizeFields(ctx: InspectorContext, id: string): HTMLElement[] {
   const { app } = ctx;
   const get = () => app.store.body(id);
-  const type = get()!.shape.type;
+  const def = shapeDef(get()!.shape.type);
   const setSize = (axis: number, v: number) => {
     const b = get();
     if (!b) return;
     const next: Vec3 = [...b.shape.size] as Vec3;
     next[axis] = v;
-    if ((type === 'cylinder' || type === 'cone' || type === 'capsule') && axis === 2) next[0] = v;
-    if (type === 'sphere') {
-      next[0] = next[1] = next[2] = v;
-    }
-    app.store.update(id, { shape: { ...b.shape, size: normalizeSize(type, next, b.shape.size) } }, 'Resize');
+    const size = normalizeSize(b.shape.type, next, b.shape.size, b.shape.params);
+    app.store.update(id, { shape: { ...b.shape, size } }, 'Resize');
   };
   const mk = (label: string, axis: number, hint?: string) => {
     const f = numberField({
@@ -425,41 +424,11 @@ function sizeFields(ctx: InspectorContext, id: string): HTMLElement[] {
     });
     return row(label, f.el, hint);
   };
-  const rows: HTMLElement[] = [];
-  switch (type) {
-    case 'sphere':
-      rows.push(mk('Diameter', 0));
-      break;
-    case 'cylinder':
-    case 'cone':
-    case 'capsule':
-      rows.push(mk('Diameter', 0), mk('Height', 1));
-      break;
-    case 'prism': {
-      rows.push(mk('Width', 0), mk('Height', 1), mk('Depth', 2));
-      const sides = sliderField({
-        min: 3,
-        max: 32,
-        step: 1,
-        digits: 0,
-        ...ctx.grouped('Prism sides'),
-        onChange: (v) => {
-          const b = get();
-          if (b) app.store.update(id, { shape: { ...b.shape, sides: Math.round(v) } }, 'Prism sides');
-        },
-      });
-      ctx.updaters.push(() => {
-        const b = get();
-        if (b) sides.set(b.shape.sides ?? 6);
-      });
-      rows.push(row('Sides', sides.el));
-      break;
-    }
-    default:
-      rows.push(mk('Width', 0), mk('Height', 1), mk('Depth', 2));
-  }
-  rows.unshift(row('Shape', h('span', { class: 'readout' }, SHAPE_LABELS[type])));
-  return rows;
+  return [
+    row('Shape', h('span', { class: 'readout' }, def.label)),
+    ...def.sizeFields.map((f) => mk(f.label, f.axis)),
+    ...shapeParamRows(ctx, id, def),
+  ];
 }
 
 function thrustSection(

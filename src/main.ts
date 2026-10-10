@@ -2,6 +2,7 @@ import './styles/app.css';
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';
+import { newReport } from './model/errors';
 import { TEMPLATE_BY_ID } from './model/templates';
 import { buildDock } from './ui/telemetry';
 import { buildLeftPanel } from './ui/leftPanel';
@@ -78,11 +79,13 @@ async function boot(): Promise<void> {
   // ---- initial scene: shared link > autosave > welcome example ---------------------------------
   let loaded = false;
   let viewSet = false;
-  const fromHash = await Persistence.fromHash(location.hash);
+  const hashReport = newReport();
+  const fromHash = await Persistence.fromHash(location.hash, hashReport);
   if (fromHash) {
     app.store.load(fromHash);
     loaded = true;
     app.toast(`Opened shared scene “${fromHash.name}”`, 'success');
+    for (const w of hashReport.warnings.slice(0, 2)) app.toast(w, 'warn');
     history.replaceState(null, '', location.pathname + location.search);
   }
   if (!loaded) {

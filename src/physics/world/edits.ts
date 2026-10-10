@@ -56,8 +56,10 @@ export function updateBody(s: WorldState, next: BodyEntity): void {
     rec.rb.setLinvel(rv(next.velocity), true);
     rec.rb.setAngvel(rv(next.angularVelocity), true);
   }
-  rec.col.setFriction(next.material.friction);
-  rec.col.setRestitution(next.material.restitution);
+  for (const c of rec.cols) {
+    c.setFriction(next.material.friction);
+    c.setRestitution(next.material.restitution);
+  }
   rec.rb.wakeUp();
 }
 

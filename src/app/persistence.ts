@@ -3,6 +3,7 @@
  * import / export and shareable links (the scene is deflated into the URL hash, so
  * sharing needs no server).
  */
+import type { LoadReport } from '../model/errors';
 import { parseDocument, serializeDocument } from '../model/serialize';
 import type { SceneStore } from '../model/store';
 import type { SceneDocument } from '../model/types';
@@ -129,8 +130,8 @@ export class Persistence {
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
 
-  async importFile(file: File): Promise<SceneDocument> {
-    return parseDocument(await file.text());
+  async importFile(file: File, report?: LoadReport): Promise<SceneDocument> {
+    return parseDocument(await file.text(), report);
   }
 
   // ---- share links ---------------------------------------------------------------------------
@@ -147,7 +148,7 @@ export class Persistence {
     return url.toString();
   }
 
-  static async fromHash(hash: string): Promise<SceneDocument | null> {
+  static async fromHash(hash: string, report?: LoadReport): Promise<SceneDocument | null> {
     const m = /scene=([A-Za-z0-9_-]+)/.exec(hash);
     if (!m) return null;
     try {
@@ -155,7 +156,7 @@ export class Persistence {
       const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
       const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
       const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-      return parseDocument(await new Response(stream).text());
+      return parseDocument(await new Response(stream).text(), report);
     } catch {
       return null;
     }

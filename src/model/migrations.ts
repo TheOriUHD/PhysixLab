@@ -37,7 +37,19 @@ export interface Migration {
 }
 
 function v1ToV2(doc: Raw): Raw {
-  return { ...doc, version: 2, assets: obj(doc.assets) };
+  const entities = Array.isArray(doc.entities)
+    ? (doc.entities as unknown[]).map((e) => {
+        const r = obj(e);
+        const shape = obj(r.shape);
+        if (r.kind !== 'body' || !('sides' in shape)) return e;
+        // `sides` (prism only in v1) becomes a generic shape parameter.
+        const { sides, ...rest } = shape;
+        const params = { ...obj(shape.params) };
+        if (typeof sides === 'number' && !('sides' in params)) params.sides = sides;
+        return { ...r, shape: { ...rest, params } };
+      })
+    : doc.entities;
+  return { ...doc, version: 2, entities, assets: obj(doc.assets) };
 }
 
 /** Ordered, contiguous chain from the oldest supported version to `SCENE_VERSION`. */

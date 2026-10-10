@@ -4,22 +4,11 @@
  * (speed / energy / force / sleep / type) for reading the simulation at a glance.
  */
 import type { BufferGeometry, Group } from 'three';
-import {
-  BoxGeometry,
-  CapsuleGeometry,
-  Color,
-  ConeGeometry,
-  CylinderGeometry,
-  Mesh,
-  MeshStandardMaterial,
-  SphereGeometry,
-  SRGBColorSpace,
-  Vector3,
-} from 'three';
-import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
-import { hullPoints } from '../model/shapes';
+import { Color, Mesh, MeshStandardMaterial, SRGBColorSpace, Vector3 } from 'three';
+import { shapeGeometry, shapeGeometryKey, shapeVisualScale } from '../model/shapeRegistry';
 import type { BodyEntity, ShapeSpec } from '../model/types';
 import { B, BODY_STRIDE } from '../physics/protocol';
+import { GEOMETRY_KIT } from './geometryKit';
 
 export type ColorMode = 'material' | 'type' | 'speed' | 'energy' | 'force' | 'sleep';
 
@@ -41,15 +30,7 @@ class GeometryCache {
   private map = new Map<string, CachedGeo>();
 
   key(shape: ShapeSpec): string {
-    const [x, y] = shape.size;
-    switch (shape.type) {
-      case 'capsule':
-        return `capsule:${Math.round(((y - x) / x) * 1000)}`;
-      case 'prism':
-        return `prism:${Math.round(shape.sides ?? 6)}`;
-      default:
-        return shape.type;
-    }
+    return shapeGeometryKey(shape);
   }
 
   acquire(shape: ShapeSpec): { key: string; geo: BufferGeometry } {
@@ -73,27 +54,7 @@ class GeometryCache {
   }
 
   private build(shape: ShapeSpec): BufferGeometry {
-    switch (shape.type) {
-      case 'box':
-        return new BoxGeometry(1, 1, 1);
-      case 'sphere':
-        return new SphereGeometry(0.5, 40, 28);
-      case 'cylinder':
-        return new CylinderGeometry(0.5, 0.5, 1, 48, 1);
-      case 'cone':
-        return new ConeGeometry(0.5, 1, 48, 1);
-      case 'capsule': {
-        const [x, y] = shape.size;
-        return new CapsuleGeometry(0.5, Math.max(0, (y - x) / x), 10, 32);
-      }
-      default: {
-        const unit: ShapeSpec = { type: shape.type, size: [1, 1, 1], sides: shape.sides };
-        const pts = (hullPoints(unit) ?? []).map((p) => new Vector3(p[0], p[1], p[2]));
-        const g = new ConvexGeometry(pts);
-        g.computeVertexNormals();
-        return g;
-      }
-    }
+    return shapeGeometry(GEOMETRY_KIT, shape);
   }
 }
 
@@ -122,9 +83,8 @@ export class BodyView {
   }
 
   applyShape(def: BodyEntity): void {
-    const s = def.shape.size;
-    if (def.shape.type === 'capsule') this.mesh.scale.set(s[0], s[0], s[0]);
-    else this.mesh.scale.set(s[0], s[1], s[2]);
+    const s = shapeVisualScale(def.shape);
+    this.mesh.scale.set(s[0], s[1], s[2]);
   }
 
   applyMaterial(def: BodyEntity): void {

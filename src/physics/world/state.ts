@@ -16,7 +16,10 @@ export interface BodyRec {
   id: string;
   def: BodyEntity;
   rb: RAPIER.RigidBody;
+  /** The first collider (every body has at least one). */
   col: RAPIER.Collider;
+  /** All colliders of the body: several for compound shapes. */
+  cols: RAPIER.Collider[];
   mass: number;
   ephemeral: boolean;
   disabled: boolean;

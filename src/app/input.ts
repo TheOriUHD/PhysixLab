@@ -4,6 +4,7 @@
  */
 import { Plane, Vector3, type Camera } from 'three';
 import { vadd, type Vec3 } from '../core/math';
+import { listShapes } from '../model/shapeRegistry';
 import type { App } from './app';
 
 type Gesture =
@@ -564,8 +565,8 @@ export class InputController {
       case '6':
       case '7':
       case '8': {
-        const types = ['box', 'sphere', 'cylinder', 'capsule', 'cone', 'wedge', 'prism', 'icosahedron'] as const;
-        app.addShape(types[Number(k) - 1]);
+        const def = listShapes()[Number(k) - 1];
+        if (def) app.addShape(def.id);
         break;
       }
       case 'arrowup':

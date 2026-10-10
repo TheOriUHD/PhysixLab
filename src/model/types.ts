@@ -9,10 +9,17 @@ import type { Quat, Vec3 } from '../core/math';
 
 export type { Quat, Vec3 };
 
-export type ShapeType = 'box' | 'sphere' | 'cylinder' | 'capsule' | 'cone' | 'wedge' | 'prism' | 'icosahedron';
+/** Id of a shape registered in `shapeRegistry.ts` ('box', 'sphere', …). Unknown ids are repaired on load. */
+export type ShapeType = string;
+
+/** Value of one shape parameter: ints / floats are numbers, flags are booleans, enums are strings. */
+export type ParamValue = number | boolean | string;
+export type ShapeParams = Record<string, ParamValue>;
 
 /**
- * Shapes are parameterised by a bounding size [x, y, z] in metres (full extents):
+ * Shapes are parameterised by a bounding size [x, y, z] in metres (full extents) plus the optional,
+ * shape-specific `params` declared by the shape's registry entry (e.g. the prism's `sides`). What the size
+ * axes mean is up to the shape — for the built-in ones:
  *  - box / wedge: width, height, depth
  *  - sphere: diameter = x (y, z follow)
  *  - cylinder / cone: diameter = x (= z), height = y
@@ -23,8 +30,8 @@ export type ShapeType = 'box' | 'sphere' | 'cylinder' | 'capsule' | 'cone' | 'we
 export interface ShapeSpec {
   type: ShapeType;
   size: Vec3;
-  /** Prism only. */
-  sides?: number;
+  /** Parameters from the shape's schema; shapes without a schema have none. */
+  params?: ShapeParams;
 }
 
 export type BodyType = 'dynamic' | 'static' | 'kinematic';

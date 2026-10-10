@@ -1,38 +1,25 @@
-/** Collider construction: shape → Rapier collider description with the body's material applied. */
+/**
+ * Collider construction: the body's shape (via the shape registry) → Rapier collider descriptions with the
+ * body's material applied. A primitive yields one collider, a compound shape several.
+ */
 import RAPIER from '@dimforge/rapier3d-compat';
-import { hullPoints, primitiveParams } from '../../model/shapes';
+import { shapeColliders } from '../../model/shapeRegistry';
 import type { BodyEntity } from '../../model/types';
+import { rq } from './util';
 
-export function makeCollider(def: BodyEntity): RAPIER.ColliderDesc {
-  const { radius, halfHeight, half } = primitiveParams(def.shape);
-  let desc: RAPIER.ColliderDesc | null = null;
-  switch (def.shape.type) {
-    case 'box':
-      desc = RAPIER.ColliderDesc.cuboid(half[0], half[1], half[2]);
-      break;
-    case 'sphere':
-      desc = RAPIER.ColliderDesc.ball(radius);
-      break;
-    case 'cylinder':
-      desc = RAPIER.ColliderDesc.cylinder(halfHeight, radius);
-      break;
-    case 'capsule':
-      desc = RAPIER.ColliderDesc.capsule(halfHeight, radius);
-      break;
-    case 'cone':
-      desc = RAPIER.ColliderDesc.cone(halfHeight, radius);
-      break;
-    default: {
-      const pts = hullPoints(def.shape);
-      if (pts) desc = RAPIER.ColliderDesc.convexHull(new Float32Array(pts.flat()));
-    }
-  }
-  if (!desc) desc = RAPIER.ColliderDesc.cuboid(half[0], half[1], half[2]);
-  return desc
-    .setDensity(def.bodyType === 'dynamic' ? def.material.density : 0)
-    .setFriction(def.material.friction)
-    .setRestitution(def.material.restitution)
-    .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Average)
-    .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max)
-    .setSensor(def.ghost);
+export function makeColliders(def: BodyEntity): RAPIER.ColliderDesc[] {
+  return shapeColliders(RAPIER, def.shape).map((c) => {
+    const desc = c.desc
+      .setDensity(def.bodyType === 'dynamic' ? def.material.density : 0)
+      .setFriction(def.material.friction)
+      .setRestitution(def.material.restitution)
+      .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Average)
+      .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max)
+      .setSensor(def.ghost);
+    const [x, y, z] = c.localPos;
+    if (x !== 0 || y !== 0 || z !== 0) desc.setTranslation(x, y, z);
+    const q = c.localRot;
+    if (q[0] !== 0 || q[1] !== 0 || q[2] !== 0 || q[3] !== 1) desc.setRotation(rq(q));
+    return desc;
+  });
 }

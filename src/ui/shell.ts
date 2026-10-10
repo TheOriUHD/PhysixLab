@@ -1,6 +1,6 @@
 import type { App, Shell } from '../app/app';
-import { defaultSize, SHAPE_LABELS } from '../model/shapes';
-import type { ShapeType } from '../model/types';
+import { hasShape } from '../model/shapeRegistry';
+import { defaultSize } from '../model/shapes';
 import { h } from './dom';
 
 export interface ShellDom extends Shell {
@@ -97,8 +97,7 @@ export function wireShell(app: App, shell: ShellDom): void {
     const type = e.dataTransfer?.getData('text/x-physicslab-shape');
     if (!type) return;
     e.preventDefault();
-    if (!(type in SHAPE_LABELS)) return;
-    const t = type as ShapeType;
-    app.addShape(t, app.placementAt(e, t, defaultSize(t)));
+    if (!hasShape(type)) return;
+    app.addShape(type, app.placementAt(e, type, defaultSize(type)));
   });
 }

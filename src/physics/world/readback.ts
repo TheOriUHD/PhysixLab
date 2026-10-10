@@ -107,29 +107,30 @@ export function readContacts(s: WorldState, max = 800): Float32Array {
   const dt = engineDt(s);
   for (const r of s.order) {
     if (r.def.bodyType !== 'dynamic' || r.disabled || r.rb.isSleeping()) continue;
-    const c = r.col;
-    s.world.contactPairsWith(c, (c2) => {
-      const other = c2.parent();
-      const otherDyn = other ? other.isDynamic() : false;
-      if (otherDyn && c2.handle < c.handle) return; // report each dynamic pair once
-      s.world.contactPair(c, c2, (m, flipped) => {
-        const ns = m.numSolverContacts();
-        if (ns === 0) return;
-        const nc = m.numContacts();
-        let imp = 0;
-        for (let i = 0; i < nc; i++) imp += m.contactImpulse(i);
-        const force = imp / dt;
-        const nrm = m.normal();
-        const sgn = flipped ? -1 : 1;
-        for (let i = 0; i < ns; i++) {
-          total++;
-          if (out.length / CONTACT_STRIDE >= max) continue;
-          const p = m.solverContactPoint(i);
-          if (!p) continue;
-          out.push(p.x, p.y, p.z, nrm.x * sgn, nrm.y * sgn, nrm.z * sgn, force / ns);
-        }
+    for (const c of r.cols) {
+      s.world.contactPairsWith(c, (c2) => {
+        const other = c2.parent();
+        const otherDyn = other ? other.isDynamic() : false;
+        if (otherDyn && c2.handle < c.handle) return; // report each dynamic pair once
+        s.world.contactPair(c, c2, (m, flipped) => {
+          const ns = m.numSolverContacts();
+          if (ns === 0) return;
+          const nc = m.numContacts();
+          let imp = 0;
+          for (let i = 0; i < nc; i++) imp += m.contactImpulse(i);
+          const force = imp / dt;
+          const nrm = m.normal();
+          const sgn = flipped ? -1 : 1;
+          for (let i = 0; i < ns; i++) {
+            total++;
+            if (out.length / CONTACT_STRIDE >= max) continue;
+            const p = m.solverContactPoint(i);
+            if (!p) continue;
+            out.push(p.x, p.y, p.z, nrm.x * sgn, nrm.y * sgn, nrm.z * sgn, force / ns);
+          }
+        });
       });
-    });
+    }
   }
   s.lastContacts = total;
   return new Float32Array(out);

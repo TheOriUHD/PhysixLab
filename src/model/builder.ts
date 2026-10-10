@@ -27,7 +27,7 @@ export class Builder {
     const { material, ...rest } = o;
     const b = createBody({
       name,
-      shape: { type, size, ...(type === 'prism' ? { sides: 6 } : {}) },
+      shape: { type, size },
       position,
       material: material ?? 'plastic',
       ...rest,

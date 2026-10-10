@@ -1,7 +1,7 @@
 import { qident, type Quat, type Vec3 } from '../core/math';
 import { materialFromPreset } from './materials';
 import { SCENE_FORMAT, SCENE_VERSION } from './migrations';
-import { defaultSize, SHAPE_LABELS } from './shapes';
+import { makeShapeSpec, shapeLabel } from './shapeRegistry';
 import type {
   BodyEntity,
   BoundsSettings,
@@ -79,11 +79,7 @@ export interface BodyInit {
 
 export function createBody(init: BodyInit): BodyEntity {
   const type = init.shape?.type ?? 'box';
-  const shape: ShapeSpec = {
-    type,
-    size: init.shape?.size ? ([...init.shape.size] as Vec3) : defaultSize(type),
-    ...(type === 'prism' ? { sides: init.shape?.sides ?? 6 } : {}),
-  };
+  const shape: ShapeSpec = makeShapeSpec(type, init.shape?.size, init.shape?.params);
   const matInit = init.material;
   const material =
     typeof matInit === 'string'
@@ -93,7 +89,7 @@ export function createBody(init: BodyInit): BodyEntity {
   return {
     kind: 'body',
     id: uid('b'),
-    name: name ?? SHAPE_LABELS[type],
+    name: name ?? shapeLabel(type),
     shape,
     position: position ? ([...position] as Vec3) : [0, 0, 0],
     rotation: rotation ? ([...rotation] as Quat) : qident(),

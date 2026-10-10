@@ -2,7 +2,7 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { Vec3 } from '../../core/math';
 import type { BodyEntity } from '../../model/types';
-import { makeCollider } from './colliders';
+import { makeColliders } from './colliders';
 import type { BodyRec, WorldState } from './state';
 import { rq, rv } from './util';
 
@@ -30,12 +30,13 @@ export function addBody(s: WorldState, def: BodyEntity, ephemeral: boolean): Bod
     desc = desc.setLinvel(def.velocity[0], def.velocity[1], def.velocity[2]).setAngvel(rv(def.angularVelocity));
   }
   const rb = s.world.createRigidBody(desc);
-  const col = s.world.createCollider(makeCollider(def), rb);
+  const cols = makeColliders(def).map((d) => s.world.createCollider(d, rb));
   const rec: BodyRec = {
     id: def.id,
     def,
     rb,
-    col,
+    col: cols[0],
+    cols,
     mass: isDyn ? rb.mass() : 0,
     ephemeral,
     disabled: false,

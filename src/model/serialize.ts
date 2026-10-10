@@ -26,7 +26,7 @@ import {
   str,
   vec3,
 } from './sanitize/primitives';
-import { normalizeSize } from './shapes';
+import { sanitizeShapeSpec } from './shapeRegistry';
 import type {
   BodyEntity,
   BoundsSettings,
@@ -36,7 +36,6 @@ import type {
   JointType,
   SceneDocument,
   SceneSettings,
-  ShapeType,
   SkyPreset,
   SoftEntity,
   SoftPin,
@@ -44,15 +43,15 @@ import type {
   UnitsSettings,
 } from './types';
 
-const SHAPES: ShapeType[] = ['box', 'sphere', 'cylinder', 'capsule', 'cone', 'wedge', 'prism', 'icosahedron'];
 const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable'];
 const PINS: SoftPin[] = ['none', 'edge', 'corners', 'corners4', 'one-end', 'ends'];
 const JOINTS: JointType[] = ['fixed', 'hinge', 'slider', 'ball', 'spring', 'rope'];
 const SKIES: SkyPreset[] = ['studio', 'day', 'sunset', 'night', 'overcast'];
 
-function sanitizeBody(raw: any): BodyEntity {
-  const type: ShapeType = SHAPES.includes(raw?.shape?.type) ? raw.shape.type : 'box';
-  const base = createBody({ shape: { type } });
+function sanitizeBody(raw: any, report?: LoadReport): BodyEntity {
+  const name = nameStr(raw?.name, '');
+  const shape = sanitizeShapeSpec(raw?.shape, report, name ? `"${name}"` : 'an object');
+  const base = createBody({ shape });
   const mat = raw?.material ?? {};
   const bodyType = ['dynamic', 'static', 'kinematic'].includes(raw?.bodyType) ? raw.bodyType : 'dynamic';
   const thrust =
@@ -68,11 +67,7 @@ function sanitizeBody(raw: any): BodyEntity {
     ...base,
     id: idStr(raw?.id, base.id),
     name: nameStr(raw?.name, base.name),
-    shape: {
-      type,
-      size: normalizeSize(type, vec3(raw?.shape?.size, base.shape.size)),
-      ...(type === 'prism' ? { sides: clamp(Math.round(num(raw?.shape?.sides, 6)), 3, 32) } : {}),
-    },
+    shape,
     position: position3(raw?.position, [0, 0, 0]),
     rotation: quat(raw?.rotation),
     bodyType,
@@ -266,7 +261,7 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
       r.kind === 'joint'
         ? sanitizeJoint(r)
         : r.kind === 'body'
-          ? sanitizeBody(r)
+          ? sanitizeBody(r, report)
           : r.kind === 'soft'
             ? sanitizeSoft(r)
             : null;
@@ -280,7 +275,6 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
     (e) =>
       e.kind !== 'joint' || ((e.bodyA === null || bodyIds.has(e.bodyA)) && (e.bodyB === null || bodyIds.has(e.bodyB))),
   );
-  void report;
   return {
     format: SCENE_FORMAT,
     version: SCENE_VERSION,
