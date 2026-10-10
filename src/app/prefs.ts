@@ -1,4 +1,5 @@
 import { Emitter } from '../core/events';
+import { DEFAULT_DAMAGE, sanitizeDamage, type DamageSettings } from '../render/damage';
 import { sanitizeHighlight, DEFAULT_HIGHLIGHT, type HighlightOptions } from '../render/highlight';
 import { cloneGraphics, DEFAULT_GRAPHICS, sanitizeGraphics, type GraphicsOptions } from '../render/graphics';
 import type { ColorMode } from '../render/bodyViews';
@@ -77,6 +78,8 @@ export interface Prefs {
   graphics: GraphicsOptions;
   // -- VZ-B: selection / hover highlight options (VZ-40) --
   highlight: HighlightOptions;
+  // -- VZ-B: impact damage visuals (VZ-41) --
+  damage: DamageSettings;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -129,6 +132,7 @@ export const DEFAULT_PREFS: Prefs = {
   // -- VZ-B: per-effect graphics options (VZ-20..22) --
   graphics: cloneGraphics(DEFAULT_GRAPHICS),
   highlight: { ...DEFAULT_HIGHLIGHT },
+  damage: { ...DEFAULT_DAMAGE },
 };
 
 const KEY = 'physicslab:prefs:v1';
@@ -146,6 +150,7 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
       audio: sanitizeAudioSettings(undefined), // ── FX ──
       graphics: cloneGraphics(DEFAULT_GRAPHICS), // -- VZ-B --
       highlight: { ...DEFAULT_HIGHLIGHT },
+      damage: { ...DEFAULT_DAMAGE },
     };
     try {
       const raw = localStorage.getItem(KEY);
@@ -158,6 +163,7 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
         this.value.input = sanitizeInput(saved.input); // -- CM-A --
         this.value.graphics = sanitizeGraphics(saved.graphics); // -- VZ-B --
         this.value.highlight = sanitizeHighlight(saved.highlight);
+        this.value.damage = sanitizeDamage(saved.damage);
       }
     } catch {
       /* storage unavailable */

@@ -3,3 +3,5 @@
 .gfx-reset { white-space: nowrap; }
 .section .section .section-head .badge.on { color: var(--accent); }
 .btn.active { border-color: var(--accent); color: var(--accent); }
+.damage-bar { height: 6px; border-radius: 3px; background: var(--bg); margin-top: 4px; overflow: hidden; }
+.damage-fill { height: 100%; width: 0; background: var(--warn, #ffb03a); transition: width 0.2s; }

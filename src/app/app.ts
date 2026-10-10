@@ -64,6 +64,7 @@ import { ViewSync } from './viewSync';
 import type { Fx } from '../render/fx';
 import { ContactFeed } from './contactFeed';
 import { FxDirector } from './fx/fxDirector';
+import { DamageDirector } from './damageDirector'; // -- VZ-B
 // ── FX: sound ──
 import type { AudioEngine } from '../audio/engine';
 import { AudioDirector } from './audio/audioDirector';
@@ -93,6 +94,7 @@ export class App extends Emitter<AppEvents> {
   // ── FX: the contact-event feed, the effects director and its particle system (`app.fx.emit(type, position)`) ──
   readonly contacts: ContactFeed;
   readonly fxDirector: FxDirector;
+  readonly damage: DamageDirector; // -- VZ-B: impact damage visuals (VZ-41)
   readonly fx: Fx;
   // ── FX: the sound engine (`app.audio.playEvent('explosion', [x, y, z])`) and the director that feeds it ──
   readonly audioDirector: AudioDirector;
@@ -165,6 +167,7 @@ export class App extends Emitter<AppEvents> {
     this.frameLoop = new FrameLoop(this);
     // ── FX: after the viewport, the store, the preferences and the simulation exist ──
     this.fxDirector = new FxDirector(this);
+    this.damage = new DamageDirector(this); // -- VZ-B
     this.fx = this.fxDirector.fx;
     this.audioDirector = new AudioDirector(this); // ── FX: after the store, the preferences, the simulation and the camera exist ──
     this.audio = this.audioDirector.engine;

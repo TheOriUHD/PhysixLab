@@ -292,6 +292,27 @@ export function buildGraphicsSection(app: App): GraphicsSection {
     open: false,
   });
 
+  const dmgOn = toggleField({
+    label: 'Impact damage',
+    title:
+      'Hard hits crack, scorch and dent surfaces (metal dents, glass cracks, wood splinters); resets with the simulation',
+    onChange: (v) => app.prefs.set({ damage: { ...app.prefs.value.damage, enabled: v } }),
+  });
+  upd.push(() => dmgOn.set(app.prefs.value.damage.enabled));
+  const dmgSens = sliderField({
+    min: 0.25,
+    max: 4,
+    step: 0.05,
+    digits: 2,
+    log: true,
+    onChange: (v) => app.prefs.set({ damage: { ...app.prefs.value.damage, sensitivity: v } }),
+  });
+  upd.push(() => dmgSens.set(app.prefs.value.damage.sensitivity));
+  const damage = section('Damage visuals', [dmgOn.el, row('Sensitivity', dmgSens.el)], {
+    id: 'gfx-damage',
+    open: false,
+  });
+
   const el = section(
     'Graphics',
     [
@@ -309,6 +330,7 @@ export function buildGraphicsSection(app: App): GraphicsSection {
       instancing.el,
       ...effectRows,
       highlight,
+      damage,
       h('div', { class: 'row' }, reset),
     ],
     { id: 'world-graphics' },

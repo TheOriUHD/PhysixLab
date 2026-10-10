@@ -182,3 +182,40 @@ describe('highlight (VZ-40)', () => {
     for (const p of Object.values(PALETTES)) expect(new Set([p.selected, p.multi, p.hover, p.linked]).size).toBe(4);
   });
 });
+
+import { DamageModel, damageKindOf, impactDamage, sanitizeDamage } from '../src/render/damage';
+
+describe('damage model (VZ-41)', () => {
+  it('ignores soft touches and grows with speed, glass first and metal last', () => {
+    for (const k of ['glass', 'wood', 'generic', 'metal'] as const) {
+      expect(impactDamage(k, 0.5)).toBe(0);
+      expect(impactDamage(k, 8)).toBeGreaterThanOrEqual(impactDamage(k, 4));
+    }
+    expect(impactDamage('glass', 5)).toBeGreaterThan(impactDamage('wood', 5));
+    expect(impactDamage('wood', 5)).toBeGreaterThan(impactDamage('generic', 5));
+    expect(impactDamage('generic', 5)).toBeGreaterThan(impactDamage('metal', 5));
+    expect(impactDamage('metal', 100)).toBeCloseTo(0.6, 9);
+  });
+  it('accumulates up to 1, honours sensitivity / enabled, and resets', () => {
+    const m = new DamageModel();
+    m.hit('a', 'generic', 12);
+    expect(m.get('a')).toBeCloseTo(0.6, 9);
+    m.hit('a', 'generic', 12);
+    expect(m.get('a')).toBe(1);
+    m.settings = { enabled: true, sensitivity: 0.5 };
+    m.hit('b', 'generic', 12);
+    expect(m.get('b')).toBeCloseTo(0.3, 9);
+    m.settings = { enabled: false, sensitivity: 1 };
+    m.hit('c', 'generic', 12);
+    expect(m.get('c')).toBe(0);
+    m.reset();
+    expect(m.size).toBe(0);
+  });
+  it('picks the look from the material and repairs stored settings', () => {
+    expect(damageKindOf({ preset: 'glass', metalness: 0, opacity: 0.5 })).toBe('glass');
+    expect(damageKindOf({ preset: 'oak', metalness: 0, opacity: 1 })).toBe('wood');
+    expect(damageKindOf({ preset: 'steel', metalness: 0.9, opacity: 1 })).toBe('metal');
+    expect(damageKindOf({ preset: 'rubber', metalness: 0, opacity: 1 })).toBe('generic');
+    expect(sanitizeDamage({ enabled: 'x', sensitivity: 99 })).toEqual({ enabled: true, sensitivity: 4 });
+  });
+});

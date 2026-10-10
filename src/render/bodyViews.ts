@@ -11,6 +11,8 @@ import { shapeDef, shapeGeometry, shapeGeometryKey, shapeVisualScale } from '../
 import type { BodyEntity, ColliderPart, MaterialSpec, ShapeSpec } from '../model/types';
 import { B, BODY_STRIDE } from '../physics/protocol';
 import { GEOMETRY_KIT } from './geometryKit';
+import { damageKindOf } from './damage';
+import { patchDamage, type DamageHandle } from './damageShader';
 import { getSkin } from './skins/registry';
 import type { SkinBodyPose, SkinFrame, SkinInstance } from './skins/types';
 import './skins';
@@ -102,10 +104,21 @@ export class BodyView implements PoolMember, SkinBodyPose {
   poolVisible = true;
   /** World velocity of the body (m/s), read by the motion-blur velocity pass through `mesh.userData.vel`. */
   readonly vel = new Vector3();
+  /** Accumulated impact damage 0..1 (VZ-41). */
+  damage = 0;
   /** Visual skin (VZ-42) drawn in place of the shape, or null. */
   skin: SkinInstance | null = null;
   get id(): string {
     return this.def.id;
+  }
+  /** Drive the crack / scorch shader of every piece (instanced bodies read `damage` through the pool). */
+  setDamage(d: number): void {
+    if (d === this.damage) return;
+    this.damage = d;
+    for (const p of this.pieces) {
+      const h = (p.material.userData as { damage?: DamageHandle }).damage;
+      if (h) h.uniforms.uDamage.value = d;
+    }
   }
   get quaternion() {
     return this.mesh.quaternion;
@@ -175,6 +188,7 @@ export class BodyView implements PoolMember, SkinBodyPose {
     const s = shapeVisualScale(shape);
     mesh.scale.set(s[0], s[1], s[2]);
     mesh.userData.vel = this.vel;
+    patchDamage(material, damageKindOf(this.def.material), false);
     const piece: Piece = { mesh, material, geoKey: key, part, baseColor: this.def.material.color };
     this.pieces.push(piece);
     return piece;
@@ -214,6 +228,7 @@ export class BodyView implements PoolMember, SkinBodyPose {
       piece.material.transparent = piece.material.opacity < 0.999;
       piece.material.depthWrite = true;
       piece.material.envMapIntensity = 1;
+      patchDamage(piece.material, damageKindOf(m), false);
       piece.material.needsUpdate = true;
     }
     this.mesh.visible = !def.hidden;
@@ -350,6 +365,8 @@ export class BodyViews {
       const leader = set.values().next().value as BodyView;
       const { key: geoKey, geo } = this.cache.acquire(leader.def.shape);
       const mat = leader.pieces[0].material.clone();
+      delete (mat.userData as { damage?: DamageHandle }).damage; // the clone's shader patch is its own
+      patchDamage(mat, damageKindOf(leader.def.material), true);
       mat.color.setRGB(1, 1, 1);
       mat.emissive.setRGB(0, 0, 0);
       pool = new InstancePool(key, geo, mat, this.group);
