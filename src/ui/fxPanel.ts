@@ -268,7 +268,7 @@ export function buildFxPanel(app: App, ctx: PanelContext): PanelView {
   };
   fxPanelSections.onChange(render);
   app.prefs.on('change', (keys) => {
-    if (keys.includes('fx') || keys.includes('quality')) update();
+    if (keys.includes('fx') || keys.includes('quality') || keys.includes('audio')) update(); // ── FX: sound too ──
   });
   let acc = 0;
   app.on('frame', ({ dt }) => {

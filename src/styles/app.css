@@ -420,3 +420,9 @@ input[type="text"].plain:focus { border-color: var(--accent-line); }
 .tabs.compact .tab:not(.on) .tab-label { display: none; }
 .tabs.compact .tab { padding-left: 9px; padding-right: 9px; }
 .section.fx-disabled .fx-dim-inner { opacity: 0.4; pointer-events: none; filter: saturate(0.4); }
+
+/* ── FX: sound — the speaker button and the Sound sections ─────────────────────────────────────────────────── */
+.icon-btn.sound-btn.silent { color: var(--warn); }
+.audio-note { margin: 2px 0 6px; }
+.audio-note[hidden] { display: none; }
+.audio-meter { height: 6px; }

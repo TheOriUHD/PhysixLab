@@ -52,6 +52,9 @@ import { ViewSync } from './viewSync';
 import type { Fx } from '../render/fx';
 import { ContactFeed } from './contactFeed';
 import { FxDirector } from './fx/fxDirector';
+// ── FX: sound ──
+import type { AudioEngine } from '../audio/engine';
+import { AudioDirector } from './audio/audioDirector';
 
 export type { Shell, ToastKind } from './appTypes';
 
@@ -77,6 +80,9 @@ export class App extends Emitter<AppEvents> {
   readonly contacts: ContactFeed;
   readonly fxDirector: FxDirector;
   readonly fx: Fx;
+  // ── FX: the sound engine (`app.audio.playEvent('explosion', [x, y, z])`) and the director that feeds it ──
+  readonly audioDirector: AudioDirector;
+  readonly audio: AudioEngine;
   readonly labels = new Labels();
   hoverId: string | null = null;
 
@@ -121,6 +127,8 @@ export class App extends Emitter<AppEvents> {
     // ── FX: after the viewport, the store, the preferences and the simulation exist ──
     this.fxDirector = new FxDirector(this);
     this.fx = this.fxDirector.fx;
+    this.audioDirector = new AudioDirector(this); // ── FX: after the store, the preferences, the simulation and the camera exist ──
+    this.audio = this.audioDirector.engine;
 
     shell.stage.appendChild(this.labels.layer);
     this.measureTool = new MeasureTool(this);

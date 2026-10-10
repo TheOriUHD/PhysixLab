@@ -7,6 +7,7 @@ import { h, svg } from './dom';
 import { icon, LOGO } from './icons';
 import { openMenu } from './menu';
 import { createImportInput } from './sceneActions';
+import { buildSoundButton } from './soundButton'; // ── FX ──
 
 const TIME_SCALES = [0.1, 0.25, 0.5, 1, 2, 4];
 
@@ -172,6 +173,7 @@ export function buildTopbar(app: App): HTMLElement {
     search,
     undo,
     redo,
+    buildSoundButton(app), // ── FX: mute / unmute ──
     h('span', { style: { width: '8px' } }),
     pLeft,
     pBottom,

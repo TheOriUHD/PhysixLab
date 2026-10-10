@@ -173,6 +173,18 @@ export function planImpact(i: ImpactInput): ImpactVoice[] {
   return out;
 }
 
+/** The spec of a typical hit on a material (a 0.5 m object, medium timbre, a hard floor): what the engine warms its cache with. */
+export function typicalImpact(preset: string): { spec: ImpactSpec; key: string } {
+  const spec: ImpactSpec = {
+    preset,
+    pitch: pitchBucket(soundProfileFor(preset).pitch),
+    level: 2,
+    damp: preset === 'ground' ? 0 : 1,
+    shatter: false,
+  };
+  return { spec, key: impactKey(spec) };
+}
+
 // -- the recipe of a buffer -----------------------------------------------------------------------------------------------
 
 const MAX_FREQ = 17000;

@@ -5,6 +5,8 @@ import type { Quality } from '../render/viewport';
 import type { JointType } from '../model/types';
 // ── FX: visual-effects settings live in the preferences ──
 import { DEFAULT_FX_SETTINGS, sanitizeFxSettings, type FxSettings } from '../render/fx/settings';
+// ── FX: sound settings live in the preferences too ──
+import { sanitizeAudioSettings, type AudioSettings } from '../audio/settings';
 
 /** The interaction mode (`ToolDef.mode`): 'select', 'joint', 'measure', 'blast', 'shoot' … — any registered tool's mode. */
 export type ToolId = string;
@@ -37,6 +39,8 @@ export interface Prefs {
   seenWelcome: boolean;
   // ── FX: particles, impact effects, skid marks, explosions (src/render/fx) ──
   fx: FxSettings;
+  // ── FX: sound — master volume, mute, per-category volumes, spatialisation (src/audio) ──
+  audio: AudioSettings;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -64,6 +68,7 @@ export const DEFAULT_PREFS: Prefs = {
   bottomTab: 'energy',
   seenWelcome: false,
   fx: { ...DEFAULT_FX_SETTINGS },
+  audio: sanitizeAudioSettings(undefined),
 };
 
 const KEY = 'physicslab:prefs:v1';
@@ -74,7 +79,12 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
 
   constructor() {
     super();
-    this.value = { ...DEFAULT_PREFS, overlays: { ...DEFAULT_OVERLAYS }, fx: { ...DEFAULT_FX_SETTINGS } };
+    this.value = {
+      ...DEFAULT_PREFS,
+      overlays: { ...DEFAULT_OVERLAYS },
+      fx: { ...DEFAULT_FX_SETTINGS },
+      audio: sanitizeAudioSettings(undefined), // ── FX ──
+    };
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
@@ -82,6 +92,7 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
         this.value = { ...this.value, ...saved, overlays: { ...DEFAULT_OVERLAYS, ...(saved.overlays ?? {}) } };
         this.value.tool = 'select';
         this.value.fx = sanitizeFxSettings(saved.fx); // ── FX: stored values are validated ──
+        this.value.audio = sanitizeAudioSettings(saved.audio); // ── FX ──
       }
     } catch {
       /* storage unavailable */
