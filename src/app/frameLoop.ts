@@ -74,6 +74,7 @@ export class FrameLoop {
     app.cameraControl.updateFollow(dt);
     app.measureTool.updateLabel();
     const rect = app.viewport.dom.getBoundingClientRect();
+    app.viewSync.frameAux(rect.width, rect.height);
     app.labels.update(app.camera, rect.width, rect.height);
 
     app.emit('frame', { dt });

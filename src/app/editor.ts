@@ -5,13 +5,37 @@
  */
 import { qconj, qmul, qrot, qrotInv, vadd, vlen, vnorm, vsub, type Quat, type Vec3 } from '../core/math';
 import { scaleParts } from '../model/compound';
-import { createBody, createJoint, createSoft, SOFT_LABELS } from '../model/factory';
+import { LIMITS } from '../model/limits';
+import {
+  createBody,
+  createGroup,
+  createJoint,
+  createLight,
+  createPath,
+  createSoft,
+  LIGHT_LABELS,
+  SOFT_LABELS,
+} from '../model/factory';
+import { descendantIds, childIndex, groupTransformPatches, topLevel } from '../model/groups';
 import { MATERIAL_PRESETS } from '../model/materials';
 import { makeShapeSpec, shapeDef, shapeLabel } from '../model/shapeRegistry';
 import { normalizeSize } from '../model/shapes';
 import { cloneEntities, type SceneStore } from '../model/store';
-import type { BodyEntity, Entity, JointEntity, JointType, ShapeType, SoftEntity, SoftType } from '../model/types';
-import { isBody, isSoft } from '../model/types';
+import type {
+  BodyEntity,
+  Entity,
+  GroupEntity,
+  JointEntity,
+  JointType,
+  LightEntity,
+  LightType,
+  PathEntity,
+  PosedEntity,
+  ShapeType,
+  SoftEntity,
+  SoftType,
+} from '../model/types';
+import { isBody, isGroup, isLight, isPath, isPosed, isSoft, parentOf } from '../model/types';
 import type { GizmoUpdate } from '../render/gizmo';
 import type { SimController } from './simController';
 
@@ -130,15 +154,34 @@ export class Editor {
 
   // ---- editing -----------------------------------------------------------------------------
 
-  /** Apply gizmo output. While simulating, poses go to the live world and are not saved. */
+  /**
+   * Apply gizmo output. While simulating, poses go to the live world and are not saved. Members of a moved group
+   * are carried by the group (their own updates would move them twice), and a group moves through
+   * `transformGroup`, which carries everything below it.
+   */
   applyGizmo(updates: GizmoUpdate[]): void {
     if (this.sim.active) {
       for (const u of updates) if (this.store.body(u.id)) this.sim.teleport(u.id, u.position, u.rotation);
       return;
     }
+    const roots = new Set(
+      topLevel(
+        this.store.all(),
+        updates.map((u) => u.id),
+      ),
+    );
     const patches: [string, Partial<Entity>][] = [];
     for (const u of updates) {
+      if (!roots.has(u.id)) continue;
       const e = this.store.get(u.id);
+      if (isGroup(e)) {
+        this.store.transformGroup(u.id, { position: u.position, rotation: u.rotation }, 'Move group');
+        continue;
+      }
+      if (isLight(e) || isPath(e)) {
+        patches.push([u.id, { position: u.position, rotation: u.rotation }]);
+        continue;
+      }
       if (isSoft(e)) {
         const patch: Partial<SoftEntity> = { position: u.position, rotation: u.rotation };
         if (u.scale) patch.size = softSizeFromScale(e, u.scale);
@@ -161,10 +204,30 @@ export class Editor {
     this.store.updateMany(patches, 'Transform');
   }
 
-  /** Set a body's pose from an inspector field. */
+  /** Set an entity's pose from an inspector field. */
   setPose(id: string, position: Vec3, rotation: Quat): void {
-    if (this.sim.active && !this.store.soft(id)) this.sim.teleport(id, position, rotation);
+    const e = this.store.get(id);
+    if (isGroup(e)) {
+      // A group's members are document poses: moving the group while a simulation owns them would be meaningless.
+      if (!this.sim.active) this.store.transformGroup(id, { position, rotation }, 'Transform');
+    } else if (isLight(e) || isPath(e)) this.store.update(id, { position, rotation }, 'Transform');
+    else if (this.sim.active && !this.store.soft(id)) this.sim.teleport(id, position, rotation);
     else if (!this.sim.active) this.store.update(id, { position, rotation }, 'Transform');
+  }
+
+  /**
+   * Move entities to absolute positions in one edit (viewport drag): a group carries its members, everything else
+   * just moves. Entries whose ancestor group is moving too are ignored.
+   */
+  moveTo(targets: Map<string, Vec3>, label = 'Move'): void {
+    const roots = new Set(topLevel(this.store.all(), [...targets.keys()]));
+    const patches: [string, Partial<Entity>][] = [];
+    for (const [id, position] of targets) {
+      if (!roots.has(id)) continue;
+      if (this.store.group(id)) this.store.transformGroup(id, { position }, label);
+      else patches.push([id, { position }]);
+    }
+    if (patches.length) this.store.updateMany(patches, label);
   }
 
   translate(ids: string[], delta: Vec3): void {
@@ -175,12 +238,12 @@ export class Editor {
       }
       return;
     }
-    const patches: [string, Partial<Entity>][] = [];
+    const targets = new Map<string, Vec3>();
     for (const id of ids) {
-      const e = this.store.body(id) ?? this.store.soft(id);
-      if (e && !e.locked) patches.push([id, { position: vadd(e.position, delta) }]);
+      const e = this.store.get(id);
+      if (isPosed(e) && !e.locked) targets.set(id, vadd(e.position, delta));
     }
-    this.store.updateMany(patches, 'Move');
+    this.moveTo(targets);
   }
 
   deleteSelection(): void {
@@ -195,7 +258,14 @@ export class Editor {
     if (!copies.length) return;
     // Give copies fresh names.
     const renamed = copies.map((c) => ({ ...c, name: this.nameForCopy(c.name) }));
-    this.store.add(renamed, 'Duplicate');
+    this.store.add(renamed, 'Duplicate', false);
+    // Select the copies that are not inside another copy (a copied group brings its members).
+    this.store.setSelection(
+      topLevel(
+        this.store.all(),
+        renamed.map((c) => c.id),
+      ),
+    );
   }
 
   private nameForCopy(base: string): string {
@@ -238,14 +308,21 @@ export class Editor {
     );
   }
 
+  /**
+   * Lock / hide entities (all of them end up with the same value). Toggling a group applies to everything below it
+   * too — "hide this group" hides what is in it.
+   */
   toggleFlag(ids: string[], flag: 'locked' | 'hidden'): void {
-    const es = ids
-      .map((id) => this.store.get(id))
-      .filter((e): e is Entity => !!e && (flag === 'hidden' || isBody(e) || isSoft(e)));
-    if (!es.length) return;
-    const value = !es.every((e) => (e as unknown as Record<string, boolean>)[flag]);
+    const has = (e: Entity): boolean => flag === 'hidden' || isPosed(e);
+    const direct = ids.map((id) => this.store.get(id)).filter((e): e is Entity => !!e && has(e));
+    if (!direct.length) return;
+    const get = (e: Entity) => (e as unknown as Record<string, boolean>)[flag];
+    const value = !direct.every(get);
+    const targets = new Map<string, Entity>(direct.map((e) => [e.id, e]));
+    for (const e of direct)
+      if (isGroup(e)) for (const d of this.store.descendants(e.id)) if (has(d)) targets.set(d.id, d);
     this.store.updateMany(
-      es.map((e) => [e.id, { [flag]: value }]),
+      [...targets.keys()].map((id) => [id, { [flag]: value }]),
       value ? (flag === 'locked' ? 'Lock' : 'Hide') : flag === 'locked' ? 'Unlock' : 'Show',
     );
   }
@@ -263,21 +340,161 @@ export class Editor {
     return patches.length;
   }
 
-  /** Rotate the selection 90° about world Y (quick alignment helper). */
+  /** Rotate the selection 90° about world Y around its centre (quick alignment helper). */
   rotateSelection90(): void {
     const q: Quat = [0, Math.SQRT1_2, 0, Math.SQRT1_2];
-    const bodies = this.store.selectedBodies();
-    if (!bodies.length) return;
-    const cx = bodies.reduce((s, b) => s + b.position[0], 0) / bodies.length;
-    const cz = bodies.reduce((s, b) => s + b.position[2], 0) / bodies.length;
-    this.store.updateMany(
-      bodies.map((b) => {
-        const rel = qrot(q, [b.position[0] - cx, 0, b.position[2] - cz]);
-        const pos: Vec3 = [cx + rel[0], b.position[1], cz + rel[2]];
-        return [b.id, { position: pos, rotation: qmul(q, b.rotation) }];
-      }),
-      'Rotate 90°',
-    );
+    const roots = topLevel(this.store.all(), this.store.selection)
+      .map((id) => this.store.get(id))
+      .filter((e): e is PosedEntity => isPosed(e) && !e.locked);
+    if (!roots.length) return;
+    const cx = roots.reduce((s, b) => s + b.position[0], 0) / roots.length;
+    const cz = roots.reduce((s, b) => s + b.position[2], 0) / roots.length;
+    const patches: [string, Partial<Entity>][] = [];
+    for (const e of roots) {
+      const rel = qrot(q, [e.position[0] - cx, 0, e.position[2] - cz]);
+      const position: Vec3 = [cx + rel[0], e.position[1], cz + rel[2]];
+      const rotation = qmul(q, e.rotation);
+      if (isGroup(e)) patches.push(...groupTransformPatches(this.store.all(), e.id, { position, rotation }));
+      else patches.push([e.id, { position, rotation }]);
+    }
+    this.store.updateMany(patches, 'Rotate 90°');
+  }
+
+  // ---- groups, lights, paths (FB-6) --------------------------------------------------------
+
+  /** Add an empty group at `at`, or — with a selection — a group around it (see `groupSelection`). */
+  addGroup(at: Vec3 = [0, 0, 0]): GroupEntity {
+    const g = createGroup({ name: this.store.uniqueName('Group'), position: at });
+    this.store.add([g], 'Add group');
+    return g;
+  }
+
+  addLight(type: LightType, at?: Vec3, over: Partial<LightEntity> = {}): LightEntity {
+    const proto = createLight(type);
+    const light = createLight(type, {
+      name: this.store.uniqueName(LIGHT_LABELS[type]),
+      position: at ?? proto.position,
+      ...over,
+    });
+    this.store.add([light], `Add ${LIGHT_LABELS[type].toLowerCase()}`);
+    return light;
+  }
+
+  addPath(at?: Vec3, over: Partial<PathEntity> = {}): PathEntity {
+    const proto = createPath();
+    const path = createPath({ name: this.store.uniqueName('Path'), position: at ?? proto.position, ...over });
+    this.store.add([path], 'Add path');
+    return path;
+  }
+
+  /**
+   * Put the selected entities (the top-level ones: a selected group already carries its members) into a new group
+   * whose pivot is their centre. The new group sits under the members' common parent, if they share one. One undo step.
+   * Returns the group, or null when nothing groupable is selected.
+   */
+  groupSelection(ids: string[] = this.store.selection): GroupEntity | null {
+    const members = topLevel(this.store.all(), ids)
+      .map((id) => this.store.get(id))
+      .filter((e): e is PosedEntity => isPosed(e));
+    if (!members.length) return null;
+    const c = members.reduce<Vec3>((a, e) => vadd(a, e.position), [0, 0, 0]);
+    const parents = new Set(members.map((m) => m.parent));
+    const parent = parents.size === 1 ? [...parents][0] : undefined;
+    const g = createGroup({
+      name: this.store.uniqueName('Group'),
+      position: [c[0] / members.length, c[1] / members.length, c[2] / members.length],
+      ...(parent !== undefined ? { parent } : {}),
+    });
+    this.store.transact('Group', () => {
+      this.store.add([g], 'Group', false);
+      this.store.updateMany(
+        members.map((m) => [m.id, { parent: g.id }]),
+        'Group',
+      );
+    });
+    this.store.setSelection([g.id]);
+    return g;
+  }
+
+  /** Dissolve the selected groups: their members move up to the group's own parent. One undo step. */
+  ungroup(ids: string[] = this.store.selection): number {
+    const groups = ids.map((id) => this.store.group(id)).filter((g): g is GroupEntity => !!g);
+    if (!groups.length) return 0;
+    const freed: string[] = [];
+    this.store.transact('Ungroup', () => {
+      for (const g of groups) {
+        const kids = this.store.children(g.id);
+        // Re-parent to the grandparent first; removing the group then releases whatever is left.
+        if (g.parent !== undefined && this.store.has(g.parent) && !groups.some((o) => o.id === g.parent)) {
+          this.store.updateMany(
+            kids.map((k) => [k.id, { parent: g.parent }]),
+            'Ungroup',
+          );
+        }
+        freed.push(...kids.map((k) => k.id));
+      }
+      this.store.remove(
+        groups.map((g) => g.id),
+        'Ungroup',
+      );
+    });
+    this.store.setSelection(freed.filter((id) => this.store.has(id)));
+    return groups.length;
+  }
+
+  /**
+   * Put entities under `parentId` (a group), or take them out of their group with `null`. Members keep their world
+   * pose. Refuses to create a cycle (a group inside itself or one of its descendants). One undo step.
+   */
+  setParent(ids: string[], parentId: string | null): boolean {
+    const target = parentId === null ? null : this.store.get(parentId);
+    if (parentId !== null && !target) return false;
+    const index = childIndex(this.store.all());
+    const patches: [string, Partial<Entity>][] = [];
+    for (const id of ids) {
+      const e = this.store.get(id);
+      if (!isPosed(e) || e.id === parentId) continue;
+      if (parentId !== null && descendantIds(index, id).includes(parentId)) continue; // would loop
+      if (parentOf(e) === (parentId ?? undefined)) continue;
+      patches.push([id, { parent: parentId ?? undefined }]);
+    }
+    if (!patches.length) return false;
+    this.store.updateMany(patches, parentId === null ? 'Remove from group' : 'Move into group');
+    return true;
+  }
+
+  /** Move control point `index` of a path to a world position (converted into the path's frame). */
+  movePathPoint(id: string, index: number, world: Vec3): void {
+    const path = this.store.path(id);
+    if (!path || !path.points[index]) return;
+    const local = qrotInv(path.rotation, vsub(world, path.position));
+    const points = path.points.map((p, i) => (i === index ? local : p));
+    this.store.update(id, { points }, 'Move path point');
+  }
+
+  /** Insert a control point after `index` (halfway to the next one; beyond the end it continues the last direction). */
+  insertPathPoint(id: string, index: number): number {
+    const path = this.store.path(id);
+    if (!path || path.points.length >= LIMITS.maxPathPoints) return -1;
+    const pts = path.points;
+    const i = Math.max(0, Math.min(pts.length - 1, index));
+    const a = pts[i];
+    const b = pts[i + 1] ?? (path.closed ? pts[0] : undefined);
+    const p: Vec3 = b
+      ? [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]
+      : vadd(a, vnorm(vsub(a, pts[i - 1] ?? [a[0] - 1, a[1], a[2]]), [1, 0, 0]));
+    const points = [...pts.slice(0, i + 1), p, ...pts.slice(i + 1)];
+    this.store.update(id, { points }, 'Add path point');
+    return i + 1;
+  }
+
+  /** Remove control point `index`; a path keeps at least two points (three while it is closed). */
+  removePathPoint(id: string, index: number): boolean {
+    const path = this.store.path(id);
+    if (!path || !path.points[index]) return false;
+    if (path.points.length <= (path.closed ? 3 : 2)) return false;
+    this.store.update(id, { points: path.points.filter((_, i) => i !== index) }, 'Remove path point');
+    return true;
   }
 
   /** Axis (world) → vector helpers used by the joint inspector. */

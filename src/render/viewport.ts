@@ -119,6 +119,10 @@ export class Viewport {
   readonly joints = new Group();
   readonly overlays = new Group();
   readonly helpers = new Group();
+  // ── FB-6: group / light / path views ──
+  readonly groups = new Group();
+  readonly lights = new Group();
+  readonly paths = new Group();
 
   private composer: EffectComposer;
   private renderPass: RenderPass;
@@ -171,7 +175,16 @@ export class Viewport {
     this.camera.position.set(9, 7, 11);
 
     this.scene.fog = new Fog(0x1b2330, 60, 260);
-    this.scene.add(this.bodies, this.softs, this.joints, this.overlays, this.helpers);
+    this.scene.add(
+      this.bodies,
+      this.softs,
+      this.joints,
+      this.overlays,
+      this.helpers,
+      this.groups,
+      this.lights,
+      this.paths,
+    );
 
     // ---- sky + environment ------------------------------------------------------------------
     const skyMat = new ShaderMaterial({

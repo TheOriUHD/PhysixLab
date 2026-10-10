@@ -29,6 +29,16 @@ export class CameraControl {
         any = true;
         continue;
       }
+      const aux = app.store.group(id) ?? app.store.light(id) ?? app.store.path(id);
+      if (aux) {
+        const path = app.pathViews.get(id);
+        const gbox = app.groupViews.get(id)?.box;
+        if (path) box.expandByObject(path.root);
+        else if (gbox && !gbox.isEmpty()) box.union(gbox);
+        else box.expandByPoint(new Vector3(...aux.position));
+        any = true;
+        continue;
+      }
       const j = app.store.joint(id);
       if (j) {
         const f = app.joints.frameOf(j, { a: new Vector3(), b: new Vector3(), axis: new Vector3() });
@@ -56,6 +66,16 @@ export class CameraControl {
     for (const sv of app.softs.views.values()) {
       if (sv.def.hidden) continue;
       box.expandByObject(sv.active);
+      any = true;
+    }
+    for (const v of app.pathViews.views.values()) {
+      if (v.def.hidden) continue;
+      box.expandByObject(v.root);
+      any = true;
+    }
+    for (const v of app.lightViews.views.values()) {
+      if (v.def.hidden) continue;
+      box.expandByPoint(new Vector3(...v.def.position));
       any = true;
     }
     if (!any) {

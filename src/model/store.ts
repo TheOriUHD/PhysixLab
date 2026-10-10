@@ -1,19 +1,23 @@
 import { Emitter } from '../core/events';
-import { vadd, type Vec3 } from '../core/math';
+import { qangle, vadd, veq, type Vec3 } from '../core/math';
 import { newDocument, uid } from './factory';
 import { addAssetTo, countAssetRefs, remapAssetRefs } from './assets';
+import { childIndex, descendantIds, groupTransformPatches, withDescendants, type Pose } from './groups';
 import { SCENE_FORMAT, SCENE_VERSION } from './migrations';
 import type {
   Asset,
   AssetInput,
   BodyEntity,
   Entity,
+  GroupEntity,
   JointEntity,
+  LightEntity,
+  PathEntity,
   SceneDocument,
   SceneSettings,
   SoftEntity,
 } from './types';
-import { isBody, isJoint, isSoft } from './types';
+import { isBody, isGroup, isJoint, isLight, isPath, isPosed, isSoft, parentOf } from './types';
 
 export type SceneChange =
   | { type: 'add'; ids: string[] }
@@ -108,6 +112,37 @@ export class SceneStore extends Emitter<StoreEvents> {
   }
   jointsOf(bodyId: string): JointEntity[] {
     return this.joints().filter((j) => j.bodyA === bodyId || j.bodyB === bodyId);
+  }
+  groups(): GroupEntity[] {
+    return this.all().filter(isGroup);
+  }
+  group(id: string | null | undefined): GroupEntity | undefined {
+    const e = id ? this.entities.get(id) : undefined;
+    return isGroup(e) ? e : undefined;
+  }
+  lights(): LightEntity[] {
+    return this.all().filter(isLight);
+  }
+  light(id: string | null | undefined): LightEntity | undefined {
+    const e = id ? this.entities.get(id) : undefined;
+    return isLight(e) ? e : undefined;
+  }
+  paths(): PathEntity[] {
+    return this.all().filter(isPath);
+  }
+  path(id: string | null | undefined): PathEntity | undefined {
+    const e = id ? this.entities.get(id) : undefined;
+    return isPath(e) ? e : undefined;
+  }
+  /** Entities directly under `id` (grouped under it through their `parent` link). */
+  children(id: string): Entity[] {
+    return this.all().filter((e) => parentOf(e) === id);
+  }
+  /** Everything below `id`, nearest first. */
+  descendants(id: string): Entity[] {
+    return descendantIds(childIndex(this.entities.values()), id)
+      .map((d) => this.entities.get(d))
+      .filter((e): e is Entity => !!e);
   }
 
   toDocument(): SceneDocument {
@@ -299,10 +334,11 @@ export class SceneStore extends Emitter<StoreEvents> {
       removed.push(this.entities.get(id)!);
       this.entities.delete(id);
     }
-    // Bodies grouped under a removed entity are released rather than left pointing at nothing.
+    // Members grouped under a removed entity are released rather than left pointing at nothing.
     const released: string[] = [];
-    for (const e of this.entities.values()) {
-      if (!isBody(e) || e.parent === undefined || !set.has(e.parent)) continue;
+    for (const e of [...this.entities.values()]) {
+      const parent = parentOf(e);
+      if (parent === undefined || !set.has(parent) || !isPosed(e)) continue;
       const { parent: _gone, ...rest } = e;
       this.entities.set(e.id, rest);
       released.push(e.id);
@@ -341,6 +377,19 @@ export class SceneStore extends Emitter<StoreEvents> {
     this.touch(label);
     for (const [id, e] of next) this.entities.set(id, e);
     this.emit('change', { type: 'update', ids, keys });
+  }
+
+  /**
+   * Move a group's pivot to `to` (either part may be left out) and carry every member below it along — bodies,
+   * soft bodies, lights, paths, sub-groups and world-anchored joint ends — as one undo step. Members keep their world
+   * poses in the document; this is the one command that rewrites them from the group.
+   */
+  transformGroup(id: string, to: Partial<Pose>, label = 'Move group'): void {
+    const g = this.group(id);
+    if (!g) return;
+    const pose: Pose = { position: to.position ?? g.position, rotation: to.rotation ?? g.rotation };
+    if (veq(pose.position, g.position) && qangle(pose.rotation, g.rotation) < 1e-9) return; // already there
+    this.updateMany(groupTransformPatches(this.all(), id, pose), label);
   }
 
   updateSettings(patch: Partial<SceneSettings>, label = 'Change settings'): void {
@@ -468,27 +517,29 @@ export class SceneStore extends Emitter<StoreEvents> {
   }
 }
 
+/** Id prefix per entity kind (matches the factories). */
+const ID_PREFIX = { body: 'b', soft: 's', group: 'g', light: 'l', path: 'p' } as const;
+
 /**
- * Clone entities. Joints are cloned only when every body they connect is part of the clone
- * set (or the joint attaches to the world), so duplicated assemblies keep their mechanisms.
+ * Clone entities. A group in the set brings everything below it along, and copies grouped under another copy follow
+ * that copy (otherwise they stay in the original group). Joints are cloned only when every body they connect is part
+ * of the clone set (or the joint attaches to the world), so duplicated assemblies keep their mechanisms.
  */
 export function cloneEntities(all: Entity[], ids: string[], offset: Vec3 = [0, 0, 0]): Entity[] {
-  const idSet = new Set(ids);
-  const bodies = all.filter((e): e is BodyEntity => isBody(e) && idSet.has(e.id));
-  const bodyIds = new Set(bodies.map((b) => b.id));
+  const idSet = withDescendants(all, ids);
+  const bodyIds = new Set<string>();
   const map = new Map<string, string>();
   const out: Entity[] = [];
-  for (const b of bodies) {
-    const nid = uid('b');
-    map.set(b.id, nid);
-    out.push({ ...b, id: nid, position: vadd(b.position, offset) });
+  for (const e of all) {
+    if (!isPosed(e) || !idSet.has(e.id)) continue;
+    const nid = uid(ID_PREFIX[e.kind]);
+    map.set(e.id, nid);
+    if (isBody(e)) bodyIds.add(e.id);
+    out.push({ ...e, id: nid, position: vadd(e.position, offset) });
   }
-  // A copy grouped under another copy follows that copy; otherwise it stays in the original group.
   for (const c of out) {
-    if (isBody(c) && c.parent !== undefined && map.has(c.parent)) c.parent = map.get(c.parent);
-  }
-  for (const s of all) {
-    if (isSoft(s) && idSet.has(s.id)) out.push({ ...s, id: uid('s'), position: vadd(s.position, offset) });
+    const parent = isPosed(c) ? c.parent : undefined;
+    if (isPosed(c) && parent !== undefined && map.has(parent)) c.parent = map.get(parent);
   }
   for (const j of all) {
     if (!isJoint(j)) continue;

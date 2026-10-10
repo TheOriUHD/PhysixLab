@@ -28,7 +28,14 @@ export class Placement {
       }
     }
     if (opts.bodies === false) return null;
-    return app.picker.pick(ev, [...app.bodies.pickables(), ...app.softs.pickables()]);
+    return app.picker.pick(ev, [
+      ...app.bodies.pickables(),
+      ...app.softs.pickables(),
+      // groups, lights and paths are editor objects: they are picked like bodies (the nearest hit wins)
+      ...app.groupViews.pickables(),
+      ...app.lightViews.pickables(),
+      ...app.pathViews.pickables(),
+    ]);
   }
 
   /** Point where something new should be placed when the user clicks "add" (centre of the view). */

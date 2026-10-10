@@ -4,7 +4,7 @@ import { PREFABS } from '../model/prefabs';
 import { listShapes } from '../model/shapeRegistry';
 import { TEMPLATES } from '../model/templates';
 import { SOFT_LABELS } from '../model/factory';
-import type { JointType, SoftType } from '../model/types';
+import type { JointType, LightType, SoftType } from '../model/types';
 import { button } from './controls';
 import { h, clear } from './dom';
 import { icon } from './icons';
@@ -15,6 +15,13 @@ const SOFTS: { type: SoftType; blurb: string }[] = [
   { type: 'balloon', blurb: 'Inflated elastic shell' },
   { type: 'cloth', blurb: 'Drapes and tears. Pin an edge or corners to hang it' },
   { type: 'cable', blurb: 'Flexible rope or cable. Pinned at both ends by default' },
+];
+// ── FB-6: scene objects that are not bodies ──
+const LIGHTS: { type: LightType; label: string; icon: string; blurb: string }[] = [
+  { type: 'point', label: 'Point', icon: 'light', blurb: 'Shines in every direction' },
+  { type: 'spot', label: 'Spot', icon: 'lightSpot', blurb: 'A cone of light — rotate it to aim' },
+  { type: 'directional', label: 'Sun', icon: 'lightSun', blurb: 'Parallel rays, like sunlight' },
+  { type: 'area', label: 'Area', icon: 'lightArea', blurb: 'A soft rectangular panel' },
 ];
 const JOINTS: { type: JointType; blurb: string }[] = [
   { type: 'fixed', blurb: 'Locks two bodies together rigidly' },
@@ -97,6 +104,39 @@ function addTab(app: App): HTMLElement {
     st.appendChild(t);
   }
   root.appendChild(st);
+
+  root.appendChild(h('div', { class: 'group-title' }, 'Lights, paths & groups'));
+  const sc = h('div', { class: 'tiles' });
+  for (const l of LIGHTS) {
+    const t = h(
+      'button',
+      { class: 'tile', type: 'button', title: `${l.blurb} — click to add a ${l.label.toLowerCase()} light` },
+      icon(l.icon),
+      l.label,
+    );
+    t.addEventListener('click', () => app.addLight(l.type));
+    sc.appendChild(t);
+  }
+  const pathTile = h(
+    'button',
+    { class: 'tile', type: 'button', title: 'A spline through points — a track for movers and cameras. Click to add' },
+    icon('path'),
+    'Path',
+  );
+  pathTile.addEventListener('click', () => app.addPath());
+  const groupTile = h(
+    'button',
+    {
+      class: 'tile',
+      type: 'button',
+      title: 'Group the selection into a folder that moves as one (Ctrl+G); with nothing selected, add an empty group',
+    },
+    icon('group'),
+    'Group',
+  );
+  groupTile.addEventListener('click', () => app.addGroup());
+  sc.append(pathTile, groupTile);
+  root.appendChild(sc);
 
   root.appendChild(h('div', { class: 'group-title' }, 'Connect & constrain'));
   const jt = h('div', { class: 'tiles three' });

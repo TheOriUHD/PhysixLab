@@ -45,9 +45,9 @@ const expectError = (fn: () => unknown, code: string, message?: RegExp) => {
 
 describe('migration chain', () => {
   it('is contiguous from v1 to the current scene version', () => {
-    expect(SCENE_VERSION).toBe(2);
+    expect(SCENE_VERSION).toBe(3);
     expect(() => assertChainIntegrity()).not.toThrow();
-    expect(MIGRATIONS.map((m) => `${m.from}>${m.to}`)).toEqual(['1>2']);
+    expect(MIGRATIONS.map((m) => `${m.from}>${m.to}`)).toEqual(['1>2', '2>3']);
     // a gap or a wrong end is detected
     expect(() => assertChainIntegrity([{ from: 2, to: 3, migrate: (d) => d }], 3)).toThrow(/broken/);
     expect(() => assertChainIntegrity(MIGRATIONS, SCENE_VERSION + 1)).toThrow(/ends at/);

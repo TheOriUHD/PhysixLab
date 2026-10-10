@@ -7,7 +7,7 @@ import { PREFABS } from '../model/prefabs';
 import { halfHeight } from '../model/shapes';
 import { cloneEntities } from '../model/store';
 import { TEMPLATE_BY_ID } from '../model/templates';
-import type { BodyEntity, SceneDocument, ShapeType, SoftType } from '../model/types';
+import type { BodyEntity, LightType, SceneDocument, ShapeType, SoftType } from '../model/types';
 import type { App } from './app';
 
 export class SceneCommands {
@@ -37,6 +37,35 @@ export class SceneCommands {
       ],
     });
     app.effects.ping(new Vector3(sf.position[0], 0, sf.position[2]));
+  }
+
+  /** View-centre position on the ground plane (snapped like new shapes), at height `y`. */
+  private viewSpot(y: number): Vec3 {
+    const { app } = this;
+    const t = app.viewport.controls.target;
+    const s = app.prefs.value.snap ? app.prefs.value.snapGrid : 0.01;
+    return [Math.round(t.x / s) * s, y, Math.round(t.z / s) * s];
+  }
+
+  addLight(type: LightType): void {
+    const { app } = this;
+    const at = this.viewSpot(type === 'directional' ? 6 : 3);
+    const light = app.editor.addLight(type, at);
+    app.effects.ping(new Vector3(light.position[0], 0, light.position[2]));
+  }
+
+  addPath(): void {
+    const { app } = this;
+    const at = this.viewSpot(0.05);
+    const path = app.editor.addPath(at);
+    app.effects.ping(new Vector3(path.position[0], 0, path.position[2]));
+  }
+
+  /** Group the selection, or — with nothing selected — add an empty group in front of the view. */
+  addGroup(): void {
+    const { app } = this;
+    if (app.store.selection.length && app.editor.groupSelection()) return;
+    app.editor.addGroup(this.viewSpot(0));
   }
 
   insertPrefab(id: string): void {

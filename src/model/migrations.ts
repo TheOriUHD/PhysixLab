@@ -19,12 +19,15 @@
  *       per-body collision / drag / mass-override / tag fields, compound `parts`, and the `seed`,
  *       `substeps`, `environment`, `bounds` and `units` scene settings. All additions default to the
  *       v1 behaviour, so the upgrade needs no data rewrite beyond `sides` and an empty `assets` map.
+ *   v3  new entity kinds `group`, `light` and `path` (a v2 reader would drop them silently, hence the bump), the
+ *       `parent` link on soft bodies and on the new kinds, and `components` arrays on bodies and joints. A v2 file
+ *       has none of these, so the upgrade is only the version stamp.
  */
 import { SceneFormatError } from './errors';
 import { obj } from './sanitize/primitives';
 
 export const SCENE_FORMAT = 'physicslab-scene';
-export const SCENE_VERSION = 2;
+export const SCENE_VERSION = 3;
 
 /** A raw (untrusted) document or entity: only ever read through the coercion helpers. */
 export type Raw = Record<string, unknown>;
@@ -53,7 +56,10 @@ function v1ToV2(doc: Raw): Raw {
 }
 
 /** Ordered, contiguous chain from the oldest supported version to `SCENE_VERSION`. */
-export const MIGRATIONS: Migration[] = [{ from: 1, to: 2, migrate: v1ToV2 }];
+export const MIGRATIONS: Migration[] = [
+  { from: 1, to: 2, migrate: v1ToV2 },
+  { from: 2, to: 3, migrate: (doc) => ({ ...doc, version: 3 }) },
+];
 
 /** Throws if the chain has a gap or does not end at `SCENE_VERSION` (checked by the unit tests). */
 export function assertChainIntegrity(chain: readonly Migration[] = MIGRATIONS, target = SCENE_VERSION): void {

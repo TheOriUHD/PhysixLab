@@ -7,7 +7,7 @@
  */
 import type { App } from '../../app/app';
 import type { Entity } from '../../model/types';
-import { isBody, isSoft } from '../../model/types';
+import { isJoint } from '../../model/types';
 import { h } from '../dom';
 import { icon } from '../icons';
 
@@ -58,7 +58,8 @@ export class InspectorContext {
       b.addEventListener('click', fn);
       return b;
     };
-    const bodies = sel.filter((e) => isBody(e) || isSoft(e));
+    // everything but joints can be locked (bodies, soft bodies, groups, lights, paths)
+    const bodies = sel.filter((e) => !isJoint(e));
     const lock = act(
       bodies.length && bodies.every((b) => b.locked) ? 'lock' : 'unlock',
       'Lock (L): locked bodies cannot be moved in the editor',
@@ -69,7 +70,7 @@ export class InspectorContext {
     this.updaters.push(() => {
       lock.replaceChildren(
         icon(
-          bodies.length && sel.map((e) => store.get(e.id)).every((e) => (isBody(e) || isSoft(e)) && e.locked)
+          bodies.length && sel.map((e) => store.get(e.id)).every((e) => !!e && !isJoint(e) && e.locked)
             ? 'lock'
             : 'unlock',
         ),

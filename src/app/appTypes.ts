@@ -10,6 +10,8 @@ export interface AppEvents extends Record<string, unknown> {
   view: undefined;
   scene: undefined;
   jointEnd: 'A' | 'B';
+  /** The path control point being edited changed (FB-6). */
+  pathPoint: undefined;
 }
 
 export interface Shell {
@@ -27,4 +29,10 @@ export interface Measurement {
 export interface JointDraft {
   body: string | null;
   point: Vector3;
+}
+
+/** A control point of a path that the transform gizmo is editing. */
+export interface PathPointRef {
+  id: string;
+  index: number;
 }

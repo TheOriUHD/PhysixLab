@@ -1,4 +1,4 @@
-import { qident, type Quat, type Vec3 } from '../core/math';
+import { qident, qnorm, type Quat, type Vec3 } from '../core/math';
 import { materialFromPreset } from './materials';
 import { SCENE_FORMAT, SCENE_VERSION } from './migrations';
 import { makeShapeSpec, shapeLabel } from './shapeRegistry';
@@ -8,10 +8,14 @@ import type {
   CollisionSpec,
   EnvironmentSettings,
   GroundSettings,
+  GroupEntity,
   JointEntity,
   JointType,
+  LightEntity,
+  LightType,
   MaterialSpec,
   MotorSpec,
+  PathEntity,
   SceneDocument,
   SceneSettings,
   ShapeSpec,
@@ -267,6 +271,97 @@ export function createSoft(type: SoftType, over: Partial<SoftEntity> = {}): Soft
     position: [0, 1, 0],
     rotation: qident(),
     ...softDefaults(type),
+    ...over,
+  };
+}
+
+// ── FB-6: groups, lights, paths ────────────────────────────────────────────────────────────────────────
+
+export function createGroup(over: Partial<GroupEntity> = {}): GroupEntity {
+  return {
+    kind: 'group',
+    id: uid('g'),
+    name: 'Group',
+    position: [0, 0, 0],
+    rotation: qident(),
+    locked: false,
+    hidden: false,
+    ...over,
+  };
+}
+
+export const LIGHT_TYPES: readonly LightType[] = ['point', 'spot', 'directional', 'area'];
+export const LIGHT_LABELS: Record<LightType, string> = {
+  point: 'Point light',
+  spot: 'Spot light',
+  directional: 'Directional light',
+  area: 'Area light',
+};
+
+/** Rotation that turns the light's −Z axis straight down (−Y). */
+export const LIGHT_DOWN: Quat = qnorm([-Math.SQRT1_2, 0, 0, Math.SQRT1_2]);
+
+/** Physical defaults per kind: point / spot in candela, directional in lux, area in nits. */
+export function lightDefaults(type: LightType): Omit<LightEntity, 'kind' | 'id' | 'name' | 'position' | 'rotation'> {
+  const base = {
+    lightType: type,
+    color: '#fff1d6',
+    range: 0,
+    angle: Math.PI / 5,
+    penumbra: 0.35,
+    size: [2, 2] as [number, number],
+    castShadow: false,
+    enabled: true,
+    locked: false,
+    hidden: false,
+  };
+  switch (type) {
+    case 'point':
+      return { ...base, intensity: 40 };
+    case 'spot':
+      return { ...base, intensity: 120, castShadow: true };
+    case 'directional':
+      return { ...base, intensity: 1.5 };
+    case 'area':
+      return { ...base, intensity: 6 };
+  }
+}
+
+export function createLight(type: LightType = 'point', over: Partial<LightEntity> = {}): LightEntity {
+  return {
+    kind: 'light',
+    id: uid('l'),
+    name: LIGHT_LABELS[type],
+    position: [0, type === 'directional' ? 6 : 3, 0],
+    rotation: type === 'point' ? qident() : [...LIGHT_DOWN],
+    ...lightDefaults(type),
+    ...over,
+  };
+}
+
+/** A gentle S-bend, 6 m long, lying on the ground plane's local x axis. */
+export function defaultPathPoints(): Vec3[] {
+  return [
+    [-3, 0, 0],
+    [-1, 0, 1.2],
+    [1, 0, -1.2],
+    [3, 0, 0],
+  ];
+}
+
+export function createPath(over: Partial<PathEntity> = {}): PathEntity {
+  return {
+    kind: 'path',
+    id: uid('p'),
+    name: 'Path',
+    position: [0, 0.05, 0],
+    rotation: qident(),
+    points: defaultPathPoints(),
+    closed: false,
+    tension: 0,
+    color: '#5ec8ff',
+    locked: false,
+    hidden: false,
     ...over,
   };
 }

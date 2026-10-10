@@ -2,9 +2,12 @@
  * Document → views: keeps the body / soft / joint views, the selection outline and the ephemeral
  * (simulation-only) views in step with the scene store and the live simulation's layout.
  */
-import type { Object3D } from 'three';
-import { isBody, isJoint, isSoft } from '../model/types';
+import type { Object3D, Box3 } from 'three';
+import { Vector3 } from 'three';
+import { childIndex, descendantIds } from '../model/groups';
+import { isBody, isGroup, isJoint, isLight, isPath, isSoft } from '../model/types';
 import type { SceneChange } from '../model/store';
+import type { Entity } from '../model/types';
 import type { SimClient } from '../physics/client';
 import type { App } from './app';
 
@@ -19,9 +22,13 @@ export class ViewSync {
     app.bodies.clear();
     app.joints.clear();
     app.softs.clear();
+    app.groupViews.clear();
+    app.lightViews.clear();
+    app.pathViews.clear();
     for (const e of app.store.all()) {
       if (isBody(e)) app.bodies.add(e);
       else if (isSoft(e)) app.softs.add(e);
+      else this.addAux(e);
     }
     for (const e of app.store.all()) if (isJoint(e)) app.joints.add(e);
     app.viewport.setGround(app.store.settings.ground);
@@ -40,6 +47,7 @@ export class ViewSync {
           const e = app.store.get(id);
           if (isBody(e)) app.bodies.add(e);
           else if (isSoft(e)) app.softs.add(e);
+          else if (e) this.addAux(e);
         }
         for (const id of c.ids) {
           const e = app.store.get(id);
@@ -50,8 +58,10 @@ export class ViewSync {
         for (const e of c.removed) {
           if (isBody(e)) app.bodies.remove(e.id);
           else if (isSoft(e)) app.softs.remove(e.id);
-          else app.joints.remove(e.id);
+          else if (isJoint(e)) app.joints.remove(e.id);
+          else this.removeAux(e.id);
         }
+        this.checkPathPoint();
         break;
       case 'update':
         for (const id of c.ids) {
@@ -65,6 +75,7 @@ export class ViewSync {
           } else if (isJoint(e)) app.joints.update(e);
           else if (isSoft(e) && !app.sim.client.softIndex.has(id)) app.softs.update(e);
           else if (isSoft(e)) app.softs.get(id)?.apply(e);
+          else if (e) this.updateAux(e);
         }
         break;
       case 'settings':
@@ -73,8 +84,71 @@ export class ViewSync {
       case 'assets':
         break; // nothing is drawn from assets yet
     }
+    app.groupViews.markDirty();
     app.invalidateColors();
     app.gizmos.refresh();
+  }
+
+  // ---- groups, lights, paths (FB-6) -----------------------------------------------------------
+
+  private addAux(e: Entity): void {
+    const { app } = this;
+    if (isGroup(e)) app.groupViews.add(e);
+    else if (isLight(e)) app.lightViews.add(e);
+    else if (isPath(e)) app.pathViews.add(e);
+  }
+
+  private updateAux(e: Entity): void {
+    const { app } = this;
+    if (isGroup(e)) app.groupViews.update(e);
+    else if (isLight(e)) app.lightViews.update(e);
+    else if (isPath(e)) {
+      app.pathViews.update(e);
+      this.checkPathPoint();
+    }
+  }
+
+  private removeAux(id: string): void {
+    const { app } = this;
+    app.groupViews.remove(id);
+    app.lightViews.remove(id);
+    app.pathViews.remove(id);
+  }
+
+  /** The edited path point must still exist (it may have been deleted, or undone away). */
+  private checkPathPoint(): void {
+    const { app } = this;
+    const pp = app.pathPoint;
+    if (!pp) return;
+    const path = app.store.path(pp.id);
+    if (!path || pp.index >= path.points.length) app.setPathPoint(null);
+  }
+
+  /** Per frame: group boxes (rebuilt lazily), helper visibility while simulating, the path line resolution. */
+  frameAux(width: number, height: number): void {
+    const { app } = this;
+    app.pathViews.setResolution(width, height);
+    const index = childIndex(app.store.all());
+    app.groupViews.tick(
+      app.sim.active,
+      (id) => descendantIds(index, id),
+      (id, box) => this.expandBounds(id, box),
+    );
+  }
+
+  /** Grow `box` by what the entity occupies in the viewport. */
+  private expandBounds(id: string, box: Box3): void {
+    const { app } = this;
+    const body = app.bodies.get(id);
+    if (body) return void box.expandByObject(body.mesh);
+    const soft = app.softs.meshOf(id);
+    if (soft) return void box.expandByObject(soft);
+    const light = app.store.light(id);
+    if (light) return void box.expandByPoint(new Vector3(...light.position));
+    const path = app.pathViews.get(id);
+    if (path) return void box.expandByObject(path.root);
+    const group = app.store.group(id);
+    if (group) box.expandByPoint(new Vector3(...group.position));
   }
 
   /** Create / remove views for simulation-only bodies and reset states after a layout change. */
@@ -104,6 +178,12 @@ export class ViewSync {
     const ids = new Set(app.store.selection);
     this.refreshOutline();
     app.joints.setSelected(ids);
+    app.groupViews.setSelected(ids);
+    app.lightViews.setSelected(ids);
+    app.pathViews.setSelected(ids);
+    // The edited path point only makes sense while its path is the one selected object.
+    const pp = app.pathPoint;
+    if (pp && !(ids.size === 1 && ids.has(pp.id))) app.setPathPoint(null);
     app.gizmos.jointEnd = 'A';
     app.gizmos.refresh();
     app.invalidateColors();

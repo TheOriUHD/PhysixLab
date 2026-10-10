@@ -8,9 +8,11 @@
  */
 import type { App } from '../../app/app';
 import type { Entity } from '../../model/types';
-import { isBody, isJoint, isSoft } from '../../model/types';
+import { isBody, isGroup, isJoint, isLight, isPath, isSoft } from '../../model/types';
 import { clear, h } from '../dom';
 import { icon } from '../icons';
+import { groupInspector, lightInspector, membershipRow, pathInspector } from './aux';
+import { section } from '../controls';
 import { bodyInspector } from './body';
 import { jointInspector } from './joint';
 import { InspectorContext } from './shared';
@@ -39,6 +41,7 @@ export class Inspector {
       }
     });
     app.on('jointEnd', () => this.refresh());
+    app.on('pathPoint', () => this.refresh());
     this.render();
   }
 
@@ -59,8 +62,11 @@ export class Inspector {
       this.el.appendChild(this.empty());
       return;
     }
-    if (sel.every(isBody)) this.el.append(...bodyInspector(ctx, sel));
-    else if (sel.every(isSoft)) this.el.append(...softInspector(ctx, sel));
+    if (sel.every(isBody)) this.el.append(...bodyInspector(ctx, sel), ...this.organise(sel));
+    else if (sel.every(isSoft)) this.el.append(...softInspector(ctx, sel), ...this.organise(sel));
+    else if (sel.every(isLight)) this.el.append(...lightInspector(ctx, sel));
+    else if (sel.length === 1 && isGroup(sel[0])) this.el.append(...groupInspector(ctx, sel[0]));
+    else if (sel.length === 1 && isPath(sel[0])) this.el.append(...pathInspector(ctx, sel[0]));
     else if (sel.length === 1 && isJoint(sel[0])) this.el.append(...jointInspector(ctx, sel[0]));
     else this.el.append(...this.summary(sel));
     this.refresh();
@@ -93,10 +99,29 @@ export class Inspector {
     );
   }
 
-  /** Mixed selections (bodies + joints, several joints): counts only, no shared properties. */
+  /** The "Group" row for bodies and soft bodies (the other kinds build it into their own panel). */
+  private organise(sel: Entity[]): HTMLElement[] {
+    const row = membershipRow(
+      this.ctx,
+      sel.map((e) => e.id),
+    );
+    return row ? [section('Organise', [row], { id: 'organise' })] : [];
+  }
+
+  /** Mixed selections (bodies + joints, several groups …): counts only, no shared properties. */
   private summary(sel: Entity[]): HTMLElement[] {
-    const nb = sel.filter((e) => isBody(e) || isSoft(e)).length,
-      nj = sel.filter(isJoint).length;
+    const count = (f: (e: Entity) => boolean) => sel.filter(f).length;
+    const parts = [
+      [count((e) => isBody(e) || isSoft(e)), 'body', 'bodies'],
+      [count(isJoint), 'joint', 'joints'],
+      [count(isGroup), 'group', 'groups'],
+      [count(isLight), 'light', 'lights'],
+      [count(isPath), 'path', 'paths'],
+    ] as const;
+    const text = parts
+      .filter(([n]) => n > 0)
+      .map(([n, one, many]) => `${n} ${n === 1 ? one : many}`)
+      .join(', ');
     return [
       this.ctx.header(sel),
       h(
@@ -106,7 +131,7 @@ export class Inspector {
         h(
           'p',
           null,
-          `${nb} bod${nb === 1 ? 'y' : 'ies'}, ${nj} joint${nj === 1 ? '' : 's'}. Select only bodies to edit shared properties, or one joint to edit its settings.`,
+          `${text}. Select objects of one kind to edit shared properties (bodies, soft bodies or lights), or a single group, path or joint to edit its settings.`,
         ),
       ),
     ];

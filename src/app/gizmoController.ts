@@ -7,11 +7,14 @@ import type { Vec3 } from '../core/math';
 import type { JointEntity } from '../model/types';
 import { Gizmo, type GizmoItem, type GizmoUpdate } from '../render/gizmo';
 import type { App } from './app';
+import type { PathPointRef } from './appTypes';
 
 export class GizmoController {
   readonly gizmo: Gizmo;
   /** Which end of a selected spring / rope the gizmo moves. */
   jointEnd: 'A' | 'B' = 'A';
+  /** The path control point the gizmo is editing (FB-6), or null. */
+  pathPoint: PathPointRef | null = null;
   private undoOpen = false;
 
   constructor(private app: App) {
@@ -38,6 +41,18 @@ export class GizmoController {
     this.refresh();
   }
 
+  /** Edit one control point of a path with the gizmo (null = back to the whole entity). Selects the path. */
+  setPathPoint(ref: PathPointRef | null): void {
+    const { app } = this;
+    this.pathPoint = ref;
+    if (ref && !(app.store.selection.length === 1 && app.store.selection[0] === ref.id)) {
+      app.store.setSelection([ref.id]); // the selection handler clears nothing: it sees the same path
+    }
+    app.pathViews.setActivePoint(ref?.id ?? null, ref?.index ?? -1);
+    this.refresh();
+    app.emit('pathPoint', undefined);
+  }
+
   setJointEnd(end: 'A' | 'B'): void {
     this.jointEnd = end;
     this.refresh();
@@ -58,7 +73,35 @@ export class GizmoController {
       }
       return items;
     }
+    // A control point of the selected path: translate only, in the path's own axes.
+    const ap = this.pathPoint;
+    if (ap && sel.length === 1 && sel[0] === ap.id) {
+      const path = app.store.path(ap.id);
+      const view = app.pathViews.get(ap.id);
+      if (path && view && !path.locked && !path.hidden && path.points[ap.index]) {
+        items.push({
+          id: `${ap.id}#${ap.index}`,
+          position: view.pointWorld(ap.index),
+          quaternion: new Quaternion(...path.rotation),
+          size: new Vector3(1, 1, 1),
+        });
+        return items;
+      }
+    }
     for (const id of sel) {
+      const aux = app.store.group(id) ?? app.store.light(id) ?? app.store.path(id);
+      if (aux) {
+        // Groups, lights and paths live in the document only: no gizmo while a simulation is running or when locked.
+        if (!aux.locked && !aux.hidden && !app.sim.active) {
+          items.push({
+            id,
+            position: new Vector3(...aux.position),
+            quaternion: new Quaternion(...aux.rotation),
+            size: new Vector3(1, 1, 1),
+          });
+        }
+        continue;
+      }
       const sf = app.store.soft(id);
       if (sf) {
         // Soft bodies are positioned in the editor only; once simulating their particles are free.
@@ -99,6 +142,19 @@ export class GizmoController {
     // A joint can only be translated or rotated (axis) — scale makes no sense.
     const joint = items.length === 1 && !!this.app.store.joint(items[0].id);
     if (joint && this.gizmo.mode === 'scale') this.gizmo.setMode('translate');
+    // A path control point can only be translated; lights, paths and groups have no size to scale.
+    const point = items.length === 1 && items[0].id.includes('#');
+    if (point && this.gizmo.mode !== 'translate') this.gizmo.setMode('translate');
+    const posedOnly =
+      items.length > 0 &&
+      items.every(
+        (i) =>
+          !!this.app.store.get(i.id) &&
+          !this.app.store.body(i.id) &&
+          !this.app.store.soft(i.id) &&
+          !this.app.store.joint(i.id),
+      );
+    if (posedOnly && this.gizmo.mode === 'scale') this.gizmo.setMode('translate');
     this.gizmo.setItems(items);
     this.gizmo.refresh(items);
   }
@@ -120,6 +176,11 @@ export class GizmoController {
 
   private onChange(updates: GizmoUpdate[]): void {
     const { app } = this;
+    if (updates.length === 1 && updates[0].id.includes('#')) {
+      const [id, index] = updates[0].id.split('#');
+      app.editor.movePathPoint(id, Number(index), updates[0].position);
+      return;
+    }
     const jointUpdate = updates.length === 1 ? app.store.joint(updates[0].id) : undefined;
     if (jointUpdate) {
       this.moveJoint(jointUpdate, updates[0]);

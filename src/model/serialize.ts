@@ -14,6 +14,7 @@ import { LIMITS, formatBytes, formatCount } from './limits';
 import { pruneAssets, remapAssetRefs } from './assets';
 import { sanitizeAssetMap } from './sanitize/assets';
 import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
+import { parentField, sanitizeGroup, sanitizeLight, sanitizePath } from './sanitize/kinds';
 import { sanitizeParts } from './sanitize/parts';
 import { SCENE_FORMAT, SCENE_VERSION, migrateDocument } from './migrations';
 import {
@@ -46,7 +47,7 @@ import type {
   SoftType,
   UnitsSettings,
 } from './types';
-import { isBody } from './types';
+import { isLight, isPosed } from './types';
 
 const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable'];
 const PINS: SoftPin[] = ['none', 'edge', 'corners', 'corners4', 'one-end', 'ends'];
@@ -191,7 +192,28 @@ function sanitizeSoft(raw: any): SoftEntity {
     opacity: clamp(num(raw?.opacity, d.opacity), 0.05, 1),
     locked: bool(raw?.locked, false),
     hidden: bool(raw?.hidden, false),
+    ...parentField(raw ?? {}),
   };
+}
+
+/** One raw entity of any kind (null for an unknown kind, which is dropped). */
+function sanitizeEntity(r: any, report: LoadReport | undefined): Entity | null {
+  switch (r.kind) {
+    case 'body':
+      return sanitizeBody(r, report);
+    case 'joint':
+      return sanitizeJoint(r);
+    case 'soft':
+      return sanitizeSoft(r);
+    case 'group':
+      return sanitizeGroup(r);
+    case 'light':
+      return sanitizeLight(r);
+    case 'path':
+      return sanitizePath(r);
+    default:
+      return null;
+  }
 }
 
 function sanitizeEnvironment(raw: any): EnvironmentSettings {
@@ -277,20 +299,20 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
   const seen = new Set<string>();
   for (const r of raw.entities) {
     if (!r || typeof r !== 'object') continue;
-    const e =
-      r.kind === 'joint'
-        ? sanitizeJoint(r)
-        : r.kind === 'body'
-          ? sanitizeBody(r, report)
-          : r.kind === 'soft'
-            ? sanitizeSoft(r)
-            : null;
+    const e = sanitizeEntity(r, report);
     if (!e || seen.has(e.id)) continue;
     seen.add(e.id);
     entities.push(e);
   }
+  // More lights than the scene limit are dropped (every light costs the renderer a pass over every surface).
+  let lights = 0;
+  for (let i = 0; i < entities.length; i++) {
+    if (!isLight(entities[i]) || ++lights <= LIMITS.maxLights) continue;
+    entities.splice(i--, 1);
+    warn(report, `Only ${LIMITS.maxLights} lights are kept per scene; the extra ones were removed.`);
+  }
   // Drop group links that point nowhere (or loop).
-  const parentsFixed = repairParents(entities.filter(isBody));
+  const parentsFixed = repairParents(entities.filter(isPosed));
   if (parentsFixed) warn(report, `${parentsFixed} grouping link(s) pointed at missing objects and were removed.`);
   // Drop joints that reference bodies that do not exist.
   const bodyIds = new Set(entities.filter((e) => e.kind === 'body').map((e) => e.id));

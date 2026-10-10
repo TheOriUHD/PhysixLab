@@ -4,7 +4,9 @@
  */
 import { Plane, Vector3, type Camera } from 'three';
 import { vadd, type Vec3 } from '../core/math';
+import { topLevel } from '../model/groups';
 import { listShapes } from '../model/shapeRegistry';
+import { isPosed } from '../model/types';
 import type { App } from './app';
 
 type Gesture =
@@ -119,6 +121,14 @@ export class InputController {
   private downSelect(e: PointerEvent): void {
     const app = this.app;
     const store = app.store;
+    // A control handle of the selected path comes first: clicking one hands it to the gizmo.
+    if (!app.sim.active) {
+      const handle = app.pathViews.pickPoint(e, this.cam, app.viewport.dom.getBoundingClientRect());
+      if (handle) {
+        app.setPathPoint(handle.id, handle.index);
+        return;
+      }
+    }
     const hit = app.pickEntity(e);
     const additive = e.shiftKey || e.ctrlKey || e.metaKey;
     if (!hit) {
@@ -144,27 +154,14 @@ export class InputController {
         return;
       }
       if (soft.locked) return;
-      const sids = store.selection.filter(
-        (s) => (store.body(s) ?? store.soft(s)) && !(store.body(s) ?? store.soft(s))!.locked,
-      );
-      const sstarts = new Map<string, Vec3>(sids.map((s) => [s, (store.body(s) ?? store.soft(s))!.position]));
-      this.g = {
-        kind: 'dragMove',
-        ids: sids,
-        starts: sstarts,
-        p0: hit.point.clone(),
-        plane: e.shiftKey ? 'vertical' : 'ground',
-        startClient: [e.clientX, e.clientY],
-        moved: false,
-        primary: id,
-      };
+      this.beginDragMove(e, hit.point, id);
       return;
     }
     const body = store.body(id);
-    if (!body) return;
+    if (!isPosed(store.get(id))) return;
 
     if (app.sim.active) {
-      if (body.bodyType === 'dynamic') {
+      if (body?.bodyType === 'dynamic') {
         const n = this.cam.getWorldDirection(new Vector3()).negate();
         const plane = new Plane().setFromNormalAndCoplanarPoint(n, hit.point);
         app.sim.client.op({
@@ -178,19 +175,32 @@ export class InputController {
       }
       return;
     }
-    if (body.locked) return;
-    const movable = (s: string) => store.body(s) ?? store.soft(s);
-    const ids = store.selection.filter((s) => movable(s) && !movable(s)!.locked);
+    if (store.get(id) && (store.get(id) as { locked?: boolean }).locked) return;
+    this.beginDragMove(e, hit.point, id);
+  }
+
+  /** Start dragging the selection on the ground (or vertical) plane; members of a selected group ride along with it. */
+  private beginDragMove(e: PointerEvent, point: Vector3, primary: string): void {
+    const store = this.app.store;
+    const movable = (s: string) => {
+      const x = store.get(s);
+      return isPosed(x) && !x.locked ? x : undefined;
+    };
+    const ids = topLevel(
+      store.all(),
+      store.selection.filter((s) => movable(s)),
+    );
     const starts = new Map<string, Vec3>(ids.map((s) => [s, movable(s)!.position]));
+    if (!starts.has(primary)) return;
     this.g = {
       kind: 'dragMove',
       ids,
       starts,
-      p0: hit.point.clone(),
+      p0: point.clone(),
       plane: e.shiftKey ? 'vertical' : 'ground',
       startClient: [e.clientX, e.clientY],
       moved: false,
-      primary: id,
+      primary,
     };
   }
 
@@ -356,10 +366,7 @@ export class InputController {
         vertical ? 0 : snapped[2] - base[2],
       ];
     }
-    app.store.updateMany(
-      g.ids.map((id) => [id, { position: vadd(g.starts.get(id)!, d) } as never]),
-      'Move',
-    );
+    app.editor.moveTo(new Map(g.ids.map((id) => [id, vadd(g.starts.get(id)!, d)])));
   }
 
   private onUp(e: PointerEvent): void {
@@ -462,6 +469,11 @@ export class InputController {
           e.preventDefault();
           app.editor.duplicateSelection();
           return;
+        case 'g':
+          e.preventDefault();
+          if (e.shiftKey) app.editor.ungroup();
+          else app.addGroup();
+          return;
         case 'c':
           app.editor.copy();
           return;
@@ -496,7 +508,8 @@ export class InputController {
         app.editor.deleteSelection();
         return;
       case 'Escape':
-        if (app.jointDraft) {
+        if (app.pathPoint) app.setPathPoint(null);
+        else if (app.jointDraft) {
           app.cancelJointDraft();
           app.updateToolHint();
         } else if (app.prefs.value.tool !== 'select') app.setTool('select');

@@ -140,8 +140,21 @@ export function buildTopbar(app: App): HTMLElement {
         { sep: true },
         { label: 'Select all', kbd: 'Ctrl+A', action: () => app.editor.selectAll() },
         {
+          label: 'Group selection',
+          icon: 'group',
+          kbd: 'Ctrl+G',
+          disabled: !store.selection.length,
+          action: () => app.addGroup(),
+        },
+        {
+          label: 'Ungroup',
+          kbd: 'Ctrl+Shift+G',
+          disabled: !store.selection.some((id) => store.group(id)),
+          action: () => app.editor.ungroup(),
+        },
+        {
           label: 'Rotate selection 90° about Y',
-          disabled: !store.selectedBodies().length || sim.active,
+          disabled: !store.selection.length || sim.active,
           action: () => app.editor.rotateSelection90(),
         },
         { label: 'Frame selection', icon: 'frame', kbd: 'F', action: () => app.frameSelection() },

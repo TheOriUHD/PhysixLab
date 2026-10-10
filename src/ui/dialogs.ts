@@ -37,6 +37,7 @@ const SHORTCUTS: [string, [string, string][]][] = [
       ['Box select', 'Drag on empty space'],
       ['Select all', 'Ctrl A'],
       ['Duplicate', 'Ctrl D'],
+      ['Group · ungroup', 'Ctrl G · Ctrl Shift G'],
       ['Copy · paste', 'Ctrl C · Ctrl V'],
       ['Delete', 'Del'],
       ['Undo · redo', 'Ctrl Z · Ctrl Shift Z'],

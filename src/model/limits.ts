@@ -39,6 +39,20 @@ export const LIMITS = {
   /** Collider parts one body may carry. */
   maxPartsPerBody: 64,
 
+  // ── group / light / path entities (FB-6) ────────────────────────────────────────────────────────
+  /** Control points of one path. */
+  maxPathPoints: 1024,
+  /** Lights one scene may hold (the renderer additionally draws only the first few as real lights). */
+  maxLights: 64,
+  /** Nesting depth of groups the editor will walk (also guards against cycles in hand-made files). */
+  maxGroupDepth: 64,
+
+  // ── components (FB-7) ───────────────────────────────────────────────────────────────────────────
+  /** Components one body or joint may carry. */
+  maxComponentsPerEntity: 32,
+  /** Points of a `curve` field and entries of a vec / list field. */
+  maxCurvePoints: 128,
+
   // ── asset store ─────────────────────────────────────────────────────────────────────────────────
   /** Assets one scene may hold. */
   maxAssets: 256,

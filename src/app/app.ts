@@ -18,19 +18,22 @@
 import { Color, Vector3 } from 'three';
 import { Emitter } from '../core/events';
 import type { Vec3 } from '../core/math';
-import type { BodyEntity, Entity, JointType, SceneDocument, ShapeType, SoftType } from '../model/types';
+import type { BodyEntity, Entity, JointType, LightType, SceneDocument, ShapeType, SoftType } from '../model/types';
 import { isBody } from '../model/types';
 import { SceneStore } from '../model/store';
 import { BodyViews } from '../render/bodyViews';
 import { SoftViews } from '../render/softViews';
 import { Effects } from '../render/effects';
 import type { Gizmo } from '../render/gizmo';
+import { GroupViews } from '../render/groupViews';
 import { JointViews } from '../render/jointViews';
+import { LightViews } from '../render/lightViews';
+import { PathViews } from '../render/pathViews';
 import { Overlays } from '../render/overlays';
 import { Picker, type PickHit } from '../render/picking';
 import { Viewport } from '../render/viewport';
 import { Labels } from '../ui/labels';
-import type { AppEvents, JointDraft, Measurement, Shell, ToastKind } from './appTypes';
+import type { AppEvents, JointDraft, Measurement, PathPointRef, Shell, ToastKind } from './appTypes';
 import { CameraControl } from './cameraControl';
 import { Editor } from './editor';
 import { FrameLoop } from './frameLoop';
@@ -57,6 +60,10 @@ export class App extends Emitter<AppEvents> {
   readonly bodies: BodyViews;
   readonly softs: SoftViews;
   readonly joints: JointViews;
+  // ── FB-6: group / light / path views ──
+  readonly groupViews: GroupViews;
+  readonly lightViews: LightViews;
+  readonly pathViews: PathViews;
   readonly overlays: Overlays;
   readonly picker: Picker;
   readonly gizmo: Gizmo;
@@ -85,6 +92,9 @@ export class App extends Emitter<AppEvents> {
     this.bodies = new BodyViews(this.viewport.bodies);
     this.softs = new SoftViews(this.viewport.softs);
     this.joints = new JointViews(this.viewport.joints, this.bodies);
+    this.groupViews = new GroupViews(this.viewport.groups);
+    this.lightViews = new LightViews(this.viewport.lights);
+    this.pathViews = new PathViews(this.viewport.paths);
     this.overlays = new Overlays(this.viewport.overlays);
     this.effects = new Effects(this.viewport.helpers);
     this.picker = new Picker(this.viewport.dom, this.viewport.camera);
@@ -262,6 +272,28 @@ export class App extends Emitter<AppEvents> {
 
   addSoft(type: SoftType): void {
     this.commands.addSoft(type);
+  }
+
+  // ── FB-6 ──
+  addLight(type: LightType): void {
+    this.commands.addLight(type);
+  }
+
+  addPath(): void {
+    this.commands.addPath();
+  }
+
+  addGroup(): void {
+    this.commands.addGroup();
+  }
+
+  /** The path control point the gizmo is editing (a path must be the only selection), or null. */
+  get pathPoint(): PathPointRef | null {
+    return this.gizmos.pathPoint;
+  }
+
+  setPathPoint(id: string | null, index = -1): void {
+    this.gizmos.setPathPoint(id === null ? null : { id, index });
   }
 
   insertPrefab(id: string): void {

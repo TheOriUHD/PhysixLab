@@ -93,6 +93,22 @@ const PATHS: Record<string, string> = {
     '<circle cx="6" cy="17" r="2.5"/><circle cx="18" cy="7" r="2.5"/><path d="M8 15l8-6"/><path d="M13 3h6v6" opacity=".0"/>',
   follow:
     '<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 3"/>',
+  // ── FB-6: group / light / path ──
+  group:
+    '<rect x="3" y="3" width="18" height="18" rx="3" stroke-dasharray="3 3"/><rect x="8" y="8" width="8" height="8" rx="1.5"/>',
+  light:
+    '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1.1 1.2 1.1 2.2h5c0-1 .5-1.7 1.1-2.2A6 6 0 0 0 12 3z"/>',
+  lightSpot: '<path d="M8 3h8l-1.6 5H9.6z"/><path d="M9.6 8L5 20M14.4 8L19 20M8 20h8"/>',
+  lightSun:
+    '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
+  lightArea: '<rect x="3" y="4" width="18" height="6" rx="1.5"/><path d="M6 13l-2 7M12 13v7M18 13l2 7"/>',
+  path: '<path d="M3 18c3-10 6 2 9-5s6-5 9-8"/><circle cx="3" cy="18" r="1.7" fill="currentColor"/><circle cx="21" cy="5" r="1.7" fill="currentColor"/><circle cx="12" cy="13" r="1.5"/>',
+  // ── FB-7: components ──
+  component:
+    '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
+  wave: '<path d="M2 12c2.5-8 5.5-8 8 0s5.5 8 8 0 2-3 4-4"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/>',
+  chevronUp: '<path d="M6 15l6-6 6 6"/>',
 };
 
 /** Is `name` one of the built-in icon keys? */
@@ -103,6 +119,14 @@ const bodyOf = (name: string): string => (name.startsWith('<') ? name : (PATHS[n
 
 export function icon(name: string, cls = 'icon'): SVGSVGElement {
   return svg(wrap(bodyOf(name)), cls);
+}
+
+/** A standalone `data:` SVG of an icon in `color` — for canvas textures (editor helper sprites). */
+export function iconDataUrl(name: string, color = '#ffffff', px = 128): string {
+  const markup = wrap(bodyOf(name))
+    .replace('<svg ', `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" `)
+    .replaceAll('currentColor', color);
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
 }
 
 export function iconHtml(name: string): string {

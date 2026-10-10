@@ -258,9 +258,88 @@ export interface SoftEntity {
   opacity: number;
   locked: boolean;
   hidden: boolean;
+  /** Id of the group (or other entity) this one is grouped under (FB-6). */
+  parent?: string;
 }
 
-export type Entity = BodyEntity | JointEntity | SoftEntity;
+// ── FB-6: group / light / path entities ────────────────────────────────────────────────────────────────
+
+/**
+ * A folder with a pivot transform. Members point at the group through their `parent` link and keep their own
+ * *world* pose; the group's `position` / `rotation` is the pivot that moving the group (`SceneStore.transformGroup`)
+ * carries every descendant about. A group has no physics of its own — it exists only in the document and the editor.
+ */
+export interface GroupEntity {
+  kind: 'group';
+  id: string;
+  name: string;
+  /** Pivot, world space. */
+  position: Vec3;
+  rotation: Quat;
+  locked: boolean;
+  hidden: boolean;
+  parent?: string;
+}
+
+export type LightType = 'point' | 'spot' | 'directional' | 'area';
+
+/**
+ * A light source. Point and spot intensities are in candela, directional in lux and area in nits (cd/m²), the
+ * physical units three.js uses. A light shines along its local −Z axis (the camera convention); the default
+ * rotation of a spot / directional / area light points it straight down. Lights have no physical behaviour: they
+ * are stored in the document, drawn as an editor helper and rendered by a real three.js light (`render/lightViews.ts`).
+ */
+export interface LightEntity {
+  kind: 'light';
+  id: string;
+  name: string;
+  lightType: LightType;
+  position: Vec3;
+  rotation: Quat;
+  color: string;
+  intensity: number;
+  /** Cut-off distance in metres (point / spot); 0 = the light reaches infinitely far. */
+  range: number;
+  /** Half-angle of the spot cone, radians. */
+  angle: number;
+  /** Soft edge of the spot cone, 0 (hard) – 1 (fully soft). */
+  penumbra: number;
+  /** Width × height of an area light, metres. */
+  size: [number, number];
+  castShadow: boolean;
+  /** Switched off lights stay in the scene but emit nothing. */
+  enabled: boolean;
+  locked: boolean;
+  hidden: boolean;
+  parent?: string;
+}
+
+/**
+ * A spline through `points` (a Catmull-Rom / cardinal curve, see `model/path.ts`), used as a track for movers,
+ * cameras and anything else that follows a route. Points are in the path's own frame; `position` / `rotation` place
+ * that frame in the world.
+ */
+export interface PathEntity {
+  kind: 'path';
+  id: string;
+  name: string;
+  position: Vec3;
+  rotation: Quat;
+  /** Control points, local to the path's frame (at least 2). */
+  points: Vec3[];
+  /** The last point connects back to the first (needs at least 3 points). */
+  closed: boolean;
+  /** Cardinal-spline tension: 0 = Catmull-Rom, 1 = straight segments between the points. */
+  tension: number;
+  color: string;
+  locked: boolean;
+  hidden: boolean;
+  parent?: string;
+}
+
+export type Entity = BodyEntity | JointEntity | SoftEntity | GroupEntity | LightEntity | PathEntity;
+/** Entities that live at a pose in the world (everything except joints, which hang off bodies). */
+export type PosedEntity = Exclude<Entity, JointEntity>;
 export interface GroundSettings {
   enabled: boolean;
   friction: number;
@@ -427,3 +506,10 @@ export interface SceneDocument {
 export const isBody = (e: Entity | undefined | null): e is BodyEntity => !!e && e.kind === 'body';
 export const isJoint = (e: Entity | undefined | null): e is JointEntity => !!e && e.kind === 'joint';
 export const isSoft = (e: Entity | undefined | null): e is SoftEntity => !!e && e.kind === 'soft';
+export const isGroup = (e: Entity | undefined | null): e is GroupEntity => !!e && e.kind === 'group';
+export const isLight = (e: Entity | undefined | null): e is LightEntity => !!e && e.kind === 'light';
+export const isPath = (e: Entity | undefined | null): e is PathEntity => !!e && e.kind === 'path';
+/** Has a position and rotation in the world (every entity but joints). */
+export const isPosed = (e: Entity | undefined | null): e is PosedEntity => !!e && e.kind !== 'joint';
+/** The id of the entity this one is grouped under, if any (joints are never grouped). */
+export const parentOf = (e: Entity): string | undefined => (e.kind === 'joint' ? undefined : e.parent);
