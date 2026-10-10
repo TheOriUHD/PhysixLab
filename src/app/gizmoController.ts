@@ -9,6 +9,8 @@ import { Gizmo, type GizmoItem, type GizmoUpdate } from '../render/gizmo';
 import type { App } from './app';
 import type { PathPointRef } from './appTypes';
 import { ComHandle } from './comHandle'; // -- JT-B
+// -- ED-A hierarchy: scale gizmo on groups --
+import { endScaleGroupDrag } from './edit/groupOps';
 
 export class GizmoController {
   readonly gizmo: Gizmo;
@@ -161,6 +163,7 @@ export class GizmoController {
         (i) =>
           !!this.app.store.get(i.id) &&
           !this.app.store.body(i.id) &&
+          !this.app.store.group(i.id) && // ED-A hierarchy: a group scales its members
           !this.app.store.soft(i.id) &&
           !this.app.store.joint(i.id),
       );
@@ -212,6 +215,13 @@ export class GizmoController {
   }
 
   private onEnd(): void {
+    // -- ED-A hierarchy: say so when a non-uniform group scale could not be exact for turned members --
+    if (endScaleGroupDrag()) {
+      this.app.toast(
+        'Some members are turned against the group’s axes, so this non-uniform scale is approximate for them. Use a uniform scale to keep shapes exact.',
+        'warn',
+      );
+    }
     if (this.undoOpen) {
       this.app.store.end();
       this.undoOpen = false;

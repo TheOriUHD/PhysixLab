@@ -20,7 +20,7 @@ import { descendantIds, childIndex, groupTransformPatches, topLevel } from '../m
 import { MATERIAL_PRESETS } from '../model/materials';
 import { makeShapeSpec, shapeDef, shapeLabel } from '../model/shapeRegistry';
 import { normalizeSize } from '../model/shapes';
-import { cloneEntities, type SceneStore } from '../model/store';
+import type { SceneStore } from '../model/store';
 import type {
   BodyEntity,
   Entity,
@@ -37,6 +37,9 @@ import type {
 } from '../model/types';
 import { isBody, isGroup, isLight, isPath, isPosed, isSoft, parentOf } from '../model/types';
 import type { GizmoUpdate } from '../render/gizmo';
+// -- ED-A hierarchy: group scale + clipboard live in new files --
+import { copyToClipboard, pasteAnchor, pasteStored } from './edit/clipboard';
+import { scaleGroupDrag } from './edit/groupOps';
 import type { SimController } from './simController';
 
 const SPAWN_MATERIALS = ['plastic', 'wood', 'rubber', 'steel', 'ceramic', 'aluminum', 'concrete'];
@@ -49,7 +52,6 @@ export interface JointEndpoint {
 }
 
 export class Editor {
-  private clipboard: Entity[] = [];
   private spawnCounter = 0;
 
   constructor(
@@ -175,7 +177,9 @@ export class Editor {
       if (!roots.has(u.id)) continue;
       const e = this.store.get(u.id);
       if (isGroup(e)) {
-        this.store.transformGroup(u.id, { position: u.position, rotation: u.rotation }, 'Move group');
+        // -- ED-A hierarchy: the scale gizmo on a group scales its members about the pivot --
+        if (u.scale) scaleGroupDrag(this.store, u.id, u.scale);
+        else this.store.transformGroup(u.id, { position: u.position, rotation: u.rotation }, 'Move group');
         continue;
       }
       if (isLight(e) || isPath(e)) {
@@ -272,31 +276,13 @@ export class Editor {
     return this.store.uniqueName(base.replace(/ \d+$/, ''));
   }
 
+  // -- ED-A hierarchy: copy / paste are the persisted clipboard (src/app/edit/clipboard.ts) --
   copy(): void {
-    const ids = this.store.selection;
-    this.clipboard = this.store.clone(ids, [0, 0, 0]);
+    copyToClipboard(this);
   }
 
   paste(at?: Vec3): void {
-    if (!this.clipboard.length) return;
-    // Re-clone with new ids on every paste and shift away from the originals.
-    // Centre on the bodies; a clipboard of lights, paths or groups alone is centred on those instead.
-    const bodies = this.clipboard.filter(isBody);
-    const anchors: PosedEntity[] = bodies.length ? bodies : this.clipboard.filter(isPosed);
-    const center: Vec3 = anchors.length
-      ? [
-          anchors.reduce((s, b) => s + b.position[0], 0) / anchors.length,
-          anchors.reduce((s, b) => s + b.position[1], 0) / anchors.length,
-          anchors.reduce((s, b) => s + b.position[2], 0) / anchors.length,
-        ]
-      : [0, 0, 0];
-    const offset: Vec3 = at ? [at[0] - center[0], 0, at[2] - center[2]] : [0.8, 0, 0.8];
-    const copies = cloneEntities(
-      this.clipboard,
-      this.clipboard.map((e) => e.id),
-      offset,
-    ).map((c) => ({ ...c, name: this.nameForCopy(c.name) }));
-    this.store.add(copies, 'Paste');
+    pasteStored(this, { at: at ?? pasteAnchor() ?? undefined });
   }
 
   selectAll(): void {
