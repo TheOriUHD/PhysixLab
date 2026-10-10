@@ -39,6 +39,19 @@ export const SOFT_ITEMS: readonly SoftItem[] = [
     icon: 'cable',
     blurb: 'Flexible rope or cable. Pinned at both ends by default',
   },
+  // -- SF --
+  {
+    type: 'mesh',
+    label: SOFT_LABELS.mesh,
+    icon: 'jelly',
+    blurb: 'Volumetric jelly of any convex shape — pick the shape in the inspector',
+  },
+  {
+    type: 'tyre',
+    label: SOFT_LABELS.tyre,
+    icon: 'balloon',
+    blurb: 'Pressurised soft tyre. Fasten its rim to a hub to build a wheel',
+  },
 ];
 
 // ── FB-6: scene objects that are not bodies ──
