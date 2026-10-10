@@ -193,8 +193,3 @@ async function boot(): Promise<void> {
 }
 
 boot().catch(showBootFailure); // -- UI-B: plain-language boot failure screen --
-boot().catch((e: unknown) => {
-  console.error(e);
-  const root = document.getElementById('app')!;
-  root.innerHTML = `<div style="padding:40px;max-width:640px;margin:auto;color:var(--text,#dbe3ef);font:15px system-ui"><h2>PhysicsLab couldn’t start</h2><p>${String((e as { message?: unknown } | null)?.message ?? e)}</p><p style="color:var(--text-2,#98a5b9)">PhysicsLab needs a modern desktop browser with WebGL 2 and WebAssembly.</p></div>`;
-});
