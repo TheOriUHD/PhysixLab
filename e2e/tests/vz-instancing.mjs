@@ -57,3 +57,59 @@ test('instancing: picking, hover and selection work per instance', async () => {
   assert(info.promoted && info.meshVisible && !info.slotShown, `selected instance is promoted ${JSON.stringify(info)}`);
   await shot(page, 'vz30-pit-selected');
 });
+
+const frameInfo = (page) =>
+  page.evaluate(async () => {
+    const a = window.physicslab;
+    const info = a.viewport.renderer.info;
+    info.autoReset = false;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    info.reset();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const out = { calls: info.render.calls, triangles: info.render.triangles };
+    info.autoReset = true;
+    return out;
+  });
+
+test('culling + LOD: looking away from the pit draws far less; distant balls use fewer triangles', async () => {
+  const page = await newPage('&scene=pit&quality=low&instancing=0');
+  await page.waitForTimeout(500);
+  const look = (pos, target) =>
+    page.evaluate(([p, t]) => window.physicslab.viewport.setView({ position: p, target: t }), [pos, target]);
+  await page.evaluate(() => (window.physicslab.bodies.lodEnabled = false));
+  await look([0, 6, 14], [0, 1, 0]);
+  await page.waitForTimeout(300);
+  const toward = await frameInfo(page);
+  await look([0, 6, 14], [0, 1, 60]); // turn around: the pit is behind the camera
+  await page.waitForTimeout(300);
+  const away = await frameInfo(page);
+  assert(
+    away.calls < toward.calls * 0.35,
+    `frustum culling: ${toward.calls} calls looking at the pit, ${away.calls} looking away`,
+  );
+  // LOD: pooled balls seen from far away use a lower level than up close.
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.bodies.lodEnabled = true;
+    a.bodies.setInstancing(true);
+  });
+  await look([0, 4, 7], [0, 2, 0]);
+  await page.waitForFunction(() => [...window.physicslab.bodies.lodLevels.values()].every((l) => l === 0), null, {
+    timeout: 20000,
+  });
+  const near = await frameInfo(page);
+  await look([0, 40, 120], [0, 2, 0]);
+  await page.waitForFunction(() => [...window.physicslab.bodies.lodLevels.values()].some((l) => l === 2), null, {
+    timeout: 20000,
+  });
+  const far = await frameInfo(page);
+  const lods = await page.evaluate(() => [...window.physicslab.bodies.views.values()].map((v) => v.lod));
+  assert(
+    far.triangles < near.triangles * 0.5,
+    `distant balls are cheaper: ${near.triangles} → ${far.triangles} triangles`,
+  );
+  process.stderr.write(
+    `[vz-31] culling ${toward.calls}→${away.calls} calls; LOD ${near.triangles}→${far.triangles} triangles\n`,
+  );
+  assert(lods.length > 0, 'views exist');
+});

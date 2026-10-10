@@ -196,3 +196,13 @@ The pin tool nails rigid bodies to the world with a hinge, ball or fixed joint, 
 - **Wind** (the weather block's scene wind, horizontal) only acts through quadratic drag (`c·|v − wind|·(v − wind)`), not through linear damping or on bodies without a drag coefficient.
 ## DT-31 plugins: no plugin-defined components or shapes
 Plugins can register commands, declarative panels and example scenes (templates). Components run inside the physics worker each step and shapes construct Rapier colliders; exposing either to untrusted plugin code would defeat the sandbox (no network/DOM/storage, killable). Scene scripts and plugin templates build scenes from the existing shapes and components instead.
+
+## Render quality (VZ-B)
+
+* **LOD** covers the round primitives (sphere, cylinder, cone, capsule and shapes built from them): other geometry, convex hulls and imported meshes have one level; there is no mesh decimation.
+* **Shadows** are one sun shadow map that follows the orbit target with light-space texel snapping and a tier-dependent frustum, not cascades; there is no PCSS-style contact hardening (three.js r186 samples shadow maps through hardware comparison samplers). High and Ultra tighten the frustum for sharper nearby shadows.
+* **Motion blur** uses a half-resolution velocity buffer: camera motion and body translation, not spin or deformation; soft bodies do not blur.
+* **Screen-space reflections** reflect only what is on screen, and only glossy / metallic bodies and skin meshes (three.js SSRPass); the ground does not reflect.
+* **Light shafts** are screen-space: the sun only produces shafts when it is in the frame (the orbit camera cannot look that high), spotlights always (up to three, nearest-first scan twice a second).
+* **Damage visuals** are procedural (cracks / scorch / dent-tint in the body shader) and accumulate from approach speed per material kind; skinned bodies and compound bodies' parts share the body's damage but skins are not damaged.
+* **Auto quality** judges by frame time on the main thread: a slow *simulation* step lowers quality too.

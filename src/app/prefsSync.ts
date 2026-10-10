@@ -18,6 +18,7 @@ export class PrefsSync {
     app.viewport.setQuality(urlTier ?? p.quality);
     app.viewport.setGraphics(p.graphics); // -- VZ-B --
     app.viewport.setHighlightStyle(p.highlight);
+    app.bodies.lodEnabled = p.graphics.lod;
     app.bodies.setInstancing(p.graphics.instancing && !URL_NO_INSTANCING);
     app.bodies.mode = p.colorMode;
     app.joints.visible = p.showJoints;
@@ -45,6 +46,7 @@ export class PrefsSync {
           app.viewSync.refreshOutline();
           break;
         case 'graphics':
+          app.bodies.lodEnabled = p.graphics.lod;
           app.viewport.setGraphics(p.graphics);
           app.bodies.setInstancing(p.graphics.instancing && !URL_NO_INSTANCING);
           app.invalidateColors();

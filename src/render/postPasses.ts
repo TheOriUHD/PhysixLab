@@ -291,7 +291,7 @@ export class GodRaysPass extends QuadPass {
             for (int s = 0; s < ${MAX_SHAFT_SOURCES}; s++) {
               if (s >= uCount) break;
               vec2 delta = (uUv[s] - vUv) / float(STEPS);
-              float falloff = 1.0 / (1.0 + 6.0 * dot(uUv[s] - vUv, uUv[s] - vUv));
+              float falloff = 1.0 / (1.0 + 14.0 * dot(uUv[s] - vUv, uUv[s] - vUv));
               vec2 p = vUv;
               float w = 1.0; float acc = 0.0;
               for (int i = 0; i < STEPS; i++) {

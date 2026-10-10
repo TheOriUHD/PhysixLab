@@ -66,6 +66,8 @@ export interface GraphicsOptions {
   shadows: { enabled: boolean | null; resolution: 'auto' | 1024 | 2048 | 4096 | 8192; softness: number };
   /** Draw identical bodies through shared InstancedMeshes (VZ-30). */
   instancing: boolean;
+  /** Cheaper meshes for small / distant round bodies (VZ-31). */
+  lod: boolean;
   ao: EffectOptions<'ao'>;
   bloom: EffectOptions<'bloom'>;
   ssr: EffectOptions<'ssr'>;
@@ -83,6 +85,7 @@ export const DEFAULT_GRAPHICS: GraphicsOptions = {
   resolutionScale: 1,
   shadows: { enabled: null, resolution: 'auto', softness: 0.5 },
   instancing: true,
+  lod: true,
   ao: { on: null, radius: 0.6, intensity: 0.9 },
   bloom: { on: null, threshold: 1.0, strength: 0.35, radius: 0.5 },
   ssr: { on: null, intensity: 0.5, maxDistance: 12 },
@@ -143,6 +146,7 @@ export function sanitizeGraphics(raw: unknown): GraphicsOptions {
       softness: nm(sh.softness, d.shadows.softness, 0, 1),
     },
     instancing: typeof r.instancing === 'boolean' ? r.instancing : d.instancing,
+    lod: typeof r.lod === 'boolean' ? r.lod : d.lod,
     ao: eff('ao', (o) => ({
       radius: nm(o.radius, d.ao.radius, 0.1, 3),
       intensity: nm(o.intensity, d.ao.intensity, 0, 1),
@@ -192,6 +196,7 @@ export interface ResolvedGraphics {
   pixelRatioCap: number;
   shadows: { enabled: boolean; resolution: number; softness: number; contactHardening: boolean };
   instancing: boolean;
+  lod: boolean;
   ao: ({ on: boolean } & EffectParams['ao']) | null;
   bloom: ({ on: boolean } & EffectParams['bloom']) | null;
   ssr: ({ on: boolean } & EffectParams['ssr']) | null;
@@ -223,7 +228,7 @@ export function resolveGraphics(o: GraphicsOptions, tier: QualityTier, maxSample
   const pick = <K extends EffectId>(id: K): ({ on: boolean } & EffectParams[K]) | null => {
     const e = o[id];
     const on = effectOn(id, e.on, tier);
-    return on ? ({ ...e, on }) : null;
+    return on ? { ...e, on } : null;
   };
   const shadowsOn = o.shadows.enabled ?? tier !== 'low';
   return {
@@ -238,6 +243,7 @@ export function resolveGraphics(o: GraphicsOptions, tier: QualityTier, maxSample
       contactHardening: tierIndex(tier) >= tierIndex('high'),
     },
     instancing: o.instancing,
+    lod: o.lod,
     ao: pick('ao'),
     bloom: pick('bloom'),
     ssr: pick('ssr'),

@@ -64,6 +64,8 @@ export class FrameLoop {
     // SSR reflects only glossy / metallic bodies; the list is rebuilt twice a second while the effect is on.
     if (app.viewport.resolvedGraphics.ssr && ++this.reflectTick % 30 === 1)
       app.viewport.post.reflectives = app.bodies.reflectiveMeshes();
+    if (!app.camera.ortho)
+      app.bodies.updateLod(app.camera.position, app.viewport.dom.clientHeight, (app.camera.fov * Math.PI) / 180);
     app.bodies.flush(); // -- VZ-B: instance buffers (VZ-30) --
 
     // -- JT-B: joint load estimates run while the stress overlay is on or a joint inspector is showing them --

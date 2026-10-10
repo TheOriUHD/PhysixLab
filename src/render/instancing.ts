@@ -35,7 +35,7 @@ const SLOT_STRIDE = 7;
 export class InstancePool {
   mesh: InstancedMesh;
   private capacity: number;
-  private readonly geometry: BufferGeometry;
+  private geometry: BufferGeometry;
   private lastVel: Float32Array;
   private lastDmg: Float32Array;
   private members: PoolMember[] = [];
@@ -165,6 +165,22 @@ export class InstancePool {
       a[o + 2] = color.b;
       this.colorDirty = true;
     }
+  }
+
+  /** Swap the shared geometry (a new level of detail), keeping the per-instance attributes. */
+  setGeometry(source: BufferGeometry): void {
+    const old = this.geometry;
+    const next = source.clone();
+    for (const name of ['aVel', 'aDamage']) {
+      const a = old.getAttribute(name) as InstancedBufferAttribute;
+      const copy = new InstancedBufferAttribute(a.array.slice(), a.itemSize);
+      copy.setUsage(DynamicDrawUsage);
+      next.setAttribute(name, copy);
+    }
+    this.geometry = next;
+    this.mesh.geometry = next;
+    old.dispose();
+    this.matrixDirty = true;
   }
 
   slotMember(slot: number): PoolMember | undefined {

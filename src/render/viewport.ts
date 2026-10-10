@@ -456,6 +456,10 @@ export class Viewport {
   }
 
   private lastShadowsOn = true;
+  // -- VZ-B: shadow frustum snapping (VZ-32) --
+  private readonly sunDir = new Vector3(-38, 62, 26).normalize();
+  private readonly lightRight = new Vector3();
+  private readonly lightUp = new Vector3();
   resolvedGraphics = resolveGraphics(DEFAULT_GRAPHICS, 'medium');
 
   /** The tier actually in force (differs from the chosen quality under Auto) and the live governor state. */
@@ -615,10 +619,13 @@ export class Viewport {
 
     this.onFrame?.(dt);
 
-    // Keep sun shadow frustum centred on what the user is looking at.
+    // Keep sun shadow frustum centred on what the user is looking at (VZ-32): the extent is quantised so the texel
+    // size only changes in steps while zooming, the High / Ultra tiers use a tighter frustum (sharper contact
+    // shadows near the focus), and the centre snaps to whole texels *in light space* so shadows do not crawl.
     const tgt = this.controls.target;
     const dist = this.camera.position.distanceTo(tgt);
-    const ext = MathUtils.clamp(dist * 0.9 + 14, 22, 70);
+    const tight = this.resolvedGraphics.shadows.contactHardening ? 0.65 : 1;
+    const ext = Math.ceil(MathUtils.clamp((dist * 0.9 + 14) * tight, 14, 70) / 4) * 4;
     const sc = this.sun.shadow.camera;
     if (sc.right !== ext) {
       sc.left = -ext;
@@ -630,9 +637,17 @@ export class Viewport {
       sc.updateProjectionMatrix();
     }
     const texel = (ext * 2) / this.sun.shadow.mapSize.x;
-    const snap = (v: number) => Math.round(v / texel) * texel;
-    this.sun.target.position.set(snap(tgt.x), 0, snap(tgt.z));
-    this.sun.position.set(this.sun.target.position.x - 38, 62, this.sun.target.position.z + 26);
+    const d = this.sunDir;
+    this.lightRight.set(0, 1, 0).cross(d).normalize();
+    this.lightUp.copy(d).cross(this.lightRight);
+    const t = this.sun.target.position.set(tgt.x, 0, tgt.z);
+    const u = t.dot(this.lightRight);
+    const v = t.dot(this.lightUp);
+    t.addScaledVector(this.lightRight, Math.round(u / texel) * texel - u).addScaledVector(
+      this.lightUp,
+      Math.round(v / texel) * texel - v,
+    );
+    this.sun.position.copy(t).addScaledVector(d, 70);
 
     this.skyMesh.position.copy(this.camera.position);
     // An orthographic camera sits far away: fade the ground grid around what is looked at instead.

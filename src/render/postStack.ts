@@ -245,11 +245,13 @@ export class PostStack {
         s.uv.set(this.tmpV.x * 0.5 + 0.5, this.tmpV.y * 0.5 + 0.5);
         s.distance = Infinity;
         s.color.copy(sun.color);
-        s.intensity = intensity * 0.35;
+        s.intensity = intensity * 0.8;
         rays.sources.push(s);
       }
     }
-    if (++this.spotScan % 30 === 1) {
+    const now = performance.now();
+    if (now - this.spotScan > 500) {
+      this.spotScan = now;
       this.spots.length = 0;
       this.scene.traverseVisible((o) => {
         if ((o as SpotLight).isSpotLight) this.spots.push(o as SpotLight);
@@ -267,7 +269,7 @@ export class PostStack {
       s.uv.set(this.tmpV.x * 0.5 + 0.5, this.tmpV.y * 0.5 + 0.5);
       s.distance = depth;
       s.color.copy(sp.color);
-      s.intensity = intensity * 0.12;
+      s.intensity = intensity * 0.3;
       rays.sources.push(s);
     }
   }
