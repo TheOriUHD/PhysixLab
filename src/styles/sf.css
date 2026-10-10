@@ -1,0 +1,7 @@
+/* SF: soft-body tools (attach, cut, rope) */
+.viewport-canvas.tool-softattach,
+.viewport-canvas.tool-softcut,
+.viewport-canvas.tool-softrope { cursor: crosshair; }
+
+.sf-cut-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: hidden; }
+.sf-cut-line { stroke: var(--danger); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 6 4; filter: drop-shadow(0 0 3px rgba(255, 93, 115, 0.7)); }
