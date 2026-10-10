@@ -216,10 +216,10 @@ export function expectedAfterRoundTrip(doc: SceneDocument): unknown {
   const names = new Map<string, string>();
   const ents = q.entities as Obj[];
   ents.forEach((e, i) => names.set(str(e.id), `e${i}`));
-  let k = 0;
+  let compN = 0;
   for (const e of ents)
     if (Array.isArray(e.components))
-      for (const c of e.components) if (isObj(c) && typeof c.id === 'string') names.set(c.id, `c${k++}`);
+      for (const c of e.components) if (isObj(c) && typeof c.id === 'string') names.set(c.id, `c${compN++}`);
   const rename = (v: Json): Json => {
     if (typeof v === 'string') return names.get(v) ?? v;
     if (Array.isArray(v)) return v.map(rename);
