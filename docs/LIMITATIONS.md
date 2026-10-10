@@ -150,3 +150,12 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 ## Share links v2 (DT-20)
 
 The compact share link stores non-integer numbers with 6 significant digits and renames entity ids to `e0`, `e1` … when opened, so a scene opened from a link is physically equivalent to the original but not bit-identical (chaotic scenes can diverge over a long run). Use *Export file* for exact transfer. Old `#scene=` (v1) links keep working.
+
+## DT-23 — peer-to-peer collaboration
+
+* **No server, no TURN.** WebRTC runs with no STUN/TURN servers (nothing third-party is contacted), so a direct connection only forms when the two computers can reach each other (same LAN, or a reachable address). Behind symmetric NATs/strict firewalls it fails; there is no relay fallback.
+* **Manual signalling.** The two connection codes (offer, answer) are exchanged by copy/paste, one invitation per guest; a lost connection must be re-established the same way (no auto-reconnect). Same-device tabs use BroadcastChannel and need no codes.
+* **Guests re-simulate.** The host broadcasts play/pause/reset and guests run the same deterministic engine on the same document; no poses are streamed, so interactions that are not in the document (mouse-grab, key input, projectiles) are not mirrored and runs can drift over long times.
+* **Assets (meshes, textures) are not synchronised**; entities referring to an asset the receiver lacks lose that reference.
+* **Undo is local** and not collaborative (see `docs/COLLAB.md`). Conflicts are per-field last-writer-wins.
+* Joining replaces the guest's scene. Each remote batch re-sanitises the whole document, so very large shared scenes feel heavy.
