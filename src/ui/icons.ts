@@ -111,6 +111,8 @@ const PATHS: Record<string, string> = {
   chevronUp: '<path d="M6 15l6-6 6 6"/>',
   // ── FB-10: maps ──
   map: '<path d="M9 4L3 6.5v13L9 17l6 2.5 6-2.5v-13L15 7z"/><path d="M9 4v13M15 7v12.5"/>',
+  // ── ED-B: cut tool ──
+  scissors: '<circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><path d="M8.2 7.5L20 18M8.2 16.5L20 6"/>',
 };
 
 /** Is `name` one of the built-in icon keys? */

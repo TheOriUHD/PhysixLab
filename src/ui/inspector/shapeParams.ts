@@ -10,7 +10,8 @@ import type { InspectorContext } from './shared';
 export function shapeParamRows(ctx: InspectorContext, id: string, def: ShapeDef): HTMLElement[] {
   const { app } = ctx;
   const get = () => app.store.body(id);
-  return def.params.map((p) => {
+  const visible = def.params.filter((p) => !p.hidden); // -- ED-B: hidden params have no field --
+  return visible.map((p) => {
     const undoLabel = `${def.label} ${p.label.toLowerCase()}`;
     const write = (v: ParamValue) => {
       const b = get();
@@ -45,6 +46,14 @@ function paramField(
         onChange: write,
       });
       return { el: f.el, set: (v, mixed) => f.set(String(v), mixed) };
+    }
+    case 'text': {
+      // -- ED-B: plain text field --
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.maxLength = p.maxLength ?? 1000;
+      input.addEventListener('change', () => write(input.value));
+      return { el: input, set: (v) => void (input.value = String(v)) };
     }
     case 'int':
     case 'float': {

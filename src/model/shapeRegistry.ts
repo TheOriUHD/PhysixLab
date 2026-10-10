@@ -62,7 +62,8 @@ export const SHAPE_CATEGORY_LABELS: Record<ShapeCategory, string> = {
   special: 'Special',
 };
 
-export type ParamKind = 'int' | 'float' | 'bool' | 'enum';
+// -- ED-B: 'text' kind (string payloads such as the chunk's point list) --
+export type ParamKind = 'int' | 'float' | 'bool' | 'enum' | 'text';
 
 /** One entry of a shape's parameter schema. */
 export interface ParamDef {
@@ -78,6 +79,11 @@ export interface ParamDef {
   /** enum only: the allowed values. */
   options?: readonly { value: string; label: string }[];
   hint?: string;
+  // -- ED-B: text params --
+  /** text only: longest accepted string (longer input is cut). */
+  maxLength?: number;
+  /** Stored and sanitised like any parameter, but the inspector shows no field for it. */
+  hidden?: boolean;
 }
 
 /** A labelled size axis the inspector edits for this shape. */
@@ -157,6 +163,8 @@ export function validateShapeDef(def: ShapeDef): void {
       if (!p.options?.length) throw new Error(`${where} parameter "${p.key}" is an enum without options`);
       if (!p.options.some((o) => o.value === p.default))
         throw new Error(`${where} parameter "${p.key}": default is not an option`);
+    } else if (p.kind === 'text') {
+      if (typeof p.default !== 'string') throw new Error(`${where} parameter "${p.key}": default must be a string`);
     } else if (p.kind === 'bool') {
       if (typeof p.default !== 'boolean') throw new Error(`${where} parameter "${p.key}": default must be a boolean`);
     } else {
@@ -204,6 +212,8 @@ export function coerceParam(p: ParamDef, raw: unknown): ParamValue {
       return typeof raw === 'boolean' ? raw : p.default;
     case 'enum':
       return typeof raw === 'string' && p.options?.some((o) => o.value === raw) ? raw : p.default;
+    case 'text':
+      return typeof raw === 'string' ? raw.trim().slice(0, p.maxLength ?? 1000) : p.default;
     case 'int':
       return int(raw, p.default as number, p.min ?? -Infinity, p.max ?? Infinity);
     case 'float':
