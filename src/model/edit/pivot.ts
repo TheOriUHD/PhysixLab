@@ -22,12 +22,12 @@ import { editableRoots, movePatches, type Patch, type RootMove } from './moves';
 
 export type PivotMode = 'centre' | 'bounds' | 'cursor' | 'origins' | 'group';
 
-export const PIVOT_MODES: readonly { id: PivotMode; label: string; hint: string }[] = [
-  { id: 'centre', label: 'Selection centre', hint: 'Median of the selected objects' },
-  { id: 'bounds', label: 'Bounds centre', hint: 'Centre of the selection’s bounding box' },
-  { id: 'cursor', label: '3D cursor', hint: 'About the 3D cursor' },
-  { id: 'origins', label: 'Individual origins', hint: 'Each object about its own origin' },
-  { id: 'group', label: 'Group pivot', hint: 'Each object about the pivot of its group' },
+export const PIVOT_MODES: readonly { id: PivotMode; label: string; short: string; hint: string }[] = [
+  { id: 'centre', short: 'Centre', label: 'Selection centre', hint: 'Median of the selected objects' },
+  { id: 'bounds', short: 'Bounds', label: 'Bounds centre', hint: 'Centre of the selection’s bounding box' },
+  { id: 'cursor', short: 'Cursor', label: '3D cursor', hint: 'About the 3D cursor' },
+  { id: 'origins', short: 'Origins', label: 'Individual origins', hint: 'Each object about its own origin' },
+  { id: 'group', short: 'Group', label: 'Group pivot', hint: 'Each object about the pivot of its group' },
 ];
 
 export interface PivotSpec {
