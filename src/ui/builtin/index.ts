@@ -12,6 +12,7 @@ import { registerBuiltinMenus } from './menus';
 import { registerBuiltinPanels } from './panels';
 // -- UI-A: layout commands and menu --
 import { layoutCommands, registerLayoutMenu } from '../dock/layoutCommands';
+import { registerUiA } from '../uiA';
 
 let done = false;
 
@@ -25,6 +26,7 @@ export function registerUiBuiltins(): void {
   // -- UI-A: layout presets, save / reset, maximise --
   for (const c of layoutCommands()) registerCommand(c);
   registerLayoutMenu();
+  registerUiA();
 }
 
 /** All built-in commands, tools, help, menus, panels and inspector sections. */

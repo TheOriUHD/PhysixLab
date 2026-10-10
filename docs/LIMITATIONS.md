@@ -154,3 +154,11 @@ The compact share link stores non-integer numbers with 6 significant digits and 
 
 ## Pin tool and soft particles (ED-43)
 The pin tool nails rigid bodies to the world with a hinge, ball or fixed joint, also while the simulation runs. A single soft-body particle cannot be pinned at run time: the engine fixes pinned particles when the soft body is built, so a live pin would mean rebuilding (and resetting) the body. Soft bodies are pinned with the Pin presets in their inspector; the tool says so when you click one.
+## DT-23 — peer-to-peer collaboration
+
+* **No server, no TURN.** WebRTC runs with no STUN/TURN servers (nothing third-party is contacted), so a direct connection only forms when the two computers can reach each other (same LAN, or a reachable address). Behind symmetric NATs/strict firewalls it fails; there is no relay fallback.
+* **Manual signalling.** The two connection codes (offer, answer) are exchanged by copy/paste, one invitation per guest; a lost connection must be re-established the same way (no auto-reconnect). Same-device tabs use BroadcastChannel and need no codes.
+* **Guests re-simulate.** The host broadcasts play/pause/reset and guests run the same deterministic engine on the same document; no poses are streamed, so interactions that are not in the document (mouse-grab, key input, projectiles) are not mirrored and runs can drift over long times.
+* **Assets (meshes, textures) are not synchronised**; entities referring to an asset the receiver lacks lose that reference.
+* **Undo is local** and not collaborative (see `docs/COLLAB.md`). Conflicts are per-field last-writer-wins.
+* Joining replaces the guest's scene. Each remote batch re-sanitises the whole document, so very large shared scenes feel heavy.

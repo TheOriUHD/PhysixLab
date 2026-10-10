@@ -2,3 +2,24 @@
 @import './ui-a-dock.css';
 @import './ui-a-inspector.css';
 @import './ui-a-outliner.css';
+
+/* Simple mode (UI-3): sections registered as `advanced` are hidden (section ids: see src/ui/uiMode.ts). */
+#app.ui-simple [data-adv] { display: none !important; }
+
+/* Quick-properties bar (UI-2) */
+.quickbar { left: 50%; bottom: 52px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 5px 8px; max-width: calc(100% - 24px); border-radius: 12px; z-index: 6; }
+.quickbar .qb-name { font-weight: 600; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
+.quickbar .qb-field { width: 112px; flex: none; }
+.quickbar .qb-field.qb-mat { width: 124px; }
+.quickbar .qb-sep { width: 1px; height: 20px; background: var(--border-2); flex: none; }
+.quickbar.qb-sim .qb-field, .quickbar.qb-sim .segmented { opacity: 0.55; pointer-events: none; }
+.quickbar .segmented { flex: none; }
+.quickbar .seg-btn { padding: 3px 7px; }
+.quickbar .num-field { height: 28px; }
+.quickbar .select { height: 28px; }
+@media (max-width: 1180px) { .quickbar .qb-mat, .quickbar .segmented { display: none; } }
+
+/* First-run offer of Simple mode */
+.mode-suggest { left: 50%; top: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 14px; border-radius: 12px; z-index: 8; }
+.mode-suggest .ms-text { color: var(--text-2); font-size: 12.5px; }
+.mode-suggest b { color: var(--text); }

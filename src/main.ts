@@ -10,6 +10,8 @@ import './styles/cm.css'; // -- CM-A --
 import './styles/diag.css';
 import './styles/tour.css';
 import './styles/vzb.css'; // -- VZ-B --
+import './styles/dtb.css'; // -- DT-B --
+import './styles/collab.css'; // -- DT-23 --
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';
@@ -23,6 +25,7 @@ import { buildToolbox } from './ui/toolbox';
 import { buildTopbar } from './ui/topbar';
 import { importDocument } from './ui/sceneActions';
 import { mountToasts } from './ui/toasts';
+import { mountUiA } from './ui/uiA';
 import { showWelcome } from './ui/dialogs';
 import { openMenu } from './ui/menu';
 import { mountZoneHud } from './ui/zoneHud'; // -- ZN
@@ -82,6 +85,8 @@ async function boot(): Promise<void> {
   shell.floatSlot.replaceWith(toolbox, viewbar);
   mountToasts(app);
   mountToolOptions(app); // -- ED-B --
+  // -- UI-A: simple / advanced mode, quick-properties bar --
+  mountUiA(app);
   mountZoneHud(app, shell.stage); // -- ZN: race board, score and event feed over the viewport
   wireShell(app, shell);
   const input = new InputController(app);

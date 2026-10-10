@@ -665,6 +665,12 @@ describe('menus resolve from the registry', () => {
       'Present',
       'Save layout as…',
       'Reset layout',
+      '---',
+      '# Interface',
+      'Simple interface',
+      'Advanced interface',
+      'Quick properties bar',
+      'Floating inspector',
     ]);
     const item = (label: string) =>
       v.find((i): i is Extract<MenuItem, { label: string }> => 'label' in i && i.label === label)!;
@@ -826,7 +832,7 @@ describe('integrity of the built-in registrations', () => {
     for (const m of ['file', 'edit', 'view', 'help', 'context'])
       for (const item of resolveMenu(app, m)) if ('label' in item) expect(item.label.length).toBeGreaterThan(0);
     // Every command referenced by a menu entry exists (resolveMenu silently skips missing ones, so check by count).
-    expect(resolveMenu(app, 'view').filter((i) => 'label' in i)).toHaveLength(6 + 5 + 2 + 5 + 1 + 6);
+    expect(resolveMenu(app, 'view').filter((i) => 'label' in i)).toHaveLength(6 + 5 + 2 + 5 + 1 + 6 + 4);
   });
 
   it('gives every command a category from the known list or a sensible one, and no label is empty', () => {
