@@ -11,7 +11,7 @@ import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-  { ignores: ['dist', 'node_modules', 'e2e/out'] },
+  { ignores: ['dist', 'node_modules', 'e2e/out', 'desktop'] },
   js.configs.recommended,
 
   {
@@ -57,5 +57,11 @@ export default defineConfig(
       // e2e `page.evaluate` callbacks run in the browser, so both global sets apply.
       globals: { ...globals.node, ...globals.browser },
     },
+  },
+
+  {
+    // DT-40: the service worker template is a classic script that doubles as a CommonJS module for its unit tests.
+    files: ['**/*.cjs'],
+    languageOptions: { sourceType: 'commonjs', globals: { ...globals.node, ...globals.serviceworker } },
   },
 );
