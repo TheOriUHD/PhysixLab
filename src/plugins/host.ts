@@ -42,7 +42,6 @@ const METHOD_PERMS: Record<string, Permission> = {
   'scene.entities': 'scene.read',
   'scene.entity': 'scene.read',
   'scene.selection': 'scene.read',
-  'scene.settings': 'scene.read',
   'scene.load': 'scene.write',
   'scene.clear': 'scene.write',
   'scene.setName': 'scene.write',
@@ -77,6 +76,11 @@ const EVENT_PERMS: Record<string, Permission> = {
 };
 const ID = /^[a-z][a-z0-9-]{0,39}$/;
 const MAX_EVENT_SUBS = 20;
+const MAX_ARG_CHARS = 4_000_000;
+const MAX_PLUGINS = 30;
+const MAX_COMMANDS = 50;
+const MAX_PANELS = 5;
+const MAX_TEMPLATES = 20;
 
 interface Instance {
   rec: PluginRecord;
@@ -87,6 +91,15 @@ interface Instance {
   commands: string[];
   panels: Map<string, { refresh: () => void }>;
   templates: string[];
+}
+
+/** Callback ids ({ __cb: n }) anywhere in a raw tree from the sandbox. */
+function wireCallbackIds(v: unknown, out: number[] = [], depth = 0): number[] {
+  if (depth > 12 || typeof v !== 'object' || v === null) return out;
+  const cb = (v as { __cb?: unknown }).__cb;
+  if (typeof cb === 'number') out.push(cb);
+  for (const x of Object.values(v)) wireCallbackIds(x, out, depth + 1);
+  return out;
 }
 
 export class PluginHost {
@@ -139,6 +152,7 @@ export class PluginHost {
     const manifest = parseManifest(source);
     const grant = granted.filter((p) => manifest.permissions.includes(p));
     const prev = this.items.get(manifest.id);
+    if (!prev && this.items.size >= MAX_PLUGINS) throw new Error(`At most ${MAX_PLUGINS} plugins can be installed`);
     if (prev) this.stop(prev);
     const rec: PluginRecord = { manifest, source, enabled: true, granted: grant, origin, installedAt: Date.now() };
     const inst = this.blank(rec);
@@ -210,14 +224,19 @@ export class PluginHost {
     i.state = 'starting';
     this.changed();
     try {
+      let created: Sandbox | null = null;
       const sandbox = await Sandbox.create({
         handlers: this.handlersFor(i),
+        onDispose: (reason) => {
+          if (created && i.sandbox === created) this.fail(i, reason.message);
+        },
         onLog: (level, text) =>
           (level === 'error' ? console.error : level === 'warn' ? console.warn : console.warn)(
             `[plugin ${i.rec.manifest.id}]`,
             text,
           ),
       });
+      created = sandbox;
       i.sandbox = sandbox;
       await sandbox.run(i.rec.source, PRELUDE, START_TIMEOUT_MS);
       if (i.sandbox !== sandbox) return; // stopped meanwhile
@@ -263,6 +282,9 @@ export class PluginHost {
       if (typeof v !== 'string' || !v.trim()) throw new Error(`${what} must be a non-empty string`);
       return v.slice(0, max);
     };
+    const checkSize = (v: unknown) => {
+      if (JSON.stringify(v).length > MAX_ARG_CHARS) throw new Error('The call carries too much data');
+    };
     const handlers: Record<string, (...a: unknown[]) => unknown> = {};
 
     // The documented API, one handler per allowed method.
@@ -272,10 +294,16 @@ export class PluginHost {
       handlers[`api.${name}`] = (...args) => {
         need(perm, name);
         if (args.length > 6) throw new Error('Too many arguments');
+        checkSize(args);
         if (name === 'simulation.mode') return apiObj['simulation']['mode'];
         return apiObj[group][method](...args);
       };
     }
+    // settings() reads, and writes when given a patch: the permission depends on the argument.
+    handlers['api.scene.settings'] = (patch) => {
+      need(patch === undefined || patch === null ? 'scene.read' : 'scene.write', 'scene.settings');
+      return this.api.scene.settings(patch ?? undefined);
+    };
     handlers['api.scene.batch'] = (label, calls) => {
       need('scene.write', 'scene.batch');
       if (!Array.isArray(calls) || calls.length > 5000) throw new Error('batch needs a list of at most 5000 calls');
@@ -284,7 +312,7 @@ export class PluginHost {
         for (const c of calls as unknown[]) {
           const [method, ...args] = Array.isArray(c) ? (c as unknown[]) : [];
           const key = `scene.${String(method)}`;
-          if (!(key in METHOD_PERMS) || METHOD_PERMS[key] !== 'scene.write')
+          if (!Object.hasOwn(METHOD_PERMS, key) || METHOD_PERMS[key] !== 'scene.write')
             throw new Error(`batch cannot call “${String(method).slice(0, 30)}”`);
           out.push(apiObj['scene'][String(method)](...args));
         }
@@ -294,7 +322,7 @@ export class PluginHost {
 
     let subs = 0;
     handlers['events.subscribe'] = (event, cb) => {
-      const perm = EVENT_PERMS[String(event)];
+      const perm = Object.hasOwn(EVENT_PERMS, String(event)) ? EVENT_PERMS[String(event)] : undefined;
       if (!perm) throw new Error(`Unknown event “${String(event).slice(0, 30)}”`);
       need(perm, `event ${String(event)}`);
       if (++subs > MAX_EVENT_SUBS) throw new Error(`At most ${MAX_EVENT_SUBS} event subscriptions per plugin`);
@@ -322,6 +350,7 @@ export class PluginHost {
 
     handlers['register.command'] = (def) => {
       need('ui', 'registering a command');
+      if (i.commands.length >= MAX_COMMANDS) throw new Error(`At most ${MAX_COMMANDS} commands per plugin`);
       const d = def as Record<string, unknown>;
       const cid = text(d['id'], 'command id', 40);
       if (!ID.test(cid)) throw new Error('command id must be lowercase letters, digits and dashes');
@@ -348,12 +377,13 @@ export class PluginHost {
 
     handlers['register.panel'] = (def) => {
       need('ui', 'registering a panel');
+      if (i.panels.size >= MAX_PANELS) throw new Error(`At most ${MAX_PANELS} panels per plugin`);
       const d = def as Record<string, unknown>;
       const panelId = text(d['id'], 'panel id', 40);
       if (!ID.test(panelId)) throw new Error('panel id must be lowercase letters, digits and dashes');
       const region = d['region'] === 'left' || d['region'] === 'bottom' ? d['region'] : 'right';
       const render = cbOf(d['render']);
-      const full = `plugin-${pid}-${panelId}`;
+      const full = `plugin.${pid}.${panelId}`;
       const def2: PanelDef = {
         id: full,
         label: text(d['label'], 'panel label', 24),
@@ -369,7 +399,10 @@ export class PluginHost {
           const refresh = () => {
             const mine = ++token;
             void this.callPlugin(i, render).then((wire) => {
-              if (mine !== token || (!el.isConnected && !el.parentElement)) return;
+              if (mine !== token || (!el.isConnected && !el.parentElement)) {
+                i.sandbox?.forget(wireCallbackIds(wire));
+                return;
+              }
               try {
                 const tree: UiNode = validateTree(wire);
                 const ids = callbackIds(tree);
@@ -380,6 +413,7 @@ export class PluginHost {
                 i.sandbox?.forget(stale.filter((s) => !ids.includes(s)));
                 stale = ids;
               } catch (e) {
+                i.sandbox?.forget(wireCallbackIds(wire));
                 el.replaceChildren(
                   Object.assign(document.createElement('p'), {
                     className: 'plg-text plg-error',
@@ -391,7 +425,14 @@ export class PluginHost {
           };
           i.panels.set(panelId, { refresh });
           refresh();
-          return { el, onShow: refresh, dispose: () => i.panels.delete(panelId) };
+          return {
+            el,
+            onShow: refresh,
+            dispose: () => {
+              i.panels.delete(panelId);
+              i.sandbox?.forget(stale);
+            },
+          };
         },
       };
       i.cleanups.push(registerPanel(def2));
@@ -400,13 +441,14 @@ export class PluginHost {
 
     handlers['register.template'] = (def) => {
       need('ui', 'registering an example scene');
+      if (i.templates.length >= MAX_TEMPLATES) throw new Error(`At most ${MAX_TEMPLATES} example scenes per plugin`);
       const d = def as Record<string, unknown>;
       const tid = text(d['id'], 'template id', 40);
       if (!ID.test(tid)) throw new Error('template id must be lowercase letters, digits and dashes');
       const name = text(d['name'], 'template name', 60);
       const built = buildFromOps(d['scene'] as ScriptResult, name);
       const doc = built.doc;
-      const full = `plugin-${pid}-${tid}`;
+      const full = `plugin.${pid}.${tid}`;
       i.cleanups.push(
         registerTemplate({
           id: full,

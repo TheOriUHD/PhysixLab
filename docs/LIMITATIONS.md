@@ -221,3 +221,5 @@ Plugins can register commands, declarative panels and example scenes (templates)
 * **Light shafts** are screen-space: the sun only produces shafts when it is in the frame (the orbit camera cannot look that high), spotlights always (up to three, nearest-first scan twice a second).
 * **Damage visuals** are procedural (cracks / scorch / dent-tint in the body shader) and accumulate from approach speed per material kind; skinned bodies and compound bodies' parts share the body's damage but skins are not damaged.
 * **Auto quality** judges by frame time on the main thread: a slow *simulation* step lowers quality too.
+## DT-42: first load is not under 1.2 MB gzip
+The Rapier WebAssembly binary alone is about 1.15 MB gzip (served as a separate cached asset), so the cold-start download is about 1.9 MB gzip; the JavaScript part is well below the target. Numbers and the lazy-loading policy are in docs/PERFORMANCE.md; `npm run size` enforces budgets in CI.

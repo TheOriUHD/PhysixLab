@@ -239,11 +239,11 @@ test('Scene script dialog: open from the palette, run an example, one undo step,
   await page.selectOption('.dtb-examples', 'pendulum-chain');
   const code = await page.inputValue('.dtb-code');
   assert(code.includes('Pendulum chain'), 'example should load into the editor');
-  await page.click('text=Run — replace scene');
+  await page.click('button:has-text("Replace scene")');
   await page.waitForSelector('.dtb-status.ok', { timeout: 30000 });
   const n1 = await page.evaluate(() => window.physicslab.scene.entities().length);
   assert(n1 >= 15, `pendulum chain should have bodies and hinges, got ${n1}`);
-  await page.click('text=Run — add to scene');
+  await page.click('button:has-text("Add to scene")');
   await page.waitForFunction((n) => window.physicslab.scene.entities().length >= 2 * n, n1, { timeout: 30000 });
   await page.evaluate(() => window.physicslab.scene.undo());
   const n2 = await page.evaluate(() => window.physicslab.scene.entities().length);
