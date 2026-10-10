@@ -23,7 +23,10 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import type { JointEntity, JointType } from '../model/types';
 import { J, JOINT_STRIDE } from '../physics/protocol';
+import { hasIndependentAnchors } from '../model/jointParams';
 import type { BodyViews } from './bodyViews';
+import type { Gizmo } from './jointGizmos';
+import { makeGizmo, newGizmoCtx } from './jointGizmos';
 
 const STRESS_GREEN = new Color('#35d07f');
 const STRESS_AMBER = new Color('#ffc233');
@@ -78,6 +81,9 @@ class JointView {
   readonly root = new Group();
   readonly hit: Mesh;
   readonly hitB: Mesh | null;
+  private hitMat: MeshBasicMaterial | null = null;
+  /** -- JT-A: limit arc, readout label and the gizmos of the new types (jointGizmos.ts) -- */
+  readonly gizmo: Gizmo | null;
   readonly parts: Mesh[] = [];
   readonly mats: MeshBasicMaterial[] = [];
   line: Line2 | null = null;
@@ -98,13 +104,14 @@ class JointView {
     this.colorBase = new Color(JOINT_COLORS[def.type]);
     this.root.userData.entityId = def.id;
     this.build(resolution);
-    const hitMat = new MeshBasicMaterial({ visible: false });
+    this.gizmo = makeGizmo(def, JOINT_COLORS[def.type], resolution);
+    const hitMat = (this.hitMat = new MeshBasicMaterial({ visible: false }));
     this.hit = new Mesh(shared.sphere, hitMat);
     this.hit.scale.setScalar(0.5);
     this.hit.userData.entityId = def.id;
     this.hit.userData.end = 'A';
     this.root.add(this.hit);
-    if (def.type === 'spring' || def.type === 'rope') {
+    if (hasIndependentAnchors(def.type)) {
       this.hitB = new Mesh(shared.sphere, hitMat);
       this.hitB.scale.setScalar(0.5);
       this.hitB.userData.entityId = def.id;
@@ -197,6 +204,7 @@ class JointView {
   }
 
   setColor(): void {
+    this.gizmo?.setSelected(this.selected);
     const c = this.selected ? new Color(SELECTED) : this.colorBase;
     const motorOn = this.def.motor.mode !== 'off' && (this.def.type === 'hinge' || this.def.type === 'slider');
     for (let i = 0; i < this.mats.length; i++) {
@@ -228,6 +236,8 @@ class JointView {
     for (const m of this.mats) m.dispose();
     this.line?.geometry.dispose();
     this.lineMat?.dispose();
+    this.hitMat?.dispose();
+    this.gizmo?.dispose();
   }
 }
 
@@ -239,6 +249,7 @@ export interface JointFrame {
 
 const tmpQ = new Quaternion();
 const tmpV = new Vector3();
+const Q0 = new Quaternion();
 
 export class JointViews {
   readonly views = new Map<string, JointView>();
@@ -255,7 +266,10 @@ export class JointViews {
 
   setResolution(w: number, h: number): void {
     this.res = { w, h };
-    for (const v of this.views.values()) v.lineMat?.resolution.set(w, h);
+    for (const v of this.views.values()) {
+      v.lineMat?.resolution.set(w, h);
+      v.gizmo?.setResolution(w, h);
+    }
   }
 
   add(def: JointEntity): void {
@@ -264,6 +278,7 @@ export class JointViews {
     v.setColor();
     this.views.set(def.id, v);
     this.group.add(v.root);
+    if (v.gizmo) this.group.add(v.gizmo.group);
   }
 
   update(def: JointEntity): void {
@@ -279,6 +294,7 @@ export class JointViews {
     const v = this.views.get(id);
     if (!v) return;
     this.group.remove(v.root);
+    if (v.gizmo) this.group.remove(v.gizmo.group);
     v.dispose();
     this.views.delete(id);
   }
@@ -326,7 +342,12 @@ export class JointViews {
       out.axis.set(...def.axis);
     }
     out.axis.normalize();
-    if (def.type === 'spring' || def.type === 'rope') {
+    this.qa.copy(A ? A.mesh.quaternion : Q0);
+    this.qb.copy(Bv ? Bv.mesh.quaternion : Q0);
+    this.axisB.set(...def.params.axisB).applyQuaternion(this.qb);
+    if (this.axisB.lengthSq() < 1e-12) this.axisB.set(0, 0, 1);
+    this.axisB.normalize();
+    if (hasIndependentAnchors(def.type)) {
       if (Bv)
         out.b
           .set(...def.anchorB)
@@ -338,6 +359,11 @@ export class JointViews {
   }
 
   private frame: JointFrame = { a: new Vector3(), b: new Vector3(), axis: new Vector3() };
+  // -- JT-A: by-products of the last frameOf() (body orientations, world axis of end B), reused by the gizmos --
+  private qa = new Quaternion();
+  private qb = new Quaternion();
+  private axisB = new Vector3(0, 0, 1);
+  private ctx = newGizmoCtx();
 
   /**
    * Per-frame update. `state` is the live joint buffer (or null in edit mode) and `indexOf`
@@ -363,6 +389,7 @@ export class JointViews {
       v.broken = isBroken;
       const f = this.frameOf(def, this.frame);
       v.root.visible = this.visible && !def.hidden && !isBroken && !!f;
+      if (v.gizmo) v.gizmo.group.visible = v.root.visible;
       if (!f || !v.root.visible) continue;
       v.root.position.copy(f.a);
       const dist = camera.position.distanceTo(f.a);
@@ -428,6 +455,15 @@ export class JointViews {
         }
         v.lineMat!.color.copy(col);
         for (const m of v.mats) m.color.copy(col);
+      } else if (v.gizmo) {
+        // -- JT-A: the gizmo draws everything but the pick spheres --
+        v.root.quaternion.identity();
+        v.root.scale.setScalar(1);
+        v.hit.scale.setScalar(0.4 * s);
+        if (v.hitB) {
+          v.hitB.position.copy(f.b).sub(f.a);
+          v.hitB.scale.setScalar(0.4 * s);
+        }
       }
       // -- JT-B: load-ratio colouring (a joint with a break threshold always shows it; the overlay adds the rest) --
       if (v.def.type !== 'spring') {
@@ -444,7 +480,36 @@ export class JointViews {
           v.setColor();
         }
       }
+      if (v.gizmo) this.updateGizmo(v, f, s, state, indexOf);
     }
+  }
+
+  private updateGizmo(
+    v: JointView,
+    f: JointFrame,
+    s: number,
+    state: Float32Array | null,
+    indexOf: (id: string) => number | undefined,
+  ): void {
+    const g = v.gizmo!;
+    const c = this.ctx;
+    const idx = state ? indexOf(v.def.id) : undefined;
+    c.def = v.def;
+    c.a.copy(f.a);
+    c.b.copy(f.b);
+    c.axis.copy(f.axis);
+    c.axisB.copy(this.axisB);
+    c.qA.copy(this.qa);
+    c.qB.copy(this.qb);
+    c.s = s;
+    c.live = !!state && idx !== undefined;
+    if (state && idx !== undefined) {
+      c.value = state[idx * JOINT_STRIDE + J.value];
+      c.speed = state[idx * JOINT_STRIDE + J.speed];
+      c.force = state[idx * JOINT_STRIDE + J.force];
+    }
+    g.group.position.copy(f.a);
+    g.update(c);
   }
 
   private coil(len: number, d: Vector3, def: JointEntity, s: number): number[] {
