@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { newDocument } from '../src/model/factory';
+import { newReport } from '../src/model/errors';
+import { PREFABS } from '../src/model/prefabs';
+import { hasShape } from '../src/model/shapeRegistry';
 import { TEMPLATES } from '../src/model/templates';
-import { sanitizeDocument } from '../src/model/serialize';
+import { parseDocument, sanitizeDocument, serializeDocument } from '../src/model/serialize';
 import { PhysicsWorld } from '../src/physics/world';
 import { qrot, type Vec3 } from '../src/core/math';
 import type { BodyEntity, SceneDocument } from '../src/model/types';
@@ -32,6 +36,44 @@ describe('every example scene', () => {
           true,
         );
       }
+    });
+  }
+});
+
+/** Deep equality, except that numbers may differ in the last bits (the loader re-normalises quaternions). */
+function expectSame(a: unknown, b: unknown, path: string): void {
+  if (typeof a === 'number' && typeof b === 'number') {
+    expect(Math.abs(a - b), path).toBeLessThan(1e-12);
+  } else if (a && b && typeof a === 'object' && typeof b === 'object') {
+    expect(Object.keys(a).sort(), `${path} keys`).toEqual(Object.keys(b).sort());
+    for (const k of Object.keys(a))
+      expectSame((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k], `${path}.${k}`);
+  } else {
+    expect(a, path).toEqual(b);
+  }
+}
+
+// `ShapeType` is a plain string (the registry decides what exists), so a typo in a template would not be a
+// compile error — and would silently be drawn and simulated as a box. These tests are the safety net.
+describe('bundled content only uses what the registries know', () => {
+  const sources: [string, () => SceneDocument][] = [
+    ...TEMPLATES.map((t): [string, () => SceneDocument] => [`example scene "${t.id}"`, () => t.build()]),
+    ...PREFABS.map((p): [string, () => SceneDocument] => [
+      `prefab "${p.id}"`,
+      () => ({ ...newDocument(p.name), entities: p.build() }),
+    ]),
+  ];
+  for (const [name, build] of sources) {
+    it(`${name}: registered shapes, loads without repairs and saves back unchanged`, () => {
+      const doc = build();
+      for (const e of doc.entities) {
+        if (e.kind !== 'body') continue;
+        expect(hasShape(e.shape.type), `${e.name}: shape "${e.shape.type}" is registered`).toBe(true);
+      }
+      const report = newReport();
+      const loaded = parseDocument(serializeDocument(doc), report);
+      expect(report.warnings, 'nothing had to be repaired').toEqual([]);
+      expectSame(loaded.entities, JSON.parse(JSON.stringify(doc.entities)), 'entities');
     });
   }
 });
