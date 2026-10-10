@@ -419,42 +419,43 @@ export function centroidOf(pts: readonly Vec3[]): Vec3 {
 // ── hulls the engine can digest ─────────────────────────────────────────────────────────────────────
 
 /**
- * The engine's hull builder (parry) mis-handles a vertex that lies within about 0.25 % of the hull's size of the
- * plane of a *polygonal* face (four or more vertices: a flat cap, a band of a revolved profile) it does not belong
- * to: it is treated as lying on that plane, and faces are then merged or dropped unpredictably — a rounded cylinder
- * came out up to 30 % too heavy or too light, or the builder produced no shape at all (measured in
- * `tests/engineHull.test.ts`). Triangle-only hulls (the lattice of an ellipsoid) are not affected; they have the
- * related weakness that neighbouring faces whose normals differ by under about 1.35° are merged, which only hurts
- * when a whole cap of them chains together — a lens flatter than 1 : 4 (see `ELLIPSOID_MIN_RATIO`).
+ * The engine's hull builder (parry) merges two neighbouring faces whose normals differ by less than about 1.35°, and
+ * drops a vertex that lies within about 0.05–0.1 % of the hull's size of a face plane. For a fine triangle mesh that
+ * costs a negligible sliver of volume, but for *polygonal* faces (four or more vertices: caps, the bands of a
+ * revolved profile, the slabs of a ramp) it can collapse the shape — measured over 5 000 hulls in
+ * `tests/engineHull.test.ts`: below 1.5° between a polygonal face and its neighbour 65 % of the hulls came out with
+ * a wrong mass (a rounded cylinder up to 30 % off, a thin slab 31 % or 100 % off, the builder sometimes producing no
+ * shape at all); above 5° none did. A hull handed to the engine therefore keeps `ENGINE_MIN_DIHEDRAL` degrees between
+ * every polygonal face and its neighbours and `ENGINE_CLEARANCE` (relative to the bounding-box diagonal) between a
+ * polygonal face and every vertex off it. Triangle-only hulls (the lattice of an ellipsoid) are not affected, except
+ * when a whole cap of nearly coplanar triangles chains together — a lens flatter than 1 : 4 (`ELLIPSOID_MIN_RATIO`).
  *
- * Hulls handed to the engine keep a clearance of `ENGINE_CLEARANCE` (1.2 × the largest value that still misbehaved),
- * relative to the diagonal of their bounding box;
- * `firstSafeHull` picks, from a list of candidate point sets, the most detailed one that does.
+ * `firstSafeHull` picks, from a list of candidate point sets, the most detailed one that qualifies.
  */
-export const ENGINE_CLEARANCE = 0.003;
+export const ENGINE_MIN_DIHEDRAL = 2.5;
+export const ENGINE_CLEARANCE = 0.0015;
 
 /** Diagonal of the axis-aligned bounding box (the scale the engine's tolerance is measured against). */
 export function hullDiameter(h: Hull): number {
-  const e = extentOfPoints(h.points);
-  return Math.hypot(e[0], e[1], e[2]);
-}
-
-function extentOfPoints(pts: readonly Vec3[]): Vec3 {
   const lo: Vec3 = [Infinity, Infinity, Infinity];
   const hi: Vec3 = [-Infinity, -Infinity, -Infinity];
-  for (const p of pts)
+  for (const p of h.points)
     for (let a = 0; a < 3; a++) {
       lo[a] = Math.min(lo[a], p[a]);
       hi[a] = Math.max(hi[a], p[a]);
     }
-  return [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]];
+  return Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
 }
 
 /** Indices of the vertices closer than `tau × diameter` to the plane of a polygonal face they are not on. */
-export function crowdedVertices(h: Hull, tau = ENGINE_CLEARANCE): Set<number> {
+export function crowdedVertices(
+  h: Hull,
+  tau = ENGINE_CLEARANCE,
+  faces: readonly HullFace[] = hullFaces(h),
+): Set<number> {
   const limit = tau * hullDiameter(h);
   const out = new Set<number>();
-  for (const f of hullFaces(h)) {
+  for (const f of faces) {
     if (f.verts.length < 4) continue;
     const on = new Set(f.verts);
     for (let i = 0; i < h.points.length; i++) {
@@ -467,24 +468,46 @@ export function crowdedVertices(h: Hull, tau = ENGINE_CLEARANCE): Set<number> {
   return out;
 }
 
+/** The smallest angle in degrees between a polygonal face and a face that shares an edge with it (180 if none). */
+export function minPolygonDihedral(h: Hull, faces: readonly HullFace[] = hullFaces(h)): number {
+  const n = h.points.length;
+  const owner = new Map<number, number>();
+  faces.forEach((f, fi) => f.verts.forEach((v, k) => owner.set(v * n + f.verts[(k + 1) % f.verts.length], fi)));
+  let best = 180;
+  faces.forEach((f, fi) =>
+    f.verts.forEach((v, k) => {
+      const other = owner.get(f.verts[(k + 1) % f.verts.length] * n + v);
+      if (other === undefined || other <= fi) return;
+      const g = faces[other];
+      if (f.verts.length < 4 && g.verts.length < 4) return;
+      const d = f.normal[0] * g.normal[0] + f.normal[1] * g.normal[1] + f.normal[2] * g.normal[2];
+      best = Math.min(best, (Math.acos(Math.max(-1, Math.min(1, d))) * 180) / Math.PI);
+    }),
+  );
+  return best;
+}
+
+/** True when the engine reproduces this hull faithfully (see above). */
+export function isEngineSafe(h: Hull): boolean {
+  const faces = hullFaces(h);
+  return minPolygonDihedral(h, faces) >= ENGINE_MIN_DIHEDRAL && crowdedVertices(h, ENGINE_CLEARANCE, faces).size === 0;
+}
+
 /**
- * The first candidate point set whose hull keeps the clearance — candidates are tried in order, so list the most
+ * The first candidate point set whose hull is engine-safe — candidates are tried in order, so list the most
  * detailed first and coarser ones after it: a fillet that is too fine gets fewer facets (down to a chamfer, then a
  * sharp edge). The polyhedron the collider, the volume and the mesh share is then one the engine reproduces exactly;
- * vertices are never dropped from a finished hull (removing the crowded ones cascades — every fillet vertex crowds
- * its neighbours). Returns the hull and the index of the candidate it came from; when none qualifies the last usable
- * one; null when every candidate is degenerate.
+ * vertices are never dropped from a finished hull (removing the crowded ones cascades). Returns the hull and the
+ * index of the candidate it came from; when none qualifies the last usable one; null when every candidate is
+ * degenerate.
  */
-export function firstSafeHull(
-  candidates: readonly (() => Vec3[])[],
-  tau = ENGINE_CLEARANCE,
-): { hull: Hull; index: number } | null {
+export function firstSafeHull(candidates: readonly (() => Vec3[])[]): { hull: Hull; index: number } | null {
   let last: { hull: Hull; index: number } | null = null;
   for (let index = 0; index < candidates.length; index++) {
     const hull = convexHull3(candidates[index]());
     if (!hull) continue;
     last = { hull, index };
-    if (crowdedVertices(hull, tau).size === 0) return last;
+    if (isEngineSafe(hull)) return last;
   }
   return last;
 }

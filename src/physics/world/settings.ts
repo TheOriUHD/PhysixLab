@@ -22,6 +22,10 @@ export function applySettings(s: WorldState, next: SceneSettings, initial = fals
   }
   s.world.integrationParameters.dt = engineDt(s);
   s.world.integrationParameters.numSolverIterations = next.solverIterations;
+  // -- SH: the engine's default contact prediction distance is 2 cm, wide enough that a ball rolling over a surface
+  // made of several convex pieces (stairs, ramps, half-pipes, tiled floors) catches on the seams between them and
+  // loses a third of its speed; 2 mm keeps 97 % (tests/seams.test.ts). --
+  s.world.integrationParameters.normalizedPredictionDistance = 0.002;
   if (initial || prev.ground !== next.ground) buildGround(s);
   // A new seed in the settings restarts the random stream (the initial seed is applied by the constructor).
   if (!initial && prev.seed !== next.seed) s.rng.seed(next.seed);

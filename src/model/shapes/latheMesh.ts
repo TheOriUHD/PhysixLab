@@ -6,7 +6,7 @@
  */
 import type { Vec3 } from '../../core/math';
 import type { P2 } from './meshKit';
-import type { PolyMesh} from './polyMesh';
+import type { PolyMesh } from './polyMesh';
 import { type UV } from './polyMesh';
 
 const TAU = Math.PI * 2;

@@ -5,13 +5,13 @@
  * fewer facets, a smaller one a single chamfer, and a tiny one none. `bevelPlan` lists the (radius, facets) pairs to
  * try, most detailed first, for `firstSafeHull`.
  */
-import { ENGINE_CLEARANCE } from './hull3';
+import { ENGINE_CLEARANCE, ENGINE_MIN_DIHEDRAL } from './hull3';
 
 /** Margin over the engine's clearance used when estimating, so the first plan usually already qualifies. */
 const MARGIN = 1.15;
 
 /** Facets of a rim whose neighbours around the axis meet at less than this are not even tried. */
-const MIN_AROUND_AXIS_DEGREES = 1.4;
+const MIN_AROUND_AXIS_DEGREES = ENGINE_MIN_DIHEDRAL - 0.5;
 
 export interface BevelPlan {
   /** Radius to build (0 = a sharp edge). */
