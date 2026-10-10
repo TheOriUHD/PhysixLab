@@ -5,3 +5,10 @@
 .btn.active { border-color: var(--accent); color: var(--accent); }
 .damage-bar { height: 6px; border-radius: 3px; background: var(--bg); margin-top: 4px; overflow: hidden; }
 .damage-fill { height: 100%; width: 0; background: var(--warn, #ffb03a); transition: width 0.2s; }
+.section-body > .switch { display: flex; padding: 4px 0; }
+.gfx-reset-row { padding-top: 8px; }
+.section .section .section-head .badge { color: var(--text-2); padding: 2px 7px; }
+.section .section .section-head .badge.on { color: var(--accent); background: var(--accent-bg, var(--bg)); }
+.section .section > .section-body { padding-left: 0; padding-right: 0; }
+.section-head:focus-visible { outline: 2px solid var(--accent-line, var(--accent)); outline-offset: -2px; }
+.switch-input:focus-visible + .switch-track { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }

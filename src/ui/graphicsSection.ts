@@ -175,6 +175,7 @@ export function buildGraphicsSection(app: App): GraphicsSection {
   upd.push(() => aa.set(cur().aa));
 
   const scale = sliderField({
+    unit: '×',
     min: 0.5,
     max: 1,
     step: 0.05,
@@ -256,7 +257,7 @@ export function buildGraphicsSection(app: App): GraphicsSection {
         onChange: (v) => write((g) => ((g[fx.id] as unknown as Record<string, number>)[p.key] = v)),
       });
       fields.push(f);
-      body.push(row(p.label, f.el, p.hint));
+      body.push(row(p.label, f.el, p.hint ?? `${fx.label}: ${p.label.toLowerCase()}`));
       upd.push(() => f.set((cur()[fx.id] as unknown as Record<string, number>)[p.key]));
     }
     if (fx.id === 'dof') body.push(...focusControls(app, write, upd));
@@ -294,10 +295,21 @@ export function buildGraphicsSection(app: App): GraphicsSection {
     upd.push(() => t.set(hl()[key]));
     return t.el;
   });
-  const highlight = section('Selection highlight', [row('Palette', palette.el), ...toggles], {
-    id: 'gfx-highlight',
-    open: false,
-  });
+  const highlight = section(
+    'Selection highlight',
+    [
+      row(
+        'Palette',
+        palette.el,
+        'Outline colours; the colour-blind-safe set keeps selection, hover, multi-selection and linked apart',
+      ),
+      ...toggles,
+    ],
+    {
+      id: 'gfx-highlight',
+      open: false,
+    },
+  );
 
   const dmgOn = toggleField({
     label: 'Impact damage',
@@ -311,14 +323,19 @@ export function buildGraphicsSection(app: App): GraphicsSection {
     max: 4,
     step: 0.05,
     digits: 2,
+    unit: '×',
     log: true,
     onChange: (v) => app.prefs.set({ damage: { ...app.prefs.value.damage, sensitivity: v } }),
   });
   upd.push(() => dmgSens.set(app.prefs.value.damage.sensitivity));
-  const damage = section('Damage visuals', [dmgOn.el, row('Sensitivity', dmgSens.el)], {
-    id: 'gfx-damage',
-    open: false,
-  });
+  const damage = section(
+    'Damage visuals',
+    [dmgOn.el, row('Sensitivity', dmgSens.el, 'How quickly impacts damage surfaces')],
+    {
+      id: 'gfx-damage',
+      open: false,
+    },
+  );
 
   const el = section(
     'Graphics',
@@ -331,15 +348,15 @@ export function buildGraphicsSection(app: App): GraphicsSection {
       status,
       row('Anti-aliasing', aa.el, 'MSAA smooths geometry edges; FXAA / SMAA are post-process filters'),
       row('Resolution', scale.el, 'Scale of the render resolution relative to the screen (Auto lowers it under load)'),
-      row('Shadows', shadows.el),
-      row('Shadow map', shadowRes.el),
-      row('Soft edges', softness.el),
+      row('Shadows', shadows.el, 'Sun shadows; Auto turns them off only on the Low tier'),
+      row('Shadow map', shadowRes.el, 'Resolution of the sun shadow map: sharper shadows, more GPU memory'),
+      row('Soft edges', softness.el, 'Blur radius of shadow edges'),
       instancing.el,
       lod.el,
       ...effectRows,
       highlight,
       damage,
-      h('div', { class: 'row' }, reset),
+      h('div', { class: 'gfx-reset-row' }, reset),
     ],
     { id: 'world-graphics' },
   );
