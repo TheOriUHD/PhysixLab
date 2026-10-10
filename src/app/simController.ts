@@ -52,6 +52,8 @@ export class SimController extends Emitter<Events> {
   wantContacts = false;
   /** The document the running world was built from (null while editing). */
   builtDoc: SceneDocument | null = null;
+  /** -- SF: soft-body economy mode, re-sent whenever a world is built -- */
+  softEconomy = false;
   private pendingSteps = 0;
   private lastTick = performance.now();
 
@@ -101,11 +103,18 @@ export class SimController extends Emitter<Events> {
     this.emit('layout', undefined);
   }
 
+  /** -- SF: switch the soft-body economy mode (live world and every later one). -- */
+  setSoftEconomy(on: boolean): void {
+    this.softEconomy = on;
+    this.client.op({ op: 'softEconomy', on });
+  }
+
   private build(): void {
     this.ephemeral.clear();
     // Only assets something references go to the worker (they can be megabytes).
     this.builtDoc = pruneAssets(this.store.toDocument()); // -- TM: replays start from this scene --
     this.client.build(this.builtDoc);
+    if (this.softEconomy) this.client.op({ op: 'softEconomy', on: true }); // -- SF --
     this.emit('layout', undefined);
   }
 

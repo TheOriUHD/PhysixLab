@@ -1,0 +1,28 @@
+/* Package SF — soft-body inspector sections (src/ui/inspector/softSf.ts). */
+.sf-caption { color: var(--text-3); font-size: 11.5px; line-height: 1.45; margin: 2px 0 6px; }
+.sf-caption.sf-inline { margin: 0; white-space: nowrap; }
+.sf-hint { margin: 4px 0 6px; }
+.sf-warn-text { color: var(--warn); }
+.sf-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.sf-actions .btn { flex: 0 0 auto; }
+.sf-shape-icon { display: inline-flex; flex: 0 0 auto; color: var(--accent); }
+.sf-shape-icon .icon { width: 16px; height: 16px; }
+
+.sf-warnings { display: flex; flex-direction: column; gap: 8px; }
+.sf-warning { display: flex; gap: 8px; padding: 8px 10px; border: 1px solid rgba(255, 179, 71, 0.4); background: rgba(255, 179, 71, 0.08); border-radius: var(--radius-s); }
+.sf-warning-icon { flex: 0 0 auto; width: 16px; height: 16px; color: var(--warn); margin-top: 1px; }
+.sf-warning-body { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; font-size: 12px; line-height: 1.45; color: var(--text); }
+.sf-warning-body .btn { max-width: 100%; }
+
+.sf-list { display: flex; flex-direction: column; gap: 8px; }
+.sf-att { border: 1px solid var(--border); border-radius: var(--radius-s); padding: 6px 8px; background: var(--panel-2); }
+.sf-att-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.sf-att-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.sf-att-kind { flex: 0 0 auto; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); border: 1px solid var(--border-2); border-radius: 999px; padding: 0 7px; }
+
+.sf-bar { height: 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; margin: 4px 0; }
+.sf-bar-fill { height: 100%; width: 0; background: var(--run); border-radius: 999px; transition: width 0.15s, background 0.15s; }
+.sf-bar[data-tier="ok"] .sf-bar-fill { background: var(--accent); }
+.sf-bar[data-tier="heavy"] .sf-bar-fill { background: var(--warn); }
+.sf-bar[data-tier="excessive"] .sf-bar-fill { background: var(--danger); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }

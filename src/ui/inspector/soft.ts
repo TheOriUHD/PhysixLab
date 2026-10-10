@@ -17,6 +17,9 @@ import {
 import type { Field } from '../controls';
 import { h } from '../dom';
 import type { InspectorContext } from './shared';
+// -- SF: extra soft-body sections --
+import { softSfSections } from './softSf';
+import { softParticleCount } from '../../model/softBudget';
 
 export function softInspector(ctx: InspectorContext, sel: SoftEntity[]): HTMLElement[] {
   const { app } = ctx;
@@ -110,19 +113,7 @@ export function softInspector(ctx: InspectorContext, sel: SoftEntity[]): HTMLEle
   const particles = h('span', { class: 'readout', style: { fontSize: '11.5px', color: 'var(--text-3)' } });
   ctx.updaters.push(() => {
     const e = first();
-    const n = e.resolution;
-    const count =
-      e.type === 'jelly'
-        ? n ** 3
-        : e.type === 'cloth'
-          ? n * n
-          : e.type === 'cable'
-            ? n
-            : e.type === 'tyre'
-              ? n * 10
-              : e.type === 'mesh'
-                ? Math.round((e.size[0] * e.size[1] * e.size[2]) / e.cell ** 3)
-                : 10 * 4 ** (n - 1) * 2 + 2;
+    const count = softParticleCount(e); // -- SF: one source of truth for every recipe --
     particles.textContent = `≈ ${count} particles${count > 700 ? ' — heavy' : ''}`;
   });
   const mass = numberField({
@@ -214,18 +205,32 @@ export function softInspector(ctx: InspectorContext, sel: SoftEntity[]): HTMLEle
   });
   const pinRow =
     type === 'jelly' || type === 'balloon' ? [] : [row('Pinning', pin.el, 'Pinned particles are fixed in space')];
+  // -- SF: stiffness / damping / tearing rows live in the Material section (softSf.ts) --
+  const sf = softSfSections(ctx, sel, {
+    stiffness: row(
+      'Stiffness',
+      stiff.el,
+      'Natural frequency of the material: ~7 Hz is very squishy, 40+ Hz nearly rigid',
+    ),
+    damping: row('Damping', damp.el, '0 = bouncy, 1 = heavily damped'),
+    tearToggle: canTear.el,
+    tearRow,
+  });
+  out.push(...sf.stability);
+  // -- /SF --
   out.push(
     section(
       'Soft body',
       [
-        row('Resolution', res.el, 'Particles per side / per cable. More looks smoother but costs more'),
-        h('div', { style: { padding: '0 0 4px 100px' } }, particles),
+        // -- SF: a volumetric mesh is sized by its cell (Mesh source section), not by a resolution --
+        ...(type === 'mesh'
+          ? []
+          : [
+              row('Resolution', res.el, 'Particles per side / per cable. More looks smoother but costs more'),
+              h('div', { style: { padding: '0 0 4px 100px' } }, particles),
+            ]),
         row('Mass', mass.el),
-        row('Stiffness', stiff.el, 'Natural frequency of the material: ~7 Hz is very squishy, 40+ Hz nearly rigid'),
-        row('Damping', damp.el, '0 = bouncy, 1 = heavily damped'),
         ...pinRow,
-        canTear.el,
-        tearRow,
         ...(type === 'cable' ? [] : [selfC.el]),
         row('Gravity scale', grav.el),
         row('Air drag', damping.el),
@@ -238,6 +243,8 @@ export function softInspector(ctx: InspectorContext, sel: SoftEntity[]): HTMLEle
       { id: 'soft-body' },
     ),
   );
+
+  out.push(...sf.main); // -- SF --
 
   // ---- appearance --------------------------------------------------------------------------
   const color = colorField({

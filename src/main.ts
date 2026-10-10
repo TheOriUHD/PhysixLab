@@ -17,6 +17,7 @@ import './styles/jointsB.css'; // -- JT-B --
 import './styles/sf.css'; // -- SF --
 import './styles/joints.css';
 import './styles/jointtool.css';
+import './styles/sf-inspector.css'; // -- SF --
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';

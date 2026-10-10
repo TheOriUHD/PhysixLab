@@ -94,6 +94,8 @@ export interface Prefs {
   highlight: HighlightOptions;
   // -- VZ-B: impact damage visuals (VZ-41) --
   damage: DamageSettings;
+  // -- SF: soft-body economy mode (cheaper impact substeps) --
+  softEconomy: boolean;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -153,6 +155,7 @@ export const DEFAULT_PREFS: Prefs = {
   graphics: cloneGraphics(DEFAULT_GRAPHICS),
   highlight: { ...DEFAULT_HIGHLIGHT },
   damage: { ...DEFAULT_DAMAGE },
+  softEconomy: false, // -- SF --
 };
 
 const KEY = 'physicslab:prefs:v1';

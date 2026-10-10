@@ -124,6 +124,7 @@ export class App extends Emitter<AppEvents> {
   constructor(readonly shell: Shell) {
     super();
     this.sim = new SimController(this.store);
+    this.sim.softEconomy = this.prefs.value.softEconomy; // -- SF --
     this.contacts = new ContactFeed(this.sim); // ── FX ──
     this.editor = new Editor(this.store, this.sim);
     this.persistence = new Persistence(this.store);
