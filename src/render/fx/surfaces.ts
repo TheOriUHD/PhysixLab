@@ -6,8 +6,9 @@
  *
  *   - **energy** `E = ½·J·v` (J = normal impulse, v = approach speed) is, for a central impact, the kinetic energy that
  *     went into the contact (`J = m_eff (1 + e) v`, so `½ J v = ½ m_eff (1 + e) v²` — within a factor (1 + e)/1 of
- *     the exact ½ m v²). The **level** is its logarithm mapped to 0 … 1 (0.3 J → 0, 3 kJ → 1), so a ping-pong ball and a
- *     wrecking ball both get an effect in proportion.
+ *     the exact ½ m v²). The **level** is its logarithm mapped to 0 … 1 (0.3 J → 0, 30 kJ → 1), so a ping-pong ball and a
+ *     wrecking ball both get an effect in proportion. Bodies in this world have real masses (a steel ball 0.4 m across
+ *     weighs 260 kg), so the **intensity** also weighs in how fast the hit was: `level^0.7 · (0.35 + 0.65·v/14)`.
  *   - **speed** gates the effect: a body resting or sliding gently makes no sparks, whatever its mass.
  *   - the **pair** decides the look: metal on a hard surface throws sparks, anything on concrete or the ground puffs
  *     dust, wood sheds chips when something harder hits it, glass shatters into shards and glints, rubber scuffs,
@@ -162,12 +163,22 @@ export function impactEnergy(speed: number, impulse: number): number {
 }
 
 const E_LOW = Math.log10(0.3);
-const E_HIGH = Math.log10(3000);
+const E_HIGH = Math.log10(30000);
 
-/** Impact energy on a 0 … 1 logarithmic scale (0.3 J → 0, 3 kJ → 1). */
+/** Impact energy on a 0 … 1 logarithmic scale (0.3 J → 0, 30 kJ → 1). */
 export function impactLevel(energy: number): number {
   if (!(energy > 0)) return 0;
   return Math.min(1, Math.max(0, (Math.log10(energy) - E_LOW) / (E_HIGH - E_LOW)));
+}
+
+/**
+ * How strong the visual effect of an impact is, 0 … 1: the energy level, damped for slow hits of heavy bodies (a 4 t
+ * ball touching down at 1 m/s should not throw as much as the same ball at 20 m/s).
+ */
+export function impactIntensity(speed: number, impulse: number): number {
+  const level = impactLevel(impactEnergy(speed, impulse));
+  const vigor = Math.min(1, Math.max(0, speed / 14));
+  return Math.pow(level, 0.7) * (0.35 + 0.65 * vigor);
 }
 
 export interface ImpactInput {
@@ -226,7 +237,7 @@ export function impactBursts(i: ImpactInput): ImpactBurst[] {
   const v = i.speed;
   const E = impactEnergy(v, i.impulse);
   if (v < 0.7 || E < 0.3) return [];
-  const L = impactLevel(E);
+  const L = impactIntensity(v, i.impulse);
   const sizeK = Math.min(2.2, Math.max(0.55, 0.55 + (i.size ?? 0.4) * 1.1));
   const out: ImpactBurst[] = [];
   const cap = (n: number) => Math.min(MAX_BURST, n);
@@ -291,10 +302,10 @@ export function impactBursts(i: ImpactInput): ImpactBurst[] {
       });
     }
     // Debris: a brittle material hit very hard throws chunks.
-    if (s.brittle >= 0.5 && L >= 0.55 && v >= 4.5 && p.hardness >= 0.4) {
+    if (s.brittle >= 0.5 && L >= 0.45 && v >= 4.5 && p.hardness >= 0.4) {
       out.push({
         type: 'debris',
-        count: Math.min(14, Math.ceil((2 + (8 * (L - 0.55)) / 0.45) * s.brittle)),
+        count: Math.min(14, Math.ceil((2 + (8 * (L - 0.45)) / 0.55) * s.brittle)),
         scale: (0.8 + 0.8 * L) * Math.min(1.5, sizeK),
         speed: 0.8 + L,
         dir,
