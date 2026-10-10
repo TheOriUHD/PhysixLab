@@ -5,6 +5,7 @@ import './styles/ed-snap.css';
 import './styles/ed-hierarchy.css';
 import './styles/ed-prefabs.css';
 import './styles/ed-path.css';
+import './styles/ed-array.css';
 import './styles/ui-a.css';
 import './styles/tm.css'; // -- TM --
 import './styles/cm.css'; // -- CM-A --
