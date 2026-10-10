@@ -80,7 +80,7 @@ export function uiCommands(): CommandDef[] {
       icon: 'keyboard',
       keywords: ['keys', 'hotkeys', 'cheat sheet'],
       shortcut: '?',
-      run: () => showShortcuts(),
+      run: ({ app }) => showShortcuts(app),
     },
     {
       id: 'help.welcome',

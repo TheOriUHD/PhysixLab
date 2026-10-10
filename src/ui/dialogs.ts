@@ -1,25 +1,14 @@
 import type { App } from '../app/app';
-import { helpSections } from '../app/registry/help';
+import { openCheatSheet } from './help/cheatSheet';
 import { button } from './controls';
 import { h } from './dom';
 import { icon } from './icons';
 import { openModal } from './modal';
 
-/** The keyboard shortcut reference — generated from the command registry and the gesture entries. */
-export function showShortcuts(): void {
-  const grid = h('div', { class: 'kbd-grid' });
-  for (const section of helpSections()) {
-    grid.appendChild(h('div', { class: 'kbd-group' }, section.title));
-    for (const row of section.rows) {
-      const joined: (HTMLElement | string)[] = [];
-      row.alternatives.forEach((keys, i) => {
-        if (i) joined.push(h('span', { style: { margin: '0 6px', color: 'var(--text-3)' } }, 'or'));
-        joined.push(h('span', null, ...keys.map((k) => h('kbd', { style: { marginLeft: '3px' } }, k))));
-      });
-      grid.appendChild(h('div', { class: 'kbd-row' }, h('span', null, row.label), h('span', null, ...joined)));
-    }
-  }
-  openModal({ title: 'Keyboard shortcuts', body: [grid], width: '780px' });
+/** The keyboard shortcut cheat-sheet (searchable; see `help/cheatSheet.ts`). */
+// -- UI-B: the cheat-sheet replaced the static list --
+export function showShortcuts(app?: App): void {
+  openCheatSheet(app);
 }
 
 export function showWelcome(app: App): void {
