@@ -142,7 +142,7 @@ describe('VZ-2/3 material fields survive save and load, and are sanitised', () =
     store.add([b]);
     expect(store.assetRefCount(id)).toBe(1);
     expect(store.unusedAssets()).toEqual([]);
-    const doc = JSON.parse(serializeDocument(store.toDocument()));
+    const doc = JSON.parse(serializeDocument(store.toDocument())) as { assets: Record<string, unknown> };
     expect(Object.keys(doc.assets)).toContain(id);
     // remove the asset: the body falls back to no texture
     store.removeAsset(id);
@@ -248,7 +248,7 @@ describe('VZ-10..13 environment settings', () => {
         hdri: { ...store.settings.environment.hdri, assetId: id },
       },
     });
-    const saved = JSON.parse(serializeDocument(store.toDocument()));
+    const saved = JSON.parse(serializeDocument(store.toDocument())) as { assets: Record<string, unknown> };
     expect(Object.keys(saved.assets)).toContain(id);
     saved.assets = {};
     const loaded = sanitizeDocument(saved);
