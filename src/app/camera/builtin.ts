@@ -225,6 +225,20 @@ export function registerCameraBuiltins(): void {
       },
     });
   }
+  registerCommand({
+    id: 'camera.minimap',
+    label: 'Camera: minimap',
+    category: 'Camera',
+    icon: 'map',
+    shortcut: 'Shift+N',
+    description: 'A live top-down map in the corner of the viewport: click it to move the camera',
+    keywords: ['map', 'overview', 'radar'],
+    checked: (app) => app.store.cameras.minimap.enabled,
+    run: ({ app }) => {
+      const c = app.store.cameras;
+      app.store.setCameras({ ...c, minimap: { ...c.minimap, enabled: !c.minimap.enabled } }, 'Toggle minimap');
+    },
+  });
   registerMenuEntry({ id: 'menu.view.cameraMode', menu: 'view', group: 'camera', order: 400, command: 'camera.cycle' });
   registerMenuEntry({
     id: 'menu.view.cameraProjection',

@@ -169,3 +169,262 @@ test('camera: modes that need a body say so instead of failing; FOV changes the 
   assert(page.errors.length === 0, page.errors.join('\n'));
   await page.close();
 });
+
+test('camera: a cinematic shot flies the camera along a path, scrubs, loops and records a WebM', async () => {
+  const page = await newPage('&scene=car');
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.addPath();
+    const p = a.store.paths()[0];
+    // a straight 40 m rail 6 m above the ground
+    a.store.update(p.id, {
+      position: [0, 0, 0],
+      rotation: [0, 0, 0, 1],
+      points: [
+        [0, 6, 0],
+        [20, 6, 0],
+        [40, 6, 0],
+      ],
+      tension: 1,
+    });
+    a.store.setSelection([p.id]);
+    a.prefs.set({ rightTab: 'camera' });
+  });
+  await page.waitForSelector('.cam-panel');
+  await page.click('.cam-panel .section-head:has-text("Cinematic shots")');
+  await page.click('.cam-shots >> text=New shot');
+  await page.waitForSelector('.cam-shot-detail .cam-scrub');
+  const sh = await page.evaluate(() => window.physicslab.store.cameras.shots[0]);
+  assert(sh && sh.keys.length === 2 && sh.duration === 8, `shot ${JSON.stringify(sh)}`);
+  // scrub to the middle: the camera is half way along the rail, looking along it (+X)
+  await page.evaluate(() => {
+    const el = document.querySelector('.cam-scrub');
+    el.value = '4';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.waitForFunction(
+    () => {
+      const p = window.physicslab.camera.position;
+      return Math.abs(p.x - 20) < 0.5 && Math.abs(p.y - 6) < 0.5;
+    },
+    null,
+    { timeout: 20000 },
+  );
+  const f = await page.evaluate(() => {
+    const a = window.physicslab;
+    const v = new a.camera.position.constructor(0, 0, -1).applyQuaternion(a.camera.quaternion);
+    return [v.x, v.y, v.z];
+  });
+  assert(f[0] > 0.99, `looks along the path ${f}`);
+  // playing advances the time; it stops at the end (no loop)
+  await page.evaluate(() => {
+    const pl = window.physicslab.cameraRig.player;
+    pl.seek(7.5);
+    pl.play();
+  });
+  await page.waitForFunction(() => !window.physicslab.cameraRig.player.playing, null, { timeout: 30000 });
+  assert((await page.evaluate(() => window.physicslab.cameraRig.player.t)) === 8, 'ended at the last frame');
+  await shot(page, 'cm-shot-panel');
+  // looping wraps around instead of stopping
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    const s = a.store.cameras.shots[0];
+    a.store.setCameras({ ...a.store.cameras, shots: [{ ...s, loop: true }] }, 'loop');
+    a.cameraRig.player.seek(7.9);
+    a.cameraRig.player.play();
+  });
+  await page.waitForFunction(
+    () => window.physicslab.cameraRig.player.t < 4 && window.physicslab.cameraRig.player.playing,
+    null,
+    { timeout: 30000 },
+  );
+  await page.evaluate(() => window.physicslab.cameraRig.player.close());
+  assert((await page.evaluate(() => window.physicslab.cameraRig.override)) === null, 'closing releases the camera');
+  assert(page.errors.length === 0, page.errors.join('\n'));
+  await page.close();
+});
+
+test('camera: recording a shot delivers a video file', async () => {
+  const page = await newPage('&scene=car');
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.addPath();
+    const p = a.store.paths()[0];
+    a.store.update(p.id, {
+      position: [0, 0, 0],
+      rotation: [0, 0, 0, 1],
+      points: [
+        [0, 6, 0],
+        [20, 6, 0],
+        [40, 6, 0],
+      ],
+      tension: 1,
+    });
+    a.store.setSelection([p.id]);
+    const s = {
+      id: 'cs_t',
+      name: 'Fly by',
+      pathId: p.id,
+      duration: 1,
+      loop: false,
+      keys: [
+        { t: 0, u: 0, fov: 48, ease: 'linear' },
+        { t: 1, u: 1, fov: 48, ease: 'linear' },
+      ],
+      look: { mode: 'tangent', bodyId: '', point: [0, 1, 0] },
+    };
+    a.store.setCameras({ ...a.store.cameras, shots: [s] }, 'shot');
+  });
+  const download = page.waitForEvent('download', { timeout: 60000 });
+  const ok = await page.evaluate(async () => {
+    const a = window.physicslab;
+    const pl = a.cameraRig.player;
+    if (!pl.open('cs_t')) return false;
+    return pl.record('webm');
+  });
+  assert(ok, 'recording started');
+  const file = await download;
+  assert(/Fly_by\.webm$/.test(file.suggestedFilename()), `file name ${file.suggestedFilename()}`);
+  assert(page.errors.length === 0, page.errors.join('\n'));
+  await page.close();
+});
+
+test('camera: split screen shrinks the main view and shows other cameras; a dashcam picture-in-picture renders and moves', async () => {
+  const page = await newPage('&scene=car');
+  const id = await chassisId(page);
+  await page.evaluate((id) => {
+    const a = window.physicslab;
+    a.store.setSelection([id]);
+    const c = a.store.cameras;
+    a.store.setCameras({ ...c, split: 2 }, 'split');
+  }, id);
+  await page.waitForSelector('.cm-view.pane');
+  const rects = await page.evaluate(() => {
+    const a = window.physicslab;
+    const host = a.shell.viewportHost.getBoundingClientRect();
+    const pane = document.querySelector('.cm-view.pane').getBoundingClientRect();
+    const stage = a.shell.stage.getBoundingClientRect();
+    return { host: [host.width, host.height], pane: [pane.width, pane.height], stage: [stage.width, stage.height] };
+  });
+  near(rects.host[0] + rects.pane[0], rects.stage[0], 3, 'two halves fill the stage');
+  near(rects.host[1], rects.stage[1], 1, 'full height');
+  // the pane paints real pixels: not a single flat colour
+  await page.waitForFunction(
+    () => {
+      const c = document.querySelector('.cm-view.pane canvas');
+      if (!c || c.width < 10) return false;
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      let min = 255;
+      let max = 0;
+      for (let i = 0; i < d.length; i += 4 * 97) {
+        min = Math.min(min, d[i]);
+        max = Math.max(max, d[i]);
+      }
+      return max - min > 40;
+    },
+    null,
+    { timeout: 30000 },
+  );
+  await shot(page, 'cm-split2');
+  // a dashcam on the car, then four-way split with picture-in-picture
+  await page.evaluate((id) => {
+    const a = window.physicslab;
+    const c = a.store.cameras;
+    const pip = {
+      id: 'pip_t',
+      mode: 'mount',
+      subject: id,
+      ref: '',
+      fov: 70,
+      offset: [0.6, 0.5, 0],
+      yaw: 0,
+      pitch: -5,
+      x: 0.6,
+      y: 0.5,
+      w: 0.3,
+    };
+    a.store.setCameras({ ...c, split: 4, pips: [pip] }, 'views');
+  }, id);
+  await page.waitForSelector('.cm-view.pip');
+  await page.waitForTimeout(3000);
+  await shot(page, 'cm-split4-pip');
+  // drag the window by its title bar, then resize it: the new geometry is saved in the scene
+  const before = await page.evaluate(() => JSON.stringify(window.physicslab.store.cameras.pips[0]));
+  const bar = await page.locator('.cm-view.pip .cm-view-bar').boundingBox();
+  await page.mouse.move(bar.x + 40, bar.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(bar.x + 140, bar.y + 70, { steps: 4 });
+  await page.mouse.up();
+  const after = await page.evaluate(() => JSON.stringify(window.physicslab.store.cameras.pips[0]));
+  assert(before !== after, 'the window moved and was saved');
+  const grip = await page.locator('.cm-view.pip .cm-view-grip').boundingBox();
+  await page.mouse.move(grip.x + 8, grip.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + 80, grip.y + 8, { steps: 4 });
+  await page.mouse.up();
+  const w2 = await page.evaluate(() => window.physicslab.store.cameras.pips[0].w);
+  assert(w2 > JSON.parse(after).w, `resized ${w2}`);
+  // closing removes it; back to a single view restores the full-size main view
+  await page.click('.cm-view.pip .cm-view-close');
+  await page.waitForFunction(() => !document.querySelector('.cm-view.pip'));
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.store.setCameras({ ...a.store.cameras, split: 1 }, 'split');
+  });
+  await page.waitForFunction(() => !document.querySelector('.cm-view.pane'));
+  const full = await page.evaluate(() => {
+    const a = window.physicslab;
+    const h = a.shell.viewportHost.getBoundingClientRect();
+    const s = a.shell.stage.getBoundingClientRect();
+    return Math.abs(h.width - s.width) < 2 && Math.abs(h.height - s.height) < 2;
+  });
+  assert(full, 'main view back to full size');
+  assert(page.errors.length === 0, page.errors.join('\n'));
+  await page.close();
+});
+
+test('camera: minimap shows the scene, follows the camera and moves it when clicked', async () => {
+  const page = await newPage('&scene=car');
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.store.setCameras(
+      { ...a.store.cameras, minimap: { ...a.store.cameras.minimap, enabled: true, range: 30 } },
+      'minimap',
+    );
+  });
+  await page.waitForSelector('.cm-minimap-canvas', { state: 'visible' });
+  // the map paints the car (non-uniform pixels) and the camera wedge
+  await page.waitForFunction(
+    () => {
+      const c = document.querySelector('.cm-minimap-canvas');
+      if (!c || c.width < 10) return false;
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      const seen = new Set();
+      for (let i = 0; i < d.length; i += 4 * 53) seen.add(`${d[i] >> 4},${d[i + 1] >> 4},${d[i + 2] >> 4}`);
+      return seen.size > 6;
+    },
+    null,
+    { timeout: 30000 },
+  );
+  await shot(page, 'cm-minimap');
+  // clicking east of the centre moves what the camera looks at east
+  const before = await page.evaluate(() => window.physicslab.viewport.controls.target.toArray());
+  const box = await page.locator('.cm-minimap-canvas').boundingBox();
+  await page.mouse.click(box.x + box.width * 0.85, box.y + box.height * 0.5);
+  await page.waitForFunction((x0) => window.physicslab.viewport.controls.target.x > x0 + 5, before[0], {
+    timeout: 10000,
+  });
+  // turn-with-camera mode: the map keeps the view direction up
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.store.setCameras({ ...a.store.cameras, minimap: { ...a.store.cameras.minimap, rotate: true } }, 'minimap');
+  });
+  await page.waitForTimeout(800);
+  await shot(page, 'cm-minimap-rotated');
+  // the toggle command works from the palette-less shortcut
+  await page.click('.viewport-canvas', { position: { x: 600, y: 300 } });
+  await page.keyboard.press('Shift+N');
+  await page.waitForFunction(() => !window.physicslab.store.cameras.minimap.enabled);
+  assert(page.errors.length === 0, page.errors.join('\n'));
+  await page.close();
+});
