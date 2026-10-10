@@ -13,6 +13,7 @@ import { addSoft, beginSoftGrab, releaseSoftGrab, removeSoft } from './soft';
 import type { WorldState } from './state';
 
 export function applyOp(s: WorldState, op: SimOp): void {
+  if (!s.recorder.onOp(s, op)) return; // -- TM: logs the op; a replay viewer ignores live edits --
   switch (op.op) {
     case 'addBody':
       addBody(s, op.body, !!op.ephemeral);

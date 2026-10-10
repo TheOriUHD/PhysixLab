@@ -22,6 +22,8 @@ import {
   type WorldSnapshot,
 } from '../protocol';
 import { RigidEnergy } from './energy';
+// -- TM: the recorder (snapshot ring, input log, tracks) --
+import { Recorder } from './recorder';
 
 export interface BodyRec {
   id: string;
@@ -149,6 +151,8 @@ export class WorldState {
   axes: Record<string, number> = {};
   /** The world's seeded random number generator (`settings.seed`). */
   readonly rng = new Rng(1);
+  /** Time travel: snapshot ring, input log, recordings, tracks (package TM). */
+  readonly recorder = new Recorder();
   bodySeq = 0;
   /** Collider handle → owner, for events, ray casts and contact queries. */
   owners = new Map<number, ColliderOwner>();

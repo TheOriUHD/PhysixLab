@@ -70,6 +70,7 @@ function postStep(s: WorldState, dt: number): void {
  */
 export function stepOnce(s: WorldState): void {
   const dt = fixedDt(s);
+  s.recorder.beforeStep(s); // -- TM: first snapshot, logged inputs of a replay / seek --
   preStep(s, dt);
   const n = substepCount(s);
   const tEnd = s.simTime + dt;
@@ -85,6 +86,7 @@ export function stepOnce(s: WorldState): void {
   s.simSinceRead += dt;
   s.stepCount++;
   postStep(s, dt);
+  s.recorder.afterStep(s); // -- TM: periodic snapshot, trajectory sample, replay checkpoint --
 }
 
 /**
@@ -94,8 +96,10 @@ export function stepOnce(s: WorldState): void {
  */
 export function advance(s: WorldState, realDt: number, timeScale: number, budgetMs = 28): number {
   const dt = fixedDt(s);
+  // -- TM: reverse playback replaces forward stepping; a replay stops at its last step --
+  if (s.recorder.mode === 'rewind') return s.recorder.api.rewindAdvance(s, realDt);
   s.acc += Math.min(realDt, 0.25) * timeScale;
-  const wanted = Math.floor(s.acc / dt);
+  const wanted = s.recorder.stepBudget(s, Math.floor(s.acc / dt));
   let done = 0;
   const t0 = performance.now();
   while (done < wanted) {
@@ -117,6 +121,7 @@ export function advance(s: WorldState, realDt: number, timeScale: number, budget
 
 /** Manual stepping (paused): render the exact post-step state. */
 export function stepManual(s: WorldState, n: number): void {
+  n = s.recorder.stepBudget(s, n); // -- TM --
   for (let i = 0; i < n; i++) stepOnce(s);
   s.acc = 0;
   for (const r of s.order) r.hasPrev = false;
