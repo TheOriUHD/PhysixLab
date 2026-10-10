@@ -1,0 +1,313 @@
+/* UI themes (VZ-50). The dark theme is the `:root` block of app.css; each block below overrides every colour token
+   listed in THEME_TOKENS (src/ui/theme.ts) — tests/theme.test.ts fails if one is missing or a pair is illegible.
+   A custom accent colour is applied inline on <html> by applyTheme() and wins over --accent* here. */
+
+[data-theme="light"] {
+  --bg: #f3f5f9;
+  --bg-deep: #e6eaf1;
+  --panel: #ffffff;
+  --panel-2: #f6f8fb;
+  --raised: #eceff5;
+  --hover: #e1e6ef;
+  --border: #d8dee9;
+  --border-2: #c0c9d8;
+  --text: #182030;
+  --text-2: #475268;
+  --text-3: #66738a;
+  --accent: #0a769b;
+  --accent-2: #0d8a7a;
+  --accent-bg: rgba(10, 118, 155, 0.12);
+  --accent-line: rgba(10, 118, 155, 0.5);
+  --accent-ink: #ffffff;
+  --run: #087a50;
+  --run-2: #066840;
+  --run-ink: #ffffff;
+  --run-bg: rgba(8, 122, 80, 0.12);
+  --pause: #b45f06;
+  --pause-2: #9a5005;
+  --pause-ink: #ffffff;
+  --pause-bg: rgba(180, 95, 6, 0.12);
+  --danger: #c8283f;
+  --warn: #a85a00;
+  --warn-bg: rgba(168, 90, 0, 0.1);
+  --axis-x: #d0334a;
+  --axis-y: #12875a;
+  --axis-z: #2160d6;
+  --shadow: 0 8px 26px rgba(30, 41, 59, 0.16), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  --shadow-modal: 0 30px 80px rgba(30, 41, 59, 0.3);
+  --glass: rgba(255, 255, 255, 0.86);
+  --scrim: rgba(30, 41, 59, 0.38);
+  --stage-bg: #dde3ed;
+  --topbar-a: #ffffff;
+  --topbar-b: #f1f4f9;
+  --statusbar-bg: #e9edf4;
+  --switch-thumb: #ffffff;
+  --swatch-line: rgba(0, 0, 0, 0.22);
+  --label-bg: rgba(255, 255, 255, 0.92);
+  --canvas-grid: rgba(24, 32, 48, 0.1);
+  --canvas-grid-2: rgba(24, 32, 48, 0.06);
+  --canvas-zero: rgba(24, 32, 48, 0.4);
+  --canvas-text: #55627a;
+  --glyph-bg: rgba(16, 22, 32, 0.92);
+  --glyph-line: rgba(255, 255, 255, 0.85);
+  --chart-total: #182030;
+  --chart-1: #0a769b;
+  --chart-2: #7040d8;
+  --chart-3: #b45f06;
+  --chart-4: #c42a64;
+  --chart-5: #12875a;
+  color-scheme: light;
+}
+
+[data-theme="high-contrast"] {
+  --bg: #000000;
+  --bg-deep: #000000;
+  --panel: #000000;
+  --panel-2: #0d0d0d;
+  --raised: #1a1a1a;
+  --hover: #2b2b2b;
+  --border: #8f8f8f;
+  --border-2: #ffffff;
+  --text: #ffffff;
+  --text-2: #f0f0f0;
+  --text-3: #cfcfcf;
+  --accent: #ffd400;
+  --accent-2: #00e5ff;
+  --accent-bg: rgba(255, 212, 0, 0.18);
+  --accent-line: #ffd400;
+  --accent-ink: #000000;
+  --run: #3dff8a;
+  --run-2: #00d65f;
+  --run-ink: #000000;
+  --run-bg: rgba(61, 255, 138, 0.16);
+  --pause: #ffd400;
+  --pause-2: #e6bd00;
+  --pause-ink: #000000;
+  --pause-bg: rgba(255, 212, 0, 0.16);
+  --danger: #ff7a7a;
+  --warn: #ffb000;
+  --warn-bg: rgba(255, 176, 0, 0.16);
+  --axis-x: #ff7a8a;
+  --axis-y: #4dffa0;
+  --axis-z: #7ab4ff;
+  --shadow: 0 0 0 1px #ffffff;
+  --shadow-modal: 0 0 0 2px #ffffff;
+  --glass: rgba(0, 0, 0, 0.92);
+  --scrim: rgba(0, 0, 0, 0.78);
+  --stage-bg: #000000;
+  --topbar-a: #000000;
+  --topbar-b: #000000;
+  --statusbar-bg: #000000;
+  --switch-thumb: #ffffff;
+  --swatch-line: #ffffff;
+  --label-bg: rgba(0, 0, 0, 0.95);
+  --canvas-grid: rgba(255, 255, 255, 0.35);
+  --canvas-grid-2: rgba(255, 255, 255, 0.2);
+  --canvas-zero: #ffffff;
+  --canvas-text: #ffffff;
+  --glyph-bg: rgba(0, 0, 0, 0.95);
+  --glyph-line: #ffffff;
+  --chart-total: #ffffff;
+  --chart-1: #00e5ff;
+  --chart-2: #d0a8ff;
+  --chart-3: #ffd400;
+  --chart-4: #ff7ab0;
+  --chart-5: #4dffa0;
+  color-scheme: dark;
+}
+
+[data-theme="midnight"] {
+  --bg: #070b1a;
+  --bg-deep: #050816;
+  --panel: #0d1330;
+  --panel-2: #111a3d;
+  --raised: #172249;
+  --hover: #1f2d5e;
+  --border: #1b2650;
+  --border-2: #2f3f7d;
+  --text: #e1e8ff;
+  --text-2: #a9b6e6;
+  --text-3: #7482b8;
+  --accent: #7aa2ff;
+  --accent-2: #a78bfa;
+  --accent-bg: rgba(122, 162, 255, 0.14);
+  --accent-line: rgba(122, 162, 255, 0.5);
+  --accent-ink: #050816;
+  --run: #4ade9f;
+  --run-2: #22b97c;
+  --run-ink: #03241a;
+  --run-bg: rgba(74, 222, 159, 0.12);
+  --pause: #fbbf24;
+  --pause-2: #e29f0a;
+  --pause-ink: #2a1c00;
+  --pause-bg: rgba(251, 191, 36, 0.12);
+  --danger: #ff6b8a;
+  --warn: #ffb347;
+  --warn-bg: rgba(255, 179, 71, 0.12);
+  --axis-x: #ff6b8a;
+  --axis-y: #5be3a1;
+  --axis-z: #6aa5ff;
+  --shadow: 0 8px 30px rgba(0, 0, 8, 0.6), 0 1px 0 rgba(160, 180, 255, 0.06) inset;
+  --shadow-modal: 0 30px 90px rgba(0, 0, 8, 0.75);
+  --glass: rgba(10, 15, 40, 0.8);
+  --scrim: rgba(2, 4, 14, 0.66);
+  --stage-bg: #060919;
+  --topbar-a: #121a3c;
+  --topbar-b: #0d1330;
+  --statusbar-bg: #090d24;
+  --switch-thumb: #c9d4ff;
+  --swatch-line: rgba(200, 212, 255, 0.28);
+  --label-bg: rgba(5, 8, 22, 0.9);
+  --canvas-grid: rgba(160, 180, 255, 0.1);
+  --canvas-grid-2: rgba(160, 180, 255, 0.06);
+  --canvas-zero: rgba(160, 180, 255, 0.3);
+  --canvas-text: #8e9bd0;
+  --glyph-bg: rgba(7, 11, 26, 0.92);
+  --glyph-line: rgba(200, 212, 255, 0.85);
+  --chart-total: #eef1ff;
+  --chart-1: #6ec8ff;
+  --chart-2: #b69cff;
+  --chart-3: #ffb347;
+  --chart-4: #ff7aa8;
+  --chart-5: #5be3a1;
+  color-scheme: dark;
+}
+
+[data-theme="solarized"] {
+  --bg: #002b36;
+  --bg-deep: #00212b;
+  --panel: #073642;
+  --panel-2: #0a3f4c;
+  --raised: #0f4857;
+  --hover: #155364;
+  --border: #12505e;
+  --border-2: #286879;
+  --text: #fdf6e3;
+  --text-2: #bcc7c4;
+  --text-3: #93a1a1;
+  --accent: #2aa198;
+  --accent-2: #6c9ef0;
+  --accent-bg: rgba(42, 161, 152, 0.18);
+  --accent-line: rgba(42, 161, 152, 0.6);
+  --accent-ink: #00212b;
+  --run: #9db300;
+  --run-2: #859900;
+  --run-ink: #00212b;
+  --run-bg: rgba(133, 153, 0, 0.18);
+  --pause: #d6a100;
+  --pause-2: #b58900;
+  --pause-ink: #00212b;
+  --pause-bg: rgba(181, 137, 0, 0.18);
+  --danger: #f0524f;
+  --warn: #e0642b;
+  --warn-bg: rgba(203, 75, 22, 0.16);
+  --axis-x: #f0524f;
+  --axis-y: #a4b800;
+  --axis-z: #4aa3e8;
+  --shadow: 0 8px 30px rgba(0, 16, 22, 0.55), 0 1px 0 rgba(253, 246, 227, 0.05) inset;
+  --shadow-modal: 0 30px 90px rgba(0, 16, 22, 0.7);
+  --glass: rgba(0, 43, 54, 0.82);
+  --scrim: rgba(0, 16, 22, 0.62);
+  --stage-bg: #00252f;
+  --topbar-a: #0b4150;
+  --topbar-b: #073642;
+  --statusbar-bg: #00252f;
+  --switch-thumb: #eee8d5;
+  --swatch-line: rgba(253, 246, 227, 0.28);
+  --label-bg: rgba(0, 33, 43, 0.92);
+  --canvas-grid: rgba(147, 161, 161, 0.18);
+  --canvas-grid-2: rgba(147, 161, 161, 0.1);
+  --canvas-zero: rgba(238, 232, 213, 0.5);
+  --canvas-text: #a4b3b3;
+  --glyph-bg: rgba(0, 33, 43, 0.92);
+  --glyph-line: rgba(253, 246, 227, 0.85);
+  --chart-total: #fdf6e3;
+  --chart-1: #2fb8ad;
+  --chart-2: #8f94e0;
+  --chart-3: #d6a100;
+  --chart-4: #e0689a;
+  --chart-5: #a4b800;
+  color-scheme: dark;
+}
+
+[data-theme="blueprint"] {
+  --bg: #0b3472;
+  --bg-deep: #082a5c;
+  --panel: #0e3d85;
+  --panel-2: #114690;
+  --raised: #1552a3;
+  --hover: #1a60b8;
+  --border: #2a68b8;
+  --border-2: #5a97dc;
+  --text: #f2f8ff;
+  --text-2: #cfe3ff;
+  --text-3: #a3c4f2;
+  --accent: #ffffff;
+  --accent-2: #9fe3ff;
+  --accent-bg: rgba(255, 255, 255, 0.16);
+  --accent-line: rgba(255, 255, 255, 0.7);
+  --accent-ink: #082a5c;
+  --run: #7dffc6;
+  --run-2: #4fe8a6;
+  --run-ink: #04301f;
+  --run-bg: rgba(125, 255, 198, 0.16);
+  --pause: #ffe27a;
+  --pause-2: #f5c93a;
+  --pause-ink: #3a2a00;
+  --pause-bg: rgba(255, 226, 122, 0.16);
+  --danger: #ff9aa8;
+  --warn: #ffc880;
+  --warn-bg: rgba(255, 200, 128, 0.16);
+  --axis-x: #ff9aa8;
+  --axis-y: #8dffc4;
+  --axis-z: #9fd0ff;
+  --shadow: 0 8px 30px rgba(2, 16, 44, 0.55), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  --shadow-modal: 0 30px 90px rgba(2, 16, 44, 0.7);
+  --glass: rgba(8, 42, 92, 0.84);
+  --scrim: rgba(2, 16, 44, 0.62);
+  --stage-bg: #082a5c;
+  --topbar-a: #0f4190;
+  --topbar-b: #0b3472;
+  --statusbar-bg: #082a5c;
+  --switch-thumb: #e6f0ff;
+  --swatch-line: rgba(255, 255, 255, 0.4);
+  --label-bg: rgba(8, 42, 92, 0.92);
+  --canvas-grid: rgba(255, 255, 255, 0.2);
+  --canvas-grid-2: rgba(255, 255, 255, 0.1);
+  --canvas-zero: rgba(255, 255, 255, 0.6);
+  --canvas-text: #cfe3ff;
+  --glyph-bg: rgba(8, 42, 92, 0.94);
+  --glyph-line: rgba(255, 255, 255, 0.9);
+  --chart-total: #ffffff;
+  --chart-1: #9fe3ff;
+  --chart-2: #d6c4ff;
+  --chart-3: #ffe27a;
+  --chart-4: #ffa8cc;
+  --chart-5: #8dffc4;
+  color-scheme: dark;
+}
+
+/* ------------------------------------------------------------------ appearance dialog */
+.appearance-h { margin: 14px 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2); }
+.appearance-h:first-child { margin-top: 0; }
+.theme-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.theme-card { display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 10px; border: 2px solid var(--border); background: var(--panel-2); color: var(--text); text-align: left; }
+.theme-card:hover { border-color: var(--border-2); }
+.theme-card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.theme-card:focus-visible, .accent-swatch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.theme-name { font-weight: 600; padding: 0 2px 2px; }
+/* a preview carries its own data-theme, so its tokens differ from the page's */
+.theme-preview { position: relative; height: 62px; border-radius: 6px; overflow: hidden; background: var(--bg); border: 1px solid var(--border-2); }
+.theme-preview i { position: absolute; display: block; }
+.tp-top { left: 0; right: 0; top: 0; height: 12px; background: linear-gradient(180deg, var(--topbar-a), var(--topbar-b)); border-bottom: 1px solid var(--border); }
+.tp-side { left: 0; top: 12px; bottom: 0; width: 22%; background: var(--panel); border-right: 1px solid var(--border); }
+.tp-main { left: 22%; right: 0; top: 12px; bottom: 0; background: var(--stage-bg); }
+.tp-line { position: absolute; left: 10px; top: 10px; width: 55%; height: 5px; border-radius: 3px; background: var(--text-2); }
+.tp-line.short { top: 20px; width: 30%; background: var(--text-3); }
+.tp-chip { position: absolute; left: 10px; bottom: 7px; width: 26px; height: 8px; border-radius: 4px; background: var(--accent); }
+.accent-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.accent-row { display: flex; gap: 6px; }
+.accent-swatch { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--swatch-line); padding: 0; }
+.accent-swatch:hover { transform: scale(1.1); }
+.accent-swatch.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--text); }
+@media (max-width: 520px) { .theme-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

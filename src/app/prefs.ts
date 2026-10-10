@@ -3,6 +3,7 @@ import type { ColorMode } from '../render/bodyViews';
 import { DEFAULT_OVERLAYS, type OverlayOptions } from '../render/overlays';
 import type { Quality } from '../render/viewport';
 import type { JointType } from '../model/types';
+import { sanitizeAccent, sanitizeTheme, type ThemeId } from '../ui/theme';
 
 /** The interaction mode (`ToolDef.mode`): 'select', 'joint', 'measure', 'blast', 'shoot' … — any registered tool's mode. */
 export type ToolId = string;
@@ -33,6 +34,10 @@ export interface Prefs {
   showBottom: boolean;
   bottomTab: string;
   seenWelcome: boolean;
+  // -- VZ-50: UI theme --
+  theme: ThemeId;
+  /** Custom accent colour `#rrggbb`, or '' for the theme's own accent. */
+  accent: string;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -59,6 +64,8 @@ export const DEFAULT_PREFS: Prefs = {
   showBottom: true,
   bottomTab: 'energy',
   seenWelcome: false,
+  theme: 'dark',
+  accent: '',
 };
 
 const KEY = 'physicslab:prefs:v1';
@@ -76,6 +83,8 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
         const saved = JSON.parse(raw) as Partial<Prefs>;
         this.value = { ...this.value, ...saved, overlays: { ...DEFAULT_OVERLAYS, ...(saved.overlays ?? {}) } };
         this.value.tool = 'select';
+        this.value.theme = sanitizeTheme(this.value.theme);
+        this.value.accent = sanitizeAccent(this.value.accent);
       }
     } catch {
       /* storage unavailable */
@@ -87,6 +96,8 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
   }
 
   set(patch: Partial<Prefs>): void {
+    if ('theme' in patch) patch = { ...patch, theme: sanitizeTheme(patch.theme) };
+    if ('accent' in patch) patch = { ...patch, accent: sanitizeAccent(patch.accent) };
     const keys: (keyof Prefs)[] = [];
     for (const k of Object.keys(patch) as (keyof Prefs)[]) {
       if (this.value[k] !== patch[k]) keys.push(k);

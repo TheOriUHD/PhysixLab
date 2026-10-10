@@ -1,6 +1,7 @@
 /** Preferences → renderer / simulation / gizmo: applies stored preferences and reacts to changes. */
 import type { App } from './app';
 import { hintForMode, toolModes } from './registry/tools';
+import { applyTheme } from '../ui/theme';
 
 export class PrefsSync {
   constructor(private app: App) {}
@@ -8,6 +9,7 @@ export class PrefsSync {
   applyAll(): void {
     const { app } = this;
     const p = app.prefs.value;
+    applyTheme(p.theme, p.accent); // -- VZ-50 --
     app.viewport.setQuality(p.quality);
     app.bodies.mode = p.colorMode;
     app.joints.visible = p.showJoints;
@@ -44,6 +46,10 @@ export class PrefsSync {
           break;
         case 'space':
           app.gizmo.setSpace(p.space);
+          break;
+        case 'theme':
+        case 'accent':
+          applyTheme(p.theme, p.accent); // -- VZ-50 --
           break;
         case 'snap':
         case 'snapGrid':
