@@ -157,17 +157,26 @@ export class Persistence {
     return link;
   }
 
+  /**
+   * The scene a share link carries, or null when the hash holds no scene. A link that is there but cannot be
+   * opened throws a `SceneFormatError` whose message says why (damaged, saved by a newer version, too large …).
+   */
   static async fromHash(hash: string, report?: LoadReport): Promise<SceneDocument | null> {
     const m = /scene=([A-Za-z0-9_-]+)/.exec(hash);
     if (!m) return null;
+    let text: string;
     try {
       const b64 = m[1].replace(/-/g, '+').replace(/_/g, '/');
       const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
       const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
       const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-      return parseDocument(await new Response(stream).text(), report);
+      text = await new Response(stream).text();
     } catch {
-      return null;
+      throw new SceneFormatError(
+        'invalid-json',
+        'This share link is damaged or incomplete, so its scene could not be opened.',
+      );
     }
+    return parseDocument(text, report);
   }
 }

@@ -3,6 +3,7 @@ import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';
 import { newReport } from './model/errors';
+import type { SceneDocument } from './model/types';
 import { TEMPLATE_BY_ID } from './model/templates';
 import { buildDock } from './ui/telemetry';
 import { buildLeftPanel } from './ui/leftPanel';
@@ -80,7 +81,13 @@ async function boot(): Promise<void> {
   let loaded = false;
   let viewSet = false;
   const hashReport = newReport();
-  const fromHash = await Persistence.fromHash(location.hash, hashReport);
+  let fromHash: SceneDocument | null = null;
+  try {
+    fromHash = await Persistence.fromHash(location.hash, hashReport);
+  } catch (e) {
+    // A link that cannot be opened says why (damaged, newer format …) instead of silently showing another scene.
+    app.toast((e as Error).message, 'error');
+  }
   if (fromHash) {
     app.store.load(fromHash);
     loaded = true;

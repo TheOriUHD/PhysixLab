@@ -119,6 +119,44 @@ test('scene files: a v1 file upgrades on import and a damaged one is repaired wi
   await shot(page, 'fb-import-warnings');
 });
 
+test('share links: a link from a newer version or a damaged link says so instead of opening another scene', async () => {
+  // Build the links in one page, then close it: several live WebGL pages starve each other under software GL.
+  const maker = await newPage();
+  await maker.evaluate(() => window.physicslab.store.setName('Shared one'));
+  const link = (version) =>
+    maker.evaluate(async (version) => {
+      const doc = JSON.parse(JSON.stringify(window.physicslab.store.toDocument()));
+      if (version) doc.version = version;
+      const stream = new Blob([JSON.stringify(doc)]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+      const buf = new Uint8Array(await new Response(stream).arrayBuffer());
+      let bin = '';
+      for (const b of buf) bin += String.fromCharCode(b);
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }, version);
+  const future = await link(99);
+  const good = await link(0);
+  await maker.close();
+  // a link written by a newer release
+  const p1 = await newPage(`#scene=${future}`);
+  await p1.waitForSelector('.toast.error');
+  const err = await p1.locator('.toast.error').first().textContent();
+  assert(/newer version of PhysicsLab/.test(err ?? ''), `newer format explained: ${err}`);
+  assert(p1.errors.length === 0, `no errors: ${p1.errors.join(' | ')}`);
+  assert(await p1.evaluate(() => window.physicslab.store.size > 0), 'a fallback scene is loaded');
+  await p1.close();
+  // a truncated link
+  const p2 = await newPage(`#scene=${good.slice(0, 40)}`);
+  await p2.waitForSelector('.toast.error');
+  const err2 = await p2.locator('.toast.error').first().textContent();
+  assert(/share link is damaged/.test(err2 ?? ''), `damaged link explained: ${err2}`);
+  assert(await p2.evaluate(() => window.physicslab.store.size > 0), 'a fallback scene is loaded');
+  await p2.close();
+  // and a good link still opens the shared scene
+  const p3 = await newPage(`#scene=${good}`);
+  await p3.waitForSelector('.toast.success:has-text("Opened shared scene")');
+  assert((await p3.evaluate(() => window.physicslab.store.name)) === 'Shared one', 'the shared scene is open');
+});
+
 /** Build a three-part dumbbell (red sphere, blue sphere, grey bar) inside the page and add it to the scene. */
 const addDumbbell = (page, at = [0, 3, 0]) =>
   page.evaluate(async (at) => {
