@@ -88,7 +88,7 @@ export class ZoneBridge extends Emitter<BridgeEvents> {
     app.sim.client.on('event', (ev) => this.onEvent(ev));
     app.sim.on('mode', (mode) => {
       // a new run starts with an empty log; a finished or reset run keeps its log to be read
-      if (mode === 'running' && this.app.sim.client.frameNo === 0) this.clear();
+      if (mode !== 'edit' && this.app.sim.client.frameNo === 0) this.clear();
     });
   }
 

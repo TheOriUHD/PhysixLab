@@ -101,7 +101,12 @@ describe('zone prefabs', () => {
     expect(getPrefab('zones-race-gates')?.name).toBe('Race gates');
     for (const p of zp) {
       const doc = sanitizeDocument(
-        { format: 'physicslab-scene', version: 3, name: p.name, entities: JSON.parse(JSON.stringify(p.build())) as unknown[] },
+        {
+          format: 'physicslab-scene',
+          version: 3,
+          name: p.name,
+          entities: JSON.parse(JSON.stringify(p.build())) as unknown[],
+        },
         newReport(),
       );
       expect(doc.entities.length, p.id).toBeGreaterThan(0);
