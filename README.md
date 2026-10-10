@@ -1,96 +1,310 @@
-# PhysicsLab
+<div align="center">
 
-An advanced 3D physics sandbox that runs entirely in your browser. Build mechanisms, vehicles, structures and experiments out of rigid bodies, joints, motors and springs — then press **Simulate** and watch them obey real rigid-body physics. Grab things while they move, change gravity mid-run, plot energy, drive a car.
+<img src="docs/media/banner.svg" alt="PhysicsLab — an advanced 3D physics sandbox that runs entirely in your browser" width="100%">
 
-**What makes it different from a "falling cubes" demo**
+<br>
 
-* **A real physics engine.** [Rapier](https://rapier.rs) (Rust → WebAssembly) running in a dedicated Web Worker, with a fixed timestep, render interpolation, continuous collision detection and sleeping. Mass comes from *density × volume* with real-world material densities.
-* **A construction workflow, not a toy.** Eight primitive shapes (box, sphere, cylinder, capsule, cone, ramp, N-gon prism, icosahedron), move / rotate / scale gizmos with grid and angle snapping, multi-select, duplicate, copy/paste, lock/hide, drag-and-drop placement, full undo/redo.
-* **Real mechanisms.** Six joint types — weld, hinge, slider, ball, spring-damper, rope — with limits, **motors** (velocity or position mode, force-capped, bindable to keyboard keys) and **springs with break force**. The bundled car is built from nothing but these: independent spring-damper suspension (slider + position motor), steered front wheels (hinge + keyed position motor), rear-wheel drive (keyed velocity motors).
-* **Soft bodies.** Jelly lattices, balloons, cloth (pin an edge, two corners or four corners) and cables, from the engine's particle/constraint soft-body solver — deformable, drag-able with the mouse, and **tearable**: give a cloth a tear strain and a wrecking ball rips it, the torn pieces simulate on independently.
-* **A lab, not just a viewport.** Live energy chart (kinetic, rotational, gravitational, spring, total), per-object plots (speed, height, joint angle, spring force…), velocity / net-force / contact / centre-of-mass overlays, motion trails, a ruler, colour-by-speed / energy / force / sleep state, adjustable time scale (0.1×–4×), single-stepping, adjustable gravity (Moon, Mars, Jupiter, zero-g, any vector), air drag, solver quality.
-<!-- FX: effects -->
-* **Effects that follow the physics.** Pooled, GPU-instanced particles with procedurally generated soft sprites: sparks, dust, wood chips, glass shards and rubber scuffs from real contact impulses (material-dependent, scaled by the impact energy), tyre smoke and persistent skid marks from wheels whose slip is estimated from the contact-point velocity, fireball / shock-ring / smoke / light-flash explosions for the Blast tool and hard projectile hits, debris chips with an optional capped, auto-cleaned physical-debris mode. Quality tiers, a master switch and per-effect switches live in the *Effects* panel; the effects are deterministic for the scene seed and freeze with the simulation.
-<!-- FX: sound -->
-* **Sound that follows the physics, with no sample files.** Everything is synthesised with WebAudio: collisions ring in the material's own voice (metal clangs with inharmonic partials, wood knocks, glass chimes and shatters, stone clacks, rubber thuds), scaled by the real impact energy, lower for bigger bodies; rolling bodies rumble and sliding ones scrape by speed and load; motorised joints and engines whine, rev and strain with their rpm and load; wind rushes past a camera following a fast body; explosions, shots, spawns, snapping joints and trampolines have their own sounds. Positioned relative to the camera, voice-limited, pitched down in slow motion, with master and per-category volumes and a mute (`Shift+M`, or the speaker in the top bar). Sound starts with your first click (browsers require it) and is off the moment you switch it off.
-* **Zones and races.** Any body can be a trigger volume: drag a checkpoint, start / finish line, launch pad, teleporter, kill zone, gravity bubble, force field, spawner, coin or sound zone from the **Add** tab. Zones time laps with split times and a best lap (a whole vehicle counts as one racer), respawn or remove what falls out of the **world bounds** (kill planes, soft spring walls, a respawn policy with time penalties), and raise events for logic and scripts — try the *Drag strip* and *Zones playground* scenes.
-* **Safe to experiment.** Every edit is undoable. *Reset* always returns to the layout you built. Your scene is autosaved; scenes can be saved to a library, exported/imported as JSON, or shared as a link (the whole scene is compressed into the URL — no server involved).
+[![License: MIT](https://img.shields.io/badge/license-MIT-5eead4?style=flat-square&labelColor=0b0e14)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square&logo=typescript&logoColor=white&labelColor=0b0e14)](tsconfig.json)
+[![three.js](https://img.shields.io/badge/three.js-r186-ffffff?style=flat-square&logo=threedotjs&logoColor=white&labelColor=0b0e14)](https://threejs.org)
+[![Rapier](https://img.shields.io/badge/Rapier-WebAssembly-dea584?style=flat-square&logo=webassembly&logoColor=white&labelColor=0b0e14)](https://rapier.rs)
+[![Vite](https://img.shields.io/badge/Vite-8-646cff?style=flat-square&logo=vite&logoColor=white&labelColor=0b0e14)](https://vite.dev)
+[![Tests](https://img.shields.io/badge/tests-3200%2B%20unit%20%C2%B7%20300%2B%20browser-34d399?style=flat-square&labelColor=0b0e14)](#-testing)
+[![CI](https://img.shields.io/github/actions/workflow/status/TheOriUHD/PhysicsSandbox/ci.yml?branch=main&style=flat-square&label=CI&labelColor=0b0e14)](https://github.com/TheOriUHD/PhysicsSandbox/actions)
+[![Offline PWA](https://img.shields.io/badge/PWA-works%20offline-38bdf8?style=flat-square&labelColor=0b0e14)](#-run-it)
+[![No backend](https://img.shields.io/badge/backend-none-8b9bb4?style=flat-square&labelColor=0b0e14)](#-run-it)
 
-## Run it
+[![Stars](https://img.shields.io/github/stars/TheOriUHD/PhysicsSandbox?style=flat-square&logo=github&labelColor=0b0e14&color=5eead4)](https://github.com/TheOriUHD/PhysicsSandbox/stargazers)
+[![Forks](https://img.shields.io/github/forks/TheOriUHD/PhysicsSandbox?style=flat-square&logo=github&labelColor=0b0e14&color=38bdf8)](https://github.com/TheOriUHD/PhysicsSandbox/network/members)
+[![Issues](https://img.shields.io/github/issues/TheOriUHD/PhysicsSandbox?style=flat-square&labelColor=0b0e14&color=a78bfa)](https://github.com/TheOriUHD/PhysicsSandbox/issues)
+[![Last commit](https://img.shields.io/github/last-commit/TheOriUHD/PhysicsSandbox?style=flat-square&labelColor=0b0e14&color=f59e0b)](https://github.com/TheOriUHD/PhysicsSandbox/commits)
+
+**[Run it](#-run-it)** &nbsp;·&nbsp; **[Features](#-features)** &nbsp;·&nbsp; **[Controls](#-controls)** &nbsp;·&nbsp; **[Architecture](#-architecture)** &nbsp;·&nbsp; **[Docs](#-documentation)** &nbsp;·&nbsp; **[Roadmap](#-roadmap)**
+
+<br>
+
+<img src="docs/media/drive.webp" alt="Driving the built-in car in Drive mode: chase camera, speedometer, and a ramp jump" width="100%">
+
+<sub>Drive mode on the bundled car — every joint, spring and motor in that car is a real, editable physics object.</sub>
+
+</div>
+
+<br>
+
+## ✨ What is PhysicsLab?
+
+PhysicsLab is a **build-it-and-watch-it-work 3D physics sandbox** that runs entirely in the browser — no server, no install, no account. Place shapes, connect them with joints, motors and springs, press **Simulate**, and then grab things, change gravity mid-run, rewind time, plot energy, or climb into the car and drive it.
+
+It is built to be *physically honest*: [Rapier](https://rapier.rs) (Rust → WebAssembly) runs in a dedicated Web Worker with a fixed timestep, continuous collision detection and sleeping; mass comes from **density × volume** with real material densities; and the test-suite checks the engine against analytic results (free fall, pendulum and spring periods, Atwood machines, gear ratios, energy conservation…).
+
+| | |
+|---|---|
+| 🧱 **A real construction workflow** | 39 parametric shapes, snapping, arrays, mirror, groups, user prefabs, full undo history, drag-from-palette with a live **ghost preview**. |
+| ⚙️ **Real mechanisms** | 16 joint types, motors, servos, engines with gearboxes and differentials, hydraulics, thrusters — and joints that **break under load**. |
+| 🧵 **Soft bodies** | Jelly, balloons, cloth, cables and tyres that deform, tear, can be cut and can be attached to rigid bodies. |
+| ⏪ **Time travel** | Rewind, scrub, replay deterministically, compare ghosts of previous runs. |
+| 🚗 **Drive mode** | Press **V**: chase camera, locked controls, gamepad and touch support. |
+| 🔬 **A lab, not just a toy** | Live energy charts, FFT, per-object telemetry, force/contact overlays, adjustable time scale and gravity. |
+
+<br>
+
+## 🎬 See it in action
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/media/place.webp" alt="Dragging shapes out of the palette: a translucent ghost follows the cursor, snaps to the surface and drops on release" width="100%">
+<br><b>Ghost placement</b><br><sub>Drag a tile into the scene and see exactly where it will land — with a drop line, landing ring and valid/invalid tint. One click arms it on a trackpad.</sub>
+</td>
+<td width="50%" valign="top">
+<img src="docs/media/wreck.webp" alt="A wrecking ball swinging into a tower of crates" width="100%">
+<br><b>Constraints & impacts</b><br><sub>A wrecking ball on a jointed arm demolishes a tower: friction, restitution, continuous collision detection and sleeping all in play.</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/media/cloth.webp" alt="A cloth sheet draping over a sphere and a hammock" width="100%">
+<br><b>Soft bodies</b><br><sub>Particle-based cloth, jelly, cables and balloons — drag them with the mouse, pin them, tear them, cut them.</sub>
+</td>
+<td width="50%" valign="top">
+<img src="docs/media/editor.png" alt="The PhysicsLab editor: palette, viewport, inspector and bottom dock" width="100%">
+<br><b>A proper editor</b><br><sub>Dockable panels, command palette (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd>), outliner, inspector with units, charts and timeline.</sub>
+</td>
+</tr>
+</table>
+
+> The animations above were recorded **from the app itself** with a deterministic frame-by-frame capture (the simulation is stepped a fixed amount per frame), so they show exactly what the engine computed. The app has the same capture built in — open the command palette (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd>) and run *Record video…*, *Record animated GIF…* or *Record turntable…*.
+
+<br>
+
+## 🚀 Run it
 
 ```bash
+git clone https://github.com/TheOriUHD/PhysicsSandbox.git
+cd PhysicsSandbox
 npm install
-npm run dev        # http://localhost:5173
+npm run dev        # → http://localhost:5173
+```
+
+```bash
 npm run build      # type-check + production build into dist/
 npm run preview    # serve the production build
 ```
 
-### Hosting
+PhysicsLab is a **fully static site** — `npm run build` produces `dist/`, which any static host can serve. It is also an installable **offline PWA**.
 
-It is a fully static site (no server): `npm run build` produces `dist/`, which any static host can serve.
+<details>
+<summary><b>Hosting options</b></summary>
 
-* **Netlify / Cloudflare Pages / Vercel** work with private repos on free plans: import the repo (build command `npm run build`, output directory `dist` — `netlify.toml` already says so), or drag the built `dist/` folder onto [Netlify Drop](https://app.netlify.com/drop).
-* **GitHub Pages**: `.github/workflows/pages.yml` is a manual workflow for when Pages is available (public repo or paid plan; set *Settings → Pages → Source* to *GitHub Actions*, then run it from the Actions tab).
+- **Netlify / Cloudflare Pages / Vercel** — import the repo (build command `npm run build`, output directory `dist`; `netlify.toml` already says so), or drag the built `dist/` folder onto [Netlify Drop](https://app.netlify.com/drop).
+- **GitHub Pages** — `.github/workflows/pages.yml` is a manual workflow (*Settings → Pages → Source → GitHub Actions*, then run it from the Actions tab).
+- **Embed it** — `?embed=1&scene=…` gives a minimal viewer you can put in an `<iframe>`; see [docs/EMBED.md](docs/EMBED.md).
+- **Desktop** — install it as an app from the browser (PWA); wrapper notes are in [docs/DESKTOP.md](docs/DESKTOP.md).
 
-Requires a modern desktop browser with WebGL 2 and WebAssembly (Chrome, Edge, Firefox, Safari).
+</details>
 
-## Using it
+**Requirements:** a modern browser with WebGL 2 and WebAssembly (Chrome, Edge, Firefox, Safari). Node 22+ to build.
+
+<br>
+
+## 🧰 Features
+
+<details open>
+<summary><b>🧱 Build</b></summary>
+
+- **39 parametric shapes** in a searchable, categorised palette with generated thumbnails — box, sphere, cylinder, capsule, cone, wedge, prism, ellipsoid, **torus, ring, tube, arch, stairs, spiral stairs, dome, hemisphere, frustum, I/L/T beams, gear, wheel, curved ramps, quarter- and half-pipes, rounded shapes, pyramid and the five platonic solids, dice (d4 → d20)**. Hollow shapes are true compound colliders — a ball really falls through a torus.
+- **Ghost placement**: drag a tile out of the palette (or click it, then click the scene) and watch a translucent preview snap onto surfaces; rotate with <kbd>Q</kbd>/<kbd>E</kbd>, lift with <kbd>[</kbd>/<kbd>]</kbd>.
+- **Editing tools**: lasso/paint selection, align & distribute, mirror, linear/grid/radial/along-path **arrays**, pivot editing, snapping to grid/surfaces/vertices/edges, groups with transforms, copy/paste between scenes, **user prefabs** with thumbnails, spline paths.
+- **Interaction tools**: grab and throw (with keyboard depth/rotation), blast variants, plane **cut tool**, paint, throw/aim with trajectory preview.
+- Move / rotate / scale gizmos, numeric transforms, multi-select, lock/hide, **undo history panel** with jump-to-state.
+- 50 example scenes and 34 insertable prefabs.
+
+</details>
+
+<details open>
+<summary><b>⚙️ Mechanisms</b></summary>
+
+- **16 joint types**: weld, hinge, slider, ball, spring, rope, **cone-twist, 6-DOF, pulley, rack & pinion, gear pair, belt/chain drive, universal (cardan), screw, winch, soft weld** — with limits, motors (velocity / position, force-capped, key- and axis-bound) and spring-dampers.
+- **Breakable joints**: the engine exposes no constraint impulses for rigid joints, so PhysicsLab estimates the load through the joint with a Newton–Euler momentum balance (exact for tree-like assemblies) — validated against statics in the tests. Joints can be given break thresholds, show a stress colour, and fatigue.
+- **Powered parts** as components: engine with an editable torque curve, electric motor, servo, stepper, linear actuator, hydraulic cylinder, clutch, **gearbox, differential**, brakes, thrusters/rockets with fuel mass, jets and propellers/rotors.
+- **Zones & race timing**: sensor volumes with 15 actions — checkpoints, finish lines (laps, splits), kill & respawn, teleporters, launch pads, gravity override, force fields, spawners, scoring, world bounds.
+- Collision layers with a matrix editor, one-way platforms, quadratic drag, mass/COM overrides.
+
+</details>
+
+<details>
+<summary><b>🧵 Soft bodies</b></summary>
+
+- Jelly lattices, balloons (with pressure and punctures), cloth and cables from the engine's particle/constraint solver.
+- **Attach** soft bodies to rigid bodies and joints (sails, nets, curtains, hanging weights), **cut** cloth, tear it with a strain threshold, generate **ropes and chains** that carry loads, build **pneumatic tyres** and a jelly car.
+- Young's-modulus-style material display, elastic energy in the energy chart, budget & stability warnings.
+
+</details>
+
+<details>
+<summary><b>🎥 Look & sound</b></summary>
+
+- **40 material presets** with real densities and PBR values, procedural and image textures, normal/roughness/emissive maps.
+- Physically based **sky with time of day**, environment presets and your own HDRI, fog, placeable point/spot/directional/area **lights**, weather (rain, snow, leaves).
+- Post-processing stack — bloom, depth of field, motion blur, SSR, ambient occlusion, volumetric light shafts, grading — with **quality presets and an auto-governor**. Instanced rendering for scenes with many identical bodies.
+- Shader-based **damage visuals**, a detailed car skin with spinning wheels and suspension compression, UI themes (dark, light, high-contrast, midnight, solarized, blueprint).
+- **Particles** (sparks, dust, shards, smoke, explosions, skid marks) emitted from real contact impulses, and a fully **procedural audio engine** — material-aware impact sounds, rolling/sliding, engine tones, spatialised in 3D. No sample files.
+
+</details>
+
+<details>
+<summary><b>⏪ Time, replay & analysis</b></summary>
+
+- **Time travel**: full-state snapshots in a bounded ring buffer — hold <kbd>Backspace</kbd> to rewind, scrub a timeline with impact/break markers and bookmarks, step both directions.
+- **Deterministic replays** (inputs + seed) you can save, share by link and re-verify bit for bit; **ghosts** of previous runs and A/B comparisons; seeded randomness everywhere; a determinism checker.
+- Live **energy chart** (kinetic, rotational, potential, elastic), draggable multi-trace telemetry with **FFT**, velocity/force/contact overlays, joint **stress view**, adjustable time scale (0.05× – 4×), single-stepping.
+
+</details>
+
+<details>
+<summary><b>🚗 Driving, cameras & input</b></summary>
+
+- **Drive mode** (<kbd>V</kbd>) and **Play mode** (<kbd>Shift</kbd>+<kbd>V</kbd>): chase / cockpit / orbit cameras, locked controls, speedometer, on-screen key legend, reset & flip-upright.
+- **Cameras**: orbit, fly, first/third person, chase, orthographic views, bookmarks, cinematic camera paths, split-screen and picture-in-picture, a live minimap.
+- **OS-aware navigation**: trackpad (two-finger swipe, pinch-to-zoom, modifier pans), mouse and touch each get a scheme that works *without* needing to hold and scroll at once. A context-aware **controls legend** always shows which keys work right now.
+- Gamepad (analog steering and throttle), touch controls with virtual sticks, mobile layout, fully **rebindable keys**.
+
+</details>
+
+<details>
+<summary><b>🧩 Platform</b></summary>
+
+- **Share** a scene as a compact link (the whole scene is compressed into the URL — no server), export JSON / glTF / OBJ / STL / PNG (up to 4K), or record **WebM / MP4 / GIF** and turntables.
+- Local-first persistence with **restore points** and **crash recovery**, optional folder sync (File System Access API).
+- **Peer-to-peer collaboration** over WebRTC (copy/paste signalling, or two tabs on one device).
+- A typed **public API** (`window.physicslab`), a sandboxed **plugin** system (plugins add commands, panels and example scenes), **scripted scenes**, and a **headless CLI** for batch runs and parameter sweeps — see [docs/API.md](docs/API.md), [docs/PLUGINS.md](docs/PLUGINS.md), [docs/CLI.md](docs/CLI.md).
+- Installable offline **PWA**; code-split bundles so the heavy features load on demand.
+
+</details>
+
+<details>
+<summary><b>🧭 Workspace</b></summary>
+
+- Dockable, resizable panels with saved layouts; command palette; floating inspector; **Simple / Advanced** mode; outliner with folders, drag-reparenting and filters.
+- Inspector with SI/imperial toggles, math expressions in fields (`2*9.81`), scrub-drag labels, calculators, copy/paste properties.
+- Presentation / photo mode, interactive tour, searchable shortcut cheat-sheet, friendly error handling with built-in diagnostics and a profiler.
+
+</details>
+
+<br>
+
+## 🎮 Controls
+
+| | Mouse | Trackpad (macOS &amp; others) | Touch |
+|---|---|---|---|
+| **Orbit** | Right-drag | Two-finger swipe · <kbd>⌥</kbd> + drag | One finger on empty space |
+| **Pan** | Middle-drag | <kbd>⇧</kbd>/<kbd>⌘</kbd> + swipe · <kbd>Space</kbd> + drag | Two fingers |
+| **Zoom** | Scroll (to cursor) | Pinch (to cursor) | Pinch |
+| **Focus / frame all** | Double-click object / empty | same | Double-tap |
+
+The scheme is **auto-detected** (and can be overridden in *Settings → Navigation*). Everything works on a trackpad alone — no gesture needs you to hold a button and scroll at the same time.
+
+| Action | Keys |
+|---|---|
+| Add a shape | Click a tile, press <kbd>1</kbd>–<kbd>9</kbd>, or **drag it into the scene** |
+| Move · rotate · scale · select | <kbd>W</kbd> · <kbd>E</kbd> · <kbd>R</kbd> · <kbd>Q</kbd> |
+| Connect | <kbd>J</kbd>, click body A then body B |
+| Simulate · step · stop | <kbd>Space</kbd> · <kbd>.</kbd> · <kbd>Shift</kbd>+<kbd>Space</kbd> |
+| Grab & throw (while running) | Drag a body · <kbd>W</kbd>/<kbd>S</kbd> push/pull · <kbd>Q</kbd>/<kbd>E</kbd> turn · <kbd>F</kbd> freeze |
+| Rewind | Hold <kbd>Backspace</kbd> |
+| **Drive** the vehicle · **Play** mode | <kbd>V</kbd> · <kbd>Shift</kbd>+<kbd>V</kbd> |
+| In Drive mode | <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive · <kbd>C</kbd> camera · <kbd>B</kbd> look behind · <kbd>R</kbd> reset · <kbd>Esc</kbd> exit |
+| Command palette · all shortcuts | <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> · <kbd>?</kbd> |
+
+<br>
+
+## 🏗 Architecture
+
+```mermaid
+flowchart LR
+    UI["UI panels<br/>(vanilla TypeScript)"] --> App["App + registries<br/>commands · tools · panels · shapes · components"]
+    App --> Store[("SceneStore<br/>immutable document<br/>undo / redo")]
+    Store -->|build + live edits| Sim["SimController"]
+    Sim <-->|"poses · events (typed buffers)"| Worker["Physics Worker<br/>Rapier WASM"]
+    Store --> View["three.js viewport<br/>PBR · post-FX · instancing"]
+    Sim -->|interpolated poses| View
+```
+
+- **The document is the source of truth.** Scene data is plain, versioned JSON (with migrations); the worker builds a Rapier world from it and the renderer mirrors it.
+- **Extend by adding files, not by editing shared ones.** Shapes, components, commands, tools, panels, templates, prefabs and maps are all *registered* with small typed registries — `docs/EXTENDING.md` has a tested example for each.
+- **Physics runs identically in the worker and in Node**, so every physics feature is tested against the real engine.
+
+<details>
+<summary><b>Project layout</b></summary>
+
+```
+src/
+├─ model/     scene document, shape & component registries, migrations, content (scenes, prefabs, maps)
+├─ physics/   Rapier world (split into focused modules), worker, message protocol, components
+├─ render/    three.js viewport, post-processing, effects, skins, gizmos, picking
+├─ app/       wiring, input & navigation, editor commands, drive mode, placement, storage, capture
+├─ ui/        panels, inspector, outliner, charts, palette, dialogs
+├─ audio/     procedural WebAudio engine
+└─ collab/    peer-to-peer collaboration
+tests/        Vitest — runs the real Rapier engine in Node
+e2e/          headless-Chromium tests that drive the real UI
+docs/         architecture, extending guide, API, CLI, plugins, scripting, …
+```
+
+</details>
+
+<br>
+
+## 🧪 Testing
+
+```bash
+npm test               # 3,200+ unit & physics tests — the real Rapier engine, in Node
+npm run test:e2e       # 300+ browser tests — real mouse, keyboard, touch and trackpad events in headless Chromium
+npm run typecheck && npm run lint
+```
+
+The physics tests compare the engine to analytic results — free fall, momentum conservation, restitution, friction-angle thresholds, pendulum and spring-mass periods, motor torque and speed, gear ratios, Atwood machines, energy conservation, determinism of snapshot/restore — rather than just checking that nothing throws.
+
+<br>
+
+## 📚 Documentation
 
 | | |
 |---|---|
-| **Add** | drag a tile (shape, soft body, prefab, zone or light) into the scene: a translucent **ghost** shows where it will land, and the object is created when you let go (`Esc`, a right click or letting go over a panel cancels). On a trackpad: click a tile (or press `1`–`9`), move over the scene and click to place; `Shift`+click places several. While placing: `Q` / `E` (or `R`) turn it 15° (`Shift` = 1°), `[` `]` lower / raise it, `X` aligns it to the surface, hold `Alt` for no snapping. Double-click a tile to add it at the centre of the view. On touch, long-press a tile and drag |
-| **Move** | drag a body on the ground plane (hold `Shift` to lift), or use the gizmo (`W` move · `E` rotate · `R` scale · `Q` select-only) |
-| **Connect** | pick a joint (or press `J`), click body A, then body B (or empty ground to pin to the world). Select the joint to add limits, a motor or spring settings |
-| **Simulate** | `Space` start/pause · `.` step · `Shift+Space` stop & return to the editable layout |
-| **Interact** | while running, drag a body to throw it · `B` blast · `T` fire projectiles |
-| **Measure** | `M`, click two points |
-| **Sound** | `Shift+M` mute / unmute (the speaker in the top bar) · volumes and test sounds in the *Effects* panel |
-| **Camera, mouse** | right-drag orbit · middle-drag pan · wheel zoom towards the cursor · `Alt`-drag orbit · `Space`-drag pan · double-click an object to focus it, empty space to frame all |
-| **Camera, trackpad** | two-finger swipe orbit · `Shift` / `Cmd` + swipe pan · pinch zoom towards the cursor · `Option` + swipe zoom · `Option`-drag orbit · `Space`-drag pan (Settings › Navigation: swipe = pan, speeds, inversions; the device is detected, or choose it) |
-| **Camera, touch** | one finger on empty space orbits · two fingers pan, pinch zooms, twisting turns · double-tap focuses |
-| **Camera, keyboard** | `←` `↑` `↓` `→` orbit (with a selection: `Alt` / `Option` + arrows) · `Shift` + arrows pan · `+` `−` zoom · `F` frame selection · `Home` frame all · `Alt` / `Option` + `1 3 7 9` front / side / top / iso (or the numpad) · `C` follow selection |
-| **Hold a body** (while running) | drag to hold · `W` `S` / `↑` `↓` / `[` `]` push / pull (or scroll; touch: pinch) · `A` `D` / `Q` `E` turn in 15° steps (`Shift` 5°) · `F` freeze · `R` + drag turn freely |
-| **Drive** | `V` drives the selected vehicle (or the only one): a chase camera, only the vehicle's keys, no editor. `C` chase / cockpit / orbit · `B` look behind · drag to look · `R` reset or flip upright · `P` pause · `Esc` / `Tab` leave |
-| **Play mode** | `Shift+V` (or the eye button next to Drive): run the scene and fly through it with `W A S D Q E`, grab and throw things, `Esc` / `Tab` leave |
-| **Which keys work now** | the pill at the bottom-left of the viewport names the input context (Edit · Simulating · Holding · Fly camera · Placing · Drive · Play); open it for the legend: what each key does *right now*, and which ones are paused and why |
-| **Undo** | `Ctrl+Z` / `Ctrl+Shift+Z` |
-| **Search** | `Ctrl+K` (`⌘K`) opens the command palette: every command, setting, example scene, saved scene, prefab and map in one fuzzy search box |
+| [Architecture](docs/ARCHITECTURE.md) | How the pieces fit: document, worker protocol, registries, components |
+| [Extending PhysicsLab](docs/EXTENDING.md) | Add a shape / component / command / tool / panel / template / map — with tested examples |
+| [Public API](docs/API.md) · [Plugins](docs/PLUGINS.md) · [Scripting](docs/SCRIPTING.md) · [CLI](docs/CLI.md) | Automate and extend |
+| [Embedding](docs/EMBED.md) · [Collaboration](docs/COLLAB.md) · [Desktop](docs/DESKTOP.md) | Share and ship |
+| [Performance](docs/PERFORMANCE.md) · [Limitations](docs/LIMITATIONS.md) | Numbers and honest caveats |
+| [Feature checklists](docs/features) | Every feature, whether it is done, and the test that proves it |
 
-Press the keyboard icon in the top bar for the full list. The **Scenes** tab has 16 worked examples (drivable car, wrecking ball, lever launcher, piston press, double pendulum, Newton's cradle, springs & dampers, friction lab, zero-g billiards, domino run, Jenga, rope bridge, 300-ball pit, jelly playground, cloth drape & hammock, tearing banner) **Prefabs** has 12 insertable assemblies, and **Maps** has two walled arenas (an empty one and a sandbox with a heap of blocks).
+<br>
 
-### Driving the car
+## 🗺 Roadmap
 
-Load *Drivable car*, press **Simulate**, then **W / S** for throttle / reverse and **A / D** to steer. Select any joint to see how it is wired — e.g. the rear *axle* hinges are velocity-mode motors bound to W/S; the *steering* hinges are position-mode motors bound to A/D; the *suspension* sliders are position-mode motors acting as spring-dampers.
+PhysicsLab is under active development. Done and shipping today: everything listed under **Features**. Next up (tracked in [`docs/features`](docs/features)):
 
-### Motor key bindings
+- **Models & terrain** — GLB/OBJ/STL import with convex decomposition, compound-collider tools, extrude/revolve/boolean builders, heightfield terrain with sculpting
+- **Logic & scripting** — sensors, a node-graph logic editor, sandboxed in-scene scripts, movers/conveyors/spawners
+- **Fluids & fields** — buoyant water, particle liquids, sand, wind, gravity wells, magnets, aerodynamics, richer surface friction
+- **Vehicles & characters** — raycast cars, tank, motorbike, boat, plane, helicopter, crane, excavator, walking robots, ragdolls
+- **Destruction** — Voronoi shatter, pre-fractured objects, collapsing structures
+- **Game layer** — challenges with budgets and stars, a campaign with tutorials, a classroom mode with lab worksheets
+- **Maps** — a library of ready-made worlds and obstacles (race track, stunt park, pinball, mini golf, …)
+- **Accessibility & localisation**, performance scaling to thousands of bodies, and more
 
-Any hinge or slider motor can be bound to keys: select the joint → *Motor* → choose a mode → click a *Key* button and press a key. In **velocity** mode the key drives the joint at the target speed; in **position** mode the target slews toward the deflection while the key is held and returns to centre when released (steering, servos). Bodies can also carry a constant **thrust** (force + torque in local space) that is always on or active while a key is held.
+<br>
 
-## Architecture in one page
+## 🤝 Contributing
 
-```
- UI panels (vanilla TS)  ──►  App  ──►  Editor commands ──►  SceneStore (immutable doc + undo)
-                               │                                   │
-                               │ events                            ▼
-                         Viewport (three.js) ◄── poses ──  SimController ◄──► Physics Worker (Rapier WASM)
-```
+Issues and pull requests are welcome. Start with [docs/EXTENDING.md](docs/EXTENDING.md) — most contributions are *one new file plus one registration line* — and run `npm run typecheck && npm run lint && npm test` before opening a PR. Please keep changes honest: a feature is either genuinely implemented and tested, or it isn't in the UI.
 
-* `src/model` — the scene **document**: plain JSON entities (bodies, joints, soft bodies, groups, lights, paths), materials, the shape and component registries, the content library (`model/content`: example scenes, prefabs, maps), an immutable store with structural-sharing undo history, validation / migration on load.
-* `src/physics` — `PhysicsWorld` (pure TS around Rapier; runs identically in the worker and in Node tests), the worker entry, the message protocol and the main-thread `SimClient`.
-* `src/render` — three.js viewport (PBR + shadows + environment, optional GTAO, outline pass), body / joint views, diagnostic overlays, gizmo wrapper, picking. `render/fx` is the particle / impact / skid-mark / explosion system (`app.fx.emit(type, position, options)`).
-* `src/audio` — the sound system: procedural synthesis, material / impact / event sounds, the WebAudio engine (`app.audio.playEvent(id, position)`); `src/app/audio` connects it to the simulation.
-* `src/app` — `App` (wiring), `SimController` (edit / running / paused state machine and live-edit sync), `Editor` (commands), input handling, persistence, and `registry/`: the command, tool, panel, inspector-section and menu registries everything in the UI is generated from.
-* `src/ui` — panels, inspector, outliner, telemetry charts, menus, dialogs, the command palette (`ui/palette`).
+## 📄 License
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design decisions (why a worker, why the document is the source of truth, how live edits work, how joints are framed, the physics model), [`docs/EXTENDING.md`](docs/EXTENDING.md) for how to add a shape, component, command, tool, panel, template, prefab, map or joint type (every example in it is compiled and tested), and [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) for what is deliberately *not* done yet.
+[MIT](LICENSE) © 2026 TheOriUHD
 
-## Tests
+## 🙏 Built with
 
-```bash
-npm test            # 570+ unit/physics tests (Vitest, runs the real Rapier engine in Node)
-npm run test:e2e    # drives the real UI in headless Chromium (starts its own dev server)
-E2E_SHOTS=1 npm run test:e2e   # …and writes screenshots to e2e/out/
-E2E_PORT=5231 E2E_FILTER=joint npm run test:e2e   # another port (default 5199), only matching tests
-```
+[**Rapier**](https://rapier.rs) by Dimforge (physics, compiled to WebAssembly) · [**three.js**](https://threejs.org) (rendering) · [**Vite**](https://vite.dev) · [**Vitest**](https://vitest.dev) · [**Playwright**](https://playwright.dev) (browser tests).
 
-The physics tests check the engine against analytic results: free fall, momentum conservation, restitution, friction-angle thresholds, pendulum and spring-mass periods, motor torque and speed, joint limits, spring breaking, energy conservation (double pendulum to 0.2 % over 4 s), determinism, and live add / edit / remove of bodies. Every example scene has a behavioural test (the car drives, steers and reverses; the cradle transfers momentum; the tower stands until it is hit; the banner tears; cloth drapes over a sphere without penetrating it; …).
+<div align="center"><sub>Made for people who want to see physics happen.</sub></div>
