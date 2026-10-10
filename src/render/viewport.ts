@@ -414,6 +414,11 @@ export class Viewport {
     }
   }
 
+  // -- DT-1: the scene parts a still-image export hides or keeps (src/app/export/capture.ts) --
+  captureParts(): { sky: Object3D; slab: Object3D; grid: Object3D; shadowCatcher: Object3D } {
+    return { sky: this.skyMesh, slab: this.slab, grid: this.grid, shadowCatcher: this.shadowCatcher };
+  }
+
   /** Choose a quality tier — or 'auto', which lets the governor pick and adapt (VZ-22). */
   setQuality(q: Quality): void {
     this.quality = q;

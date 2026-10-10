@@ -236,3 +236,11 @@ Plugins can register commands, declarative panels and example scenes (templates)
 * Procedural pattern textures are cached per (pattern, colours, bump); dragging a colour slider adds cache entries that live until reload.
 ## DT-42: first load is not under 1.2 MB gzip
 The Rapier WebAssembly binary alone is about 1.15 MB gzip (served as a separate cached asset), so the cold-start download is about 1.9 MB gzip; the JavaScript part is well below the target. Numbers and the lazy-loading policy are in docs/PERFORMANCE.md; `npm run size` enforces budgets in CI.
+
+## Export (DT-1)
+
+* **Soft bodies are not exported** to glTF / OBJ / STL: they are simulated particles with a surface rebuilt every frame, and the exporters work from the document. The export reports them in a toast and leaves them out.
+* **Baked glTF animation is a real-time capture** of the running simulation (~30 samples per second for the chosen number of seconds), not a deterministic replay of the time-travel recording, so two exports of a chaotic scene can differ slightly and the clip length follows the wall clock.
+* **Not representable**: area lights, paths, joints, render-only skins and texture maps are not written. OBJ has no hierarchy or lights; STL is geometry only (one merged solid, optionally in millimetres and Z-up).
+* **Screenshots are not anti-aliased above 2560 px** (the viewport renderer has no MSAA; smaller images are rendered at 2x and averaged). Transparent PNGs recover alpha by rendering twice (over black and white), so the ground shadow is kept but selection outlines and ambient occlusion are not drawn. Maximum size is 3840 px per side and the graphics card's texture limit.
+
