@@ -43,7 +43,7 @@ export function patchDamage(mat: MeshStandardMaterial, kind: DamageKind, instanc
     uniforms: { uDamage: { value: 0 }, uKind: { value: DAMAGE_KIND_INDEX[kind] } },
   };
   (mat.userData as { damage?: DamageHandle }).damage = handle;
-  mat.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+  const hook = (shader: WebGLProgramParametersWithUniforms): void => {
     shader.uniforms.uDamage = handle.uniforms.uDamage;
     shader.uniforms.uKind = handle.uniforms.uKind;
     shader.vertexShader = shader.vertexShader
@@ -102,7 +102,12 @@ if (vDmg > 0.02) {
 roughnessFactor = clamp(roughnessFactor + vDmg * 0.35 + dmgCrack * 0.2, 0.0, 1.0);`,
       );
   };
-  mat.customProgramCacheKey = () => (instanced ? 'dmg-i' : 'dmg');
+  const key = instanced ? 'dmg-i' : 'dmg';
+  // The shape-surface module composes this hook with its own (a body can be both damaged and painted).
+  (mat.userData as { damageHook?: unknown; damageKey?: string }).damageHook = hook;
+  (mat.userData as { damageKey?: string }).damageKey = key;
+  mat.onBeforeCompile = hook;
+  mat.customProgramCacheKey = () => key;
   mat.needsUpdate = true;
   return handle;
 }

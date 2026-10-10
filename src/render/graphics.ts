@@ -270,7 +270,8 @@ export function probeTier(rendererString: string, isMobile = false): QualityTier
   const s = rendererString.toLowerCase();
   if (/swiftshader|llvmpipe|software|softpipe|microsoft basic render/.test(s)) return 'low';
   if (isMobile || /adreno|mali|powervr|apple gpu|videocore/.test(s)) return 'medium';
-  if (/rtx|rx [5-9]\d{3}|radeon pro|geforce gtx 1[06-9]|geforce gtx 20|arc a[5-9]|apple m[1-9]/.test(s)) return 'ultra';
+  if (/rtx|rx [5-9]\d{3}|radeon pro|geforce gtx 1(0[6-9]|[1-9])\d|geforce gtx 20|arc a[5-9]|apple m[1-9]/.test(s))
+    return 'ultra';
   if (/gtx|geforce|radeon|nvidia|quadro|apple m/.test(s)) return 'high';
   if (/intel|iris|uhd|hd graphics/.test(s)) return 'medium';
   return 'high';

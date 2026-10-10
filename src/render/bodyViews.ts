@@ -391,6 +391,7 @@ export class BodyViews {
       mat.emissive.setRGB(0, 0, 0);
       pool = new InstancePool(key, geo, mat, this.group);
       this.pools.set(key, pool);
+      this.lodLevels.set(key, leader.lod);
       this.poolGeo.set(key, geoKey);
       for (const m of set) this.attach(m, pool);
     } else if (pool) this.attach(v, pool);
@@ -650,7 +651,11 @@ export class BodyViews {
     for (const v of this.views.values()) {
       const d = v.def;
       const sel = selected.has(d.id);
-      if (v.pool) v.promoted = sel || d.id === this.hoverId || this.linkedIds.has(d.id);
+      if (v.pool) {
+        v.promoted = sel || d.id === this.hoverId || this.linkedIds.has(d.id);
+        // A promoted body draws through its own mesh: give it the level of detail its pool shows.
+        if (v.promoted && v.instKey) v.setLod(this.lodLevels.get(v.instKey) ?? 0);
+      }
       // Colour the whole body for the analytic modes; in 'material' mode each part keeps its own colour.
       let flat: string | null = null;
       const heat = this.tmpColor;

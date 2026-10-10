@@ -126,7 +126,7 @@ export class FinishPass extends QuadPass {
             col = pow(max(col, vec3(0.0)) / 0.18, vec3(uContrast)) * 0.18;
             float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
             col = mix(vec3(l), col, uSaturation);
-            float v = smoothstep(0.75, 0.75 - uVignetteSoft * 0.75, sqrt(r2) * 1.414);
+            float v = 1.0 - smoothstep(0.75 - uVignetteSoft * 0.75, 0.75, sqrt(r2) * 1.414);
             col *= mix(1.0, v, uVignette);
             if (uGrain > 0.0) {
               float n = hash(vUv * 1024.0 + fract(uTime) * 91.7) - 0.5;
@@ -375,6 +375,8 @@ export class MotionBlurPass extends QuadPass {
   private prevViewProj = new Matrix4();
   private tmp = new Matrix4();
   private havePrev = false;
+  private prevVis: boolean[] = [];
+  private prevClear = new Color();
   private shutter = 1 / 60;
 
   constructor(
@@ -452,7 +454,9 @@ export class MotionBlurPass extends QuadPass {
     this.shutter = Math.min(0.05, Math.max(1 / 240, dt));
     this.velMaterial.uniforms.uShutter.value = this.shutter;
 
-    const prevVis = this.hidden.map((o) => o.visible);
+    const prevVis = this.prevVis;
+    prevVis.length = this.hidden.length;
+    for (let i = 0; i < this.hidden.length; i++) prevVis[i] = this.hidden[i].visible;
     for (const o of this.hidden) o.visible = false;
     const prevOverride = this.scene.overrideMaterial;
     const shadowAuto = renderer.shadowMap.autoUpdate;
@@ -462,7 +466,7 @@ export class MotionBlurPass extends QuadPass {
     this.scene.overrideMaterial = this.velMaterial;
     this.scene.background = null;
     this.scene.fog = null;
-    const prevColor = renderer.getClearColor(new Color());
+    const prevColor = renderer.getClearColor(this.prevClear);
     const prevAlpha = renderer.getClearAlpha();
     renderer.setClearColor(0x000000, 0);
     renderer.setRenderTarget(this.velocity);
@@ -473,7 +477,7 @@ export class MotionBlurPass extends QuadPass {
     this.scene.overrideMaterial = prevOverride;
     this.scene.background = prevBg;
     this.scene.fog = prevFog;
-    this.hidden.forEach((o, i) => (o.visible = prevVis[i]));
+    for (let i = 0; i < this.hidden.length; i++) this.hidden[i].visible = prevVis[i];
 
     this.prevViewProj.copy(this.tmp);
     const u = this.material.uniforms;

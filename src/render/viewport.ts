@@ -455,9 +455,8 @@ export class Viewport {
     this.pixelRatioNow = pr;
     this.renderer.setPixelRatio(pr);
     this.post.setSize(this.width, this.height, pr);
-    const before = this.post.currentSignature;
     this.post.configure(g);
-    if (before !== this.post.currentSignature || this.lastShadowsOn !== g.shadows.enabled) {
+    if (this.lastShadowsOn !== g.shadows.enabled) {
       // materials must recompile when shadows are toggled
       this.scene.traverse((o) => {
         const m: Material | Material[] = (o as Mesh).material;
@@ -504,6 +503,12 @@ export class Viewport {
     this.paintOutlines();
     this.decor.update(objects, this.highlight.bbox, this.highlight.axes);
     this.needsRender = true;
+  }
+
+  /** Per frame: keep the bounding boxes / axis triads on the moving selection. */
+  refreshDecor(): void {
+    if (this.highlight.bbox || this.highlight.axes)
+      this.decor.update(this.outline.selectedObjects, this.highlight.bbox, this.highlight.axes);
   }
 
   /** Palette, pulse, bounding box / axes options. */

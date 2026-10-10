@@ -219,3 +219,76 @@ describe('damage model (VZ-41)', () => {
     expect(sanitizeDamage({ enabled: 'x', sensitivity: 99 })).toEqual({ enabled: true, sensitivity: 4 });
   });
 });
+
+import { MeshStandardMaterial, BufferGeometry } from 'three';
+import { patchDamage } from '../src/render/damageShader';
+import { applyShapeSurface } from '../src/render/shapeSurface';
+import { lodForScreenRadius } from '../src/render/lod';
+import { InstancePool } from '../src/render/instancing';
+import { Group, Object3D, Vector3 } from 'three';
+
+describe('review regressions', () => {
+  it('the damage shader patch survives the shape-surface setup of the same material', () => {
+    const m = new MeshStandardMaterial();
+    patchDamage(m, 'metal', false);
+    applyShapeSurface(m, new BufferGeometry(), { type: 'box', size: [1, 1, 1] });
+    expect(m.customProgramCacheKey()).toBe('dmg');
+    const shader = {
+      vertexShader: '#include <common>\n#include <begin_vertex>',
+      fragmentShader: '#include <common>\n#include <color_fragment>\n#include <roughnessmap_fragment>',
+      uniforms: {},
+    };
+    m.onBeforeCompile(shader as never, undefined as never);
+    expect(shader.fragmentShader).toContain('dmgCrack');
+  });
+
+  it('a 60 Hz display does not stop the governor from climbing back after a stall', () => {
+    const g = new Governor('ultra');
+    for (let t = 0; t < 4; t += 0.05) g.update(0.05); // slow: steps down
+    const low = g.level;
+    expect(low).toBeGreaterThan(0);
+    for (let t = 0; t < 60; t += 1 / 60) g.update(1 / 60); // vsync-capped 16.7 ms frames
+    expect(g.level).toBeLessThan(low);
+  });
+
+  it('GTX 10xx low-end cards are not probed as ultra, 1060 and up are', () => {
+    expect(probeTier('NVIDIA GeForce GTX 1050')).toBe('high');
+    expect(probeTier('NVIDIA GeForce GTX 1060')).toBe('ultra');
+    expect(probeTier('NVIDIA GeForce GTX 1080 Ti')).toBe('ultra');
+  });
+
+  it('LOD levels switch with hysteresis and never flicker around a threshold', () => {
+    expect(lodForScreenRadius(100, 2)).toBe(0);
+    expect(lodForScreenRadius(40, 1)).toBe(1); // just over 36 px but inside the band: stay
+    expect(lodForScreenRadius(50, 1)).toBe(0);
+    expect(lodForScreenRadius(11, 1)).toBe(1);
+    expect(lodForScreenRadius(5, 1)).toBe(2);
+  });
+
+  it('instance pools keep slots consistent through add, remove and growth', () => {
+    const parent = new Group();
+    const mk = (id: string) => ({
+      id,
+      mesh: new Object3D(),
+      scale: [1, 1, 1] as const,
+      poolVisible: true,
+      vel: new Vector3(),
+      damage: 0,
+      slot: -1,
+    });
+    const pool = new InstancePool('k', new BufferGeometry(), new MeshStandardMaterial(), parent, 4);
+    const members = Array.from({ length: 40 }, (_, i) => mk(`b${i}`));
+    for (const m of members) pool.add(m);
+    expect(pool.size).toBe(40);
+    for (const m of members.slice(0, 40)) expect(pool.mesh.userData.instanceIds[m.slot]).toBe(m.id);
+    for (const i of [0, 7, 39, 20]) pool.remove(members[i]);
+    expect(pool.size).toBe(36);
+    for (const m of members.filter((_, i) => ![0, 7, 39, 20].includes(i)))
+      expect(pool.mesh.userData.instanceIds[m.slot]).toBe(m.id);
+    expect(members[7].slot).toBe(-1);
+    pool.flush();
+    expect(parent.children.length).toBe(1);
+    pool.dispose();
+    expect(parent.children.length).toBe(0);
+  });
+});

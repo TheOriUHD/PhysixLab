@@ -54,7 +54,7 @@ const INK_LIGHT = 'vec3( 0.86 )';
 
 /** Mix the ink mask (red channel of the map) into the diffuse colour instead of multiplying the two. */
 function inkShader(material: MeshStandardMaterial): void {
-  material.onBeforeCompile = (shader) => {
+  material.onBeforeCompile = (shader, renderer) => {
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <map_fragment>',
       `#ifdef USE_MAP
@@ -64,9 +64,14 @@ function inkShader(material: MeshStandardMaterial): void {
         diffuseColor.rgb = mix( diffuseColor.rgb, inkColor, inkMask );
       #endif`,
     );
+    damageHook(material)?.call(material, shader, renderer);
   };
-  material.customProgramCacheKey = () => INK_KEY;
+  material.customProgramCacheKey = () => INK_KEY + (damageKey(material) ? `|${damageKey(material)}` : '');
 }
+
+type Hook = MeshStandardMaterial['onBeforeCompile'];
+const damageKey = (m: MeshStandardMaterial): string => (m.userData as { damageKey?: string }).damageKey ?? '';
+const damageHook = (m: MeshStandardMaterial): Hook | undefined => (m.userData as { damageHook?: Hook }).damageHook;
 
 /**
  * Set the material up for the geometry and shape it draws: vertex colours when the geometry carries them, the
@@ -80,8 +85,9 @@ export function applyShapeSurface(material: MeshStandardMaterial, geo: BufferGeo
   material.map = map;
   if (map) inkShader(material);
   else {
-    material.onBeforeCompile = () => undefined;
-    material.customProgramCacheKey = () => '';
+    // Keep the damage look (VZ-41) when the material has it; otherwise no patch at all.
+    material.onBeforeCompile = damageHook(material) ?? (() => undefined);
+    material.customProgramCacheKey = () => damageKey(material);
   }
   if (changed) material.needsUpdate = true;
 }

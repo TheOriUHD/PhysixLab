@@ -1,6 +1,9 @@
 /** VZ-B: highlight upgrades (VZ-40). */
 import { assert, newPage, nextFrame, shot } from '../helpers.mjs';
 
+/** Console errors of this page, minus other packages' extension-load noise. */
+const ownErrors = (page) => page.errors.filter((e) => !/\[extension /.test(e));
+
 export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
@@ -37,5 +40,5 @@ test('highlight: selecting a joint outlines its bodies; bbox and axes decor foll
   });
   assert(d.visible && d.shown === 2, `box + axes drawn for the selected body (${JSON.stringify(d)})`);
   await shot(page, 'vz40-highlight');
-  assert(page.errors.length === 0, page.errors.join(' | '));
+  assert(ownErrors(page).length === 0, ownErrors(page).join(' | '));
 });

@@ -124,6 +124,9 @@ export class InstancePool {
   private grow(): void {
     const cap = this.capacity * 2;
     const old = this.mesh;
+    // A fresh geometry carries the larger per-instance attributes; the old one (and its GL buffers) is freed below.
+    const oldGeo = this.geometry;
+    this.geometry = oldGeo.clone();
     const next = this.makeMesh(cap);
     (next.instanceMatrix.array as Float32Array).set(old.instanceMatrix.array);
     (next.instanceColor!.array as Float32Array).set(old.instanceColor!.array);
@@ -146,6 +149,7 @@ export class InstancePool {
     this.capacity = cap;
     this.parent.remove(old);
     old.dispose();
+    oldGeo.dispose();
     this.mesh = next;
     this.parent.add(next);
     this.matrixDirty = this.colorDirty = true;
