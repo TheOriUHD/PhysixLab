@@ -9,7 +9,7 @@
  */
 import type { SceneDocument } from '../../model/types';
 import { decodeBinary, encodeBinary, quantize, REF_PREFIX, type Json } from './binary';
-import { DEFAULT_ENTITIES, DEFAULT_SETTINGS } from './defaults';
+import { DEFAULT_COMPONENTS, DEFAULT_ENTITIES, DEFAULT_SETTINGS } from './defaults';
 
 /** First byte of a v2 payload (before the deflated stream). */
 export const COMPACT_VERSION = 2;
@@ -75,12 +75,22 @@ function baseCandidates(recent: Json[], kind: string): Json[] {
   return out.concat(defaultsByKind.get(kind) ?? []);
 }
 
+const DEFAULT_COMPONENTS_Q = new Map(Object.entries(DEFAULT_COMPONENTS).map(([t, c]) => [t, quantize(c)]));
+function componentBases(last: Json | undefined, type: string): [Json, Json] {
+  return [last ?? {}, DEFAULT_COMPONENTS_Q.get(type) ?? {}];
+}
+
 /** Document → packed bytes (header byte + deflate-raw stream). */
 export async function encodeCompact(doc: SceneDocument): Promise<Uint8Array> {
   const q = quantize(doc as unknown as Json) as Obj;
   const entities = (q.entities as Obj[]) ?? [];
   const index = new Map<string, number>();
   entities.forEach((e, i) => index.set(str(e.id), i));
+  // Components have ids too (c_…); they are numbered after the entities.
+  let nextRef = entities.length;
+  for (const e of entities)
+    if (Array.isArray(e.components))
+      for (const c of e.components) if (isObj(c) && typeof c.id === 'string') index.set(c.id, nextRef++);
   // Entity ids are random strings nobody sees: store positions instead and let the decoder name them e0, e1 …
   const refs = (v: Json): Json => {
     if (typeof v === 'string') {
@@ -97,11 +107,28 @@ export async function encodeCompact(doc: SceneDocument): Promise<Uint8Array> {
     return v;
   };
   const recent = new Map<string, Obj[]>();
+  const lastComp = new Map<string, Obj>();
   const packed: Json[] = entities.map((e) => {
     const kind = str(e.kind);
-    const { id: _id, ...rest } = e;
+    const { id: _id, components, ...rest } = e;
     void _id;
     const mine = refs(rest) as Obj;
+    // Components (behaviours with big parameter sets) are stored relative to the previous component of the same type.
+    const comps: Json[] | null = Array.isArray(components)
+      ? components.map((c) => {
+          if (!isObj(c)) return [''] as Json;
+          const { id: _cid, ...crest } = c;
+          void _cid;
+          const type = str(crest.type);
+          const mineC = refs(crest) as Obj;
+          // base 0: the previous component of this type; base 1: the frozen default of the type
+          const bases = componentBases(lastComp.get(type), type);
+          const d0 = diff(bases[0], mineC) ?? {};
+          const d1 = diff(bases[1], mineC) ?? {};
+          lastComp.set(type, mineC);
+          return JSON.stringify(d1).length < JSON.stringify(d0).length ? [type, 1, d1] : [type, 0, d0];
+        })
+      : null;
     // Candidate bases: the previous entity of this kind, then the frozen defaults of this kind; keep the cheapest.
     const bases = baseCandidates(recent.get(kind) ?? [], kind);
     let best = 0;
@@ -117,7 +144,7 @@ export async function encodeCompact(doc: SceneDocument): Promise<Uint8Array> {
       }
     }
     recent.set(kind, [mine, ...(recent.get(kind) ?? [])].slice(0, RECENT));
-    return [kind, best, bestDiff];
+    return comps ? [kind, best, bestDiff, comps] : [kind, best, bestDiff];
   });
   const { entities: _e, settings, ...top } = q;
   void _e;
@@ -136,8 +163,10 @@ export async function decodeCompact(data: Uint8Array): Promise<unknown> {
   if (data[0] !== COMPACT_VERSION) throw new Error('not a compact share payload');
   const v = decodeBinary(await inflate(data.subarray(1)));
   if (!isObj(v) || !Array.isArray(v.e) || !isObj(v.s)) throw new Error('not a scene');
+  const entityCount = v.e.length;
+  const refName = (n: number): string => (n < entityCount ? `e${n}` : `c${n - entityCount}`);
   const unref = (x: Json): Json => {
-    if (typeof x === 'string') return x.startsWith(REF_PREFIX) ? `e${x.slice(1)}` : x;
+    if (typeof x === 'string') return x.startsWith(REF_PREFIX) ? refName(Number(x.slice(1))) : x;
     if (Array.isArray(x)) return x.map(unref);
     if (isObj(x)) {
       const o: Obj = {};
@@ -147,13 +176,25 @@ export async function decodeCompact(data: Uint8Array): Promise<unknown> {
     return x;
   };
   const recent = new Map<string, Json[]>();
+  const lastComp = new Map<string, Json>();
+  let nextRef = entityCount;
   const entities = v.e.map((p, i) => {
     if (!Array.isArray(p) || typeof p[0] !== 'string' || typeof p[1] !== 'number') throw new Error('bad entity record');
     const kind = p[0];
     const base = baseCandidates(recent.get(kind) ?? [], kind)[p[1]] ?? {};
     const e = patch(base, p[2]);
     recent.set(kind, [e, ...(recent.get(kind) ?? [])].slice(0, RECENT));
-    return unref({ ...(e as Obj), id: REF_PREFIX + String(i) });
+    const out: Obj = { ...(e as Obj), id: REF_PREFIX + String(i) };
+    if (p[3] !== undefined) {
+      if (!Array.isArray(p[3])) throw new Error('bad component list');
+      out.components = p[3].map((c) => {
+        if (!Array.isArray(c) || typeof c[0] !== 'string') throw new Error('bad component record');
+        const full = patch(componentBases(lastComp.get(c[0]), c[0])[c[1] === 1 ? 1 : 0], c[2] ?? {});
+        lastComp.set(c[0], full);
+        return { ...(full as Obj), id: REF_PREFIX + String(nextRef++) };
+      });
+    }
+    return unref(out);
   });
   const { e: _e, s, ...top } = v;
   void _e;
@@ -173,7 +214,12 @@ export function canonicalText(v: unknown): string {
 export function expectedAfterRoundTrip(doc: SceneDocument): unknown {
   const q = quantize(doc as unknown as Json) as Obj;
   const names = new Map<string, string>();
-  (q.entities as Obj[]).forEach((e, i) => names.set(str(e.id), `e${i}`));
+  const ents = q.entities as Obj[];
+  ents.forEach((e, i) => names.set(str(e.id), `e${i}`));
+  let k = 0;
+  for (const e of ents)
+    if (Array.isArray(e.components))
+      for (const c of e.components) if (isObj(c) && typeof c.id === 'string') names.set(c.id, `c${k++}`);
   const rename = (v: Json): Json => {
     if (typeof v === 'string') return names.get(v) ?? v;
     if (Array.isArray(v)) return v.map(rename);
