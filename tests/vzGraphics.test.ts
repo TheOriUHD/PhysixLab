@@ -280,11 +280,11 @@ describe('review regressions', () => {
     const members = Array.from({ length: 40 }, (_, i) => mk(`b${i}`));
     for (const m of members) pool.add(m);
     expect(pool.size).toBe(40);
-    for (const m of members.slice(0, 40)) expect(pool.mesh.userData.instanceIds[m.slot]).toBe(m.id);
+    for (const m of members.slice(0, 40)) expect((pool.mesh.userData.instanceIds as string[])[m.slot]).toBe(m.id);
     for (const i of [0, 7, 39, 20]) pool.remove(members[i]);
     expect(pool.size).toBe(36);
     for (const m of members.filter((_, i) => ![0, 7, 39, 20].includes(i)))
-      expect(pool.mesh.userData.instanceIds[m.slot]).toBe(m.id);
+      expect((pool.mesh.userData.instanceIds as string[])[m.slot]).toBe(m.id);
     expect(members[7].slot).toBe(-1);
     pool.flush();
     expect(parent.children.length).toBe(1);
