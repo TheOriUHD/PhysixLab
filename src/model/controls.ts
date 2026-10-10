@@ -18,6 +18,9 @@ export interface ControlUse {
   componentId: string;
   componentLabel: string;
   fieldLabel: string;
+  /** Which of the owner's components of this type it is (1-based), and how many there are: "Rotor 2 of 2". */
+  index: number;
+  count: number;
 }
 
 export interface KeyControl {
@@ -53,6 +56,7 @@ export function sceneControls(entities: readonly Entity[]): SceneControls {
       if (!c.enabled) continue;
       const def = componentDef(c.type);
       if (!def) continue;
+      const same = e.components.filter((x) => x.type === c.type);
       for (const f of def.fields) {
         const v = c.params[f.key];
         if (typeof v !== 'string' || v === '') continue;
@@ -62,6 +66,8 @@ export function sceneControls(entities: readonly Entity[]): SceneControls {
           componentId: c.id,
           componentLabel: def.label,
           fieldLabel: f.label,
+          index: same.indexOf(c) + 1,
+          count: same.length,
         };
         if (f.kind === 'key') note(keys, v, () => ({ code: v, uses: [] }), use);
         else if (f.kind === 'text' && f.role === 'axis') note(axes, v, () => ({ name: v, uses: [] }), use);
@@ -79,6 +85,8 @@ export function sceneControls(entities: readonly Entity[]): SceneControls {
           componentId: '',
           componentLabel: 'Joint motor',
           fieldLabel: label,
+          index: 1,
+          count: 1,
         };
         note(keys, code, () => ({ code, uses: [] }), use);
       }
@@ -87,9 +95,15 @@ export function sceneControls(entities: readonly Entity[]): SceneControls {
   return { keys: [...keys.values()], axes: [...axes.values()].sort((a, b) => a.name.localeCompare(b.name)) };
 }
 
-/** "Engine · Throttle key (Car chassis)" — one line for a tooltip. */
+/** "Engine · Throttle key (Car chassis)" — one line for a tooltip; "Rotor 2 · …" when the owner has several. */
 export function describeUse(u: ControlUse): string {
-  return `${u.componentLabel} · ${u.fieldLabel} (${u.ownerName})`;
+  return `${u.count > 1 ? `${u.componentLabel} ${u.index}` : u.componentLabel} · ${u.fieldLabel} (${u.ownerName})`;
+}
+
+/** The short label of a key cap or slider: the field's name without its trailing "key", and which part when it is one of several. */
+export function shortUse(u: ControlUse): string {
+  const base = u.fieldLabel.replace(/\s+(key|axis)$/i, '');
+  return u.count > 1 ? `${base} · ${u.componentLabel} ${u.index}` : base;
 }
 
 /** The names of the text fields with the given role across the scene (for the editor's suggestion list). */

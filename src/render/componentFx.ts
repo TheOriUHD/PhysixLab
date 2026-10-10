@@ -9,9 +9,9 @@ import {
   BufferGeometry,
   CircleGeometry,
   Color,
-  ConeGeometry,
   DoubleSide,
   Float32BufferAttribute,
+  LatheGeometry,
   Group,
   Line,
   LineBasicMaterial,
@@ -21,6 +21,7 @@ import {
   Object3D,
   SphereGeometry,
   TorusGeometry,
+  Vector2,
   Vector3,
 } from 'three';
 import { clamp } from '../core/math';
@@ -53,7 +54,14 @@ const overlayMaterial = (color: string | number, opacity = 1) =>
 
 // ── flame ─────────────────────────────────────────────────────────────────────────────────────────
 
-const FLAME_CONE = new ConeGeometry(1, 1, 20, 1, true).translate(0, 0.5, 0); // base at the origin, tip at +y
+// a slightly bulged teardrop, open at the nozzle (origin) and pointing to +y: radius 1 and length 1 before scaling
+const FLAME_CONE = new LatheGeometry(
+  Array.from({ length: 13 }, (_, i) => {
+    const t = i / 12;
+    return new Vector2(Math.max(0, (1 - t) ** 1.15 * (1 + 0.35 * Math.sin(Math.PI * Math.min(1, t * 1.2)))), t);
+  }),
+  20,
+);
 
 class FlameView implements View<FlameFx> {
   readonly kind = 'flame' as const;
@@ -64,9 +72,9 @@ class FlameView implements View<FlameFx> {
 
   constructor() {
     for (const [sx, sy, alpha] of [
-      [1, 1, 0.28],
-      [0.62, 0.78, 0.42],
-      [0.3, 0.55, 0.75],
+      [1, 1, 0.42],
+      [0.66, 0.8, 0.55],
+      [0.34, 0.55, 0.9],
     ] as const) {
       const mesh = new Mesh(
         FLAME_CONE,

@@ -246,7 +246,7 @@ function flame(out: Fx[], c: ComponentSpec, pose: { position: Vec3; rotation: Qu
     at: vadd(pose.position, qrot(pose.rotation, vec(c, 'position', [0, 0, 0]))),
     dir: vscale(qrot(pose.rotation, dir), -1),
     length,
-    width: 0.1 + 0.06 * num(c, 'flameLength', 1.5),
+    width: 0.12 + 0.07 * num(c, 'flameLength', 1.5),
     color: afterburner ? '#ff9d4a' : str(c, 'flameColor', jet ? '#8fd3ff' : '#ffa94d'),
     intensity,
     afterburner,

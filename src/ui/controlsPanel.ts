@@ -12,7 +12,7 @@
  */
 import type { App } from '../app/app';
 import type { PanelDef } from '../app/registry/panels';
-import { describeUse, sceneControls, type AxisControl, type KeyControl } from '../model/controls';
+import { describeUse, sceneControls, shortUse, type AxisControl, type KeyControl } from '../model/controls';
 import { keyLabel } from './controls';
 import { clear, h } from './dom';
 
@@ -149,7 +149,7 @@ class ControlsView {
       'button',
       { class: 'ctl-key', type: 'button', 'aria-pressed': 'false', title: k.uses.map(describeUse).join('\n') },
       h('kbd', null, keyLabel(k.code)),
-      h('span', { class: 'ctl-key-what' }, [...new Set(k.uses.map((u) => u.fieldLabel))].join(' · ')),
+      h('span', { class: 'ctl-key-what' }, [...new Set(k.uses.map(shortUse))].join(' · ')),
     );
     this.keyButtons.set(k.code, btn);
     const press = () => {

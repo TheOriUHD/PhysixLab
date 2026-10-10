@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { listTemplates } from '../src/model/content';
 import { makeComponent } from '../src/model/componentRegistry';
-import { describeUse, namesWithRole, sceneControls } from '../src/model/controls';
+import { describeUse, namesWithRole, sceneControls, shortUse } from '../src/model/controls';
 import { createBody, createJoint } from '../src/model/factory';
 import { sanitizeDocument } from '../src/model/serialize';
 import type { SceneDocument } from '../src/model/types';
@@ -19,6 +19,7 @@ describe('sceneControls', () => {
     expect(c.keys.map((k) => k.code)).toEqual(['KeyF']);
     expect(c.axes.map((a) => a.name)).toEqual(['throttle']);
     expect(c.axes[0].uses[0].componentLabel).toBe('Thruster / rocket');
+    expect(shortUse(c.keys[0].uses[0])).toBe('Fire'); // one thruster: no "· Thruster 1" suffix
     expect(describeUse(c.axes[0].uses[0])).toContain('Rocket');
   });
 
@@ -48,6 +49,11 @@ describe('sceneControls', () => {
     expect(c.keys.map((k) => k.code)).toEqual(
       expect.arrayContaining(['KeyR', 'KeyF', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyQ', 'KeyE']),
     );
+    // the main and the tail rotor both have a "Collective up key": the labels tell them apart
+    const label = (code: string) => shortUse(c.keys.find((k) => k.code === code)!.uses[0]);
+    expect(label('KeyR')).toBe('Collective up · Rotor / blade set 1');
+    expect(label('KeyQ')).toBe('Collective up · Rotor / blade set 2');
+    expect(describeUse(c.keys.find((k) => k.code === 'KeyQ')!.uses[0])).toContain('blade set 2');
   });
 
   it('skips disabled components, empty bindings and groups the users of one key', () => {
