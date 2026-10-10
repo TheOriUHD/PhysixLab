@@ -141,3 +141,88 @@ describe('SF templates: attached soft bodies', () => {
     expect(finite(s.particles())).toBe(true);
   });
 });
+
+describe('SF templates: ropes and chains carrying loads', () => {
+  it('Crane hook: a 14-link chain hangs the 60 kg load at the chain length, steadily', async () => {
+    const s = await load('crane-hook');
+    const links = s.doc.entities.filter((e) => e.kind === 'body' && e.name.startsWith('Chain link'));
+    expect(links.length).toBe(14);
+    run(s.w, 4);
+    const p = s.pos('Hook and load');
+    const rb = (
+      s.w as unknown as { s: { bodies: Map<string, { rb: { linvel(): { x: number; y: number; z: number } } }> } }
+    ).s.bodies.get(s.body('Hook and load').id)!.rb;
+    const v = rb.linvel();
+    log('crane', p, v);
+    // 3.5 m of chain from the jib underside (6.0) + half the crate (0.4): centre at 2.1, stretch below 10 %
+    expect(p[1]).toBeLessThan(2.1 + 0.02);
+    expect(p[1]).toBeGreaterThan(2.1 - 0.35);
+    expect(Math.hypot(p[0] - 1.6, p[2])).toBeLessThan(0.15);
+    expect(Math.hypot(v.x, v.y, v.z)).toBeLessThan(0.3);
+    // every link stayed on its neighbour: consecutive links are one link-length apart at most (plus slack)
+    const pts = links.map((l) => s.w.getPose(l.id)!.position);
+    for (let i = 1; i < pts.length; i++)
+      expect(Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1], pts[i][2] - pts[i - 1][2])).toBeLessThan(
+        0.4,
+      );
+    expect(finite(pts.flat())).toBe(true);
+  });
+
+  it('Hanging lamp: the lamp swings as a pendulum with period 2π·√(L/g) within 10 %', async () => {
+    const s = await load('hanging-lamp');
+    // zero crossings of x(t); consecutive crossings are half a period apart
+    const t: number[] = [];
+    let prev = s.pos('Lamp')[0];
+    const dt = 1 / s.w.settings.physicsHz;
+    for (let i = 0; i < Math.round(3.4 / dt); i++) {
+      s.w.stepOnce();
+      const x = s.pos('Lamp')[0];
+      if (prev > 0 && x <= 0) t.push((i + prev / (prev - x)) * dt);
+      if (prev < 0 && x >= 0) t.push((i + -prev / (x - prev)) * dt);
+      prev = x;
+    }
+    log('lamp crossings', t);
+    expect(t.length).toBeGreaterThanOrEqual(2);
+    const period = 2 * (t[1] - t[0]);
+    // L = rope + lamp radius to its centre (a pendulum of length 2.22 m)
+    const expected = 2 * Math.PI * Math.sqrt(2.22 / 9.81);
+    log('period', period, expected);
+    expect(Math.abs(period - expected) / expected).toBeLessThan(0.1);
+    // it started on one side and swings to the other
+    expect(Math.abs(s.pos('Lamp')[1] - (4.2 - 2.22)) < 0.1).toBe(true);
+  });
+
+  it('Tug of war: the stronger cart wins, drags the weaker one over the line and the rope stays intact', async () => {
+    const s = await load('tug-of-war');
+    const rope = s.doc.entities.filter((e) => e.kind === 'body' && e.name.startsWith('Rope link'));
+    expect(rope.length).toBe(12);
+    const a0 = s.pos('Cart A')[0],
+      b0 = s.pos('Cart B')[0];
+    let maxGap = 0;
+    for (let i = 0; i < 6; i++) {
+      run(s.w, 0.5);
+      maxGap = Math.max(maxGap, s.pos('Cart B')[0] - s.pos('Cart A')[0]);
+    }
+    const a1 = s.pos('Cart A')[0],
+      b1 = s.pos('Cart B')[0];
+    log('tug', a0, a1, b0, b1, maxGap);
+    // total moving mass from the engine: carts, wheels, tow posts and rope links
+    const bodies = (s.w as unknown as { s: { bodies: Map<string, { rb: { mass(): number } }> } }).s.bodies;
+    let mass = 0;
+    for (const e of s.doc.entities)
+      if (e.kind === 'body' && e.bodyType === 'dynamic') mass += bodies.get(e.id)!.rb.mass();
+    const accel = (650 - 400) / mass; // the net pull of the strong side on the whole assembly
+    const expected = 0.5 * accel * 3 * 3;
+    log('tug mass', mass, accel, expected);
+    expect(a1 - a0).toBeGreaterThan(0.8 * expected); // the weak cart is dragged toward the strong side …
+    expect(a1 - a0).toBeLessThan(1.2 * expected); // … at the pace the net force allows
+    expect(Math.abs(b1 - b0 - (a1 - a0))).toBeLessThan(0.3); // the rope keeps the carts together
+    // rope intact: the carts are never pulled apart by more than 6 % beyond their 6 m start
+    expect(maxGap).toBeLessThan(6 * 1.06);
+    const pts = rope.map((l) => s.w.getPose(l.id)!.position);
+    expect(finite(pts.flat())).toBe(true);
+    for (let i = 1; i < pts.length; i++)
+      expect(Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])).toBeLessThan(0.6);
+    for (const r of rope) expect(s.w.getPose(r.id)!.position[1]).toBeGreaterThan(0.2); // never dragged on the ground
+  });
+});
