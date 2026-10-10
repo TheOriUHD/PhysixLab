@@ -192,6 +192,11 @@ export class App extends Emitter<AppEvents> {
     this.sim.on('broken', ({ id }) => {
       const j = this.store.joint(id);
       this.toast(`${j?.name ?? 'A joint'} broke!`, 'warn');
+      // -- JT-B: a burst of sparks where the joint failed (the audio director plays the snap) --
+      if (j) {
+        const f = this.joints.frameOf(j, { a: new Vector3(), b: new Vector3(), axis: new Vector3() });
+        if (f) this.fx.emit('spark.hot', [f.a.x, f.a.y, f.a.z], { count: 36 });
+      }
     });
     // A component that threw is switched off by the worker; tell the user which one and why.
     this.sim.client.on('event', (ev) => {
