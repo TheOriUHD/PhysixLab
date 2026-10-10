@@ -1,4 +1,11 @@
 import './styles/app.css';
+import './styles/ed-select.css';
+import './styles/ed-arrange.css';
+import './styles/ed-snap.css';
+import './styles/ed-hierarchy.css';
+import './styles/ed-prefabs.css';
+import './styles/ed-path.css';
+import './styles/ui-a.css';
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';
@@ -92,6 +99,9 @@ async function boot(): Promise<void> {
     for (const w of hashReport.warnings.slice(0, 2)) app.toast(w, 'warn');
     history.replaceState(null, '', location.pathname + location.search);
   }
+  // -- DT-10: open IndexedDB storage (migrates old localStorage data) before reading the autosave --
+  const storageState = await app.persistence.init();
+  if (storageState.warning) app.toast(storageState.warning, 'warn');
   if (!loaded) {
     const auto = app.persistence.loadAutosave();
     if (auto && auto.entities.length) {

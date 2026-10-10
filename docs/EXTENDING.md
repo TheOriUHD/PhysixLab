@@ -655,6 +655,31 @@ surface — is a **component** (above), not a zone action.
   Run it with `E2E_PORT=5231 E2E_FILTER=extension npm run test:e2e`.
 - Before you finish: `npm run typecheck && npm run lint && npm test && npm run build`, then the e2e suite.
 
+## Keeping the download small: `lazy()` (DT-42)
+
+The first load is budgeted (`npm run size`, `scripts/check-size.mjs`, limits in `scripts/size-budget.json`, enforced
+in CI). Anything heavy that most sessions never touch — exporters, importers, CSG, the GIF encoder, the circuit
+editor, the plugin host, education content, locales — belongs in its own chunk that is fetched on first use:
+
+```typescript
+import { lazy } from '../../core/lazy';
+
+const exporters = lazy(() => import('../../export/gltf')); // a separate chunk; nothing is fetched until first call
+
+registerCommand({
+  id: 'file.exportGlb',
+  label: 'Export glTF…',
+  run: async (app) => (await exporters()).exportGlb(app),
+});
+```
+
+Rules of thumb: put the dynamic `import()` in the *command / panel body*, never at module top level; never
+`import` the lazy module statically anywhere else (that pulls it back into the first load); show a spinner or toast
+if the load can take a moment. `lazy()` runs the loader once, shares the promise and retries after a failure.
+`npm run build && npm run size` prints every chunk, classified as first-load / worker / wasm / css / lazy.
+
+---
+
 ## Registry cheat sheet
 
 | Registry | Import | Functions |
