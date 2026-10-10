@@ -1,6 +1,6 @@
 /** Scene-level commands used by the UI: adding shapes / soft bodies / prefabs and loading scenes. */
 import { Vector3 } from 'three';
-import type { Vec3 } from '../core/math';
+import type { Quat, Vec3 } from '../core/math';
 import { translateEntities } from '../model/builder';
 import { createBody, newDocument } from '../model/factory';
 import { halfHeight } from '../model/shapes';
@@ -8,16 +8,27 @@ import { cloneEntities } from '../model/store';
 import { getMap, getPrefab, getTemplate } from '../model/content';
 import type { BodyEntity, LightType, SceneDocument, ShapeType, SoftType } from '../model/types';
 import type { App } from './app';
+import { dropPoseForShape } from './edit/surfaceDrop';
+import { placeEntities } from '../model/edit/shapeSupport';
 
 export class SceneCommands {
   constructor(private app: App) {}
 
-  addShape(type: ShapeType, at?: Vec3): BodyEntity {
+  addShape(type: ShapeType, at?: Vec3, rotation?: Quat): BodyEntity {
     const { app } = this;
-    const body = app.editor.addShape(
-      type,
-      at ?? app.viewCenterPlacement(type, createBody({ shape: { type } }).shape.size),
-    );
+    // -- ED-A snap: a click-to-add lands on the surface at the view centre (and may align to its normal) --
+    let pose: { position: Vec3; rotation: Quat } | null = null;
+    if (!at) {
+      const rect = app.viewport.dom.getBoundingClientRect();
+      pose = dropPoseForShape(
+        app,
+        { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height * 0.6 },
+        type,
+        createBody({ shape: { type } }).shape.size,
+      );
+    }
+    const rot = rotation ?? pose?.rotation;
+    const body = app.editor.addShape(type, at ?? pose?.position, rot && rot[3] < 0.9999999 ? { rotation: rot } : {});
     app.effects.ping(
       new Vector3(body.position[0], Math.max(0, body.position[1] - halfHeight(body.shape)), body.position[2]),
     );
@@ -67,14 +78,15 @@ export class SceneCommands {
     app.editor.addGroup(this.viewSpot(0));
   }
 
-  insertPrefab(id: string): void {
+  insertPrefab(id: string, drop?: { position: Vec3; rotation?: Quat }): void {
     const { app } = this;
     const pf = getPrefab(id);
     if (!pf) return;
     const t = app.viewport.controls.target;
     const snap = app.prefs.value.snap ? 0.5 : 0.01;
-    const at: Vec3 = [Math.round(t.x / snap) * snap, 0, Math.round(t.z / snap) * snap];
-    const list = translateEntities(pf.build(), at);
+    // -- ED-A snap: a drop from the library lands at the pose found by the pointer ray; a click keeps the view target --
+    const at: Vec3 = drop?.position ?? [Math.round(t.x / snap) * snap, 0, Math.round(t.z / snap) * snap];
+    const list = drop ? placeEntities(pf.build(), at, drop.rotation ?? null) : translateEntities(pf.build(), at);
     // Re-id so repeated insertions never collide.
     const copies = cloneEntities(
       list,
@@ -82,7 +94,7 @@ export class SceneCommands {
       [0, 0, 0],
     ).map((e) => ({ ...e, name: app.store.uniqueName(e.name) }));
     app.store.add(copies, `Insert ${pf.name}`);
-    app.frameSelection();
+    if (!drop) app.frameSelection(); // -- ED-A snap: a drop stays where the user put it --
     app.toast(`${pf.name} inserted`, 'success');
   }
 

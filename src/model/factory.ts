@@ -225,6 +225,8 @@ export const SOFT_LABELS: Record<SoftType, string> = {
   balloon: 'Balloon',
   cloth: 'Cloth',
   cable: 'Cable',
+  mesh: 'Soft mesh',
+  tyre: 'Soft tyre',
 };
 
 export function softDefaults(type: SoftType): Omit<SoftEntity, 'kind' | 'id' | 'name' | 'position' | 'rotation'> {
@@ -235,6 +237,18 @@ export function softDefaults(type: SoftType): Omit<SoftEntity, 'kind' | 'id' | '
     selfCollide: false,
     locked: false,
     hidden: false,
+    // -- SF --
+    attachments: [],
+    volumeFactor: 1,
+    volumePreserve: false,
+    leakRate: 0,
+    poisson: 0.3,
+    plasticYield: 0,
+    friction: 0.8,
+    particleRadius: 0,
+    shape: { type: 'sphere', size: [1, 1, 1] } as ShapeSpec,
+    cell: 0.2,
+    pneumatic: true,
   };
   switch (type) {
     case 'jelly':
@@ -261,6 +275,7 @@ export function softDefaults(type: SoftType): Omit<SoftEntity, 'kind' | 'id' | '
         stiffness: 25,
         damping: 0.2,
         pin: 'none',
+        volumePreserve: true,
         color: '#4fc3f7',
         roughness: 0.2,
         opacity: 0.9,
@@ -291,6 +306,37 @@ export function softDefaults(type: SoftType): Omit<SoftEntity, 'kind' | 'id' | '
         pin: 'ends',
         color: '#d7a86e',
         roughness: 0.7,
+        opacity: 1,
+      };
+    case 'mesh':
+      return {
+        ...base,
+        type,
+        size: [1, 1, 1],
+        resolution: 5,
+        mass: 8,
+        stiffness: 12,
+        damping: 0.15,
+        pin: 'none',
+        color: '#7be0a0',
+        roughness: 0.3,
+        opacity: 0.94,
+      };
+    case 'tyre':
+      return {
+        ...base,
+        type,
+        size: [0.8, 0.26, 0.2],
+        resolution: 24,
+        mass: 6,
+        stiffness: 30,
+        damping: 0.25,
+        pin: 'none',
+        volumePreserve: true,
+        volumeFactor: 1.1,
+        friction: 1.4,
+        color: '#2b2f36',
+        roughness: 0.85,
         opacity: 1,
       };
   }

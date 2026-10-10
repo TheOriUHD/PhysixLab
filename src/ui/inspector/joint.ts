@@ -19,6 +19,7 @@ import {
 } from '../controls';
 import type { Field } from '../controls';
 import { h } from '../dom';
+import { breakageSection } from './jointBreakage';
 import type { InspectorContext } from './shared';
 
 export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElement[] {
@@ -309,6 +310,9 @@ export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElem
       ),
     );
   }
+
+  // -- JT-B: breakage thresholds and load readout (springs keep their own break force) --
+  if (j0.type !== 'spring') out.push(breakageSection(ctx, id));
 
   // ---- live ---------------------------------------------------------------------------------
   if (app.sim.active) {

@@ -7,6 +7,7 @@ import { colliderSurface } from './colliders';
 import { unregisterColliders } from './events';
 import { addJoint, dropJoint } from './joints';
 import { removeSoft } from './soft';
+import { detachBody } from './softAttach';
 import type { BodyRec, WorldState } from './state';
 import { pos, rot, rq, rv, ZERO } from './util';
 
@@ -34,6 +35,7 @@ export function removeEntities(s: WorldState, ids: string[]): void {
       s.host.detach(jr.id);
     }
     s.host.detach(id);
+    detachBody(s, id); // -- SF-1: release soft fastenings before the body goes --
     unregisterColliders(s, b);
     s.queriesDirty = true;
     s.world.removeRigidBody(b.rb);

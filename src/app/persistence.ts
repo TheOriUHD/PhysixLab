@@ -3,11 +3,11 @@
  * import / export and shareable links (the scene is deflated into the URL hash, so
  * sharing needs no server).
  */
-import { SceneFormatError, type LoadReport } from '../model/errors';
-import { LIMITS } from '../model/limits';
+import type { LoadReport } from '../model/errors';
 import { parseDocument, serializeDocument } from '../model/serialize';
 import type { SceneStore } from '../model/store';
 import type { SceneDocument } from '../model/types';
+import { buildShare, parseShareHash, tooLargeError, type ShareResult } from './share/link';
 import { getStorageStatus, StorageError, type StorageBackend } from './storage';
 
 export interface LibraryEntry {
@@ -143,45 +143,22 @@ export class Persistence {
 
   // ---- share links ---------------------------------------------------------------------------
 
+  /** Builds the share link (compact v2 format, DT-20) with its size figures. Never throws for size: check `tooLarge`. */
+  shareInfo(): Promise<ShareResult> {
+    return buildShare(this.store.toDocument(), location.href);
+  }
+
   async shareLink(): Promise<string> {
-    const json = serializeDocument(this.store.toDocument());
-    const stream = new Blob([json]).stream().pipeThrough(new CompressionStream('deflate-raw'));
-    const buf = new Uint8Array(await new Response(stream).arrayBuffer());
-    let bin = '';
-    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
-    const b64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    const url = new URL(location.href);
-    url.hash = `scene=${b64}`;
-    const link = url.toString();
-    if (link.length > LIMITS.maxShareLinkChars) {
-      throw new SceneFormatError(
-        'limit',
-        `This scene is too large for a share link (${Math.round(link.length / 1000)} kB; the limit is ${Math.round(LIMITS.maxShareLinkChars / 1000)} kB). Export it as a file instead.`,
-      );
-    }
-    return link;
+    const r = await this.shareInfo();
+    if (r.tooLarge) throw tooLargeError(r);
+    return r.url;
   }
 
   /**
    * The scene a share link carries, or null when the hash holds no scene. A link that is there but cannot be
    * opened throws a `SceneFormatError` whose message says why (damaged, saved by a newer version, too large …).
    */
-  static async fromHash(hash: string, report?: LoadReport): Promise<SceneDocument | null> {
-    const m = /scene=([A-Za-z0-9_-]+)/.exec(hash);
-    if (!m) return null;
-    let text: string;
-    try {
-      const b64 = m[1].replace(/-/g, '+').replace(/_/g, '/');
-      const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
-      const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-      text = await new Response(stream).text();
-    } catch {
-      throw new SceneFormatError(
-        'invalid-json',
-        'This share link is damaged or incomplete, so its scene could not be opened.',
-      );
-    }
-    return parseDocument(text, report);
+  static fromHash(hash: string, report?: LoadReport): Promise<SceneDocument | null> {
+    return parseShareHash(hash, report);
   }
 }

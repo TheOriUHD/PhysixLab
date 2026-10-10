@@ -1,6 +1,5 @@
 import type { App, Shell } from '../app/app';
-import { hasShape } from '../model/shapeRegistry';
-import { defaultSize } from '../model/shapes';
+import { DropController } from '../app/edit/dropController';
 import { h } from './dom';
 
 export interface ShellDom extends Shell {
@@ -70,34 +69,37 @@ export function wireShell(app: App, shell: ShellDom): void {
     shell.hintBar.innerHTML = t ?? '';
   });
 
-  // Drag a shape tile from the library into the viewport.
+  // Drag a shape tile or a prefab card from the library into the viewport.
+  // -- ED-A snap: the DropController (src/app/edit/dropController.ts) shows a ghost on the surface under the pointer --
+  const drops = new DropController(app);
   const host = shell.stage;
   let depth = 0;
   host.addEventListener('dragenter', (e) => {
-    if (e.dataTransfer?.types.includes('text/x-physicslab-shape')) {
+    if (drops.accepts(e)) {
       depth++;
       shell.dropHint.classList.add('show');
     }
   });
-  host.addEventListener('dragleave', () => {
+  host.addEventListener('dragleave', (e) => {
+    if (!drops.accepts(e)) return;
     if (--depth <= 0) {
       depth = 0;
       shell.dropHint.classList.remove('show');
+      drops.leave();
     }
   });
   host.addEventListener('dragover', (e) => {
-    if (e.dataTransfer?.types.includes('text/x-physicslab-shape')) {
+    if (drops.accepts(e)) {
       e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      drops.over(e);
     }
   });
   host.addEventListener('drop', (e) => {
     depth = 0;
     shell.dropHint.classList.remove('show');
-    const type = e.dataTransfer?.getData('text/x-physicslab-shape');
-    if (!type) return;
+    if (!drops.accepts(e)) return;
     e.preventDefault();
-    if (!hasShape(type)) return;
-    app.addShape(type, app.placementAt(e, type, defaultSize(type)));
+    drops.drop(e);
   });
 }

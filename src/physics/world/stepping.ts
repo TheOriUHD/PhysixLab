@@ -10,7 +10,8 @@ import { collectEvents, stepPending } from './events';
 import { applySoftWalls, checkBounds } from './bounds'; // -- ZN-34
 import { applyGrab, applyThrusters } from './forces';
 import { driveMotor, measureJoint, measureSpring } from './joints';
-import { applySoftGrab } from './soft';
+import { applySoftGrab, softPrestep } from './soft';
+import { captureLoads, computeLoads, prepareLoads } from './jointLoad';
 import type { WorldState } from './state';
 
 /** Bodies that fall below this height are switched off. */
@@ -35,6 +36,7 @@ function preStep(s: WorldState, dt: number): void {
   for (const j of s.jointOrder) if (j.def.motor.mode !== 'off' || j.cache[0] !== 0) driveMotor(s, j, dt);
   applyThrusters(s);
   applySoftGrab(s);
+  softPrestep(s, dt); // -- SF: attachments, pressure leak --
   applyGrab(s);
   applySoftWalls(s, dt); // -- ZN-34: the spring walls of the world bounds
   // Components run after the built-in forces, bodies first, then joints, each owner in array order.
@@ -61,6 +63,7 @@ function postStep(s: WorldState, dt: number): void {
     if (j.def.type === 'spring') measureSpring(s, j);
     else if (j.def.type === 'hinge') measureJoint(j); // keeps the unwrapped angle continuous
   }
+  computeLoads(s); // JT-10..12: joint load estimate and load-driven failure
 }
 
 /**
@@ -74,8 +77,10 @@ export function stepOnce(s: WorldState): void {
   preStep(s, dt);
   const n = substepCount(s);
   const tEnd = s.simTime + dt;
+  const track = prepareLoads(s);
   for (let i = n; i > 0; i--) {
     applyDrag(s, dt / n);
+    if (track && i === 1) captureLoads(s); // JT-B: before the coupling impulses, so they are part of the measured Δv
     stepCouplings(s, dt / n); // -- JT-A: coupling rows of the pulley / gear / rack / … joints --
     s.world.step(s.eventQueue);
     stepCouplings(s, dt / n, true); // -- JT-A: re-couple gear / belt / rack / screw velocities --

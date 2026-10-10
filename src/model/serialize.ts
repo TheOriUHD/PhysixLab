@@ -18,6 +18,7 @@ import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
 import { dedupeComponentIds, repairComponentRefs, sanitizeComponents } from './componentRegistry';
 import { parentField, sanitizeGroup, sanitizeLight, sanitizePath } from './sanitize/kinds';
 import { sanitizeParts } from './sanitize/parts';
+import { breakageField } from './breakage';
 import { SCENE_FORMAT, SCENE_VERSION, migrateDocument } from './migrations';
 import {
   bool,
@@ -44,6 +45,7 @@ import type {
   SceneDocument,
   SceneSettings,
   SkyPreset,
+  SoftAttachment,
   SoftEntity,
   SoftPin,
   SoftType,
@@ -51,7 +53,7 @@ import type {
 } from './types';
 import { isLight, isPosed } from './types';
 
-const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable'];
+const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable', 'mesh', 'tyre'];
 const PINS: SoftPin[] = ['none', 'edge', 'corners', 'corners4', 'one-end', 'ends'];
 const JOINTS: JointType[] = [
   'fixed',
@@ -185,16 +187,49 @@ function sanitizeJoint(raw: any, report?: LoadReport): JointEntity {
     params: sanitizeParams(raw?.params), // -- JT-A --
     hidden: bool(raw?.hidden, false),
     components: sanitizeComponents(raw?.components, 'joint', report, 'a joint'),
+    // -- JT-B: breakage thresholds --
+    ...breakageField(raw?.breakage),
   };
 }
 
-function sanitizeSoft(raw: any): SoftEntity {
+// -- SF: attachments are untrusted JSON; cap their number and clamp every number --
+function sanitizeAttachments(raw: any): SoftAttachment[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SoftAttachment[] = [];
+  for (const a of raw.slice(0, 64)) {
+    if (!a || typeof a !== 'object' || typeof a.body !== 'string' || !a.body) continue;
+    const att: SoftAttachment = {
+      id: idStr(a.id, `a${out.length + 1}`),
+      body: idStr(a.body, ''),
+      kind: a.kind === 'rim' ? 'rim' : 'region',
+      center: vec3(a.center, [0, 0, 0]),
+      radius: clamp(num(a.radius, 0.1), 0.005, 5),
+      offset: vec3(a.offset, [0, 0, 0]),
+    };
+    if (typeof a.joint === 'string' && a.joint) att.joint = idStr(a.joint, '');
+    out.push(att);
+  }
+  return out;
+}
+
+function sanitizeSoft(raw: any, report?: LoadReport): SoftEntity {
   const type: SoftType = SOFTS.includes(raw?.type) ? raw.type : 'jelly';
   const base = createSoft(type);
   const d = softDefaults(type);
   const size = vec3(raw?.size, d.size).map((v, i) => (v <= 0 && d.size[i] === 0 ? 0 : Math.max(0.05, v))) as Vec3;
-  const maxRes = type === 'jelly' ? 10 : type === 'balloon' ? 3 : type === 'cloth' ? 40 : 100;
-  const minRes = type === 'balloon' ? 1 : type === 'cable' ? 4 : type === 'cloth' ? 4 : 3;
+  const maxRes =
+    type === 'jelly'
+      ? 10
+      : type === 'balloon'
+        ? 3
+        : type === 'cloth'
+          ? 40
+          : type === 'tyre'
+            ? 48
+            : type === 'mesh'
+              ? 10
+              : 100;
+  const minRes = type === 'balloon' ? 1 : type === 'cable' ? 4 : type === 'cloth' ? 4 : type === 'tyre' ? 8 : 3;
   return {
     ...base,
     id: idStr(raw?.id, base.id),
@@ -217,6 +252,18 @@ function sanitizeSoft(raw: any): SoftEntity {
     locked: bool(raw?.locked, false),
     hidden: bool(raw?.hidden, false),
     ...parentField(raw ?? {}),
+    // -- SF --
+    attachments: sanitizeAttachments(raw?.attachments),
+    volumeFactor: clamp(num(raw?.volumeFactor, d.volumeFactor), 0.2, 3),
+    volumePreserve: bool(raw?.volumePreserve, d.volumePreserve),
+    leakRate: clamp(num(raw?.leakRate, 0), 0, 10),
+    poisson: clamp(num(raw?.poisson, d.poisson), 0, 0.49),
+    plasticYield: clamp(num(raw?.plasticYield, 0), 0, 5),
+    friction: clamp(num(raw?.friction, d.friction), 0, 5),
+    particleRadius: raw?.particleRadius === 0 ? 0 : clamp(num(raw?.particleRadius, 0), 0, 0.2),
+    shape: sanitizeShapeSpec(raw?.shape ?? d.shape, report, 'a soft mesh'),
+    cell: clamp(num(raw?.cell, d.cell), 0.04, 1),
+    pneumatic: bool(raw?.pneumatic, d.pneumatic),
   };
 }
 
@@ -228,7 +275,7 @@ function sanitizeEntity(r: any, report: LoadReport | undefined): Entity | null {
     case 'joint':
       return sanitizeJoint(r, report);
     case 'soft':
-      return sanitizeSoft(r);
+      return sanitizeSoft(r, report);
     case 'group':
       return sanitizeGroup(r);
     case 'light':

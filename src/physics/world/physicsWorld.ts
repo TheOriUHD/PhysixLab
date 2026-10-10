@@ -162,6 +162,10 @@ export class PhysicsWorld {
 
   // stepping ----------------------------------------------------------------------------------
 
+  /** JT-10: track joint loads even when no joint is breakable. */
+  watchLoads(on: boolean): void {
+    this.s.loads.watch = on;
+  }
   setKeys(keys: Iterable<string>): void {
     if (this.s.recorder.followLog) return; // -- TM: a replay supplies its own inputs --
     this.s.keys = new Set(keys);
@@ -307,7 +311,7 @@ export class PhysicsWorld {
   getPose(id: string): { position: Vec3; rotation: Quat; linvel: Vec3; angvel: Vec3 } | null {
     return getPose(this.s, id);
   }
-  getJointRec(id: string): { value: number; speed: number; force: number; broken: boolean } | null {
+  getJointRec(id: string): ReturnType<typeof getJointRec> {
     return getJointRec(this.s, id);
   }
 }

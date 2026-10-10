@@ -249,6 +249,25 @@ export interface SpringSpec {
   breakForce: number;
 }
 
+/**
+ * JT-11: when a joint fails. The thresholds apply to the force / torque the joint transmits (estimated by the
+ * engine, see `src/physics/world/jointLoad.ts`); 0 = that component never breaks the joint. Springs keep their
+ * own `spring.breakForce`. `fatigue` makes overload cumulative instead of instantaneous.
+ */
+export interface BreakSpec {
+  /** Newtons. */
+  force: number;
+  /** N·m (ignored by joints that transmit no torque, e.g. ball and rope). */
+  torque: number;
+  fatigue: {
+    enabled: boolean;
+    /** Load ratio (load / threshold, 0..1) above which damage accumulates. */
+    start: number;
+    /** Seconds the joint survives at exactly its threshold once fatigue is accumulating at the full rate. */
+    life: number;
+  };
+}
+
 export interface JointEntity {
   kind: 'joint';
   id: string;
@@ -276,14 +295,35 @@ export interface JointEntity {
   hidden: boolean;
   /** Behaviours attached to the joint (FB-7); same mechanism as `BodyEntity.components`. */
   components: ComponentSpec[];
+  // -- JT-B: breakage thresholds (absent = unbreakable) --
+  breakage?: BreakSpec;
 }
 
 /**
  * Deformable bodies (engine soft-body solver): jelly lattices, balloons, cloth and cables.
  * Particles live in the physics worker; the document only stores the recipe.
  */
-export type SoftType = 'jelly' | 'balloon' | 'cloth' | 'cable';
+export type SoftType = 'jelly' | 'balloon' | 'cloth' | 'cable' | 'mesh' | 'tyre';
 export type SoftPin = 'none' | 'edge' | 'corners' | 'corners4' | 'one-end' | 'ends';
+
+// -- SF: attachments, pressure, material model, volumetric meshes, tyres --
+/**
+ * A soft body fastened to a rigid body (SF-1). The particles inside `radius` of `center` (soft-body local rest frame)
+ * are rigidly attached to `body` at the stored body-local `offset` of `center`; they follow the body (rotation
+ * included), drag it back when pulled, and are released when `joint` breaks or the body is removed.
+ */
+export interface SoftAttachment {
+  id: string;
+  body: string;
+  /** `region`: particles within `radius` of `center`; `rim`: the inner rim ring of a tyre (hub fastening). */
+  kind: 'region' | 'rim';
+  center: Vec3;
+  radius: number;
+  /** Body-local position of `center`. */
+  offset: Vec3;
+  /** Optional joint whose failure releases the attachment ("release on break"). */
+  joint?: string;
+}
 
 export interface SoftEntity {
   kind: 'soft';
@@ -318,6 +358,29 @@ export interface SoftEntity {
   hidden: boolean;
   /** Id of the group (or other entity) this one is grouped under (FB-6). */
   parent?: string;
+  // -- SF --
+  /** Rigid-body fastenings (SF-1); particle sets are resolved from the rest lattice when the body is built. */
+  attachments: SoftAttachment[];
+  /** Target volume relative to the rest volume (pressure of balloons / tyres); 1 = unpressurised. */
+  volumeFactor: number;
+  /** Keep the enclosed volume (balloon, pneumatic tyre) — on for shells, off for plain lattices. */
+  volumePreserve: boolean;
+  /** Air escaping through a puncture: the volume factor decays at this rate (1/s). 0 = airtight. */
+  leakRate: number;
+  /** Poisson ratio of the material (0 – 0.49). */
+  poisson: number;
+  /** Permanent set: strain beyond which the material stays deformed (0 = purely elastic). */
+  plasticYield: number;
+  /** Surface friction of the particles' contact skin (SF-6). */
+  friction: number;
+  /** Collision radius override in metres (0 = automatic) (SF-6). */
+  particleRadius: number;
+  /** `mesh`: the shape this volumetric jelly is built from. */
+  shape: ShapeSpec;
+  /** `mesh`: volumetric cell size in metres (smaller = more particles). */
+  cell: number;
+  /** `tyre`: true = pneumatic (pressurised shell), false = airless (solid lattice). */
+  pneumatic: boolean;
 }
 
 // ── FB-6: group / light / path entities ────────────────────────────────────────────────────────────────

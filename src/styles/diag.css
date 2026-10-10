@@ -1,0 +1,104 @@
+/* UI-B: help panel, shortcut cheat-sheet, empty states, status tips, diagnostics, profiler, error screens. */
+
+/* ── Empty states ── */
+.empty-state.es { padding: 22px 16px; }
+.empty-state .es-art { width: 96px; height: 72px; display: block; margin: 0 auto 4px; }
+.empty-state.es .btn { margin-top: 12px; }
+.empty-state.es.compact { padding: 10px 12px; }
+.empty-state.es.compact .es-art { width: 64px; height: 48px; }
+
+/* ── Help panel ── */
+.help-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.help-bar { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.help-search, .cheat-filter { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 7px 10px; outline: none; color: var(--text); }
+.help-search:focus, .cheat-filter:focus { border-color: var(--accent-line); }
+.help-bar.reading { padding-bottom: 6px; }
+.help-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 10px 16px; }
+.help-list { display: flex; flex-direction: column; gap: 4px; }
+.help-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 8px 10px; }
+.help-item:hover, .help-item:focus-visible { background: var(--hover); border-color: var(--border-2); }
+.help-item b { font-weight: 600; font-size: 12.5px; }
+.help-item span { color: var(--text-2); font-size: 12px; line-height: 1.4; }
+.help-item mark, .help-doc mark { background: rgba(255, 213, 79, 0.28); color: inherit; border-radius: 2px; padding: 0 1px; }
+.help-head { position: sticky; top: -8px; background: var(--panel); padding: 4px 0 6px; z-index: 1; }
+.help-back { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; color: var(--accent); padding: 2px 4px; }
+.help-back .icon { transform: rotate(180deg); width: 14px; height: 14px; }
+.help-doc { font-size: 13px; line-height: 1.55; color: var(--text); overflow-wrap: anywhere; }
+.help-doc h1 { font-size: 18px; margin: 4px 0 6px; }
+.help-doc h2 { font-size: 14.5px; margin: 18px 0 4px; padding-top: 6px; border-top: 1px solid var(--border); }
+.help-doc h3 { font-size: 13px; margin: 14px 0 2px; color: var(--accent-2); }
+.help-doc h4 { font-size: 12.5px; margin: 10px 0 2px; color: var(--text-2); }
+.help-doc p { margin: 6px 0; color: var(--text-2); }
+.help-doc ul, .help-doc ol { margin: 6px 0; padding-left: 20px; color: var(--text-2); }
+.help-doc li { margin: 2px 0; }
+.help-doc strong { color: var(--text); }
+.help-doc a { color: var(--accent); text-decoration: none; }
+.help-doc a:hover { text-decoration: underline; }
+.help-doc code { font: 11.5px var(--mono); background: var(--raised); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; color: var(--text); }
+.help-doc pre { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 8px 10px; overflow-x: auto; }
+.help-doc pre code { background: none; border: 0; padding: 0; }
+.help-doc blockquote { margin: 8px 0; padding: 4px 10px; border-left: 3px solid var(--accent-line); background: var(--accent-bg); color: var(--text-2); border-radius: 0 var(--radius-s) var(--radius-s) 0; }
+.help-doc table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 12px; }
+.help-doc th, .help-doc td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.help-doc th { color: var(--text-3); font-weight: 600; }
+.help-doc hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
+
+/* ── Shortcut cheat-sheet ── */
+.cheat .modal-body { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.cheat-bar { display: flex; gap: 14px; align-items: center; }
+.cheat-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 12px; white-space: nowrap; }
+.cheat-list { max-height: 56vh; overflow-y: auto; padding-right: 6px; }
+.cheat-row { border-radius: 4px; padding: 5px 6px; border-bottom-color: var(--border); }
+.cheat-row .cheat-label { display: flex; flex-direction: column; min-width: 0; }
+.cheat-row small { color: var(--text-3); font-size: 11px; }
+.cheat-row.active { background: var(--accent-bg); color: var(--text); outline: 1px solid var(--accent-line); outline-offset: -1px; }
+.cheat-row.runnable { cursor: pointer; }
+.cheat-keys { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.cheat-keys kbd { margin-left: 3px; }
+.cheat-or { margin: 0 4px 0 8px; color: var(--text-3); }
+.cheat-none { color: var(--text-3); font-size: 11px; font-style: italic; }
+.cheat-count { color: var(--text-3); font-size: 12px; align-self: center; margin-right: auto; }
+.cheat .modal-foot { align-items: center; }
+.cheat .empty-state { grid-column: 1 / -1; }
+
+/* ── Status bar tip ── */
+.statusbar .status-tip { color: var(--text-3); font-size: 12px; max-width: 46ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 14px; }
+.statusbar .status-tip b { color: var(--accent-2); font-weight: 600; margin-right: 4px; }
+@media (max-width: 1400px) { .statusbar .status-tip { display: none; } }
+
+/* ── Diagnostics + profiler ── */
+.diag-panel, .prof-panel { height: 100%; overflow: auto; padding: 8px 12px 12px; }
+.diag-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 4px 24px; }
+.diag-sec h5 { margin: 8px 0 4px; font: 650 11px var(--font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.diag-sec dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font: 12px var(--mono); }
+.diag-sec dt { color: var(--text-3); font-family: var(--font); }
+.diag-sec dd { margin: 0; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.diag-sec dd.bad { color: var(--danger); }
+.diag-sec dd.warn { color: var(--warn); }
+.diag-sec dd.ok { color: var(--run); }
+.prof-top { display: flex; gap: 14px; align-items: stretch; }
+.prof-graph { flex: 1 1 60%; min-width: 0; height: 110px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s); display: block; width: 100%; }
+.prof-table { flex: 0 0 auto; border-collapse: collapse; font: 12px var(--mono); font-variant-numeric: tabular-nums; }
+.prof-table th { font: 600 11px var(--font); color: var(--text-3); text-align: right; padding: 0 6px 3px; }
+.prof-table th:first-child { text-align: left; }
+.prof-table td { text-align: right; padding: 2px 6px; color: var(--text-2); }
+.prof-table td:first-child { text-align: left; color: var(--text); font-family: var(--font); }
+.prof-sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.prof-note { color: var(--text-3); font-size: 11.5px; margin: 6px 0 0; }
+
+/* ── Error boundary + boot failure ── */
+.err-screen { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; background: rgba(4, 6, 10, 0.78); backdrop-filter: blur(4px); padding: 16px; }
+.err-screen.boot { position: static; min-height: 100vh; background: var(--bg-deep); }
+.err-card { width: min(640px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: var(--panel); border: 1px solid var(--border-2); border-radius: 14px; box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6); padding: 22px 24px; color: var(--text); font: 14px/1.5 var(--font); }
+.err-card h2 { margin: 0 0 6px; font-size: 18px; }
+.err-card p { margin: 6px 0; color: var(--text-2); }
+.err-card .err-detail { font: 12px var(--mono); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 8px 10px; color: var(--danger); max-height: 120px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.err-card h3 { margin: 16px 0 6px; font: 650 11px var(--font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.err-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.err-card .cap-list { list-style: none; padding: 0; margin: 6px 0; }
+.err-card .cap-list li { padding: 4px 0; border-bottom: 1px solid var(--border); color: var(--text-2); }
+.err-card .cap-list li b { color: var(--text); }
+.err-card .cap-list li.fail b { color: var(--danger); }
+.err-card .cap-list li.warn b { color: var(--warn); }
+.err-card .btn { font-size: 13px; }
+.degraded-bar { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); z-index: 300; max-width: min(720px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--warn); border-radius: var(--radius); padding: 8px 12px; color: var(--text-2); font-size: 12.5px; box-shadow: var(--shadow); display: flex; gap: 10px; align-items: center; }

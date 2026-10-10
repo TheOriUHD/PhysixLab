@@ -57,6 +57,8 @@ export class FrameLoop {
     app.bodies.updateSkins(dt, app.sim.keys, app.sim.active);
     app.bodies.flush(); // -- VZ-B: instance buffers (VZ-30) --
 
+    // -- JT-B: joint load estimates run while the stress overlay is on or a joint inspector is showing them --
+    client.watchLoads(app.prefs.value.overlays.stress || performance.now() - app.loadWatchStamp < 800);
     const broken = client.broken;
     app.joints.updateFrame(app.camera, live ? client.joints : null, (id) => client.jointIndex.get(id), broken);
 

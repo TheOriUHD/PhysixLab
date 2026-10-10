@@ -17,7 +17,7 @@
  */
 import { Color, Vector3 } from 'three';
 import { Emitter } from '../core/events';
-import type { Vec3 } from '../core/math';
+import type { Quat, Vec3 } from '../core/math';
 import type {
   BodyEntity,
   Entity,
@@ -336,8 +336,8 @@ export class App extends Emitter<AppEvents> {
   // high level commands used by the UI
   // ------------------------------------------------------------------------------------------
 
-  addShape(type: ShapeType, at?: Vec3): BodyEntity {
-    return this.commands.addShape(type, at);
+  addShape(type: ShapeType, at?: Vec3, rotation?: Quat): BodyEntity {
+    return this.commands.addShape(type, at, rotation);
   }
 
   addSoft(type: SoftType): void {
@@ -366,8 +366,9 @@ export class App extends Emitter<AppEvents> {
     this.gizmos.setPathPoint(id === null ? null : { id, index });
   }
 
-  insertPrefab(id: string): void {
-    this.commands.insertPrefab(id);
+  /** `drop` (ED-A snap): where the prefab goes; without it the view target is used. */
+  insertPrefab(id: string, drop?: { position: Vec3; rotation?: Quat }): void {
+    this.commands.insertPrefab(id, drop);
   }
 
   loadDocument(doc: SceneDocument, view?: 'frame'): void {
@@ -430,9 +431,32 @@ export class App extends Emitter<AppEvents> {
     };
   }
 
-  liveJoint(id: string): { value: number; speed: number; force: number; broken: boolean } | null {
+  /** JT-B: when an open joint inspector last asked for live load estimates (ms). */
+  loadWatchStamp = 0;
+
+  liveJoint(id: string): {
+    value: number;
+    speed: number;
+    force: number;
+    broken: boolean;
+    load: number;
+    torque: number;
+    ratio: number;
+    damage: number;
+    exact: boolean;
+  } | null {
     const arr = this.sim.client.jointOf(id);
     if (!arr) return null;
-    return { value: arr[0], speed: arr[1], force: arr[2], broken: arr[3] > 0 };
+    return {
+      value: arr[0],
+      speed: arr[1],
+      force: arr[2],
+      broken: arr[3] > 0,
+      load: arr[4],
+      torque: arr[5],
+      ratio: arr[6],
+      damage: arr[7],
+      exact: arr[8] > 0,
+    };
   }
 }
