@@ -27,6 +27,15 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 * **Paths** are edited point by point (gizmo on a selected handle, or numerically in the inspector); there is no freehand drawing tool, and nothing follows a path yet — the spline, its arc-length evaluation and `ctx.path` are in place for the mover components.
 * The library lives in browser storage (a few MB). Use export/share links for anything important.
 
+## Registries, maps and the command palette
+
+* **Joint types are still a closed union** (`JointType`), not a registry: adding one touches seven known places (checklist in `docs/EXTENDING.md`, guarded by `tests/jointTypes.test.ts`). A new *behaviour* on a joint should be a component with `appliesTo: 'joint'`.
+* **UI extensions load once at start-up**, in file-name order, after the built-ins; there is no unloading or hot swapping of a file (a code change reloads the page). A panel, tool or command registered by code at run time does appear and disappear live, and every `register…` call returns its unregister function.
+* **Maps**: the `spawn` point and the `difficulty` of a map are stored, validated and tested, but nothing consumes the spawn yet (vehicles, characters and the game layer will), and the Maps tab shows a top-down *sketch* drawn from the map's document as its thumbnail until an offscreen-rendered one is plugged into `MapInfo.thumbnail`. The Maps tab has a text filter, not yet category / difficulty chips, favourites or a random-map button.
+* **The "sand" of the Sandbox box map is 104 rigid cubes** (a stepped heap that piles, slides and topples), not a granular-media simulation; the engine has no particle fluid or sand solver.
+* **The command palette searches commands, settings, example scenes, saved scenes, prefabs and maps** — not the objects in the current scene (use the outliner). A word of the query matches a label letter by letter ("sg" → "Snap grid size") but matches keywords and descriptions only as a whole piece of text, so it never finds a command through scattered letters of a long sentence.
+* The left panel's four tab labels (Add, Prefabs, Maps, Scenes) are shown without icons: four icon + label tabs do not fit the 268 px panel.
+
 ## Components and protocol v2
 
 * **Components of an unknown type are dropped on load** (with a warning), like unknown shapes: a scene saved by a build with more components than this one loses those components rather than carrying data nobody can edit or run. Two registries must agree: a type needs both its `ComponentDef` (model) and its `ComponentRuntime` (worker); a def without a runtime is kept but inert.

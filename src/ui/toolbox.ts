@@ -40,6 +40,7 @@ export function buildToolbox(app: App): { toolbox: HTMLElement; viewbar: HTMLEle
           class: `icon-btn${def.text ? ' opt-btn' : ''}`,
           type: 'button',
           title: tooltip(def),
+          'aria-label': tooltip(def),
           dataset: { tool: def.id },
         },
         def.text ? null : icon(def.icon),
@@ -53,7 +54,9 @@ export function buildToolbox(app: App): { toolbox: HTMLElement; viewbar: HTMLEle
   const sync = () => {
     for (const { def, el } of built) {
       const cmd = getCommand(commandIdOf(def));
-      el.classList.toggle('on', def.isActive ? def.isActive(app) : !!cmd && commandChecked(cmd, app) === true);
+      const on = def.isActive ? def.isActive(app) : !!cmd && commandChecked(cmd, app) === true;
+      el.classList.toggle('on', on);
+      el.setAttribute('aria-pressed', on ? 'true' : 'false');
       el.disabled = !!cmd && !commandEnabled(cmd, app);
       if (def.text) el.textContent = def.text(app);
     }

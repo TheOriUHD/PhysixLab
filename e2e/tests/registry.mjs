@@ -510,6 +510,7 @@ test('menus, toolbox and the shortcut help are generated from the registries —
     `help dialog = registry (${help.rows}/${help.expectedRows})`,
   );
   assert(/Ctrl.*Z/.test(help.undo), `Undo row shows its keys (${help.undo})`);
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.modal-back')).opacity === '1');
   await shot(page, 'fb-shortcuts-help');
   await page.keyboard.press('Escape');
 

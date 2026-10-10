@@ -1,0 +1,491 @@
+# Extending PhysicsLab
+
+PhysicsLab grows by **adding files**, not by editing shared ones (rule 4 of `docs/DEV_RULES.md`). Everything a feature
+package contributes — a shape, a component, a command, a tool, a panel, an inspector section, a menu entry, a
+template, a prefab, a map — is *registered* with a small typed registry, and the rest of the app (the palette, the
+inspector, the menus, the toolbox, the keyboard, the library tabs, the shortcut help, the loader) is generated from
+those registries. This guide shows, for each of them, the smallest example that works.
+
+**Every example below is a real file in `tests/examples/`.** It is type-checked and linted with the rest of the code,
+exercised against the real registries and the real engine by `tests/extending.test.ts` (and, for the two that need a
+DOM, loaded into the running app by `e2e/tests/registry.mjs`), and this guide must show exactly that file — the
+imports are rewritten for the folder the example says it belongs in. If you change an example, run
+`npm run docs:sync` and the guide follows; `npm test` fails if it does not.
+
+| I want to add… | It is registered with | Put the file in | Anything else to edit? |
+|---|---|---|---|
+| a **shape** | `ShapeDef` (`src/model/shapeRegistry.ts`) | `src/model/shapes/<id>.ts` | one entry in `BUILTIN_SHAPES` (`shapes/index.ts`) |
+| a **component** | `ComponentDef` + `ComponentRuntime` | `src/model/components/<type>.ts` **and** `src/physics/components/<type>.ts` | one entry in each `index.ts` |
+| a **command** (action, shortcut, palette entry) | `registerCommand` | `src/ui/extensions/<name>.ts` | no |
+| a **tool** (toolbox button, pointer mode) | `registerTool` | `src/ui/extensions/<name>.ts` | no |
+| a **panel** (a tab on the left, right or bottom) | `registerPanel` | `src/ui/extensions/<name>.ts` | no |
+| an **inspector section** | `registerInspectorSection` | `src/ui/extensions/<name>.ts` | no |
+| a **menu** or **menu entry** | `registerMenu`, `registerMenuEntry` | `src/ui/extensions/<name>.ts` | no |
+| a **template**, **prefab** or **map** | `registerTemplate`, `registerPrefab`, `registerMap` | `src/model/content/<name>.ts` | no |
+| a **joint type** | *(a closed union for now)* | seven places, listed below | yes — see the checklist |
+
+Why two folders for the same kind of thing? **Content** (`src/model/content/`) is pure data built from the public
+primitives and is loaded with `import.meta.glob` before anything else. **UI extensions** (`src/ui/extensions/`) need
+the built-in commands, menus and panels to exist first, so they are loaded right after them (a file that throws is
+reported with a toast and skipped; the rest of the app starts normally). **Shapes and components** must also exist in
+the physics worker, which only imports their `index.ts` files — that is why they are listed there instead.
+
+Ids start with a lowercase letter and join words with `.`, `-` or `_` (`edit.undo`, `view.snapGrid`, `empty-arena`).
+Registering an id twice, a malformed definition, or a shortcut that another command already owns throws with a
+message that names the culprit — at start-up, never later in front of a user. Every `register…` function returns the
+function that unregisters again, which is what tests (and anything temporary) use.
+
+---
+
+## How to add a shape
+
+A shape is one `ShapeDef`: label, icon, palette category, default size, parameter schema, analytic volume, bounding
+radius, half height, the convex points (if it has them), the Rapier collider(s) and the three.js geometry. The
+palette tile, the number key, the inspector fields, the physics world, the renderer, picking, saving and loading
+all read the registry — nothing else changes.
+
+<!-- example: pyramid-shape.ts -->
+```ts
+// File: src/model/shapes/pyramid.ts   (then add `pyramid` to BUILTIN_SHAPES in src/model/shapes/index.ts)
+import type { Vec3 } from '../../core/math';
+import type { ShapeDef } from '../shapeRegistry';
+import {
+  clampDims,
+  halfDiagonal,
+  hullCollider,
+  hullGeometry,
+  unitSpec,
+  WIDTH_HEIGHT_DEPTH,
+} from './helpers';
+
+/** Square pyramid: the base lies in the XZ plane at the bottom of the size box, the apex is above its centre. */
+function pyramidPoints([x, y, z]: Vec3): Vec3[] {
+  const hx = x / 2,
+    hy = y / 2,
+    hz = z / 2;
+  return [
+    [-hx, -hy, -hz],
+    [hx, -hy, -hz],
+    [-hx, -hy, hz],
+    [hx, -hy, hz],
+    [0, hy, 0],
+  ];
+}
+
+export const pyramid: ShapeDef = {
+  id: 'pyramid',
+  label: 'Pyramid',
+  icon: 'cone',
+  category: 'structural',
+  blurb: 'Square pyramid: roofs, spikes, monuments',
+  defaultSize: [1, 1, 1],
+  params: [],
+  sizeFields: WIDTH_HEIGHT_DEPTH,
+  normalizeSize: (size) => clampDims(size),
+  volume: ({ size }) => (size[0] * size[1] * size[2]) / 3,
+  boundingRadius: ({ size }) => halfDiagonal(size),
+  halfHeight: ({ size }) => size[1] / 2,
+  convexPoints: ({ size }) => pyramidPoints(size),
+  colliders: (R, { size }) => hullCollider(R, pyramidPoints(size), size),
+  geometry: (T, spec) => hullGeometry(T, pyramidPoints(unitSpec(spec).size)),
+};
+```
+
+Then add `pyramid` to `BUILTIN_SHAPES` in `src/model/shapes/index.ts` (the position in that array is the position in
+the palette; the first nine also answer to the 1–9 keys). Register shapes there, **not** with a `registerShape()`
+call from a main-thread-only module: the physics worker has its own copy of the registry and would simulate an
+unknown shape as a box.
+
+Helpers for the common cases live in `src/model/shapes/helpers.ts` (`hullCollider` / `hullGeometry` for convex
+shapes given as points, `single` for a one-collider shape, size fields, `clampDims` …). A compound shape returns
+several colliders from `colliders()`. `tests/shapeRegistry.test.ts` runs every registered shape against the engine
+(volume × density = integrated mass, bounding radius, mesh bounds); the example's own test also checks the centre
+of mass of a real pyramid.
+
+## How to add a component
+
+A component is a behaviour attached to a body or a joint. It has two halves registered under the same `type`:
+the **definition** (what the user sees and stores: label, fields, warnings) and the **runtime** (what the physics
+worker does every step). The field schema drives the defaults, the sanitising of loaded files and the inspector
+editors — you write no UI.
+
+<!-- example: spin-component-def.ts -->
+```ts
+// File: src/model/components/spin.ts   (then add `spin` to BUILTIN_COMPONENTS in src/model/components/index.ts)
+import type { ComponentDef } from '../componentRegistry';
+
+export const spin: ComponentDef = {
+  type: 'spin',
+  label: 'Spin',
+  icon: 'rotate',
+  category: 'Movers',
+  blurb: 'Turns the body at a steady rate about an axis — a turntable, a rotor, a rolling pin.',
+  appliesTo: 'body',
+  unique: true,
+  fields: [
+    { kind: 'vec3', key: 'axis', label: 'Axis', default: [0, 1, 0], step: 0.1, hint: 'World axis (normalised)' },
+    { kind: 'number', key: 'speed', label: 'Speed', default: 2, min: -100, max: 100, step: 0.1, unit: 'rad/s' },
+  ],
+  state: [{ label: 'Spin rate', unit: 'rad/s', digits: 2 }],
+  check: (owner) =>
+    owner.kind === 'body' && owner.bodyType === 'static' ? 'A static body cannot spin. Make it dynamic.' : null,
+};
+```
+
+<!-- example: spin-component-runtime.ts -->
+```ts
+// File: src/physics/components/spin.ts   (then add `spin` to the list in src/physics/components/index.ts)
+import { vdot, vnorm, vscale } from '../../core/math';
+import type { ComponentRuntime } from './registry';
+
+export const spin: ComponentRuntime<null> = {
+  type: 'spin',
+  create: () => null,
+  // The parameters are read fresh every step, so edits made while the simulation runs need no work here.
+  paramsChanged: () => undefined,
+  prestep(_state, _dt, ctx) {
+    const body = ctx.body;
+    if (!body || body.type !== 'dynamic') return;
+    const axis = vnorm(ctx.vec3('axis'), [0, 1, 0]);
+    body.setVelocity(body.linvel(), vscale(axis, ctx.num('speed')));
+  },
+  poststep(_state, _dt, ctx) {
+    const body = ctx.body;
+    if (body) ctx.state.set([vdot(body.angvel(), vnorm(ctx.vec3('axis'), [0, 1, 0]))]);
+  },
+};
+```
+
+Add `spin` to `BUILTIN_COMPONENTS` in `src/model/components/index.ts` and to the list in
+`src/physics/components/index.ts`. A runtime touches the world only through `ctx` (bodies and joints by id, forces
+as impulses, ray casts, contacts, events, inputs, the seeded random generator, published state); read parameters
+fresh every step (`ctx.num`, `ctx.vec3` …) and `paramsChanged` can stay empty — edits then take effect while the
+simulation runs without a rebuild. Test it with `worldOf([...])` against an analytic expectation, as the example's
+test does (a body spinning at 3 rad/s reports exactly 3 rad/s).
+
+## How to add a command
+
+A command is one action with an id, a label, a category and a `run` function; it may have an icon, keywords,
+shortcut(s), `enabled(app)` and `checked(app)`. Registering it is enough for it to be:
+
+- **bound to its shortcut** (`Mod` = Ctrl or ⌘; `Shift+Space`; a single character matches by `key`, longer names are
+  `KeyboardEvent.code`s — `Escape`, `Delete`, `ArrowUp`, `F5`; a typo such as `Esc` is rejected). Plain keys are
+  ignored while a text field has focus; `allowWhileTyping: true` overrides that (the palette key does);
+- **offered by the command palette** (Ctrl/⌘+K), found by label, category and `keywords`, shown with its shortcut,
+  hidden while `enabled()` is false; `setting: true` lists a toggle or a choice under *Settings* with its On / Off
+  state; `palette: false` keeps it out;
+- **listed in the keyboard-shortcut help**, under its category.
+
+Menus and the toolbox do not appear by themselves — a menu entry or a tool *points at* the command (below).
+`run` receives `{ app, source, event }`; `source` says whether it came from a `'shortcut'`, `'menu'`, `'palette'`,
+`'button'` or `'api'` call, so a command can, for instance, toast only for a key press. A command that throws or
+rejects is reported to the user as a toast and never breaks the caller.
+
+<!-- example: lift-command.ts -->
+```ts
+// File: src/ui/extensions/lift-selection.ts   (files in src/ui/extensions are loaded at start-up, nothing to edit)
+import { registerCommand, registerMenuEntry } from '../../app/registry';
+
+registerCommand({
+  id: 'demo.liftSelection',
+  label: 'Lift selection by 1 m',
+  category: 'Edit',
+  icon: 'move',
+  description: 'Raise the selected objects one metre',
+  keywords: ['raise', 'up', 'elevate'],
+  shortcut: 'Mod+Shift+U',
+  enabled: (app) => app.store.selection.length > 0 && !app.sim.active,
+  run: ({ app }) => app.editor.translate(app.store.selection, [0, 1, 0]),
+});
+
+// Optional: also list it in the Edit menu (group "select", after "Rotate selection 90° about Y").
+registerMenuEntry({ id: 'menu.edit.lift', menu: 'edit', group: 'select', order: 335, command: 'demo.liftSelection' });
+```
+
+The second call adds the command to the Edit menu. Entries are sorted by `order`; a separator is drawn wherever
+`group` changes between neighbours; label, shortcut, disabled and check mark all follow the command. Instead of
+`command` an entry can have a `heading`, or `items: (app) => MenuItem[]` for a list computed when the menu opens
+(the File menu's example scenes are one). A new top-level menu is `registerMenu({ id, label, order })`; with
+`bar: false` it is a popup only (the viewport's right-click menu is `context`).
+
+## How to add a tool
+
+A tool is a button in the toolbox (left) or the view bar (right) plus, usually, an interaction mode for the
+pointer. One registration gives you the button (highlight, tooltip with the shortcut, `aria-pressed`), the command
+`tool.<id>` with its shortcut (so the palette finds it too), the hint line under the viewport, and the pointer
+handler. Buttons are sorted by `order` and separated where `group` changes. The viewport's cursor class
+`tool-<mode>` is set while the mode is active (the stylesheet turns the joint, measure, blast and fire modes into a
+crosshair; add a rule for yours if you want one).
+
+<!-- example: dropper-tool.ts -->
+```ts
+// File: src/ui/extensions/dropper-tool.ts
+import { registerTool } from '../../app/registry';
+
+registerTool({
+  id: 'dropper',
+  group: 'build',
+  order: 65,
+  label: 'Ball dropper',
+  title: 'Drop a ball where you click',
+  icon: 'sphere',
+  shortcut: 'D',
+  activate: (app) => app.setTool('dropper'),
+  isActive: (app) => app.prefs.value.tool === 'dropper',
+  // Called for a primary-button press in the viewport while this tool is the active mode.
+  pointerDown: (app, e) => {
+    const p = app.picker.groundPoint(e, 0);
+    if (p) app.editor.addShape('sphere', [p.x, 2, p.z]);
+  },
+  hint: () => 'Click the ground to drop a ball from 2 m',
+});
+```
+
+`mode` defaults to the id; several tools can share one (move / rotate / scale are all gizmo modes of `select`). A
+button that merely mirrors a command — the overlay toggles on the view bar — is
+`{ id, group, order, icon, command: 'view.overlay.velocity' }` and defines no behaviour of its own.
+
+## How to add a panel
+
+A panel is a tab in one of the three docked regions: `left` (the library: Add, Prefabs, Maps, Scenes), `right`
+(Inspector, Outliner, World) or `bottom` (the telemetry dock: Energy, Selection). The region draws the tab strip
+from the registry, builds your view once, shows it when its tab is selected and follows the registry live — register
+a panel at any time and it appears. `build(app, ctx)` returns `{ el, onShow?, toolbar?, dispose? }`: `onShow` runs
+every time the tab becomes visible (rebuild stale content there), `toolbar` puts controls at the right end of the
+tab strip while it is, and `ctx.active()` says whether the tab is the selected one right now. Registering a panel
+also registers the command `panel.<id>` ("Show Stats"), which switches to it and opens its region. The tab
+remembered in the preferences is looked up by id, so an id that no longer exists falls back to the first tab.
+
+<!-- example: stats-panel.ts -->
+```ts
+// File: src/ui/extensions/stats-panel.ts
+import { registerPanel } from '../../app/registry';
+import { h } from '../dom';
+
+registerPanel({
+  id: 'stats',
+  label: 'Stats',
+  icon: 'info',
+  region: 'right',
+  order: 40,
+  build: (app) => {
+    const el = h('div', { class: 'panel-body' });
+    const render = () => {
+      const text = `${app.store.bodies().length} bodies, ${app.store.joints().length} joints`;
+      el.replaceChildren(h('div', { class: 'empty-state' }, h('h4', null, text)));
+    };
+    app.store.on('change', render);
+    render();
+    return { el, onShow: render };
+  },
+});
+```
+
+## How to add an inspector section
+
+The inspector asks every registered section whether it applies to the current selection (`appliesTo`) and appends
+what the applicable ones build, ordered by `order`. The built-in sections use 100 (the panel of the selected kind),
+200 (Organise) and 300 (Components); a section with `fallback: true` is shown only when no other applies (the
+summary of a mixed selection). Register `ctx.updaters` (refresh values from the document on every change) and
+`ctx.live` (refresh readouts from the running simulation) so typing and scrubbing never lose focus.
+
+<!-- example: volume-section.ts -->
+```ts
+// File: src/ui/extensions/volume-section.ts
+import { registerInspectorSection } from '../../app/registry';
+import { shapeVolume } from '../../model/shapeRegistry';
+import { isBody } from '../../model/types';
+import { row, section } from '../controls';
+import { h } from '../dom';
+
+registerInspectorSection({
+  id: 'volume',
+  order: 150, // after the body panel (100), before "Organise" (200)
+  appliesTo: (selection) => selection.length === 1 && isBody(selection[0]),
+  build: (ctx, selection) => {
+    const first = selection[0];
+    if (!isBody(first)) return [];
+    const readout = h('span', { class: 'readout' });
+    // Updaters run on every document change, so the value follows edits made elsewhere (undo, the gizmo …).
+    ctx.updaters.push(() => {
+      const body = ctx.app.store.body(first.id);
+      if (body) readout.textContent = `${shapeVolume(body.shape).toFixed(3)} m³`;
+    });
+    return [section('Volume', [row('Shape volume', readout)], { id: 'volume' })];
+  },
+});
+```
+
+## How to add a template, a prefab or a map
+
+Content is registered with one call and listed by its tab (Scenes, Prefabs, Maps), the File menu (templates) and the
+command palette. Drop the file into `src/model/content/` — `index.ts` imports every file in the folder, in
+alphabetical order, so there is nothing else to edit. Build content with the `Builder` DSL
+(`src/model/builder.ts`) from the same shapes, joints and materials the user has; nothing about it is special-cased.
+Builders must be deterministic (no `Math.random`) and use only registered shapes. **They are tested for you:**
+`tests/templates.test.ts` and `tests/maps.test.ts` loop over every registered template, prefab and map — it loads
+without repairs, saves back unchanged, simulates without a non-finite number, a map has a thumbnail — and a
+well-made content file adds a test of the one thing it promises, as the examples' do.
+
+A **template** is a whole scene (`category`, `blurb`, `hint`, optional opening `view`, optional `follow`ed body).
+This one promises that ice slides, wood creeps and rubber holds, and its test checks exactly that against
+`s = ½·g·(sin θ − μ·cos θ)·t²`:
+
+<!-- example: ramps-template.ts -->
+```ts
+// File: src/model/content/three-ramps.ts   (files in src/model/content are collected automatically)
+import type { Vec3 } from '../../core/math';
+import { Builder, rotX } from '../builder';
+import { registerTemplate } from './';
+
+const ANGLE = 30; // degrees: steeper than wood's friction angle (about 27°), shallower than rubber's (45°)
+
+registerTemplate({
+  id: 'three-ramps',
+  name: 'Three ramps',
+  category: 'Physics labs',
+  blurb: 'A block on three 30° ramps of the same material: ice, wood and rubber.',
+  hint: 'Press Play: the ice block shoots away, the wood block creeps, the rubber block holds. Change a friction.',
+  view: { position: [0, 4, 10], target: [0, 1, 0] },
+  build() {
+    const b = new Builder('Three ramps');
+    const rad = (ANGLE * Math.PI) / 180;
+    // Ramp-local (y, z) → world offset from the ramp centre, for a ramp tilted about the x axis.
+    const onRamp = (y: number, z: number): [number, number] => [
+      y * Math.cos(rad) - z * Math.sin(rad),
+      y * Math.sin(rad) + z * Math.cos(rad),
+    ];
+    ['ice', 'wood', 'rubber'].forEach((material, i) => {
+      const x = (i - 1) * 3;
+      const centre: Vec3 = [x, 1.5, 0];
+      b.body(`${material} ramp`, 'box', [2, 0.1, 6], centre, { bodyType: 'static', material, rotation: rotX(ANGLE) });
+      // The block rests on the upper end: half the ramp thickness plus half the block, 2 m up the slope.
+      const [dy, dz] = onRamp(0.25, -2);
+      b.body(`${material} block`, 'box', [0.6, 0.4, 0.6], [x, centre[1] + dy, dz], { material, rotation: rotX(ANGLE) });
+    });
+    return b.done();
+  },
+});
+```
+
+A **prefab** is a list of entities around the origin that the Prefabs tab drops into the current scene (they are
+re-identified on insertion; `category` groups them in the tab):
+
+<!-- example: domino-prefab.ts -->
+```ts
+// File: src/model/content/domino-trio.ts
+import { Builder } from '../builder';
+import { registerPrefab } from './';
+
+registerPrefab({
+  id: 'domino-trio',
+  name: 'Domino trio',
+  icon: 'box',
+  blurb: 'Three dominoes and a ball to start them.',
+  build() {
+    const b = new Builder('Domino trio');
+    for (let i = 0; i < 3; i++) b.body('Domino', 'box', [0.14, 0.8, 0.45], [i * 0.38, 0.4, 0], { material: 'wood' });
+    b.body('Ball', 'sphere', [0.4, 0.4, 0.4], [-1.2, 0.2, 0], { material: 'steel', velocity: [3, 0, 0] });
+    return b.doc.entities;
+  },
+});
+```
+
+A **map** adds what a level needs: `category`, `difficulty` (`sandbox`, `easy`, `medium`, `hard`, `expert`), `tags`,
+an `objective`, a `spawn` point (position and heading) and an opening `camera`. `thumbnail` is a URL or a function
+returning one — here `topDownThumbnail` draws the map from its own document; a rendered thumbnail plugs in the same
+way. `addWalls` (`src/model/mapKit.ts`) builds a walled arena.
+
+<!-- example: court-map.ts -->
+```ts
+// File: src/model/content/map-step-court.ts
+import { Builder } from '../builder';
+import { registerMap } from './';
+import { addWalls, topDownThumbnail } from '../mapKit';
+
+function build() {
+  const b = new Builder('Step court');
+  b.doc.settings.ground.halfSize = 8;
+  addWalls(b, { halfX: 8, halfZ: 8, height: 2, thickness: 0.5, material: 'concrete' });
+  // Three tiers of a step pyramid in the middle of the court.
+  [4, 2.5, 1].forEach((side, tier) =>
+    b.body(`Tier ${tier + 1}`, 'box', [side, 0.4, side], [0, 0.2 + tier * 0.4, 0], {
+      bodyType: 'static',
+      material: 'concrete',
+    }),
+  );
+  return b.done();
+}
+
+registerMap({
+  id: 'step-court',
+  name: 'Step court',
+  description: 'A walled court with a three-tier step pyramid in the middle.',
+  category: 'Arenas',
+  difficulty: 'easy',
+  tags: ['steps', 'climb'],
+  objective: 'Get something to rest on the top tier.',
+  thumbnail: () => topDownThumbnail(build()),
+  spawn: { position: [0, 0.5, 6], yaw: 0 },
+  camera: { position: [0, 11, 14], target: [0, 0, 0] },
+  build,
+});
+```
+
+## How to add a joint type
+
+Joint types are the one extension point that is still a closed union (`JointType`), so adding one means touching
+a handful of known places. `tests/jointTypes.test.ts` walks every type and checks each place, so a forgotten one
+fails with the type's name instead of being drawn as a ball joint or dropped when a file loads. In order:
+
+1. `src/model/types.ts` — add the id to `JointType` (and the fields it needs to `JointEntity`).
+2. `src/model/factory.ts` — a label in `JOINT_LABELS` (the compiler asks for it) and defaults in `createJoint`.
+3. `src/model/serialize.ts` — the `JOINTS` list, and the sanitising of every new field. A new *field* on existing
+   data needs a migration in `src/model/migrations.ts` (see the comment at its top).
+4. `src/physics/world/joints.ts` — `addJoint` builds the Rapier joint (the `switch` is exhaustive, so the compiler
+   points at it), and the measurement / motor / breakage code reads the type if it behaves differently.
+5. `src/render/jointViews.ts` — a colour in `JOINT_COLORS` and the gizmo that draws it; `src/ui/outliner.ts` — an icon
+   (`src/ui/icons.ts` if it needs a new one).
+6. `src/app/addCatalog.ts` — an entry in `JOINT_ITEMS`: that is the Add tab's tile *and* the command
+   `Joint tool: …` in the palette.
+7. `src/ui/inspector/joint.ts` — the type-specific sections; then a physics test against an analytic expectation
+   in `tests/` and the new id in the list at the top of `tests/jointTypes.test.ts`.
+
+```diff
+-export type JointType = 'fixed' | 'hinge' | 'slider' | 'ball' | 'spring' | 'rope';
++export type JointType = 'fixed' | 'hinge' | 'slider' | 'ball' | 'spring' | 'rope' | 'cardan';
+```
+
+If what you want is a *behaviour* rather than a new constraint — a motor with a torque curve, a joint that breaks
+under load, a gear coupling between two hinges — write a **component** with `appliesTo: 'joint'` instead: no
+union to extend, and the inspector, undo, saving and the worker integration come for free.
+
+---
+
+## Testing an extension
+
+- **Pure data and registries** (`registerCommand`, content, shortcuts) run in Node: register, assert, unregister
+  with the function the `register…` call returned. `tests/uiRegistry.test.ts` shows the pattern with a fake `App`.
+- **Physics** runs the real Rapier engine in Node: `worldOf([...])` and `run(world, seconds)` from
+  `tests/helpers.ts`, asserted against an analytic result with an explicit tolerance.
+- **The browser**: `e2e/tests/registry.mjs` loads an example into the running app with a dynamic import
+  (`await import('/tests/examples/stats-panel.ts')` — the dev server serves the repository), then drives the real UI.
+  Run it with `E2E_PORT=5231 E2E_FILTER=extension npm run test:e2e`.
+- Before you finish: `npm run typecheck && npm run lint && npm test && npm run build`, then the e2e suite.
+
+## Registry cheat sheet
+
+| Registry | Import | Functions |
+|---|---|---|
+| commands | `src/app/registry` | `registerCommand`, `unregisterCommand`, `getCommand`, `listCommands`, `runCommand(id, app, source)` |
+| tools | `src/app/registry` | `registerTool`, `unregisterTool`, `getTool`, `listTools(region)`, `toolForMode`, `hintForMode` |
+| panels | `src/app/registry` | `registerPanel`, `unregisterPanel`, `getPanel`, `listPanels(region)` |
+| inspector sections | `src/app/registry` | `registerInspectorSection`, `unregisterInspectorSection`, `listInspectorSections`, `sectionsFor` |
+| menus | `src/app/registry` | `registerMenu`, `registerMenuEntry`, `unregisterMenu`, `unregisterMenuEntry`, `resolveMenu` |
+| shortcut help | `src/app/registry` | `registerHelp` (gestures), `helpSections` (generated) |
+| templates / prefabs / maps | `src/model/content` | `register…`, `unregister…`, `get…`, `list…`, `onContentChange` |
+| shapes | `src/model/shapeRegistry` | `registerShape`, `getShape`, `listShapes`, `shapeDef` … |
+| components | `src/model/componentRegistry` + `src/physics/components` | `registerComponent`, `registerRuntime`, `componentDef`, `listComponents` |
+
+Every registry is built on `Registry<T>` (`src/core/registry.ts`): `register` (returns the unregister function),
+`unregister`, `get`, `has`, `list` (sorted by `order`, then registration order), `onChange`, `revision`.

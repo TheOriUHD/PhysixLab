@@ -5,6 +5,7 @@
 import type { App } from '../app/app';
 import { JOINT_ITEMS, LIGHT_ITEMS, SOFT_ITEMS } from '../app/addCatalog';
 import type { PanelDef } from '../app/registry/panels';
+import { shortcutTokens } from '../app/registry/shortcuts';
 import {
   listMaps,
   listPrefabs,
@@ -138,9 +139,7 @@ function addTab(app: App): HTMLElement {
         'li',
         null,
         'Press ',
-        h('kbd', null, 'Ctrl'),
-        ' ',
-        h('kbd', null, 'K'),
+        ...shortcutTokens('Mod+K').flatMap((k, i) => [i ? ' ' : '', h('kbd', null, k)]),
         ' to search every command, scene and setting.',
       ),
       h('li', null, 'Open ', h('b', null, 'Scenes'), ' for ready-made experiments.'),
