@@ -7,6 +7,8 @@
  */
 import type { JointParams } from './jointParams';
 import type { Quat, Vec3 } from '../core/math';
+// -- ED-A array: the stored definition of a linked array --
+import type { ArrayDef } from './edit/arraySpec';
 
 export type { Quat, Vec3 };
 
@@ -414,6 +416,8 @@ export interface GroupEntity extends OutlinerMeta {
   locked: boolean;
   hidden: boolean;
   parent?: string;
+  // -- ED-A array: present when this group holds the instances of a linked (re-editable) array --
+  array?: ArrayDef;
 }
 
 export type LightType = 'point' | 'spot' | 'directional' | 'area';

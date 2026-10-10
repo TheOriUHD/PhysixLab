@@ -4,6 +4,7 @@
  * never throw.
  */
 import { clamp } from '../../core/math';
+import { sanitizeArrayDef } from '../edit/arraySpec';
 import { createGroup, createLight, createPath, defaultPathPoints, lightDefaults, LIGHT_TYPES } from '../factory';
 import { LIMITS } from '../limits';
 import type { GroupEntity, LightEntity, LightType, PathEntity } from '../types';
@@ -28,7 +29,14 @@ export function sanitizeGroup(input: unknown): GroupEntity {
     hidden: bool(raw.hidden, false),
     ...parentField(raw),
     ...outlinerMetaFields(raw, true), // -- UI-A --
+    // -- ED-A array: linked-array definition (dropped when it has no sources) --
+    ...arrayField(raw),
   };
+}
+
+function arrayField(raw: Record<string, unknown>): { array?: ReturnType<typeof sanitizeArrayDef> } {
+  const array = sanitizeArrayDef(raw.array);
+  return array ? { array } : {};
 }
 
 export function sanitizeLight(input: unknown): LightEntity {

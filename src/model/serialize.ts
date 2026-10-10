@@ -52,7 +52,7 @@ import type {
   SoftType,
   UnitsSettings,
 } from './types';
-import { isLight, isPosed } from './types';
+import { isGroup, isLight, isPosed } from './types';
 
 const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable', 'mesh', 'tyre'];
 const PINS: SoftPin[] = ['none', 'edge', 'corners', 'corners4', 'one-end', 'ends'];
@@ -415,6 +415,15 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
   }
   // Drop group links that point nowhere (or loop).
   const parentsFixed = repairParents(entities.filter(isPosed));
+  // -- ED-A array: a linked array whose source objects no longer exist cannot be re-generated; it becomes a plain group --
+  for (let i = 0; i < entities.length; i++) {
+    const g = entities[i];
+    if (!isGroup(g) || !g.array) continue;
+    if (g.array.sourceIds.every((id) => seen.has(id) && id !== g.id)) continue;
+    const { array: _gone, ...rest } = g;
+    entities[i] = rest;
+    warn(report, `The linked array "${g.name}" lost its source object(s) and became an ordinary group.`);
+  }
   // Component ids are unique across the scene, and references between entities must point at something.
   dedupeComponentIds(entities);
   if (parentsFixed) warn(report, `${parentsFixed} grouping link(s) pointed at missing objects and were removed.`);
