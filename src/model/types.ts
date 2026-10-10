@@ -82,7 +82,6 @@ export interface OutlinerMeta {
 // -- end UI-A --
 
 export interface BodyEntity extends OutlinerMeta {
-
   kind: 'body';
   id: string;
   name: string;
