@@ -69,6 +69,8 @@ export class NavController {
   private pending: Pending = { ox: 0, oy: 0, px: 0, py: 0, zoom: 0, twist: 0, cursor: null };
   /** Navigation keys currently held, with the modifiers of the latest press. */
   private held = new Map<string, Mods>();
+  /** When the held keys were last integrated (performance.now(); 0 = none held). */
+  private keyT = 0;
   private pointer = { x: 0, y: 0 };
   private space = false;
   private spaceMoved = false;
@@ -277,6 +279,7 @@ export class NavController {
     if (!KEY_CODES.has(e.code) || !this.settings.keyboardNav) return false;
     const intent = keyIntent(e.code, modsOf(e), nudgeOwnsArrows);
     if (!intent) return false;
+    if (!this.held.size) this.keyT = performance.now();
     this.held.set(e.code, modsOf(e));
     this.app.viewport.needsRender = true;
     return true;
@@ -306,18 +309,21 @@ export class NavController {
       return;
     }
     const s = this.settings;
-    // Held keys add their per-second amounts for this frame (no extra ease: the key already ramps).
+    // Held keys add their per-second amounts for the time that really passed (frames can be slow: the app clamps `dt`).
+    const now = performance.now();
+    const kdt = this.keyT ? Math.min(0.25, (now - this.keyT) / 1000) : dt;
+    this.keyT = this.held.size ? now : 0;
     for (const [code, mods] of this.held) {
       const k = keyIntent(code, mods, false);
       if (!k) continue;
       if (k.verb === 'orbit') {
-        p.ox += k.x * dt;
-        p.oy += k.y * dt;
+        p.ox += k.x * kdt;
+        p.oy += k.y * kdt;
       } else if (k.verb === 'pan') {
-        p.px += k.x * dt;
-        p.py += k.y * dt;
+        p.px += k.x * kdt;
+        p.py += k.y * kdt;
       } else if (k.verb === 'zoom') {
-        p.zoom += k.y * dt;
+        p.zoom += k.y * kdt;
         p.cursor = null;
       }
     }

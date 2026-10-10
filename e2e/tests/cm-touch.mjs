@@ -100,7 +100,11 @@ async function boxScene(page) {
     const a = window.physicslab;
     a.prefs.set({ showLeft: false, showRight: false, showBottom: false, followSelection: false }); // the canvas fills the window; the car template turns following on
     // Software GL needs a second per frame: a long hold time keeps taps from turning into long presses.
-    a.input.update_settings({ touch: { ...a.input.settings.touch, longPressMs: 9000 } });
+    // -- NAV: these gestures predate the one-finger orbit and two-finger pan defaults; they test the selection rectangle and the two-finger orbit
+    a.input.update_settings({
+      touch: { ...a.input.settings.touch, longPressMs: 9000, twoFingerDrag: 'orbit' },
+      nav: { ...a.input.settings.nav, touchOneFinger: 'select' },
+    });
     a.store.clear();
     const ids = [];
     for (const x of [-3, 0, 3]) ids.push(a.addShape('box', [x, 0.5, 0]).id);

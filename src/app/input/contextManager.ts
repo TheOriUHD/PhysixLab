@@ -95,6 +95,8 @@ export class InputContexts extends Emitter<{ change: InputContext }> {
     app.sim.on('mode', touch);
     app.prefs.on('change', touch);
     inputMap.on('change', touch);
+    app.cameraRig.on('change', touch);
+    app.immersive.on('change', touch);
   }
 
   /** Re-evaluate after something outside the store changed (camera mode, immersive mode, a grab began). */

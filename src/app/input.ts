@@ -465,11 +465,19 @@ export class InputController {
   /** Keys held for the depth of a held body (W S ↑ ↓ [ ]); tracked here because the grab context swallows them. */
   private grabHeld = new Set<string>();
   private lastTurnAt = 0;
+  private grabT = 0;
 
   /** Per frame: held depth keys push / pull the held body at a speed that scales with its distance. */
   private tickGrab(dt: number): void {
     const g = this.g;
-    if (g.kind !== 'grab' || g.soft || !this.grabHeld.size) return;
+    if (g.kind !== 'grab' || g.soft || !this.grabHeld.size) {
+      this.grabT = 0;
+      return;
+    }
+    // Real elapsed time: slow frames must not slow the push down (the app clamps `dt`).
+    const now = performance.now();
+    if (this.grabT) dt = Math.min(0.25, (now - this.grabT) / 1000);
+    this.grabT = now;
     let dir = 0;
     for (const c of GRAB_KEYS.away) if (this.grabHeld.has(c)) dir += 1;
     for (const c of GRAB_KEYS.toward) if (this.grabHeld.has(c)) dir -= 1;
@@ -680,11 +688,11 @@ export class InputController {
     }
     // -- NAV: two quick taps on touch = double-click (focus the object / frame everything) --
     if (e.pointerType === 'touch' && e.type === 'pointerup' && ((g.kind === 'marquee' && !g.moved) || g.kind === 'none' || (g.kind === 'dragMove' && !g.moved))) {
-      const now = performance.now();
+      const now = e.timeStamp; // the event's own time: a slow frame must not turn two quick taps into two single ones
       const t = this.lastTap;
       if (t && now - t.t < 320 && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 32) {
         this.lastTap = null;
-        this.lastDoubleAt = now;
+        this.lastDoubleAt = performance.now();
         this.onDouble(e);
       } else this.lastTap = { t: now, x: e.clientX, y: e.clientY };
     }
@@ -837,6 +845,9 @@ export class InputController {
       return;
     }
     if (forward && (e.code.startsWith('Arrow') || e.code === 'Space')) e.preventDefault();
+    // -- NAV: a key the scene's motors / components listen to belongs to the world while it simulates: the editor
+    // shortcut on the same key (Q / E / W / R gizmo keys, C, L …) steps aside; the legend says so --
+    if (!typing && forward && app.contexts.ownerOf(e) === 'sim') return;
     // Enter ends the joint chain being drawn.
     if (!typing && e.key === 'Enter' && app.prefs.value.tool === 'joint' && jointToolOf(app).finish()) {
       e.preventDefault();

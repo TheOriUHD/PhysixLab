@@ -221,7 +221,11 @@ export const jointVehicleDetector: VehicleDetector = {
           (j.motor.mode === 'velocity' && (j.motor.keyPos || j.motor.keyNeg || j.motor.axis)) ||
           j.components.some((c) => c.enabled && (c.type === 'driveShaft' || c.type === 'motor'));
         if (!turns) continue;
-        for (const b of [j.bodyA, j.bodyB]) if (b && set.has(b) && b !== chassis) driven.add(b);
+        // The wheel is the end that is not the chassis; between a hub and a wheel, the round one (else the second body).
+        const ends = [j.bodyA, j.bodyB].filter((b): b is string => !!b && set.has(b) && b !== chassis);
+        const round = ends.filter((b) => ['cylinder', 'sphere', 'capsule'].includes(bodies.get(b)!.shape.type));
+        const pick = ends.length > 1 ? (round.length === 1 ? round[0] : j.bodyB!) : ends[0];
+        if (pick) driven.add(pick);
       }
       const jointMap = new Map(myJoints.map((j) => [j.id, j]));
       const controls: VehicleControl[] = ctl.keys.map((k) => ({ code: k.code, label: describeKey(k.uses, jointMap) }));

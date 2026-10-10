@@ -185,8 +185,8 @@ function mountDriveHud(app: App, stage: HTMLElement): void {
       title.textContent = 'Play mode';
       cam.textContent = 'Free camera';
     }
-    if (on) exit.focus({ preventScroll: true });
-    else exit.blur();
+    // Keys go to the page, not to a focused button: Space / Enter must not "click" it.
+    if (on && document.activeElement instanceof HTMLElement) document.activeElement.blur();
     last = '';
     scale = 60;
   };

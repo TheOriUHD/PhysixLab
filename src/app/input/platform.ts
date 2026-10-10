@@ -79,7 +79,12 @@ export class WheelClassifier {
   private lastT = -1e9;
   private burst = 0;
 
-  /** Evidence of one event in −1 … 1 (positive = trackpad), given the time since the previous event. */
+  /**
+   * Evidence of one event in −1 … 1 (positive = trackpad), given the time since the previous event and how many events
+   * in a row arrived within 50 ms. The strongest signals are two axes at once (only a finger), a line-mode delta (a
+   * mouse wheel) and a whole-notch `wheelDeltaY`; a macOS mouse gives small fractional deltas like a trackpad, but one
+   * at a time, while a finger glides in bursts — so bursts and isolated ticks decide the rest.
+   */
   static evidence(e: WheelLike, dt: number, burst: number): number {
     const ay = Math.abs(e.deltaY);
     const ax = Math.abs(e.deltaX);
@@ -90,13 +95,10 @@ export class WheelClassifier {
     if (e.deltaMode !== 0) return -1; // lines or pages: Firefox with a mouse wheel
     if (ax > 0 && ay > 0) return 1; // two axes at once: only a finger does that
     const wd = e.wheelDeltaY;
-    if (wd !== undefined && wd !== 0) {
-      if (wd % 120 === 0 && ay >= 4) return -0.9;
-      if (wd % 120 !== 0) return 0.7;
-    }
-    if (!Number.isInteger(e.deltaY) && !Number.isInteger(e.deltaX)) return 0.8;
-    if (burst >= 3 && ay < 40) return 0.6; // a stream of small steps: a finger gliding
-    if (ay >= 50 && dt > 60 && Number.isInteger(e.deltaY)) return -0.5; // an isolated big notch
+    if (wd !== undefined && wd !== 0 && wd % 120 === 0 && ay >= 4 && burst < 3) return -0.9; // a classic notch
+    if (burst >= 3) return ay < 60 ? (Number.isInteger(e.deltaY) ? 0.6 : 0.8) : 0; // a finger gliding
+    if (burst >= 1 && !Number.isInteger(e.deltaY) && ay < 50) return 0.5; // two quick fractional ticks
+    if (dt > 80) return ay >= 50 && Number.isInteger(e.deltaY) ? -0.6 : -0.4; // an isolated tick: a wheel
     return 0;
   }
 
