@@ -284,6 +284,20 @@ export class InputMap extends Emitter<{ change: undefined }> {
       next[id] = list.slice(0, MAX_SLOTS);
       applied++;
     }
+    // A hand-edited file may give one chord to two bindings: the first keeps it, later ones lose that chord.
+    const taken = new Set<string>();
+    for (const [id, list] of Object.entries(next)) {
+      const scope = this.scopeOf(id) ?? '';
+      next[id] = list.filter((sc) => {
+        const k = `${scope}|${chordId(parseShortcut(sc))}`;
+        if (taken.has(k)) {
+          skipped++;
+          return false;
+        }
+        taken.add(k);
+        return true;
+      });
+    }
     this.load(next, 'imported');
     return { applied, skipped };
   }

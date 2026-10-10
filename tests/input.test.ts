@@ -380,3 +380,43 @@ describe('gamepad hot-plugging', () => {
     }
   });
 });
+
+describe('hostile axis names and settings', () => {
+  it('the document sanitiser drops axis names that are not plain identifiers', async () => {
+    const { sanitizeDocument } = await import('../src/model/serialize');
+    const body = createBody({ shape: { type: 'box', size: [1, 1, 1] } });
+    for (const [name, want] of [
+      ['steer', 'steer'],
+      ['constructor', ''],
+      ['__proto__', ''],
+      ['a b', ''],
+      ['x'.repeat(50), ''],
+    ] as const) {
+      const j = createJoint({
+        type: 'hinge',
+        bodyA: null,
+        bodyB: body.id,
+        anchorA: [0, 0, 0],
+        motor: { mode: 'velocity', axis: name },
+      });
+      const doc = sanitizeDocument({
+        format: 'physicslab-scene',
+        version: 3,
+        name: 'x',
+        settings: {},
+        entities: [body, j],
+        assets: {},
+      });
+      const joint = doc.entities.find((e) => e.kind === 'joint') as { motor: { axis?: string } } | undefined;
+      expect(joint?.motor.axis ?? '').toBe(want);
+    }
+  });
+
+  it('settings ignore __proto__ keys', () => {
+    const s = sanitizeInput(
+      JSON.parse('{"bindings":{"__proto__":["Q"],"ok":["W"]},"axisTuning":{"__proto__":{"a":{"expo":2}}}}'),
+    );
+    expect(Object.keys(s.bindings)).toEqual(['ok']);
+    expect(Object.keys(s.axisTuning)).toEqual([]);
+  });
+});

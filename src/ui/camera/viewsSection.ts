@@ -13,6 +13,20 @@ const MODES: { value: ViewPane['mode']; label: string }[] = [
   { value: 'bookmark', label: 'A saved view' },
 ];
 
+/** While a slider is dragged the section is not rebuilt under the pointer; one undo step covers the drag. */
+const drag = { active: false, rerender: () => {} };
+const grab = (app: App, label: string) => ({
+  onStart: () => {
+    drag.active = true;
+    app.store.begin(label);
+  },
+  onEnd: () => {
+    app.store.end();
+    drag.active = false;
+    drag.rerender();
+  },
+});
+
 /** The controls of one secondary camera; `change` receives the edited copy. */
 function paneEditor(app: App, spec: ViewPane, change: (next: ViewPane, label: string) => void): HTMLElement {
   const bodies = app.store.bodies();
@@ -103,6 +117,7 @@ function paneEditor(app: App, spec: ViewPane, change: (next: ViewPane, label: st
         unit: '°',
         value: spec.fov,
         onChange: (v) => change({ ...spec, fov: v }, 'Change view lens'),
+        ...grab(app, 'Change view lens'),
       }).el,
     ),
   );
@@ -118,6 +133,7 @@ registerCameraSection({
       app.store.setCameras({ ...app.store.cameras, ...patch }, label);
 
     const render = () => {
+      if (drag.active) return;
       const cams = app.store.cameras;
       const layout = segmented<'1' | '2' | '3' | '4'>({
         options: [
@@ -176,6 +192,7 @@ registerCameraSection({
             digits: 0,
             value: mm.range,
             onChange: (v) => setMini({ range: v }, 'Change minimap range'),
+            ...grab(app, 'Change minimap range'),
           }).el,
           'Half-width of the map in metres (the wheel over the map zooms too)',
         ),
@@ -243,6 +260,7 @@ registerCameraSection({
       );
       root.replaceChildren(...blocks);
     };
+    drag.rerender = render;
     app.store.on('meta', render);
     app.store.on('selection', render);
     render();

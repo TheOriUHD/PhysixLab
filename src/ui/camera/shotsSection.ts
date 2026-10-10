@@ -343,6 +343,12 @@ registerCameraSection({
     app.store.on('meta', renderAll);
     player.on('change', () => {
       // transport state changed: refresh the buttons without rebuilding fields under the user's cursor
+      if (scrub && document.activeElement === scrub) {
+        // the user is dragging the scrubber: update the readout, never rebuild it under the pointer
+        const s = player.shot;
+        if (s && timeOut) timeOut.textContent = `${player.t.toFixed(2)} / ${s.duration.toFixed(1)} s`;
+        return;
+      }
       if (
         document.activeElement &&
         root.contains(document.activeElement) &&

@@ -249,9 +249,14 @@ export function registerCameraBuiltins(): void {
 
 /** Save the current view into bookmark slot `index` (replacing it, or appending when it is the next free slot). */
 export async function saveBookmarkSlot(app: App, index: number): Promise<void> {
-  const list = app.store.cameras.bookmarks;
   const view = app.cameraRig.currentView();
   const thumb = await app.viewport.captureThumbnail(160, 100);
+  // Read the list only now: another save (or a scene load) may have happened while the frame was captured.
+  const list = app.store.cameras.bookmarks;
+  if (index >= 64) {
+    app.toast('A scene holds at most 64 bookmarks', 'warn');
+    return;
+  }
   const prev = list[index];
   const mk: CameraBookmark = {
     id: prev?.id ?? uid('cb'),
@@ -262,6 +267,6 @@ export async function saveBookmarkSlot(app: App, index: number): Promise<void> {
   const next = list.slice();
   if (index >= next.length) next.push(mk);
   else next[index] = mk;
-  app.store.setCameras({ ...app.store.cameras, bookmarks: next.slice(0, 64) }, 'Save camera bookmark');
+  app.store.setCameras({ ...app.store.cameras, bookmarks: next }, 'Save camera bookmark');
   app.toast(`View saved as bookmark ${Math.min(index, list.length) + 1}`, 'success');
 }
