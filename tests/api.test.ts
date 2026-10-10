@@ -1,13 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createApi, type ApiHost } from '../src/api/create';
-import { API_VERSION, type PhysicsLabApi } from '../src/api/types';
+import { API_VERSION, type PhysixLabApi } from '../src/api/types';
 import { createBody } from '../src/model/factory';
 import { SceneStore } from '../src/model/store';
 import type { BodyEntity } from '../src/model/types';
 import type { Vec3 } from '../src/core/math';
 
-function fakeHost(): { host: ApiHost; api: PhysicsLabApi; store: SceneStore; log: string[] } {
+function fakeHost(): { host: ApiHost; api: PhysixLabApi; store: SceneStore; log: string[] } {
   const store = new SceneStore();
   const log: string[] = [];
   let mode: 'edit' | 'paused' | 'running' = 'edit';
@@ -171,7 +171,7 @@ describe('DT-30 public API', () => {
     } as never);
     expect(api.assets.list().map((a) => a.id)).toContain(aid);
     expect(api.assets.remove(aid)).toBe(true);
-    expect((JSON.parse(api.export.json()) as { format: string }).format).toBe('physicslab-scene');
+    expect((JSON.parse(api.export.json()) as { format: string }).format).toBe('physixlab-scene');
     expect(await api.export.png()).toBeInstanceOf(Blob);
   });
 });
@@ -183,12 +183,12 @@ describe('docs/API.md', () => {
     const missing: string[] = [];
     for (const [group, value] of Object.entries(api)) {
       if (typeof value === 'function') {
-        if (!doc.includes(`physicslab.${group}(`)) missing.push(group);
+        if (!doc.includes(`physixlab.${group}(`)) missing.push(group);
         continue;
       }
       if (typeof value !== 'object') continue;
       for (const key of Object.keys(value as object)) {
-        const full = `physicslab.${group}.${key}`;
+        const full = `physixlab.${group}.${key}`;
         const short = `.${key}`;
         if (!doc.includes(full) && !doc.includes(`${short}(`) && !doc.includes(`${short} `)) missing.push(full);
       }

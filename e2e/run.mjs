@@ -90,7 +90,7 @@ async function runTest({ name, fn }) {
 }
 
 console.log(
-  `PhysicsLab e2e (${url})${filter ? ` — filter "${process.env.E2E_FILTER}": ${selected.length}/${all.length}` : ''}`,
+  `PhysixLab e2e (${url})${filter ? ` — filter "${process.env.E2E_FILTER}": ${selected.length}/${all.length}` : ''}`,
 );
 try {
   for (const t of selected) await runTest(t);

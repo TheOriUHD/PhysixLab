@@ -1,7 +1,7 @@
 /**
  * Copy / paste between scenes, tabs and apps. A copy is a versioned JSON envelope (`model/edit/clipboard.ts`) kept in
  * three places: memory (survives scene loads in this tab even when storage is unavailable), localStorage
- * (`physicslab:clipboard:v1`: survives reloads and is shared by every tab of the origin) and — best effort, when the
+ * (`physixlab:clipboard:v1`: survives reloads and is shared by every tab of the origin) and — best effort, when the
  * browser allows it — the system clipboard as text, so it can be pasted into another browser, window or text editor.
  *
  * Paste prefers what the user can see: text from the system clipboard when it is one of our envelopes (the DOM
@@ -26,7 +26,7 @@ import type { SceneStore } from '../../model/store';
 import type { Entity } from '../../model/types';
 import type { Quat } from '../../core/math';
 
-export const CLIPBOARD_KEY = 'physicslab:clipboard:v1';
+export const CLIPBOARD_KEY = 'physixlab:clipboard:v1';
 
 /** What the clipboard needs of the app: the document and (optionally) live poses. */
 export interface ClipboardHost {

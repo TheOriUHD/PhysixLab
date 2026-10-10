@@ -12,7 +12,7 @@ import { numberField, selectField, segmented, fmt } from './controls';
 import { h } from './dom';
 import { icon } from './icons';
 
-const KEY = 'physicslab:quickbar';
+const KEY = 'physixlab:quickbar';
 const listeners = new Set<() => void>();
 export function quickBarEnabled(): boolean {
   try {

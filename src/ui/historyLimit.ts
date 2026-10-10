@@ -1,5 +1,5 @@
 // -- ED-B: persisted undo-history limit (kept out of the shared preferences) --
-const KEY = 'physicslab:historyLimit';
+const KEY = 'physixlab:historyLimit';
 export const HISTORY_LIMIT_MIN = 10;
 export const HISTORY_LIMIT_MAX = 1000;
 export const HISTORY_LIMIT_DEFAULT = 200;

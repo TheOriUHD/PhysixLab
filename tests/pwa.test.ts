@@ -68,7 +68,7 @@ describe('precache manifest', () => {
 });
 
 describe('service worker routing', () => {
-  const scope = 'https://example.com/physicslab/';
+  const scope = 'https://example.com/physixlab/';
   const set = sw.precacheSet(['index.html', 'assets/app-abc.js', 'assets/w.wasm'], scope);
   const route = (url: string, method = 'GET', mode?: string) => sw.routeRequest({ url, method, mode }, scope, set);
 
@@ -94,7 +94,7 @@ describe('service worker routing', () => {
     expect(route(scope + 'share-target', 'GET')).toBe('network-first');
   });
   it('resolves precache URLs against the scope, so a sub-path deployment works', () => {
-    expect(sw.precacheUrl('assets/a.js', scope)).toBe('https://example.com/physicslab/assets/a.js');
+    expect(sw.precacheUrl('assets/a.js', scope)).toBe('https://example.com/physixlab/assets/a.js');
     expect(sw.precacheUrl('index.html', 'https://x.io/')).toBe('https://x.io/index.html');
   });
 });

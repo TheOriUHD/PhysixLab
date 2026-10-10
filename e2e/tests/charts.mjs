@@ -9,7 +9,7 @@ import { assert, newPage, shot, simTime } from '../helpers.mjs';
 export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
-const STORE = 'physicslab.charts.v1';
+const STORE = 'physixlab.charts.v1';
 const stored = async (page) => {
   await page.waitForTimeout(450); // saves are debounced
   return page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? '{"charts":[]}'), STORE);
@@ -48,11 +48,11 @@ async function addSignal(page, widget, signal) {
 }
 
 async function startCrate(page) {
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   await page.keyboard.press('1'); // arms a ghost crate ...
   await page.keyboard.press('Enter'); // ... placed at the view centre (the pointer is off the viewport)
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.update(a.store.selection[0], { position: [0, 500, 0] }); // a long free fall
   });
   await page.keyboard.press('Space');
@@ -170,14 +170,14 @@ test('charts: derived traces, statistics, CSV and PNG export, clear', async () =
   await w.locator('.ch-chipmore').first().click();
   await page.click('.menu-item:has-text("Integral")');
   assert((await w.locator('.ch-chip').count()) === 3, 'derivative and integral traces were added');
-  await simTime(page, (await page.evaluate(() => window.physicslab.sim.client.stats?.simTime ?? 0)) + 1.5);
+  await simTime(page, (await page.evaluate(() => window.physixlab.sim.client.stats?.simTime ?? 0)) + 1.5);
   await page.waitForTimeout(300);
   // free fall: d/dt of vy is -g (about -9.81), shown in the legend of the derived trace
   await page.mouse.move(5, 5); // the legend reads the value under the cursor; keep it away from the plot
   await page.waitForTimeout(250);
   const itxt = await w.locator('.ch-val').nth(2).textContent();
   const iv = parseFloat(itxt);
-  const tNow = await page.evaluate(() => window.physicslab.sim.client.stats.simTime);
+  const tNow = await page.evaluate(() => window.physixlab.sim.client.stats.simTime);
   assert(iv < -2 && iv > -0.5 * 9.81 * tNow * tNow * 1.3, `integral of vy is about -g t²/2 (${itxt}, t=${tNow})`);
   const dtxt = await w.locator('.ch-val').nth(1).textContent();
   const dv = parseFloat(dtxt);
@@ -302,7 +302,7 @@ test('charts: spectrum, XY and histogram views; reorder; persistence', async () 
   assert(wAfter > wBefore + 80, `resizing changes the width (${wBefore} -> ${wAfter})`);
 
   await page.reload();
-  await page.waitForFunction(() => !!window.physicslab?.viewport);
+  await page.waitForFunction(() => !!window.physixlab?.viewport);
   await page.click('.dock .tab:has-text("Charts")');
   await page.waitForSelector('.ch-widget');
   assert((await page.locator('.ch-widget').count()) === 2, 'charts persist across a reload');
@@ -328,7 +328,7 @@ test('charts: spectrum of a real spring-mass oscillator peaks at f = sqrt(k/m) /
     b.tether('spring', anchor, [0, 8, 0], weight, [0, 4.5, 0], {
       spring: { restLength: 2, stiffness: 40000, damping: 0, breakForce: 0 },
     });
-    window.physicslab.loadDocument(b.done());
+    window.physixlab.loadDocument(b.done());
   });
   await openCharts(page);
   await addEmptyChart(page);
@@ -343,7 +343,7 @@ test('charts: spectrum of a real spring-mass oscillator peaks at f = sqrt(k/m) /
   await simTime(page, 14);
   await page.waitForTimeout(500);
   const r = await page.evaluate(async () => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const { chartsFor } = await import('/src/ui/charts/panel.ts');
     const widget = chartsFor(a).list()[0];
     const m = a.sim.client.info.mass[a.store.bodies().find((x) => x.name === 'Weight').id];

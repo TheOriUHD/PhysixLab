@@ -53,7 +53,7 @@ export class FolderSyncService {
   async connect(): Promise<void> {
     const pick = (window as unknown as { showDirectoryPicker: (o: object) => Promise<PermissionedDir> })
       .showDirectoryPicker;
-    const handle = await pick({ id: 'physicslab-sync', mode: 'readwrite' });
+    const handle = await pick({ id: 'physixlab-sync', mode: 'readwrite' });
     await (await getStorage()).put('meta', 'folder-handle', handle);
     this.attach(handle);
   }

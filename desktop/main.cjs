@@ -1,8 +1,8 @@
 /**
- * DT-41: optional desktop shell. Wraps the PhysicsLab production build (../dist, or ./app-dist when packaged) in
- * an Electron window. The web app is unchanged: it is served from a privileged `app://physicslab/` origin (a
+ * DT-41: optional desktop shell. Wraps the PhysixLab production build (../dist, or ./app-dist when packaged) in
+ * an Electron window. The web app is unchanged: it is served from a privileged `app://physixlab/` origin (a
  * standard, secure scheme, so module workers, WebAssembly, WebGL, IndexedDB and fetch behave as on https) and
- * nothing here is needed to run PhysicsLab in a browser.
+ * nothing here is needed to run PhysixLab in a browser.
  *
  *   npm start          open the window
  *   npm run smoke      headless check: boot the app, run the simulation, print the result, exit 0 / 1
@@ -14,13 +14,13 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 const SMOKE = process.argv.includes('--smoke');
-const ORIGIN = 'app://physicslab';
+const ORIGIN = 'app://physixlab';
 
-/** Where the built web app lives: $PHYSICSLAB_DIST, a copy next to this file (packaged), or ../dist. */
+/** Where the built web app lives: $PHYSIXLAB_DIST, a copy next to this file (packaged), or ../dist. */
 function distDir() {
-  const candidates = [process.env.PHYSICSLAB_DIST, path.join(__dirname, 'app-dist'), path.join(__dirname, '..', 'dist')];
+  const candidates = [process.env.PHYSIXLAB_DIST, path.join(__dirname, 'app-dist'), path.join(__dirname, '..', 'dist')];
   const found = candidates.find((d) => d && fs.existsSync(path.join(d, 'index.html')));
-  if (!found) throw new Error('PhysicsLab build not found. Run `npm run build` in the repository root first.');
+  if (!found) throw new Error('PhysixLab build not found. Run `npm run build` in the repository root first.');
   return found;
 }
 
@@ -62,7 +62,7 @@ function createWindow(root) {
     minHeight: 600,
     show: !SMOKE,
     backgroundColor: '#0b0e14', // the app's --bg: no white flash while it boots
-    title: 'PhysicsLab',
+    title: 'PhysixLab',
     icon: path.join(root, 'icons', 'icon-512.png'),
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
@@ -89,12 +89,12 @@ async function smoke(win) {
   });
   try {
     await win.webContents.executeJavaScript(
-      'new Promise((res, rej) => { const t = Date.now(); const i = setInterval(() => { if (window.physicslab && window.physicslab.viewport) { clearInterval(i); res(); } else if (Date.now() - t > 40000) { clearInterval(i); rej(new Error("app did not boot")); } }, 100); })',
+      'new Promise((res, rej) => { const t = Date.now(); const i = setInterval(() => { if (window.physixlab && window.physixlab.viewport) { clearInterval(i); res(); } else if (Date.now() - t > 40000) { clearInterval(i); rej(new Error("app did not boot")); } }, 100); })',
     );
     win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Space' });
     win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Space' });
     const result = await win.webContents.executeJavaScript(
-      'new Promise((res, rej) => { const t = Date.now(); const i = setInterval(() => { const s = window.physicslab.sim.client.stats; if (s && s.simTime >= 0.5) { clearInterval(i); res({ simTime: s.simTime, bodies: window.physicslab.store.bodies().length, origin: location.origin, serviceWorker: "serviceWorker" in navigator }); } else if (Date.now() - t > 40000) { clearInterval(i); rej(new Error("simulation did not advance")); } }, 100); })',
+      'new Promise((res, rej) => { const t = Date.now(); const i = setInterval(() => { const s = window.physixlab.sim.client.stats; if (s && s.simTime >= 0.5) { clearInterval(i); res({ simTime: s.simTime, bodies: window.physixlab.store.bodies().length, origin: location.origin, serviceWorker: "serviceWorker" in navigator }); } else if (Date.now() - t > 40000) { clearInterval(i); rej(new Error("simulation did not advance")); } }, 100); })',
     );
     clearTimeout(timer);
     process.stdout.write(`SMOKE OK ${JSON.stringify(result)}\n`);

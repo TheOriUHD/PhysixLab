@@ -193,7 +193,7 @@ export interface KeyValueStore {
   setItem(key: string, value: string): void;
 }
 
-export const GUIDE_STORAGE_KEY = 'physicslab.guide.v1';
+export const GUIDE_STORAGE_KEY = 'physixlab.guide.v1';
 
 export interface GuideState {
   /** Tours that were played to the end. */

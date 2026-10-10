@@ -104,7 +104,7 @@ export function buildReportHtml(r: ReportInput): string {
       : '';
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(r.title)} — PhysicsLab report</title>
+<title>${esc(r.title)} — PhysixLab report</title>
 <style>
 body{font:15px/1.5 system-ui,sans-serif;max-width:860px;margin:32px auto;padding:0 20px;color:#111827}
 h1{margin:0 0 4px}h2{margin:28px 0 8px;font-size:18px;border-bottom:1px solid #e5e7eb;padding-bottom:4px}
@@ -115,7 +115,7 @@ table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:4px 8px;
 @media print{body{margin:0}section{break-inside:avoid}}
 </style></head><body>
 <h1>${esc(r.title)}</h1>
-<p class="muted">PhysicsLab lab report · generated ${esc(r.generatedAt.toLocaleString())}</p>
+<p class="muted">PhysixLab lab report · generated ${esc(r.generatedAt.toLocaleString())}</p>
 ${shot}
 <h2>Parameters</h2><table>${params}</table>
 <h2>Objects</h2>${objects}

@@ -7,7 +7,7 @@ Installed plugins are remembered (localStorage) and started when the app starts.
 A plugin is one JavaScript file that begins with a manifest comment, then uses the global `plugin` object:
 
 ```js
-/* @physicslab-plugin
+/* @physixlab-plugin
 { "id": "hello", "name": "Hello", "version": "1.0.0",
   "description": "Says hello", "permissions": ["ui", "scene.read"] }
 */
@@ -41,7 +41,7 @@ any of them. Only what is granted works; everything else rejects with a message 
 
 ## API of `plugin`
 
-Same data model and semantics as [`window.physicslab`](API.md) (`plugin.scene`, `plugin.simulation`, `plugin.query`,
+Same data model and semantics as [`window.physixlab`](API.md) (`plugin.scene`, `plugin.simulation`, `plugin.query`,
 `plugin.view`), but every call is asynchronous (it crosses the sandbox boundary) — `await` it. Additions:
 `plugin.scene.batch(label, [['addBody', 'box', [0,1,0]], ['update', id, {…}]])` (one undo step),
 `plugin.on(event, handler)` (events of the public API; delivered coalesced, at most one in flight),

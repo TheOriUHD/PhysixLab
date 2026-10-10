@@ -34,7 +34,7 @@ const rowLabels = (page) => page.locator('.panel.right .row .row-label').allText
 
 test('SH-1..6 · every new primitive is an Add-tab tile; clicking adds it and the inspector shows its size fields and parameters', async () => {
   const page = await newPage();
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   for (const [id, label, sizeLabels, paramLabels] of SHAPES) {
     const tile = page.locator('.tile', { hasText: new RegExp(`^${label}$`) });
     assert((await tile.count()) === 1, `exactly one Add tile named "${label}"`);
@@ -42,11 +42,11 @@ test('SH-1..6 · every new primitive is an Add-tab tile; clicking adds it and th
     assert(/Drag into the scene/.test(title ?? ''), `${label} tile has a tooltip (${title})`);
     await tile.dblclick();
     const added = await page.evaluate(() => {
-      const b = window.physicslab.store.bodies();
+      const b = window.physixlab.store.bodies();
       const last = b[b.length - 1];
       return {
         type: last.shape.type,
-        sel: window.physicslab.store.selection.includes(last.id),
+        sel: window.physixlab.store.selection.includes(last.id),
         params: last.shape.params,
       };
     });
@@ -63,7 +63,7 @@ test('SH-1..6 · every new primitive is an Add-tab tile; clicking adds it and th
 test('SH-1..6 · editing size and parameters in the inspector reshapes the body (undoable)', async () => {
   const page = await newPage();
   const id = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     const b = a.editor.addShape('torus', [0, 0.15, 0]);
     a.store.setSelection([b.id]);
@@ -75,7 +75,7 @@ test('SH-1..6 · editing size and parameters in the inspector reshapes the body 
     await f.fill(String(value));
     await f.press('Enter');
   };
-  const shape = () => page.evaluate((id) => window.physicslab.store.body(id).shape, id);
+  const shape = () => page.evaluate((id) => window.physixlab.store.body(id).shape, id);
   await set('Ring segments', 12);
   await set('Tube sides', 8);
   let s = await shape();
@@ -89,7 +89,7 @@ test('SH-1..6 · editing size and parameters in the inspector reshapes the body 
   near(s.size[1], 0.8, 1e-6, 'the tube is capped at 40 % of the outer diameter so the hole stays open');
   // the mesh follows: geometry cache key changes with the parameters
   const verts = await page.evaluate(
-    (id) => window.physicslab.bodies.get(id).mesh.geometry.getAttribute('position').count,
+    (id) => window.physixlab.bodies.get(id).mesh.geometry.getAttribute('position').count,
     id,
   );
   assert(verts > 0, 'torus has a mesh');
@@ -106,7 +106,7 @@ test('SH-1..6 · editing size and parameters in the inspector reshapes the body 
 test('SH-1..6 · gallery: all twelve render with their own geometry, no errors', async () => {
   const page = await newPage('', { width: 1600, height: 900 });
   const ids = await page.evaluate((shapes) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     const out = [];
     shapes.forEach(([type], i) => {
@@ -126,7 +126,7 @@ test('SH-1..6 · gallery: all twelve render with their own geometry, no errors',
   const meshes = await page.evaluate(
     (ids) =>
       ids.map((id) => {
-        const m = window.physicslab.bodies.get(id).mesh;
+        const m = window.physixlab.bodies.get(id).mesh;
         return m.geometry.getAttribute('position').count;
       }),
     ids,
@@ -142,7 +142,7 @@ test('SH-1..6 · gallery: all twelve render with their own geometry, no errors',
     { position: [-0.5, 3.4, -1.6], target: [-0.5, 0.4, -3.4] },
   ];
   for (const [i, v] of rows.entries()) {
-    await page.evaluate((v) => window.physicslab.viewport.setView(v), v);
+    await page.evaluate((v) => window.physixlab.viewport.setView(v), v);
     await page.waitForTimeout(500);
     await shot(page, `sh1-row${i + 1}`);
   }
@@ -152,7 +152,7 @@ test('SH-1..6 · gallery: all twelve render with their own geometry, no errors',
 test('SH-1 · simulating: a small ball falls through the torus hole, a wide one rests on the ring (physics worker)', async () => {
   const page = await newPage();
   const ids = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     a.viewport.setView({ position: [0, 3, 6], target: [0, 1, 0] });
     const dead = (b) => {
@@ -188,7 +188,7 @@ test('SH-1 · simulating: a small ball falls through the torus hole, a wide one 
 test('SH-3/4 · simulating: a ball rolls through the arch, comes to rest on a step and on a spiral tread', async () => {
   const page = await newPage();
   const ids = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     a.viewport.setView({ position: [3, 3.2, 8], target: [0, 1, 0] });
     // nothing bounces: a pair's restitution is the larger of the two surfaces
@@ -249,7 +249,7 @@ test('SH-3/4 · simulating: a ball rolls through the arch, comes to rest on a st
 test('SH-5/6 · dynamic dome, hemisphere, frustum and beams settle on the ground in the browser', async () => {
   const page = await newPage();
   const ids = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     a.viewport.setView({ position: [0, 4, 9], target: [0, 0.4, 0] });
     const types = ['dome', 'hemisphere', 'frustum', 'i-beam', 'l-beam', 't-beam'];
@@ -278,7 +278,7 @@ test('SH-5/6 · dynamic dome, hemisphere, frustum and beams settle on the ground
 test('SH-1..6 · parameter variants render correctly (faceted low counts, tall stairs, segmental arch, clockwise spiral, inverted frustum)', async () => {
   const page = await newPage('', { width: 1600, height: 900 });
   const ids = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     const V = [
       ['torus', { segments: 8, tubeSides: 6 }, [1, 0.3, 1]],
@@ -307,16 +307,16 @@ test('SH-1..6 · parameter variants render correctly (faceted low counts, tall s
       return b.id;
     });
   });
-  const shapes = await page.evaluate((ids) => ids.map((id) => window.physicslab.store.body(id).shape), ids);
+  const shapes = await page.evaluate((ids) => ids.map((id) => window.physixlab.store.body(id).shape), ids);
   assert(
     shapes.every((s) => s.size.every((v) => v > 0.02)),
     'sizes valid',
   );
-  await page.evaluate(() => window.physicslab.viewport.setView({ position: [0, 10, 12.5], target: [0, 0.5, 0.2] }));
+  await page.evaluate(() => window.physixlab.viewport.setView({ position: [0, 10, 12.5], target: [0, 0.5, 0.2] }));
   await page.waitForTimeout(900);
   await shot(page, 'sh1-variants');
   await page.evaluate(() =>
-    window.physicslab.viewport.setView({ position: [-1.5, 3.2, 7.6], target: [-1.5, 0.7, -3.6] }),
+    window.physixlab.viewport.setView({ position: [-1.5, 3.2, 7.6], target: [-1.5, 0.7, -3.6] }),
   );
   await page.waitForTimeout(500);
   await shot(page, 'sh1-variants-back');

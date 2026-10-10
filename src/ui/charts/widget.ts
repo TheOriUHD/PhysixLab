@@ -738,7 +738,7 @@ export class ChartWidget {
 
   private wireDrag(grip: HTMLElement): void {
     grip.addEventListener('dragstart', (e) => {
-      e.dataTransfer?.setData('application/x-physicslab-chart', this.cfg.id);
+      e.dataTransfer?.setData('application/x-physixlab-chart', this.cfg.id);
       e.dataTransfer?.setData('text/plain', this.cfg.title);
       if (e.dataTransfer) {
         e.dataTransfer.effectAllowed = 'move';
@@ -747,7 +747,7 @@ export class ChartWidget {
       this.el.classList.add('dragging');
     });
     grip.addEventListener('dragend', () => this.el.classList.remove('dragging'));
-    const isChart = (e: DragEvent) => e.dataTransfer?.types.includes('application/x-physicslab-chart') ?? false;
+    const isChart = (e: DragEvent) => e.dataTransfer?.types.includes('application/x-physixlab-chart') ?? false;
     this.el.addEventListener('dragover', (e) => {
       if (!isChart(e)) return;
       e.preventDefault();
@@ -762,7 +762,7 @@ export class ChartWidget {
       e.preventDefault();
       const after = this.el.classList.contains('drop-after');
       this.el.classList.remove('drop-before', 'drop-after');
-      const id = e.dataTransfer?.getData('application/x-physicslab-chart');
+      const id = e.dataTransfer?.getData('application/x-physixlab-chart');
       if (id && id !== this.cfg.id) this.host.reorder(id, this.cfg.id, after);
     });
   }

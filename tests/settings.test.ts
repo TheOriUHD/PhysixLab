@@ -8,7 +8,7 @@ import { SceneStore } from '../src/model/store';
 import { parseDocument, sanitizeDocument, serializeDocument } from '../src/model/serialize';
 import { createBody, createJoint, run, worldOf } from './helpers';
 
-const sparse = (settings: unknown) => sanitizeDocument({ format: 'physicslab-scene', entities: [], settings }).settings;
+const sparse = (settings: unknown) => sanitizeDocument({ format: 'physixlab-scene', entities: [], settings }).settings;
 
 describe('v2 scene settings', () => {
   it('have defaults that reproduce the v1 behaviour', () => {
@@ -81,7 +81,7 @@ describe('v2 scene settings', () => {
 
   it('upgrade a v1 scene that has none of them', () => {
     const v1 = {
-      format: 'physicslab-scene',
+      format: 'physixlab-scene',
       version: 1,
       name: 'old',
       entities: [],

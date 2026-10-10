@@ -23,7 +23,7 @@ export function showWelcome(app: App): void {
     return c;
   };
   const body = [
-    h('h2', { class: 'big-title' }, 'Welcome to PhysicsLab'),
+    h('h2', { class: 'big-title' }, 'Welcome to PhysixLab'),
     h(
       'p',
       { class: 'sub' },
@@ -74,7 +74,7 @@ export function showWelcome(app: App): void {
     { icon: 'info', title: 'A two-minute walk through the basics, right in the app' },
   );
   const m = openModal({
-    title: 'PhysicsLab',
+    title: 'PhysixLab',
     body,
     footer: [tour, ok],
     onClose: () => app.prefs.set({ seenWelcome: true }),

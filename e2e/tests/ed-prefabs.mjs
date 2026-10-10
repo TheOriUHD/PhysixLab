@@ -16,11 +16,11 @@ const runCommand = async (page, text) => {
   await page.keyboard.press('Enter');
 };
 
-const count = (page) => page.evaluate(() => window.physicslab.store.all().length);
+const count = (page) => page.evaluate(() => window.physixlab.store.all().length);
 
 const addTwoBoxes = (page) =>
   page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const b1 = a.addShape('box', [2, 0.5, 2]);
     const b2 = a.addShape('box', [4, 0.5, 2]);
     a.store.setSelection([b1.id, b2.id]);
@@ -55,24 +55,24 @@ test('prefabs: save selection, tile with thumbnail, insert is one undo step, sur
   assert((await tile.locator('.chip-tag').allTextContents()).join(',').includes('pair'), 'tags are shown');
 
   // Insert by clicking the tile: two new bodies, selected, ONE undo step.
-  await page.evaluate(() => window.physicslab.store.setSelection([]));
+  await page.evaluate(() => window.physixlab.store.setSelection([]));
   await tile.locator('.ed-pf-main').dblclick();
-  await page.waitForFunction((n) => window.physicslab.store.all().length === n + 2, base);
+  await page.waitForFunction((n) => window.physixlab.store.all().length === n + 2, base);
   const sel = await page.evaluate(() => {
-    const s = window.physicslab.store;
+    const s = window.physixlab.store;
     return { selected: s.selection.length, names: s.selection.map((id) => s.get(id).name) };
   });
   assert(sel.selected === 2, `inserted objects are selected (${sel.selected})`);
   assert(new Set(sel.names).size === 2, 'names are unique');
   await shot(page, 'ed-prefabs-panel');
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   assert((await count(page)) === base, 'one undo removes the whole insertion');
-  await page.evaluate(() => window.physicslab.store.redo());
+  await page.evaluate(() => window.physixlab.store.redo());
   assert((await count(page)) === base + 2, 'redo restores it');
 
   // The library is persisted: reload the page (same browser context, same storage).
   await page.reload();
-  await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport, null, { timeout: 30000 });
+  await page.waitForFunction(() => !!window.physixlab && window.physixlab.viewport, null, { timeout: 30000 });
   await openMyPrefabs(page);
   await page.locator('.ed-pf-tile[data-name="E2E pair"]').waitFor({ timeout: 10000 });
   assert(page.errors.length === 0, `no page errors: ${page.errors.join(' | ')}`);
@@ -82,7 +82,7 @@ test('prefabs: save selection, tile with thumbnail, insert is one undo step, sur
 test('prefabs: a number variable drives the size at insert time', async () => {
   const page = await newPage();
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const b = a.addShape('box', [0, 0.5, 0]);
     a.store.setSelection([b.id]);
   });
@@ -101,15 +101,15 @@ test('prefabs: a number variable drives the size at insert time', async () => {
   await page.waitForSelector('.modal', { state: 'detached' });
 
   // Insert with values: scale 2.
-  const before = await page.evaluate(() => window.physicslab.store.bodies().length);
+  const before = await page.evaluate(() => window.physixlab.store.bodies().length);
   await tile.locator('.ed-pf-more').click({ force: true });
   await page.click('.menu-item:has-text("Insert with values")');
   await page.waitForSelector('.ed-pf-pair .ed-pf-num');
   await page.fill('.ed-pf-pair .ed-pf-num', '2');
   await page.click('.modal-foot .btn.primary');
-  await page.waitForFunction((n) => window.physicslab.store.bodies().length === n + 1, before);
+  await page.waitForFunction((n) => window.physixlab.store.bodies().length === n + 1, before);
   const size = await page.evaluate(() => {
-    const s = window.physicslab.store;
+    const s = window.physixlab.store;
     return s.get(s.selection[0]).shape.size;
   });
   assert(Math.abs(size[0] - 2) < 1e-6 && Math.abs(size[1] - 2) < 1e-6, `scaled to 2 m (${size})`);
@@ -119,7 +119,7 @@ test('prefabs: a number variable drives the size at insert time', async () => {
 test('prefabs: dragging a tile into the viewport drops it on the surface under the pointer', async () => {
   const page = await newPage();
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const b = a.addShape('box', [0, 0.5, 0]);
     a.store.setSelection([b.id]);
   });
@@ -131,23 +131,23 @@ test('prefabs: dragging a tile into the viewport drops it on the surface under t
   const id = await tile.getAttribute('data-prefab');
   const before = await count(page);
   const at = await page.evaluate(() => {
-    const r = window.physicslab.viewport.dom.getBoundingClientRect();
+    const r = window.physixlab.viewport.dom.getBoundingClientRect();
     return { x: r.left + r.width * 0.3, y: r.top + r.height * 0.85 };
   });
   await page.evaluate(
     ({ id, at }) => {
-      const dom = window.physicslab.viewport.dom;
+      const dom = window.physixlab.viewport.dom;
       const dt = new DataTransfer();
-      dt.setData('text/x-physicslab-user-prefab', id);
+      dt.setData('text/x-physixlab-user-prefab', id);
       const init = { bubbles: true, cancelable: true, dataTransfer: dt, clientX: at.x, clientY: at.y };
       dom.dispatchEvent(new DragEvent('dragover', init));
       dom.dispatchEvent(new DragEvent('drop', init));
     },
     { id, at },
   );
-  await page.waitForFunction((n) => window.physicslab.store.all().length === n + 1, before);
+  await page.waitForFunction((n) => window.physixlab.store.all().length === n + 1, before);
   const y = await page.evaluate(() => {
-    const s = window.physicslab.store;
+    const s = window.physixlab.store;
     return s.get(s.selection[0]).position[1];
   });
   assert(y > 0.3 && y < 1.2, `dropped onto a surface, not floating or sunk (y = ${y})`);
@@ -170,7 +170,7 @@ test('prefabs: export a pack and import it in a fresh browser context', async ()
     }, reject);
   });
   const pack = JSON.parse(text);
-  assert(pack.format === 'physicslab-prefab-pack' && pack.prefabs.length === 1, 'pack format');
+  assert(pack.format === 'physixlab-prefab-pack' && pack.prefabs.length === 1, 'pack format');
   await page.close();
 
   // A new page = a new browser context = empty storage.
@@ -185,7 +185,7 @@ test('prefabs: export a pack and import it in a fresh browser context', async ()
   // A hostile file is rejected with a message and nothing is added.
   const [chooser2] = await Promise.all([fresh.waitForEvent('filechooser'), runCommand(fresh, 'Import prefab pack')]);
   await chooser2.setFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"format":"nope"}') });
-  await fresh.waitForSelector('.toast:has-text("not a PhysicsLab prefab pack")', { timeout: 10000 });
+  await fresh.waitForSelector('.toast:has-text("not a PhysixLab prefab pack")', { timeout: 10000 });
   assert((await fresh.locator('.ed-pf-tile').count()) === 1, 'bad pack adds nothing');
   await fresh.close();
 });

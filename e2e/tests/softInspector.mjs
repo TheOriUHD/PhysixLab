@@ -15,7 +15,7 @@ const ownErrors = (page) => page.errors.filter((e) => !/extensions\/|already use
 async function addAndSelect(page, type, over = {}) {
   const id = await page.evaluate(
     ({ type, over }) => {
-      const a = window.physicslab;
+      const a = window.physixlab;
       const s = a.editor.addSoft(type, [0, 2, 0], over);
       a.viewport.setView({ position: [0, 3, 7], target: [0, 1.5, 0] });
       a.store.setSelection([s.id]);
@@ -27,7 +27,7 @@ async function addAndSelect(page, type, over = {}) {
   return id;
 }
 
-const soft = (page, id) => page.evaluate((id) => JSON.parse(JSON.stringify(window.physicslab.store.soft(id))), id);
+const soft = (page, id) => page.evaluate((id) => JSON.parse(JSON.stringify(window.physixlab.store.soft(id))), id);
 
 /** Type into the number field of the inspector row with this label and commit with Enter. */
 async function typeInto(page, label, value) {
@@ -50,7 +50,7 @@ async function openSection(page, title) {
 
 test('softInspector: tyre pressure, puncture, seal and the Young modulus field edit the document', async () => {
   const page = await newPage();
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   const id = await addAndSelect(page, 'tyre');
   const before = await soft(page, id);
   await shot(page, 'sf-tyre-1600');
@@ -81,14 +81,14 @@ test('softInspector: tyre pressure, puncture, seal and the Young modulus field e
   await shot(page, 'sf-tyre-pressure-1600');
 
   // undo is one step per edit
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   near((await soft(page, id)).particleRadius, 0, 1e-9, 'undo reverts the radius override');
   assert(ownErrors(page).length === 0, `no page errors: ${ownErrors(page).join('; ')}`);
 });
 
 test('softInspector: mesh source shape and cell size', async () => {
   const page = await newPage('', { width: 1280, height: 720 });
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   const id = await addAndSelect(page, 'mesh');
   await page.waitForSelector('.section-head:has-text("Mesh source")');
   const count0 = await page.locator('.sf-caption:has-text("particles")').first().textContent();
@@ -105,7 +105,7 @@ test('softInspector: mesh source shape and cell size', async () => {
 test('softInspector: fastenings list the target, its load, and Remove edits the document', async () => {
   const page = await newPage();
   const { cable, weight } = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     const w = a.editor.addShape('sphere', [1.5, 1.2, 0], {
       name: 'Hanging weight',
@@ -123,13 +123,13 @@ test('softInspector: fastenings list the target, its load, and Remove edits the 
     );
     return { cable: c.id, weight: w.id };
   });
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), cable);
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), cable);
   await page.waitForSelector('.section-head:has-text("Fastenings")');
   await openSection(page, 'Fastenings');
   await page.waitForSelector('.sf-att');
   assert((await page.locator('.sf-att-name').first().textContent()) === 'Hanging weight', 'target body name shown');
   const expected = await page.evaluate((w) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const b = a.store.body(w);
     const m = b.material.density * (4 / 3) * Math.PI * (b.shape.size[0] / 2) ** 3;
     return m * Math.hypot(...a.store.settings.gravity);
@@ -148,11 +148,11 @@ test('softInspector: fastenings list the target, its load, and Remove edits the 
   await page.click('.sf-att button:has-text("Remove")');
   assert((await soft(page, cable)).attachments.length === 0, 'Remove deletes the fastening from the document');
   await page.waitForSelector('.sf-att', { state: 'detached' });
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   assert((await soft(page, cable)).attachments.length === 1, 'undo restores the fastening');
 
   // with the simulation running, Release sends the op and the page stays healthy
-  await page.evaluate(() => window.physicslab.sim.play());
+  await page.evaluate(() => window.physixlab.sim.play());
   await simTime(page, 0.2);
   await page.waitForFunction(() => {
     const b = [...document.querySelectorAll('.sf-att button')].find((x) => x.textContent?.includes('Release'));
@@ -160,13 +160,13 @@ test('softInspector: fastenings list the target, its load, and Remove edits the 
   });
   await page.click('.sf-att button:has-text("Release")');
   await simTime(page, 0.4);
-  await page.evaluate(() => window.physicslab.sim.reset());
+  await page.evaluate(() => window.physixlab.sim.reset());
   assert(ownErrors(page).length === 0, `no page errors: ${ownErrors(page).join('; ')}`);
 });
 
 test('softInspector: a stability warning shows its fix button, which applies the patch', async () => {
   const page = await newPage();
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   const id = await addAndSelect(page, 'cable', { stiffness: 3, size: [3, 0, 0], pin: 'ends' });
   await page.waitForSelector('.sf-warning[data-warning="too-soft"]');
   await shot(page, 'sf-warning-1600');
@@ -178,14 +178,14 @@ test('softInspector: a stability warning shows its fix button, which applies the
     `fix raised the stiffness (${before.stiffness} -> ${after.stiffness})`,
   );
   await page.waitForSelector('.sf-warning[data-warning="too-soft"]', { state: 'detached' });
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   near((await soft(page, id)).stiffness, 3, 1e-9, 'undo reverts the fix');
   await page.waitForSelector('.sf-warning[data-warning="too-soft"]');
 });
 
 test('softInspector: no stability section when the body is fine; budget, lower resolution and economy mode', async () => {
   const page = await newPage('', { width: 1280, height: 720 });
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   const id = await addAndSelect(page, 'cloth', { resolution: 40, pin: 'edge' });
   assert((await page.locator('.sf-warning').count()) === 0, 'no warnings for a healthy cloth');
   const visible = await page.evaluate(
@@ -203,8 +203,8 @@ test('softInspector: no stability section when the body is fine; budget, lower r
 
   await page.click('.section:has(.section-head:has-text("Budget")) .switch:has-text("Economy mode")');
   const st = await page.evaluate(() => ({
-    pref: window.physicslab.prefs.value.softEconomy,
-    sim: window.physicslab.sim.softEconomy,
+    pref: window.physixlab.prefs.value.softEconomy,
+    sim: window.physixlab.sim.softEconomy,
   }));
   assert(
     st.pref === true && st.sim === true,
@@ -212,14 +212,14 @@ test('softInspector: no stability section when the body is fine; budget, lower r
   );
 
   // live elastic energy appears while simulating
-  await page.evaluate(() => window.physicslab.sim.play());
+  await page.evaluate(() => window.physixlab.sim.play());
   await simTime(page, 0.3);
   await nextFrame(page);
   await page.waitForSelector('.row:has(.row-label:text-is("Elastic energy")) .readout:not(:has-text("—"))');
   await page.evaluate(() => {
-    window.physicslab.sim.reset();
-    window.physicslab.prefs.set({ softEconomy: false });
-    window.physicslab.sim.softEconomy = false;
+    window.physixlab.sim.reset();
+    window.physixlab.prefs.set({ softEconomy: false });
+    window.physixlab.sim.softEconomy = false;
   });
   await page.locator('.sf-bar').scrollIntoViewIfNeeded();
   await shot(page, 'sf-budget-1280');

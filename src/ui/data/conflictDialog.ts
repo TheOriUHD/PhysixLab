@@ -22,7 +22,7 @@ export function chooseConflict(file: string, modified: Date): Promise<ConflictCh
         h(
           'p',
           null,
-          `“${file}” was changed outside PhysicsLab (${modified.toLocaleString()}), for example on another computer. Your open scene and the file now differ.`,
+          `“${file}” was changed outside PhysixLab (${modified.toLocaleString()}), for example on another computer. Your open scene and the file now differ.`,
         ),
         h('p', { class: 'hint-text' }, 'Nothing is overwritten until you choose.'),
       ],

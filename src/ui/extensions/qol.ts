@@ -11,7 +11,7 @@ registerCommand({
   label: 'Paste scene from clipboard',
   category: 'File',
   icon: 'copy',
-  description: 'Open a PhysicsLab scene that was copied as JSON text',
+  description: 'Open a PhysixLab scene that was copied as JSON text',
   keywords: ['clipboard', 'json', 'import', 'paste'],
   run: ({ app }) => pasteSceneFromClipboard(app),
 });

@@ -1,14 +1,14 @@
 /**
  * The viewer's cross-window message protocol (DT-22), version 1. Documented in docs/EMBED.md.
  *
- * Parent → viewer: `{ type: 'physicslab', v?: 1, id?: string, cmd: 'hello'|'play'|'pause'|'reset'|'step'|'loadScene'|'setCamera'|'getState', … }`
- * Viewer → parent: `{ type: 'physicslab', v: 1, event: 'ready'|'state'|'error', id?: string, … }`
+ * Parent → viewer: `{ type: 'physixlab', v?: 1, id?: string, cmd: 'hello'|'play'|'pause'|'reset'|'step'|'loadScene'|'setCamera'|'getState', … }`
+ * Viewer → parent: `{ type: 'physixlab', v: 1, event: 'ready'|'state'|'error', id?: string, … }`
  *
  * Everything here is pure so the validation can be unit tested without a browser.
  */
 
 export const PROTOCOL_VERSION = 1;
-export const MESSAGE_TYPE = 'physicslab';
+export const MESSAGE_TYPE = 'physixlab';
 
 export type Vec3Tuple = [number, number, number];
 
@@ -59,7 +59,7 @@ export type ParseResult =
   | { kind: 'invalid'; id?: string; message: string }
   | { kind: 'ok'; parsed: ParsedCommand };
 
-/** Validates the `data` of a message event. Anything that does not carry `type: 'physicslab'` is ignored silently. */
+/** Validates the `data` of a message event. Anything that does not carry `type: 'physixlab'` is ignored silently. */
 export function parseMessage(data: unknown): ParseResult {
   if (!isRecord(data) || data.type !== MESSAGE_TYPE) return { kind: 'ignore' };
   // A viewer's own events echoed back (e.g. by a host that reflects messages) are not commands.
@@ -117,7 +117,7 @@ export function parseMessage(data: unknown): ParseResult {
           return bad('"share" must be a share link or the "s=…" payload text');
         return { kind: 'ok', parsed: { id, command: { cmd: 'loadScene', share: data.share } } };
       }
-      if (!isRecord(data.document)) return bad('"document" must be a PhysicsLab scene object');
+      if (!isRecord(data.document)) return bad('"document" must be a PhysixLab scene object');
       return { kind: 'ok', parsed: { id, command: { cmd: 'loadScene', document: data.document } } };
     }
   }

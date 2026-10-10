@@ -1,9 +1,10 @@
 /**
  * Folder sync (DT-13) — the honest "cloud save": the user picks a folder (File System Access API) — typically one
  * their Dropbox / Google Drive / iCloud / OneDrive desktop client syncs — and scenes are written to it as
- * `<name>.physicslab.json`. There is no file-watcher API in browsers, so external changes are found by polling the
+ * `<name>.physixlab.json`. There is no file-watcher API in browsers, so external changes are found by polling the
  * files' modification times. Everything here talks to a minimal directory interface so it is testable without a browser.
  */
+import { LEGACY_NAME } from '../../model/legacy';
 import { parseDocument, serializeDocument } from '../../model/serialize';
 import type { SceneDocument } from '../../model/types';
 
@@ -28,7 +29,9 @@ export interface DirHandleLike {
   getFileHandle(name: string, opts?: { create?: boolean }): Promise<FileHandleLike>;
 }
 
-export const FILE_SUFFIX = '.physicslab.json';
+export const FILE_SUFFIX = '.physixlab.json';
+/** Scenes saved before the rename (`.physicslab.json`) are still listed and opened; they are saved under the new suffix. */
+export const LEGACY_FILE_SUFFIX = `.${LEGACY_NAME}.json`;
 
 export function fileNameFor(sceneName: string): string {
   const base = sceneName
@@ -79,7 +82,7 @@ export class FolderSync {
   async listScenes(): Promise<FolderFileInfo[]> {
     const out: FolderFileInfo[] = [];
     for await (const e of this.dir.values()) {
-      if (e.kind !== 'file' || !e.name.endsWith(FILE_SUFFIX)) continue;
+      if (e.kind !== 'file' || !(e.name.endsWith(FILE_SUFFIX) || e.name.endsWith(LEGACY_FILE_SUFFIX))) continue;
       out.push({ name: e.name, lastModified: (await e.getFile()).lastModified });
     }
     return out.sort((a, b) => b.lastModified - a.lastModified);

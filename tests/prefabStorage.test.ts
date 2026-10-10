@@ -181,7 +181,7 @@ describe('IdbPrefabStorage (fake IDBFactory)', () => {
     const s = new IdbPrefabStorage(asFactory(f));
     await s.put(prefab('A', 'a'));
     await s.put(prefab('B', 'b'));
-    expect(f.dbs.get('physicslab-prefabs')!.stores.has(IDB_STORE)).toBe(true);
+    expect(f.dbs.get('physixlab-prefabs')!.stores.has(IDB_STORE)).toBe(true);
     expect((await s.list()).map((p) => p.name).sort()).toEqual(['A', 'B']);
     expect((await s.get('b'))!.entities.filter(isBody)[0].shape.size).toEqual([1, 2, 3]);
     await s.delete('a');
@@ -195,7 +195,7 @@ describe('IdbPrefabStorage (fake IDBFactory)', () => {
     const s = new IdbPrefabStorage(asFactory(f));
     await s.put(prefab('A', 'a'));
     f.dbs
-      .get('physicslab-prefabs')!
+      .get('physixlab-prefabs')!
       .stores.get(IDB_STORE)!
       .set('evil', { id: 'evil', name: 'x', entities: [1, 2] });
     expect((await s.list()).map((p) => p.id)).toEqual(['a']);
@@ -309,7 +309,7 @@ describe('PrefabLibrary', () => {
   it('rejects an invalid pack with a message and leaves the library alone', async () => {
     const lib = await make();
     await lib.save(prefab('Keep', 'keep'));
-    await expect(lib.importText('{"format":"nope"}')).rejects.toThrow(/not a PhysicsLab prefab pack/);
+    await expect(lib.importText('{"format":"nope"}')).rejects.toThrow(/not a PhysixLab prefab pack/);
     expect(lib.size).toBe(1);
   });
 });

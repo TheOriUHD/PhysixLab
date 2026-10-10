@@ -240,7 +240,7 @@ describe('sanitising shapes from documents', () => {
     const report = newReport();
     const doc = sanitizeDocument(
       {
-        format: 'physicslab-scene',
+        format: 'physixlab-scene',
         entities: [{ kind: 'body', id: 'a', name: 'Odd one', shape: { type: 'tesseract', size: [2, 3, 4] } }],
       },
       report,

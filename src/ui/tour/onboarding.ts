@@ -26,7 +26,7 @@ export function registerOnboardingTour(): () => void {
   const steps: TourStep[] = [
     {
       target: null,
-      title: 'Welcome to PhysicsLab',
+      title: 'Welcome to PhysixLab',
       body: 'A two-minute walk through the basics: add something, select it, set it moving and grab it. You can leave at any time with **Skip tour** or [[Esc]].',
     },
     {

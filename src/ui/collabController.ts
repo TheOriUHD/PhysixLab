@@ -132,8 +132,8 @@ export function getCollab(app: App): CollabController {
   if (!c) {
     c = new CollabController(app);
     controllers.set(app, c);
-    // A debugging / e2e handle, like `window.physicslab`.
-    (window as unknown as { physicslabCollab: CollabController }).physicslabCollab = c;
+    // A debugging / e2e handle, like `window.physixlab`.
+    (window as unknown as { physixlabCollab: CollabController }).physixlabCollab = c;
   }
   return c;
 }

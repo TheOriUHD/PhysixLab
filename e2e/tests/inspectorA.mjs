@@ -9,13 +9,13 @@ const test = (name, fn) => tests.push({ name, fn });
 
 const addBodies = (page, specs) =>
   page.evaluate((specs) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const ids = specs.map((s) => a.editor.addShape(s.type ?? 'box', s.at ?? [0, 0.5, 0], s.over ?? {}).id);
     a.store.setSelection(ids);
     return ids;
   }, specs);
-const body = (page, id) => page.evaluate((id) => JSON.parse(JSON.stringify(window.physicslab.store.body(id))), id);
-const select = (page, ids) => page.evaluate((ids) => window.physicslab.store.setSelection(ids), ids);
+const body = (page, id) => page.evaluate((id) => JSON.parse(JSON.stringify(window.physixlab.store.body(id))), id);
+const select = (page, ids) => page.evaluate((ids) => window.physixlab.store.setSelection(ids), ids);
 /** The input of the inspector row with this label (slider rows have the number box last). */
 const rowInput = (page, label) =>
   page
@@ -80,7 +80,7 @@ test('inspectorA: expressions and units in number fields, reset to default, labe
   const g = (await body(page, id)).gravityScale;
   assert(g > 1.5, `label scrub raised the gravity scale (${g})`);
   // the whole drag is one undo step
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   near((await body(page, id)).gravityScale, 1, 1e-9, 'scrub undone in one step');
   assert(page.errors.length === 0, `no page errors: ${page.errors.join('; ')}`);
   await page.close();
@@ -97,7 +97,7 @@ test('inspectorA: filter box, collapsible sections remembered, multi-selection "
   await typeInto(rowInput(page, 'Density'), '1000');
   const [a, b] = await Promise.all(ids.map((i) => body(page, i)));
   assert(a.material.density === 1000 && b.material.density === 1000, 'one edit applies to every selected body');
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   assert((await body(page, ids[0])).material.density === 500, 'one undo step restores both');
 
   // filter
@@ -127,7 +127,7 @@ test('inspectorA: filter box, collapsible sections remembered, multi-selection "
     'Physics stays collapsed after reselecting',
   );
   assert(
-    (await page.evaluate(() => localStorage.getItem('physicslab:section:physics'))) === '0',
+    (await page.evaluate(() => localStorage.getItem('physixlab:section:physics'))) === '0',
     'remembered in localStorage',
   );
   await page.click('.ui-a-tools .icon-btn[title^="Collapse"]');
@@ -148,7 +148,7 @@ test('inspectorA: filter box, collapsible sections remembered, multi-selection "
 test('inspectorA: copy / paste of selected sections and property presets', async () => {
   const page = await newPage();
   const [a, b, c] = await page.evaluate(() => {
-    const ed = window.physicslab.editor;
+    const ed = window.physixlab.editor;
     return [
       ed.addShape('box', [-2, 0.5, 0], {
         name: 'Source',
@@ -175,7 +175,7 @@ test('inspectorA: copy / paste of selected sections and property presets', async
   const pb = await body(page, b);
   near(pb.linearDamping, 0.3, 1e-9, 'damping pasted');
   assert(pb.material.friction === frictionB && pb.material.density !== 2222, 'unticked sections are untouched');
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   near((await body(page, b)).linearDamping, 0.01, 1e-9, 'paste is one undo step');
 
   // presets: save the material of Source, apply to Third
@@ -190,7 +190,7 @@ test('inspectorA: copy / paste of selected sections and property presets', async
   await page.locator('.ui-a-props button', { hasText: 'Save' }).click();
   const toastText = await page.locator('.toast').allTextContents();
   const stored = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem('physicslab:ui-a:presets') ?? '{"presets":[]}'),
+    JSON.parse(localStorage.getItem('physixlab:ui-a:presets') ?? '{"presets":[]}'),
   );
   assert(stored.presets.length === 1, `preset saved (toasts: ${toastText.join(' | ')})`);
   assert(
@@ -206,9 +206,9 @@ test('inspectorA: copy / paste of selected sections and property presets', async
   const pc = await body(page, c);
   assert(pc.material.density === 2222 && pc.material.friction === 0.9, 'preset applied');
   // a corrupt stored preset list is ignored instead of breaking the inspector
-  await page.evaluate(() => localStorage.setItem('physicslab:ui-a:presets', '{"presets":[{"id":1}]}'));
+  await page.evaluate(() => localStorage.setItem('physixlab:ui-a:presets', '{"presets":[{"id":1}]}'));
   await page.reload();
-  await page.waitForFunction(() => !!window.physicslab?.viewport);
+  await page.waitForFunction(() => !!window.physixlab?.viewport);
   assert(page.errors.length === 0, `no page errors: ${page.errors.join('; ')}`);
   await page.close();
 });
@@ -235,7 +235,7 @@ test('inspectorA: calculators write into the object and undo', async () => {
   near(dens, 10 / vol, 0.01 * (10 / vol), 'density computed from the wanted mass');
   await mb.locator('button', { hasText: 'Set density' }).click();
   near((await body(page, id)).material.density, 10 / vol, 0.5, 'Set density writes the material');
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   assert((await body(page, id)).material.preset !== 'custom', 'undo restores the material');
 
   // terminal velocity -> drag coefficient c = m g / vt^2 (via 1/2 rho Cd A)
@@ -261,7 +261,7 @@ test('inspectorA: calculators write into the object and undo', async () => {
 
   // a spring: the stiffness from the period
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const m = a.editor.addShape('box', [3, 3, 0], {
       name: 'Bob',
       massOverride: 2,
@@ -277,8 +277,8 @@ test('inspectorA: calculators write into the object and undo', async () => {
   await typeInto(srow('Mass').locator('.num-input'), '2');
   await typeInto(srow('Period T').locator('.num-input'), '0.5');
   await sb.locator('button', { hasText: 'Set stiffness' }).click();
-  const jid = await page.evaluate(() => window.physicslab.store.selection[0]);
-  const k = await page.evaluate((id) => window.physicslab.store.joint(id).spring.stiffness, jid);
+  const jid = await page.evaluate(() => window.physixlab.store.selection[0]);
+  const k = await page.evaluate((id) => window.physixlab.store.joint(id).spring.stiffness, jid);
   near(k, 2 * ((2 * Math.PI) / 0.5) ** 2, 0.5, 'k = m (2π/T)²');
   assert(page.errors.length === 0, `no page errors: ${page.errors.join('; ')}`);
   await page.close();
@@ -287,10 +287,10 @@ test('inspectorA: calculators write into the object and undo', async () => {
 test('inspectorA: Readout panel shows live engine values while simulating, pins and copies', async () => {
   const page = await newPage();
   const [id] = await addBodies(page, [{ type: 'sphere', at: [0, 6, 0], over: { name: 'Faller' } }]);
-  await page.evaluate(() => window.physicslab.prefs.set({ rightTab: 'readout', showRight: true }));
+  await page.evaluate(() => window.physixlab.prefs.set({ rightTab: 'readout', showRight: true }));
   await tick(page);
   assert((await page.locator('.ui-a-readout .empty-state').count()) === 1, 'edit mode explains that values are live');
-  await page.evaluate(() => window.physicslab.sim.play());
+  await page.evaluate(() => window.physixlab.sim.play());
   await simTime(page, 0.6);
   await page.waitForSelector('.ui-a-readout-rows');
   await page.waitForTimeout(250);
@@ -302,9 +302,9 @@ test('inspectorA: Readout panel shows live engine values while simulating, pins 
   const accel = parseFloat((await text('Acceleration')).split(',')[1]);
   near(accel, -9.81, 2.5, `acceleration ≈ −g while falling (${accel})`);
   // freeze the world so the engine and the readout can be compared exactly
-  await page.evaluate(() => window.physicslab.sim.pause());
+  await page.evaluate(() => window.physixlab.sim.pause());
   await page.waitForTimeout(500);
-  const live = await page.evaluate((id) => window.physicslab.sim.velocityOf(id), id);
+  const live = await page.evaluate((id) => window.physixlab.sim.velocityOf(id), id);
   const vy = parseFloat((await text('Velocity')).split(',')[1]);
   near(vy, live.linear[1], 0.01, `readout velocity ${vy} equals the engine ${live.linear[1]}`);
   assert(Number.isFinite(vy), 'velocity is a number');
@@ -313,7 +313,7 @@ test('inspectorA: Readout panel shows live engine values while simulating, pins 
   const mass = parseFloat(await text('Mass'));
   near(
     mass,
-    await page.evaluate((id) => window.physicslab.sim.client.info.mass[id], id),
+    await page.evaluate((id) => window.physixlab.sim.client.info.mass[id], id),
     1e-2,
     'mass is the engine mass',
   );
@@ -326,7 +326,7 @@ test('inspectorA: Readout panel shows live engine values while simulating, pins 
   );
   const y = parseFloat((await text('Position')).split(',')[1]); // the same sample as the energies
   near(pe, mass * 9.81 * y, 0.02 * pe + 0.5, `potential energy m·g·h (y = ${y})`);
-  await page.evaluate(() => window.physicslab.sim.play());
+  await page.evaluate(() => window.physixlab.sim.play());
 
   // unit switch on one row
   const row = page.locator('.ui-a-readout .row', { has: page.locator('.row-label', { hasText: /^Speed/ }) });
@@ -338,7 +338,7 @@ test('inspectorA: Readout panel shows live engine values while simulating, pins 
   // pin: select nothing; the readout keeps following the body
   await page.click('.ui-a-readout-title', { trial: true }).catch(() => {});
   await page.locator('.ui-a-readout .ui-a-pin').click();
-  await page.evaluate(() => window.physicslab.store.setSelection([]));
+  await page.evaluate(() => window.physixlab.store.setSelection([]));
   await page.waitForTimeout(300);
   assert((await page.locator('.ui-a-readout-rows').count()) === 1, 'pinned readout survives deselecting');
   assert((await page.locator('.ui-a-readout-title .badge').textContent()) === 'PINNED', 'pinned badge');
@@ -346,7 +346,7 @@ test('inspectorA: Readout panel shows live engine values while simulating, pins 
   // contacts: let it land
   await page.waitForSelector('.ui-a-contact b', { timeout: 60000 }).catch(async (e) => {
     const d = await page.evaluate(
-      (id) => ({ pose: window.physicslab.sim.poseOf(id), t: window.physicslab.sim.client.stats?.simTime }),
+      (id) => ({ pose: window.physixlab.sim.poseOf(id), t: window.physixlab.sim.client.stats?.simTime }),
       id,
     );
     throw new Error(`no contact listed: ${JSON.stringify(d)} (${e.message})`);
@@ -358,7 +358,7 @@ test('inspectorA: Readout panel shows live engine values while simulating, pins 
     .textContent()
     .catch(() => null);
   const known = await page.evaluate(() =>
-    window.physicslab.store
+    window.physixlab.store
       .all()
       .map((e) => e.name)
       .concat('ground'),

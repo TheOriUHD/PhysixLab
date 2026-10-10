@@ -7,10 +7,10 @@ const test = (name, fn) => tests.push({ name, fn });
 /** Run a command, set the capture hook, click Export in the dialog, wait for the captured download. */
 async function exportVia(page, commandId, prepare) {
   await page.evaluate(async (id) => {
-    window.__physicslabCaptureDownloads = true;
+    window.__physixlabCaptureDownloads = true;
     window.__lastDownload = undefined;
     const { runCommand } = await import('/src/app/registry/commands.ts');
-    runCommand(id, window.physicslab, 'api');
+    runCommand(id, window.physixlab, 'api');
   }, commandId);
   await page.waitForSelector('.modal [data-action="export"]');
   if (prepare) await prepare();
@@ -79,7 +79,7 @@ test('DT-1 PNG export: a 1280x720 PNG and a transparent 4K image, viewport resto
   assert(stats.clear > stats.total * 0.3, `transparent background: ${stats.clear}/${stats.total} clear pixels`);
   assert(stats.solid > 20, `the objects stay opaque: ${stats.solid} solid pixels`);
   const canvas = await page.evaluate(() => {
-    const c = window.physicslab.viewport.dom;
+    const c = window.physixlab.viewport.dom;
     return { w: c.width, h: c.height };
   });
   assert(canvas.w < 3840, `viewport canvas restored (${canvas.w}x${canvas.h})`);
@@ -90,9 +90,9 @@ test('DT-1 export thumbnail helper returns a small image without disturbing the 
   const page = await newPage();
   const r = await page.evaluate(async () => {
     const { renderThumbnail, renderThumbnailDataUrl } = await import('/src/app/export/capture.ts');
-    const blob = await renderThumbnail(window.physicslab, 160);
+    const blob = await renderThumbnail(window.physixlab, 160);
     const bmp = await createImageBitmap(blob);
-    const url = renderThumbnailDataUrl(window.physicslab, 96, { mime: 'image/jpeg', quality: 0.7 });
+    const url = renderThumbnailDataUrl(window.physixlab, 96, { mime: 'image/jpeg', quality: 0.7 });
     return { type: blob.type, w: bmp.width, h: bmp.height, url: url.slice(0, 23) };
   });
   assert(r.type === 'image/png' && Math.max(r.w, r.h) === 160, `thumbnail ${r.type} ${r.w}x${r.h}`);
@@ -103,7 +103,7 @@ test('DT-1 export thumbnail helper returns a small image without disturbing the 
 test('DT-1 GLB export: valid container with the scene content, selection-only exports less', async () => {
   const page = await newPage();
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.addShape('box', [0, 1, 0]);
     a.addShape('sphere', [3, 1, 0]);
   });
@@ -120,7 +120,7 @@ test('DT-1 GLB export: valid container with the scene content, selection-only ex
   for (const v of json.bufferViews) assert(v.byteOffset + v.byteLength <= binLen, 'buffer view inside the buffer');
 
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const ids = a.store.bodies().map((b) => b.id);
     a.store.setSelection([ids[ids.length - 1]]);
   });
@@ -137,7 +137,7 @@ test('DT-1 GLB export: valid container with the scene content, selection-only ex
 test('DT-1 GLB with baked animation records the running simulation', async () => {
   const page = await newPage();
   await page.evaluate(() => {
-    window.physicslab.addShape('sphere', [0, 6, 0]);
+    window.physixlab.addShape('sphere', [0, 6, 0]);
   });
   const r = await exportVia(page, 'file.export.gltf', async () => {
     const field = page.locator('.modal .row', { hasText: 'Bake animation' }).locator('input');
@@ -158,7 +158,7 @@ test('DT-1 GLB with baked animation records the running simulation', async () =>
 test('DT-1 STL and OBJ exports are well-formed', async () => {
   const page = await newPage();
   await page.evaluate(() => {
-    window.physicslab.addShape('box', [0, 1, 0]);
+    window.physixlab.addShape('box', [0, 1, 0]);
   });
   const stl = await exportVia(page, 'file.export.stl');
   const s = bytes(stl);

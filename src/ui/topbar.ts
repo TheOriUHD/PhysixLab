@@ -21,7 +21,7 @@ export function buildTopbar(app: App): HTMLElement {
     'div',
     { class: 'brand' },
     svg(LOGO, 'logo-mark'),
-    h('span', { class: 'word' }, 'Physics', h('b', null, 'Lab')),
+    h('span', { class: 'word' }, 'Physix', h('b', null, 'Lab')),
   );
   const name = h('input', {
     class: 'scene-name',

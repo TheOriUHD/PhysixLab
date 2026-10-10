@@ -5,7 +5,7 @@
  * the app or other plugins.
  */
 import type { App } from '../app/app';
-import type { PhysicsLabApi } from '../api/types';
+import type { PhysixLabApi } from '../api/types';
 import { registerCommand } from '../app/registry/commands';
 import { registerPanel, type PanelDef } from '../app/registry/panels';
 import { registerTemplate } from '../model/content';
@@ -108,7 +108,7 @@ export class PluginHost {
 
   constructor(
     private readonly app: App,
-    private readonly api: PhysicsLabApi,
+    private readonly api: PhysixLabApi,
     private readonly store: PluginStore,
   ) {
     for (const rec of store.load()) this.items.set(rec.manifest.id, this.blank(rec));

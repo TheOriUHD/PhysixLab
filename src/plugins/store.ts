@@ -17,7 +17,7 @@ export interface PluginStore {
   save(list: PluginRecord[]): void;
 }
 
-const KEY = 'physicslab.plugins.v1';
+const KEY = 'physixlab.plugins.v1';
 const MAX_TOTAL_CHARS = 1_500_000;
 
 export class LocalPluginStore implements PluginStore {

@@ -7,8 +7,8 @@ import type { QuantityDef, UnitSystem } from './units';
 import type { Snapshot } from './props';
 import { sanitizeSnapshot } from './props';
 
-const UNITS_KEY = 'physicslab:ui-a:units';
-const PRESETS_KEY = 'physicslab:ui-a:presets';
+const UNITS_KEY = 'physixlab:ui-a:units';
+const PRESETS_KEY = 'physixlab:ui-a:presets';
 
 function read(key: string): unknown {
   try {

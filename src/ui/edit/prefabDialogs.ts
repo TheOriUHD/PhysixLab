@@ -570,7 +570,7 @@ export function exportDialog(app: App, preselected?: readonly string[]): void {
   ok.addEventListener('click', () => {
     const ids = boxes.filter(([, c]) => c.checked).map(([p]) => p.id);
     if (!ids.length) return;
-    download('physicslab-prefabs.json', lib.exportText(ids));
+    download('physixlab-prefabs.json', lib.exportText(ids));
     m.close();
     app.toast(`Exported ${ids.length} prefab${ids.length === 1 ? '' : 's'}`, 'success');
   });
@@ -582,7 +582,7 @@ export async function importPackFile(app: App, file: File): Promise<void> {
     // Refuse before reading: file.text() would load the whole file only for the importer to reject it.
     if (file.size > PREFAB_LIMITS.maxPackChars)
       throw new PrefabPackError(
-        `This file is larger than ${formatBytes(PREFAB_LIMITS.maxPackChars)}, the biggest prefab pack PhysicsLab opens.`,
+        `This file is larger than ${formatBytes(PREFAB_LIMITS.maxPackChars)}, the biggest prefab pack PhysixLab opens.`,
       );
     const { added, warnings } = await prefabLibrary(app).importText(await file.text());
     app.toast(`Imported ${added.length} prefab${added.length === 1 ? '' : 's'}`, 'success');

@@ -26,8 +26,8 @@ export interface StorageLike {
   removeItem(k: string): void;
 }
 
-export const LS_PREFIX = 'physicslab.prefab.';
-export const IDB_NAME = 'physicslab-prefabs';
+export const LS_PREFIX = 'physixlab.prefab.';
+export const IDB_NAME = 'physixlab-prefabs';
 export const IDB_STORE = 'prefabs';
 
 function readPrefab(raw: unknown): StoredPrefab | undefined {

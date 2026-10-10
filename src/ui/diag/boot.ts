@@ -129,6 +129,6 @@ export function showBootFailure(error: unknown): void {
     showBootScreen(document.getElementById('app') ?? document.body, { error, caps: capabilityReport(), getReport });
   } catch (e) {
     // Last resort: plain text, never a blank page.
-    document.body.textContent = `PhysicsLab couldn’t start: ${describeError(error).message} (${describeError(e).message})`;
+    document.body.textContent = `PhysixLab couldn’t start: ${describeError(error).message} (${describeError(e).message})`;
   }
 }

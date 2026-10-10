@@ -15,7 +15,7 @@ const openPalette = async (page) => {
 };
 const paletteLabels = (page) => page.locator('.palette-item .palette-label').allTextContents();
 const paletteClosed = (page) => page.evaluate(() => !document.querySelector('.palette'));
-const prefs = (page) => page.evaluate(() => JSON.parse(JSON.stringify(window.physicslab.prefs.value)));
+const prefs = (page) => page.evaluate(() => JSON.parse(JSON.stringify(window.physixlab.prefs.value)));
 
 test('command palette: Ctrl+K, type "gravity", choose with the arrow keys, Enter runs it; recents come first', async () => {
   const page = await newPage();
@@ -103,13 +103,13 @@ test('command palette: Ctrl+K, type "gravity", choose with the arrow keys, Enter
   assert(/Moon/.test(await activeLabel()), `arrowed down to the Moon preset (${earthAt} / ${moonAt})`);
   await page.keyboard.press('Enter');
   assert(await paletteClosed(page), 'Enter closes the palette');
-  const g = await page.evaluate(() => window.physicslab.store.settings.gravity);
+  const g = await page.evaluate(() => window.physixlab.store.settings.gravity);
   assert(
     g[0] === 0 && g[2] === 0 && near(g[1], -1.62, 1e-9, 'moon gravity') === undefined,
     `gravity is now the Moon's ${g}`,
   );
   assert(
-    (await page.evaluate(() => window.physicslab.store.undoLabel)).includes('Moon'),
+    (await page.evaluate(() => window.physixlab.store.undoLabel)).includes('Moon'),
     'one undo step named after the preset',
   );
   // The World tab shows the same preset: the command and the panel edit the same setting.
@@ -149,8 +149,8 @@ test('command palette: finds scenes, prefabs, maps, saved scenes and settings; c
   );
   assert(rows[0].label === 'Sandbox box' && rows[0].tag === 'Map', `map first: ${JSON.stringify(rows[0])}`);
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => window.physicslab.store.name === 'Sandbox box');
-  assert((await page.evaluate(() => window.physicslab.store.size)) === 110, 'the map loaded (110 objects)');
+  await page.waitForFunction(() => window.physixlab.store.name === 'Sandbox box');
+  assert((await page.evaluate(() => window.physixlab.store.size)) === 110, 'the map loaded (110 objects)');
 
   // A prefab.
   await openPalette(page);
@@ -164,7 +164,7 @@ test('command palette: finds scenes, prefabs, maps, saved scenes and settings; c
     async () => (await import('/src/model/content/index.ts')).getPrefab('pendulum').build().length,
   );
   assert(
-    (await page.evaluate(() => window.physicslab.store.size)) === 110 + pendulum,
+    (await page.evaluate(() => window.physixlab.store.size)) === 110 + pendulum,
     `the prefab was inserted (${pendulum} objects: rod, bob, post, mount, joints)`,
   );
 
@@ -174,7 +174,7 @@ test('command palette: finds scenes, prefabs, maps, saved scenes and settings; c
   await page.keyboard.press('Enter');
   await page.waitForSelector('.modal button:has-text("Replace scene")');
   await page.click('.modal button:has-text("Replace scene")');
-  await page.waitForFunction(() => window.physicslab.store.name.includes('cradle'));
+  await page.waitForFunction(() => window.physixlab.store.name.includes('cradle'));
 
   // A setting shows its state, and running it flips it.
   await openPalette(page);
@@ -191,8 +191,8 @@ test('command palette: finds scenes, prefabs, maps, saved scenes and settings; c
 
   // A saved scene.
   await page.evaluate(() => {
-    window.physicslab.store.setName('My pendulum lab');
-    window.physicslab.persistence.saveToLibrary();
+    window.physixlab.store.setName('My pendulum lab');
+    window.physixlab.persistence.saveToLibrary();
   });
   await openPalette(page);
   await page.keyboard.type('pendulum lab');
@@ -213,7 +213,7 @@ test('command palette: finds scenes, prefabs, maps, saved scenes and settings; c
   await page.keyboard.type('stop and return');
   assert((await paletteLabels(page)).length === 1, 'Reset is offered while simulating');
   await page.keyboard.press('Enter');
-  assert((await page.evaluate(() => window.physicslab.sim.mode)) === 'edit', 'and it resets the simulation');
+  assert((await page.evaluate(() => window.physixlab.sim.mode)) === 'edit', 'and it resets the simulation');
 
   // A command that needs the browser's user-activation (the file picker) still works when run from the palette.
   const chooser = page.waitForEvent('filechooser', { timeout: 5000 });
@@ -242,7 +242,7 @@ test('command palette: finds scenes, prefabs, maps, saved scenes and settings; c
 
 test('keyboard shortcuts generated from the command registry keep working exactly', async () => {
   const page = await newPage();
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   await page.click('.viewport-canvas', { position: { x: 500, y: 300 } });
   const press = async (key) => {
     await page.keyboard.press(key);
@@ -267,7 +267,7 @@ test('keyboard shortcuts generated from the command registry keep working exactl
     p = await press(key);
     assert(p.tool === tool, `${key.toUpperCase()} → ${tool}`);
     assert(
-      await page.evaluate((t) => window.physicslab.viewport.dom.classList.contains(`tool-${t}`), tool),
+      await page.evaluate((t) => window.physixlab.viewport.dom.classList.contains(`tool-${t}`), tool),
       `viewport cursor class tool-${tool}`,
     );
     const hint = await page.evaluate(() => document.querySelector('.hint-bar').textContent);
@@ -297,35 +297,35 @@ test('keyboard shortcuts generated from the command registry keep working exactl
   await page.keyboard.press('Enter');
   await page.keyboard.press('2');
   await page.keyboard.press('Enter');
-  const types = await page.evaluate(() => window.physicslab.store.bodies().map((b) => b.shape.type));
+  const types = await page.evaluate(() => window.physixlab.store.bodies().map((b) => b.shape.type));
   assert(types.join() === [ids[2], ids[1]].join(), `3 and 2 add ${types}`);
 
   // Selection and editing.
   await page.keyboard.press('Control+a');
-  assert((await page.evaluate(() => window.physicslab.store.selection.length)) === 2, 'Ctrl+A selects all');
+  assert((await page.evaluate(() => window.physixlab.store.selection.length)) === 2, 'Ctrl+A selects all');
   await page.keyboard.press('Control+d');
-  assert((await page.evaluate(() => window.physicslab.store.bodies().length)) === 4, 'Ctrl+D duplicates');
+  assert((await page.evaluate(() => window.physixlab.store.bodies().length)) === 4, 'Ctrl+D duplicates');
   await page.keyboard.press('Control+z');
-  assert((await page.evaluate(() => window.physicslab.store.bodies().length)) === 2, 'Ctrl+Z undoes');
+  assert((await page.evaluate(() => window.physixlab.store.bodies().length)) === 2, 'Ctrl+Z undoes');
   assert(/Undo/.test(await page.locator('.toast').last().textContent()), 'with a toast');
   await page.keyboard.press('Control+Shift+z');
-  assert((await page.evaluate(() => window.physicslab.store.bodies().length)) === 4, 'Ctrl+Shift+Z redoes');
+  assert((await page.evaluate(() => window.physixlab.store.bodies().length)) === 4, 'Ctrl+Shift+Z redoes');
   await page.keyboard.press('Control+z');
   await page.keyboard.press('Control+y');
-  assert((await page.evaluate(() => window.physicslab.store.bodies().length)) === 4, 'Ctrl+Y redoes');
+  assert((await page.evaluate(() => window.physixlab.store.bodies().length)) === 4, 'Ctrl+Y redoes');
   await page.keyboard.press('Control+z');
   await page.keyboard.press('Control+g');
   assert(
-    (await page.evaluate(() => window.physicslab.store.all().filter((e) => e.kind === 'group').length)) === 1,
+    (await page.evaluate(() => window.physixlab.store.all().filter((e) => e.kind === 'group').length)) === 1,
     'Ctrl+G groups',
   );
   await page.keyboard.press('Control+Shift+g');
   assert(
-    (await page.evaluate(() => window.physicslab.store.all().filter((e) => e.kind === 'group').length)) === 0,
+    (await page.evaluate(() => window.physixlab.store.all().filter((e) => e.kind === 'group').length)) === 0,
     'Ctrl+Shift+G ungroups',
   );
   await page.keyboard.press('Escape');
-  assert((await page.evaluate(() => window.physicslab.store.selection.length)) === 0, 'Escape deselects');
+  assert((await page.evaluate(() => window.physixlab.store.selection.length)) === 0, 'Escape deselects');
 
   // The app owns its keys: Ctrl+D with nothing selected is still swallowed (the browser would bookmark the page).
   await page.evaluate(() => {
@@ -348,22 +348,22 @@ test('keyboard shortcuts generated from the command registry keep working exactl
   assert(prevented.ArrowUp !== true, 'an arrow key with nothing to nudge is not swallowed as a nudge');
 
   // Hide, lock, nudge, delete on one body.
-  const id = await page.evaluate(() => window.physicslab.store.bodies()[0].id);
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), id);
+  const id = await page.evaluate(() => window.physixlab.store.bodies()[0].id);
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), id);
   await page.keyboard.press('h');
-  assert((await page.evaluate((id) => window.physicslab.store.body(id).hidden, id)) === true, 'H hides');
+  assert((await page.evaluate((id) => window.physixlab.store.body(id).hidden, id)) === true, 'H hides');
   await page.keyboard.press('h');
   await page.keyboard.press('l');
-  assert((await page.evaluate((id) => window.physicslab.store.body(id).locked, id)) === true, 'L locks');
+  assert((await page.evaluate((id) => window.physixlab.store.body(id).locked, id)) === true, 'L locks');
   await page.keyboard.press('l');
-  const at = await page.evaluate((id) => window.physicslab.store.body(id).position, id);
+  const at = await page.evaluate((id) => window.physixlab.store.body(id).position, id);
   await page.keyboard.press('ArrowRight');
-  const moved = await page.evaluate((id) => window.physicslab.store.body(id).position, id);
+  const moved = await page.evaluate((id) => window.physixlab.store.body(id).position, id);
   const d = Math.hypot(moved[0] - at[0], moved[1] - at[1], moved[2] - at[2]);
   const step = (await prefs(page)).snap ? (await prefs(page)).snapGrid : 0.1;
   near(d, step, 1e-6, `an arrow key nudges by ${step} m (the snap grid, or 0.1 with snapping off)`);
   await page.keyboard.press('Shift+ArrowLeft');
-  const back = await page.evaluate((id) => window.physicslab.store.body(id).position, id);
+  const back = await page.evaluate((id) => window.physixlab.store.body(id).position, id);
   near(
     Math.hypot(back[0] - moved[0], back[1] - moved[1], back[2] - moved[2]),
     1,
@@ -371,28 +371,28 @@ test('keyboard shortcuts generated from the command registry keep working exactl
     'Shift+arrow nudges by a metre',
   );
   await page.keyboard.press('Delete');
-  assert(await page.evaluate((id) => !window.physicslab.store.body(id), id), 'Delete deletes');
+  assert(await page.evaluate((id) => !window.physixlab.store.body(id), id), 'Delete deletes');
   await page.keyboard.press('Control+z');
   await page.keyboard.press('Backspace');
-  assert(await page.evaluate((id) => !window.physicslab.store.body(id), id), 'Backspace deletes too');
+  assert(await page.evaluate((id) => !window.physixlab.store.body(id), id), 'Backspace deletes too');
   await page.keyboard.press('Control+z');
 
   // Simulation.
   await page.keyboard.press('Space');
-  assert((await page.evaluate(() => window.physicslab.sim.mode)) === 'running', 'Space starts');
+  assert((await page.evaluate(() => window.physixlab.sim.mode)) === 'running', 'Space starts');
   await simTime(page, 0.3);
   await page.keyboard.press('Space');
-  assert((await page.evaluate(() => window.physicslab.sim.mode)) === 'paused', 'Space pauses');
-  const steps0 = await page.evaluate(() => window.physicslab.sim.client.stats.stepCount);
+  assert((await page.evaluate(() => window.physixlab.sim.mode)) === 'paused', 'Space pauses');
+  const steps0 = await page.evaluate(() => window.physixlab.sim.client.stats.stepCount);
   await page.keyboard.press('.');
-  await page.waitForFunction((n) => window.physicslab.sim.client.stats.stepCount > n, steps0);
+  await page.waitForFunction((n) => window.physixlab.sim.client.stats.stepCount > n, steps0);
   await page.keyboard.press('Shift+Space');
-  assert((await page.evaluate(() => window.physicslab.sim.mode)) === 'edit', 'Shift+Space resets');
+  assert((await page.evaluate(() => window.physixlab.sim.mode)) === 'edit', 'Shift+Space resets');
 
   // Save, help, typing guard.
   await page.keyboard.press('Control+s');
   assert(
-    (await page.evaluate(() => window.physicslab.persistence.library().length)) === 1,
+    (await page.evaluate(() => window.physixlab.persistence.library().length)) === 1,
     'Ctrl+S saves to the library',
   );
   await page.keyboard.press('?');
@@ -411,7 +411,7 @@ test('keyboard shortcuts generated from the command registry keep working exactl
 
 test('menus, toolbox and the shortcut help are generated from the registries — and follow them at run time', async () => {
   const page = await newPage();
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   await page.click('.viewport-canvas', { position: { x: 500, y: 300 } });
 
   // Toolbox and view bar = the tool registry.
@@ -452,7 +452,7 @@ test('menus, toolbox and the shortcut help are generated from the registries —
   await page.click('.toolbox [data-tool="select"]');
   assert((await page.locator('.toolbox [data-tool="select"].on').count()) === 1, 'select armed again');
   await page.click('.toolbox [data-tool="snap"]');
-  assert((await page.evaluate(() => window.physicslab.prefs.value.snap)) === false, 'the snap button toggles snapping');
+  assert((await page.evaluate(() => window.physixlab.prefs.value.snap)) === false, 'the snap button toggles snapping');
   assert((await page.locator('.toolbox [data-tool="snap"].on').count()) === 0, 'and loses its highlight');
   await page.click('.viewbar [data-tool="viewVelocity"]');
   assert(
@@ -488,7 +488,7 @@ test('menus, toolbox and the shortcut help are generated from the registries —
   );
   assert(/^Undo Add/.test(items[0].label) && !items[0].disabled, `Undo names the last edit: ${items[0].label}`);
   await page.click('.menu-item:has-text("Select all")');
-  assert((await page.evaluate(() => window.physicslab.store.selection.length)) === 1, 'Select all runs its command');
+  assert((await page.evaluate(() => window.physixlab.store.selection.length)) === 1, 'Select all runs its command');
   await page.click('.menu-btn:has-text("View")');
   const checks = await page.evaluate(() =>
     [...document.querySelectorAll('.menu .menu-item')]
@@ -513,7 +513,7 @@ test('menus, toolbox and the shortcut help are generated from the registries —
   await page.keyboard.press('Escape');
 
   // Context menu.
-  const pos = await screenOf(page, await page.evaluate(() => window.physicslab.store.bodies()[0].id));
+  const pos = await screenOf(page, await page.evaluate(() => window.physixlab.store.bodies()[0].id));
   await page.mouse.click(pos.x, pos.y, { button: 'right' });
   await page.waitForSelector('.menu');
   const ctx = await page.locator('.menu .menu-item .grow').allTextContents();
@@ -643,21 +643,21 @@ test('panels: the three regions are generated from the panel registry, follow it
   // Arrow keys move between tabs.
   await page.focus('.panel.left .tab.on');
   const chassis = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     return { id: a.store.selection[0], at: a.store.body(a.store.selection[0]).position };
   });
   assert(chassis.id, 'the car scene starts with its chassis selected');
   await page.keyboard.press('ArrowRight');
   assert((await prefs(page)).leftTab === 'prefabs', 'ArrowRight selects the next tab');
   assert(
-    (await page.evaluate((c) => window.physicslab.store.body(c.id).position.join(), chassis)) === chassis.at.join(),
+    (await page.evaluate((c) => window.physixlab.store.body(c.id).position.join(), chassis)) === chassis.at.join(),
     'and does not also nudge the selection',
   );
   await page.keyboard.press('ArrowLeft');
   assert((await prefs(page)).leftTab === 'add', 'ArrowLeft goes back');
 
   // An id that no longer exists falls back to the first tab.
-  await page.evaluate(() => window.physicslab.prefs.set({ leftTab: 'no-such-panel', rightTab: 'gone' }));
+  await page.evaluate(() => window.physixlab.prefs.set({ leftTab: 'no-such-panel', rightTab: 'gone' }));
   assert(
     (await page.locator('.panel.left .tab.on').textContent()).trim() === 'Add',
     'left falls back to the first tab',
@@ -666,7 +666,7 @@ test('panels: the three regions are generated from the panel registry, follow it
 
   // The panel commands.
   await page.evaluate(async () =>
-    (await import('/src/app/registry/index.ts')).runCommand('panel.outliner', window.physicslab, 'api'),
+    (await import('/src/app/registry/index.ts')).runCommand('panel.outliner', window.physixlab, 'api'),
   );
   assert(
     (await prefs(page)).rightTab === 'outliner' &&
@@ -688,7 +688,7 @@ test('panels: the three regions are generated from the panel registry, follow it
   await page.click('.panel.left .tab:has-text("Maps")');
   assert((await page.locator('.panel.left .map-card').count()) >= 2, 'maps are listed');
   await page.click('.panel.left .tab:has-text("Add")');
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   await page.keyboard.press('1');
   await page.keyboard.press('Enter');
   await page.keyboard.press('Space');
@@ -719,7 +719,7 @@ test('panels: the three regions are generated from the panel registry, follow it
       document.querySelector('.panel.right [role=tabpanel]:not([style*="none"])')?.textContent ?? '',
     ),
   );
-  const n0 = await page.evaluate(() => window.physicslab.store.bodies().length);
+  const n0 = await page.evaluate(() => window.physixlab.store.bodies().length);
   await page.keyboard.press('2');
   await page.keyboard.press('Enter');
   await page.waitForFunction(
@@ -781,46 +781,46 @@ test('maps tab: the registered maps with thumbnails, filter, open one (camera + 
   await page.fill('#panel-maps .search input', '');
 
   // Open the sandbox: scene, camera and objective.
-  const camBefore = await page.evaluate(() => window.physicslab.camera.position.toArray());
+  const camBefore = await page.evaluate(() => window.physixlab.camera.position.toArray());
   await page.click('.map-card[data-map="sandbox-box"]');
-  await page.waitForFunction(() => window.physicslab.store.name === 'Sandbox box');
-  assert((await page.evaluate(() => window.physicslab.store.size)) === 110, '110 objects');
+  await page.waitForFunction(() => window.physixlab.store.name === 'Sandbox box');
+  assert((await page.evaluate(() => window.physixlab.store.size)) === 110, '110 objects');
   const toast = await page.locator('.toast').last().textContent();
   assert(/Free play/.test(toast), `the objective is shown (${toast})`);
   await page.waitForFunction(
-    () => window.physicslab.camera.position.y > 7 && window.physicslab.camera.position.y < 10,
+    () => window.physixlab.camera.position.y > 7 && window.physixlab.camera.position.y < 10,
     null,
     { timeout: 5000 },
   );
-  const cam = await page.evaluate(() => window.physicslab.camera.position.toArray());
+  const cam = await page.evaluate(() => window.physixlab.camera.position.toArray());
   assert(Math.hypot(...cam.map((v, i) => v - camBefore[i])) > 1, 'the camera flew to the map’s opening view');
   await shot(page, 'fb-map-sandbox-box');
   await page.keyboard.press('Space');
   await simTime(page, 1);
-  const stats = await page.evaluate(() => window.physicslab.sim.client.stats);
+  const stats = await page.evaluate(() => window.physixlab.sim.client.stats);
   assert(stats.bodies === 110, `the map simulates (${stats.bodies} bodies)`);
   await page.keyboard.press('Shift+Space');
 
   // The scene now has no unsaved edits, but the arena after a prefab would ask first.
   await page.click('.map-card[data-map="empty-arena"]');
-  await page.waitForFunction(() => window.physicslab.store.name === 'Empty arena');
-  assert((await page.evaluate(() => window.physicslab.store.size)) === 4, 'the empty arena is four walls');
+  await page.waitForFunction(() => window.physixlab.store.name === 'Empty arena');
+  assert((await page.evaluate(() => window.physixlab.store.size)) === 4, 'the empty arena is four walls');
   await shot(page, 'fb-map-empty-arena');
   assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
 });
 
 test('extension examples from docs/EXTENDING.md run in the real app: command, tool, inspector section, template, prefab and map', async () => {
   const page = await newPage();
-  await page.evaluate(() => window.physicslab.newScene());
-  const box = await page.evaluate(() => window.physicslab.addShape('box', [0, 0.5, 0]).id);
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), box);
+  await page.evaluate(() => window.physixlab.newScene());
+  const box = await page.evaluate(() => window.physixlab.addShape('box', [0, 0.5, 0]).id);
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), box);
 
   // command + menu entry
   await page.evaluate(async () => {
     await import('/tests/examples/lift-command.ts');
   });
   await page.keyboard.press('Control+Shift+u');
-  const y = await page.evaluate((id) => window.physicslab.store.body(id).position[1], box);
+  const y = await page.evaluate((id) => window.physixlab.store.body(id).position[1], box);
   near(y, 1.5, 1e-9, 'the example command lifts the selection by a metre');
   await page.click('.menu-btn:has-text("Edit")');
   const lift = page.locator('.menu .menu-item:has-text("Lift selection by 1 m")');
@@ -830,7 +830,7 @@ test('extension examples from docs/EXTENDING.md run in the real app: command, to
   );
   await lift.click();
   near(
-    await page.evaluate((id) => window.physicslab.store.body(id).position[1], box),
+    await page.evaluate((id) => window.physixlab.store.body(id).position[1], box),
     2.5,
     1e-9,
     'the menu item runs it too',
@@ -846,16 +846,16 @@ test('extension examples from docs/EXTENDING.md run in the real app: command, to
   await page.keyboard.press('d');
   assert((await prefs(page)).tool === 'dropper', 'D arms it');
   assert(/Click the ground to drop a ball/.test(await page.locator('.hint-bar').textContent()), 'its hint is shown');
-  const n0 = await page.evaluate(() => window.physicslab.store.bodies().length);
+  const n0 = await page.evaluate(() => window.physixlab.store.bodies().length);
   await page.mouse.click(300, 600);
   const spheres = await page.evaluate(() =>
-    window.physicslab.store
+    window.physixlab.store
       .bodies()
       .filter((b) => b.shape.type === 'sphere')
       .map((b) => b.position),
   );
   assert(
-    (await page.evaluate(() => window.physicslab.store.bodies().length)) === n0 + 1 &&
+    (await page.evaluate(() => window.physixlab.store.bodies().length)) === n0 + 1 &&
       spheres.length === 1 &&
       spheres[0][1] === 2,
     `clicking the ground drops a ball from 2 m (${JSON.stringify(spheres)})`,
@@ -866,7 +866,7 @@ test('extension examples from docs/EXTENDING.md run in the real app: command, to
   await page.evaluate(async () => {
     await import('/tests/examples/volume-section.ts');
   });
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), box);
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), box);
   await page.waitForSelector('.panel.right .section-head:has-text("Volume")');
   const vol = await page.locator('.panel.right .row:has(.row-label:text-is("Shape volume")) .readout').textContent();
   assert(vol === '1.000 m³', `the section shows the volume (${vol})`);
@@ -877,7 +877,7 @@ test('extension examples from docs/EXTENDING.md run in the real app: command, to
     order.indexOf('Volume') > order.indexOf('Physics') && order.indexOf('Volume') < order.indexOf('Organise'),
     `at its place between the body panel and Organise: ${order}`,
   );
-  await page.evaluate((id) => window.physicslab.store.update(id, { shape: { type: 'box', size: [2, 1, 1] } }), box);
+  await page.evaluate((id) => window.physixlab.store.update(id, { shape: { type: 'box', size: [2, 1, 1] } }), box);
   await page.waitForFunction(() => document.querySelector('.panel.right .row .readout')?.textContent !== undefined);
   const vol2 = await page.locator('.panel.right .row:has(.row-label:text-is("Shape volume")) .readout').textContent();
   assert(vol2 === '2.000 m³', `and follows edits (${vol2})`);
@@ -893,7 +893,7 @@ test('extension examples from docs/EXTENDING.md run in the real app: command, to
   await page.click('.panel.left .tab:has-text("Prefabs")');
   await page.dblclick('.card:has-text("Domino trio")');
   assert(
-    (await page.evaluate(() => window.physicslab.store.bodies().filter((b) => b.name === 'Domino').length)) === 3,
+    (await page.evaluate(() => window.physixlab.store.bodies().filter((b) => b.name === 'Domino').length)) === 3,
     'the prefab inserts three dominoes',
   );
   await page.click('.panel.left .tab:has-text("Maps")');
@@ -902,11 +902,11 @@ test('extension examples from docs/EXTENDING.md run in the real app: command, to
   await page.click('.card:has-text("Three ramps")');
   await page.waitForSelector('.modal button:has-text("Replace scene")');
   await page.click('.modal button:has-text("Replace scene")');
-  await page.waitForFunction(() => window.physicslab.store.name === 'Three ramps');
+  await page.waitForFunction(() => window.physixlab.store.name === 'Three ramps');
   await page.keyboard.press('Space');
   await simTime(page, 1);
   const dist = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const out = {};
     for (const b of a.store.bodies().filter((x) => x.name.endsWith(' block'))) {
       const p = a.sim.poseOf(b.id);
@@ -928,9 +928,9 @@ test('extension examples from docs/EXTENDING.md run in the real app: command, to
 
 test('keyboard: Ctrl+K works inside text fields; a focused panel tab leaves the arrow keys to the simulation; tooltips follow the keymap', async () => {
   const page = await newPage();
-  await page.evaluate(() => window.physicslab.newScene());
-  const id = await page.evaluate(() => window.physicslab.addShape('box', [0, 0.5, 0]).id);
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), id);
+  await page.evaluate(() => window.physixlab.newScene());
+  const id = await page.evaluate(() => window.physixlab.addShape('box', [0, 0.5, 0]).id);
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), id);
 
   // The palette key is handled before a field can swallow it (the scene name, number fields and filters stop their
   // key events from bubbling so typing never reaches the shortcuts).
@@ -976,9 +976,9 @@ test('keyboard: Ctrl+K works inside text fields; a focused panel tab leaves the 
   await page.keyboard.down('ArrowRight');
   // the input hub copies the held keys into the simulation's key set once per frame
   await page
-    .waitForFunction(() => window.physicslab.sim.keys.has('ArrowRight'), null, { timeout: 5000 })
+    .waitForFunction(() => window.physixlab.sim.keys.has('ArrowRight'), null, { timeout: 5000 })
     .catch(() => undefined);
-  const held = await page.evaluate(() => [...window.physicslab.sim.keys]);
+  const held = await page.evaluate(() => [...window.physixlab.sim.keys]);
   await page.keyboard.up('ArrowRight');
   assert(held.includes('ArrowRight'), `the simulation sees the arrow key (${held})`);
   assert((await prefs(page)).rightTab === 'outliner', 'and the tab stays put');

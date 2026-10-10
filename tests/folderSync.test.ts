@@ -52,16 +52,16 @@ function fakeDir() {
 }
 
 describe('folder sync (DT-13)', () => {
-  it('writes scenes as <name>.physicslab.json and lists / reads them back', async () => {
+  it('writes scenes as <name>.physixlab.json and lists / reads them back', async () => {
     const { dir, files } = fakeDir();
     const sync = new FolderSync(dir);
     const doc = newDocument('My: scene/1');
     doc.entities = [createBody({ name: 'box' })];
     expect(await sync.saveScene(doc)).toBe('saved');
-    expect([...files.keys()]).toEqual(['My_ scene_1.physicslab.json']);
-    expect((await sync.listScenes()).map((f) => f.name)).toEqual(['My_ scene_1.physicslab.json']);
-    expect((await sync.readScene('My_ scene_1.physicslab.json')).entities[0].name).toBe('box');
-    expect(fileNameFor('')).toBe('scene.physicslab.json');
+    expect([...files.keys()]).toEqual(['My_ scene_1.physixlab.json']);
+    expect((await sync.listScenes()).map((f) => f.name)).toEqual(['My_ scene_1.physixlab.json']);
+    expect((await sync.readScene('My_ scene_1.physixlab.json')).entities[0].name).toBe('box');
+    expect(fileNameFor('')).toBe('scene.physixlab.json');
   });
 
   it('detects an external edit and reports a conflict instead of overwriting', async () => {
@@ -71,7 +71,7 @@ describe('folder sync (DT-13)', () => {
     sync.onEvent = (e) => events.push(e);
     const doc = newDocument('Shared');
     await sync.saveScene(doc);
-    const file = 'Shared.physicslab.json';
+    const file = 'Shared.physixlab.json';
     // another device changes the file
     const other = newDocument('Shared');
     other.entities = [createBody({ name: 'from elsewhere' })];
@@ -93,18 +93,18 @@ describe('folder sync (DT-13)', () => {
     const sync = new FolderSync(dir);
     const doc = newDocument('Same');
     await sync.saveScene(doc);
-    const m1 = files.get('Same.physicslab.json')!.modified;
+    const m1 = files.get('Same.physixlab.json')!.modified;
     await sync.saveScene(doc);
-    expect(files.get('Same.physicslab.json')!.modified).toBe(m1);
+    expect(files.get('Same.physixlab.json')!.modified).toBe(m1);
   });
 
   it('reading a file marks it as known, so a later external edit is a conflict', async () => {
     const { dir, touch } = fakeDir();
     const sync = new FolderSync(dir);
-    touch('A.physicslab.json', serializeDocument(newDocument('A'), 1));
-    await sync.readScene('A.physicslab.json');
+    touch('A.physixlab.json', serializeDocument(newDocument('A'), 1));
+    await sync.readScene('A.physixlab.json');
     expect(await sync.externalChanges()).toEqual([]);
-    touch('A.physicslab.json', serializeDocument(newDocument('A changed'), 1));
-    expect(await sync.externalChanges()).toEqual(['A.physicslab.json']);
+    touch('A.physixlab.json', serializeDocument(newDocument('A changed'), 1));
+    expect(await sync.externalChanges()).toEqual(['A.physixlab.json']);
   });
 });

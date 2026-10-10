@@ -1,6 +1,6 @@
 # Getting started
 
-PhysicsLab is a physics sandbox: build something, press **Simulate**, and watch (and poke) it move.
+PhysixLab is a physics sandbox: build something, press **Simulate**, and watch (and poke) it move.
 
 ## The screen
 

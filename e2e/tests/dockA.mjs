@@ -32,10 +32,10 @@ test('dock: dragging a tab to another region moves the panel, and the layout sur
   assert(await page.locator('.panel.left .outliner').isVisible(), 'its content shows in the left region');
   await page.waitForTimeout(300);
   await page.reload();
-  await page.waitForFunction(() => !!window.physicslab);
+  await page.waitForFunction(() => !!window.physixlab);
   assert((await tabsOf(page, '.panel.left')).includes('Outliner'), 'layout restored after a reload');
   await page.evaluate(async () =>
-    (await import('/src/app/registry/index.ts')).runCommand('layout.reset', window.physicslab, 'api'),
+    (await import('/src/app/registry/index.ts')).runCommand('layout.reset', window.physixlab, 'api'),
   );
   assert((await tabsOf(page, '.panel.right')).includes('Outliner'), 'Reset layout puts it back');
   assert(page.errors.length === 0, page.errors.join(' | '));
@@ -57,7 +57,7 @@ test('dock: dropping on a group edge splits it; a panel pops out as a floating w
 
   // Float the outliner through the command (keyboard route), then move and resize it with the mouse.
   await page.evaluate(async () =>
-    (await import('/src/app/registry/index.ts')).runCommand('panel.outliner.float', window.physicslab, 'api'),
+    (await import('/src/app/registry/index.ts')).runCommand('panel.outliner.float', window.physixlab, 'api'),
   );
   const win = page.locator('.dock-float-layer .dock-group');
   assert((await win.count()) === 1, 'one floating window');
@@ -102,30 +102,30 @@ test('dock: layout presets and saved layouts', async () => {
   const page = await newPage();
   const run = (id) =>
     page.evaluate(
-      async (id) => (await import('/src/app/registry/index.ts')).runCommand(id, window.physicslab, 'api'),
+      async (id) => (await import('/src/app/registry/index.ts')).runCommand(id, window.physixlab, 'api'),
       id,
     );
   await run('layout.preset.present');
-  const p = await page.evaluate(() => window.physicslab.prefs.value);
+  const p = await page.evaluate(() => window.physixlab.prefs.value);
   assert(!p.showLeft && !p.showRight && !p.showBottom, 'Present hides every dock');
   await run('layout.preset.analyse');
   assert(await page.locator('.dock').isVisible(), 'Analyse shows the bottom dock');
   assert((await page.locator('.dock').boundingBox()).height > 280, 'and makes it tall');
   await page.evaluate(() => {
-    const d = window.physicslab;
+    const d = window.physixlab;
     d.prefs.set({ showRight: true });
   });
   await run('layout.preset.build');
   assert((await page.locator('.panel.right .dock-group').count()) === 2, 'Build puts the outliner in its own group');
   await page.evaluate(async () => {
     const m = await import('/src/ui/dock/dockManager.ts');
-    m.getDock(window.physicslab).saveCurrent('Mine');
+    m.getDock(window.physixlab).saveCurrent('Mine');
   });
   await run('layout.reset');
   assert((await page.locator('.panel.right .dock-group').count()) === 1, 'reset: one group');
   await page.evaluate(async () => {
     const m = await import('/src/ui/dock/dockManager.ts');
-    m.getDock(window.physicslab).applySaved('Mine');
+    m.getDock(window.physixlab).applySaved('Mine');
   });
   assert((await page.locator('.panel.right .dock-group').count()) === 2, 'the saved layout comes back');
   assert(page.errors.length === 0, page.errors.join(' | '));

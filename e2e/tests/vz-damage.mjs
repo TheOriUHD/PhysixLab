@@ -10,7 +10,7 @@ const test = (name, fn) => tests.push({ name, fn });
 test('damage: a hard landing damages the body, the shader shows it, reset clears it', async () => {
   const page = await newPage('&scene=&quality=low');
   const id = await page.evaluate(async () => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     const { createBody } = await import('/src/model/factory.ts');
     const b = createBody({
@@ -23,9 +23,9 @@ test('damage: a hard landing damages the body, the shader shows it, reset clears
     a.sim.play();
     return b.id;
   });
-  await page.waitForFunction((id) => window.physicslab.damage.damageOf(id) > 0.2, id, { timeout: 60000 });
+  await page.waitForFunction((id) => window.physixlab.damage.damageOf(id) > 0.2, id, { timeout: 60000 });
   const d = await page.evaluate((id) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const v = a.bodies.get(id);
     return {
       model: a.damage.damageOf(id),
@@ -35,8 +35,8 @@ test('damage: a hard landing damages the body, the shader shows it, reset clears
   }, id);
   assert(d.view === d.model && d.uniform === d.model, `view and shader follow the model ${JSON.stringify(d)}`);
   await shot(page, 'vz41-damage');
-  await page.evaluate(() => window.physicslab.sim.reset());
-  const after = await page.evaluate((id) => window.physicslab.damage.damageOf(id), id);
+  await page.evaluate(() => window.physixlab.sim.reset());
+  const after = await page.evaluate((id) => window.physixlab.damage.damageOf(id), id);
   assert(after === 0, `reset clears damage (${after})`);
   assert(ownErrors(page).length === 0, ownErrors(page).join(' | '));
 });

@@ -357,16 +357,16 @@ describe('stored preferences', () => {
     install();
     const { PrefsStore } = await import('../src/app/prefs');
     store.set(
-      'physicslab:prefs:v1',
+      'physixlab:prefs:v1',
       JSON.stringify({ fx: { enabled: false, quality: 'ultra', intensity: 99, skidMarks: 'maybe', debris: false } }),
     );
     const p = new PrefsStore();
     expect(p.value.fx).toMatchObject({ enabled: false, quality: 'auto', intensity: 2, skidMarks: true, debris: false });
     p.set({ fx: { ...p.value.fx, quality: 'low' } });
-    expect((JSON.parse(store.get('physicslab:prefs:v1') as string) as { fx: { quality: string } }).fx.quality).toBe(
+    expect((JSON.parse(store.get('physixlab:prefs:v1') as string) as { fx: { quality: string } }).fx.quality).toBe(
       'low',
     );
-    store.set('physicslab:prefs:v1', '{not json');
+    store.set('physixlab:prefs:v1', '{not json');
     expect(new PrefsStore().value.fx.enabled).toBe(true); // storage garbage: defaults
   });
 

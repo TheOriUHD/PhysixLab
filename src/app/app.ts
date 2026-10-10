@@ -2,7 +2,7 @@
  * App — wires the document store, the simulation controller, the renderer and the editor
  * commands together. UI panels talk to this class; this class never builds panel DOM.
  *
- * `App` is the façade (`window.physicslab`): it owns the long-lived objects and the event wiring and
+ * `App` is the façade (`window.physixlab`): it owns the long-lived objects and the event wiring and
  * forwards the high-level commands to small collaborators, each in its own module:
  *
  *   prefsSync       preferences → renderer / simulation / gizmo, tool hints

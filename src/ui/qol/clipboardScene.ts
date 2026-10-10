@@ -1,4 +1,4 @@
-/** Recognise a PhysicsLab scene in clipboard text (UI-42): cheap checks first, so ordinary pastes cost nothing. */
+/** Recognise a PhysixLab scene in clipboard text (UI-42): cheap checks first, so ordinary pastes cost nothing. */
 import { LIMITS } from '../../model/limits';
 import { isRecord } from './storage';
 

@@ -16,7 +16,7 @@ export class ThumbCache {
 
   constructor(
     private storage: ThumbStorage | null,
-    private prefix = 'physicslab.thumb.',
+    private prefix = 'physixlab.thumb.',
   ) {}
 
   get(id: string, fingerprint: string): string | null {

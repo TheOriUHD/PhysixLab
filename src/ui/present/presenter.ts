@@ -29,7 +29,7 @@ import {
   type Vec3,
 } from './model';
 
-const STORAGE_KEY = 'physicslab:present:v1';
+const STORAGE_KEY = 'physixlab:present:v1';
 const HIDDEN = 'qol-hidden';
 
 export interface CaptureResult {
@@ -42,7 +42,7 @@ export interface CaptureResult {
   name: string;
 }
 
-// Keyed by the scene store: `window.physicslab` is a proxy of the App (src/api), but both share one store.
+// Keyed by the scene store: `window.physixlab` is a proxy of the App (src/api), but both share one store.
 const instances = new WeakMap<object, Presenter>();
 
 export function getPresenter(app: App, storage: KeyValueStore = browserStorage()): Presenter {

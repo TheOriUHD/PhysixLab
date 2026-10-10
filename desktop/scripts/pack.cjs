@@ -22,7 +22,7 @@ async function main() {
   const out = await packager({
     dir: here,
     out: path.join(here, 'out'),
-    name: 'PhysicsLab',
+    name: 'PhysixLab',
     overwrite: true,
     platform: arg('platform') ?? process.platform,
     arch: arg('arch') ?? process.arch,

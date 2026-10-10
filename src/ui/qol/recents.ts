@@ -36,8 +36,8 @@ export const RECENT_LIMITS = {
   perEntryChars: 300_000,
 } as const;
 
-const LIST_KEY = 'physicslab:qol:recents:v1';
-const DATA_KEY = 'physicslab:qol:recentdata:v1';
+const LIST_KEY = 'physixlab:qol:recents:v1';
+const DATA_KEY = 'physixlab:qol:recentdata:v1';
 
 const SOURCE_KINDS = new Set(['template', 'map', 'library', 'file', 'paste']);
 

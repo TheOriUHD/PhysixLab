@@ -1,4 +1,4 @@
-# PhysicsLab — engineering rules for every contributor (human or agent)
+# PhysixLab — engineering rules for every contributor (human or agent)
 
 Read this before touching code. The product bar is **premium**: every feature must be real, working, tested and polished. A feature is either genuinely implemented or it is not in the UI.
 
@@ -33,12 +33,7 @@ E2E_URL=http://127.0.0.1:5173 npm run test:e2e    # use an already running dev s
 * Use your own `E2E_PORT` (and Vite dev port) when working in a worktree so parallel packages do not collide. Never edit `src/` while an e2e run against the same dev server is in progress (HMR reloads break the run).
 * Vitest swallows `console.log`; use `process.stderr.write` for debugging. Do not `pkill -f` with a pattern that matches your own shell.
 * If you work in a git worktree: run `ln -s <main-checkout>/node_modules node_modules` (it is git-ignored), create a branch named after your package (`git checkout -b wp/<id>`), commit there with clear messages, and report the branch name and head SHA. Do not push; the integrator merges.
-* Commit message footer (when you commit):
-  ```
-  Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
-  Claude-Session: <session link, if your tool provides one>
-  ```
-  Never put model identifiers anywhere else in the repository (code comments, docs, PRs).
+* Commits are authored by the repository owner only: use the repo's configured `user.name` / `user.email`, and write plain commit messages. **No `Co-Authored-By` lines, no session links, no tool or model attribution** in commit messages, pull-request text, code comments or docs.
 
 ## Map of the code
 

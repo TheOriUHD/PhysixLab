@@ -302,7 +302,7 @@ describe('QR encoder (DT-21)', () => {
   });
 
   it('renders an SVG whose dark path covers exactly the dark modules', () => {
-    const qr = encodeQr('PhysicsLab', { ecl: 'M' });
+    const qr = encodeQr('PhysixLab', { ecl: 'M' });
     const svg = qrToSvg(qr, 4);
     expect(svg).toContain(`viewBox="0 0 ${qr.size + 8} ${qr.size + 8}"`);
     // Rebuild the module set from the path ("M x,y h w v1 h -w z" runs) and compare with the matrix.

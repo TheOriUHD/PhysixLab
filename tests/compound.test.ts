@@ -498,7 +498,7 @@ describe('compound helpers and the sanitiser', () => {
     const report = newReport();
     const doc = sanitizeDocument(
       {
-        format: 'physicslab-scene',
+        format: 'physixlab-scene',
         entities: [
           {
             kind: 'body',

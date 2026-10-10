@@ -129,8 +129,8 @@ describe('thumbnail cache (SH-13)', () => {
 
   it('survives corrupt entries, foreign data and a storage that throws', () => {
     const storage = new MemoryStorage();
-    storage.setItem('physicslab.thumb.box', '{not json');
-    storage.setItem('physicslab.thumb.sphere', JSON.stringify({ f: 'x', u: 'javascript:alert(1)' }));
+    storage.setItem('physixlab.thumb.box', '{not json');
+    storage.setItem('physixlab.thumb.sphere', JSON.stringify({ f: 'x', u: 'javascript:alert(1)' }));
     const c = new ThumbCache(storage);
     expect(c.get('box', 'x')).toBeNull();
     expect(c.get('sphere', 'x')).toBeNull();

@@ -1,4 +1,4 @@
-# Embedding PhysicsLab, link previews and QR codes (DT-21, DT-22)
+# Embedding PhysixLab, link previews and QR codes (DT-21, DT-22)
 
 ## 1. The viewer (`?embed=1`)
 
@@ -34,8 +34,8 @@ lock, grabbing, current camera) with a live preview and a copy button. The scene
 link the dialog says so and offers nothing to copy; host the scene file and use your own page instead.
 
 ```html
-<iframe src="https://YOUR-HOST/physicslab/?embed=1&amp;autoplay=1#s=…" width="640" height="400"
-        style="border:0;max-width:100%" title="PhysicsLab simulation" loading="lazy"
+<iframe src="https://YOUR-HOST/physixlab/?embed=1&amp;autoplay=1#s=…" width="640" height="400"
+        style="border:0;max-width:100%" title="PhysixLab simulation" loading="lazy"
         allow="fullscreen" allowfullscreen></iframe>
 ```
 
@@ -44,12 +44,12 @@ machine the dialog is sluggish for a moment while the preview boots.
 
 ## 2. The `postMessage` API (protocol version 1)
 
-All messages are plain objects with `type: 'physicslab'`. The viewer ignores everything else.
+All messages are plain objects with `type: 'physixlab'`. The viewer ignores everything else.
 
 **Parent to viewer** (`iframe.contentWindow.postMessage(msg, viewerOrigin)`):
 
 ```js
-{ type: 'physicslab', v: 1, id: 'optional-correlation-id', cmd: 'play' }
+{ type: 'physixlab', v: 1, id: 'optional-correlation-id', cmd: 'play' }
 ```
 
 | `cmd` | Extra fields | Effect |
@@ -65,9 +65,9 @@ All messages are plain objects with `type: 'physicslab'`. The viewer ignores eve
 **Viewer to parent:**
 
 ```js
-{ type: 'physicslab', v: 1, event: 'ready', capabilities: [...], state }   // once, after the scene is loaded
-{ type: 'physicslab', v: 1, event: 'state', reason: 'play', state, id? }    // reply to a command; also sent when play / pause / reset happens by any means
-{ type: 'physicslab', v: 1, event: 'error', code, message, id? }            // codes: bad-message, bad-scene, failed
+{ type: 'physixlab', v: 1, event: 'ready', capabilities: [...], state }   // once, after the scene is loaded
+{ type: 'physixlab', v: 1, event: 'state', reason: 'play', state, id? }    // reply to a command; also sent when play / pause / reset happens by any means
+{ type: 'physixlab', v: 1, event: 'error', code, message, id? }            // codes: bad-message, bad-scene, failed
 ```
 
 `state` is `{ mode: 'edit'|'paused'|'running', time /* simulated seconds */, sceneName, bodies, camera: { position, target } }`.
@@ -80,8 +80,8 @@ const frame = document.querySelector('iframe');
 const VIEWER = 'https://YOUR-HOST';
 addEventListener('message', (e) => {
   if (e.source !== frame.contentWindow || e.origin !== VIEWER) return;
-  if (e.data?.type === 'physicslab' && e.data.event === 'ready') {
-    frame.contentWindow.postMessage({ type: 'physicslab', cmd: 'play' }, VIEWER);
+  if (e.data?.type === 'physixlab' && e.data.event === 'ready') {
+    frame.contentWindow.postMessage({ type: 'physixlab', cmd: 'play' }, VIEWER);
   }
 });
 ```
@@ -125,7 +125,7 @@ landing page per scene, with the meta tags in its `<head>`, that redirects to (o
 
 ```html
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="PhysicsLab">
+<meta property="og:site_name" content="PhysixLab">
 <meta property="og:title" content="Drivable car">
 <meta property="og:description" content="An interactive physics scene - open the link to play with it.">
 <meta property="og:url" content="https://YOUR-HOST/scenes/drivable-car">

@@ -1,5 +1,5 @@
 /**
- * DT-40: PhysicsLab service worker (hand-written, no dependencies). This file is a TEMPLATE: the Vite plugin in
+ * DT-40: PhysixLab service worker (hand-written, no dependencies). This file is a TEMPLATE: the Vite plugin in
  * scripts/vite/pwa.ts replaces the `BUILD` block below with the build's version and precache list and writes the
  * result to dist/sw.js. It is a classic script (not a module) so every browser can register it.
  *

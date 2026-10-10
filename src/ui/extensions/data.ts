@@ -32,7 +32,7 @@ registerCommand({
   label: 'Storage…',
   category: 'File',
   icon: 'settings',
-  description: 'See how much browser storage PhysicsLab uses and clean it up',
+  description: 'See how much browser storage PhysixLab uses and clean it up',
   keywords: ['quota', 'space', 'clear', 'cache', 'indexeddb', 'disk'],
   run: async ({ app }) => (await import('../data/storageDialog')).showStorageDialog(app),
 });

@@ -13,21 +13,21 @@ export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
 const noErrors = (page) => assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
-const play = (page) => page.evaluate(() => window.physicslab.sim.play());
-const pause = (page) => page.evaluate(() => window.physicslab.sim.pause());
+const play = (page) => page.evaluate(() => window.physixlab.sim.play());
+const pause = (page) => page.evaluate(() => window.physixlab.sim.pause());
 /**
  * Any real click inside the page is a user gesture; this one lands on empty sky in the select tool. Returns once the
  * context runs and the engine has prepared its common sounds (a slow software-GL page needs a while for that).
  */
 const gesture = async (page) => {
   await page.mouse.click(330, 160);
-  await page.waitForFunction(() => window.physicslab.audio.state === 'running', null, { timeout: 15000 });
-  await page.waitForFunction(() => window.physicslab.audioDirector.stats.warming === 0, null, { timeout: 90000 });
+  await page.waitForFunction(() => window.physixlab.audio.state === 'running', null, { timeout: 15000 });
+  await page.waitForFunction(() => window.physixlab.audioDirector.stats.warming === 0, null, { timeout: 90000 });
 };
-const stats = (page) => page.evaluate(() => window.physicslab.audioDirector.stats);
-const recent = (page) => page.evaluate(() => window.physicslab.audio.recent.map((r) => ({ ...r })));
-const keysOf = (page) => page.evaluate(() => window.physicslab.audio.cachedKeys());
-const loops = (page) => page.evaluate(() => window.physicslab.audioDirector.describeLoops());
+const stats = (page) => page.evaluate(() => window.physixlab.audioDirector.stats);
+const recent = (page) => page.evaluate(() => window.physixlab.audio.recent.map((r) => ({ ...r })));
+const keysOf = (page) => page.evaluate(() => window.physixlab.audio.cachedKeys());
+const loops = (page) => page.evaluate(() => window.physixlab.audioDirector.describeLoops());
 const hasKey = (keys, prefix) => keys.some((k) => k.startsWith(prefix));
 
 /** Sound-related console output (warnings included) and requests for audio files, collected on a page. */
@@ -50,7 +50,7 @@ const loadScene = (page, name, build, view) =>
       const { Builder } = await import('/src/model/builder.ts');
       const b = new Builder(name);
       new Function(`return (${src})`)()(b);
-      const a = window.physicslab;
+      const a = window.physixlab;
       a.loadDocument(b.done());
       if (view) a.viewport.setView(view);
     },
@@ -93,19 +93,19 @@ test('audio: no AudioContext until a user gesture, then it starts inside that ge
       };
     });
     await page.goto(`${origin}/?nowelcome&scene=pit`);
-    await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport, null, { timeout: 30000 });
+    await page.waitForFunction(() => !!window.physixlab && window.physixlab.viewport, null, { timeout: 30000 });
     await page.waitForTimeout(700);
-    let s = await page.evaluate(() => ({ state: window.physicslab.audio.state, ctxs: window.__ctxs.length }));
+    let s = await page.evaluate(() => ({ state: window.physixlab.audio.state, ctxs: window.__ctxs.length }));
     assert(s.state === 'idle' && s.ctxs === 0, `nothing created before any gesture ${JSON.stringify(s)}`);
     // Moving the mouse and scrolling are not gestures.
     await page.mouse.move(400, 300);
     await page.mouse.wheel(0, 40);
     await page.waitForTimeout(250);
-    s = await page.evaluate(() => ({ state: window.physicslab.audio.state, ctxs: window.__ctxs.length }));
+    s = await page.evaluate(() => ({ state: window.physixlab.audio.state, ctxs: window.__ctxs.length }));
     assert(s.state === 'idle' && s.ctxs === 0, `still nothing after moving and scrolling ${JSON.stringify(s)}`);
     // A click is a gesture: the context is created inside the pointer event.
     await page.mouse.click(330, 160);
-    await page.waitForFunction(() => window.physicslab.audio.state === 'running', null, { timeout: 15000 });
+    await page.waitForFunction(() => window.physixlab.audio.state === 'running', null, { timeout: 15000 });
     s = await page.evaluate(() => ({ ctxs: window.__ctxs }));
     assert(
       s.ctxs.length === 1 && s.ctxs[0].trusted && /^(pointerdown|pointerup|keydown|touchend)$/.test(s.ctxs[0].event),
@@ -113,11 +113,11 @@ test('audio: no AudioContext until a user gesture, then it starts inside that ge
     );
     // Run the simulation: collisions make sound; mute and unmute (the context suspends and resumes on its own).
     await page.click('.tbtn.play');
-    await page.waitForFunction(() => window.physicslab.audioDirector.stats.started > 3, null, { timeout: 90000 });
+    await page.waitForFunction(() => window.physixlab.audioDirector.stats.started > 3, null, { timeout: 90000 });
     await page.keyboard.press('Shift+M');
-    await page.waitForFunction(() => window.physicslab.audio.context.state === 'suspended', null, { timeout: 10000 });
+    await page.waitForFunction(() => window.physixlab.audio.context.state === 'suspended', null, { timeout: 10000 });
     await page.keyboard.press('Shift+M');
-    await page.waitForFunction(() => window.physicslab.audio.context.state === 'running', null, { timeout: 10000 });
+    await page.waitForFunction(() => window.physixlab.audio.context.state === 'running', null, { timeout: 10000 });
     assert((await page.evaluate(() => window.__ctxs.length)) === 1, 'muting and unmuting reuse the one context');
     const bad = messages.filter(
       (m) =>
@@ -140,33 +140,33 @@ test('audio: keys that are not user activations (Escape) do not start the contex
   await page.mouse.click(330, 160); // not yet "active" as far as the engine is told
   await page.waitForTimeout(300);
   assert(
-    (await page.evaluate(() => window.physicslab.audio.state)) === 'idle',
+    (await page.evaluate(() => window.physixlab.audio.state)) === 'idle',
     'no context without a recorded activation',
   );
   await page.evaluate(() => (window.__activation.hasBeenActive = true));
   await page.keyboard.press('KeyA');
-  await page.waitForFunction(() => window.physicslab.audio.state === 'running', null, { timeout: 15000 });
+  await page.waitForFunction(() => window.physixlab.audio.state === 'running', null, { timeout: 15000 });
   noErrors(page);
 });
 
 test('audio: with sound switched off no context is ever created; the panel switch turns it on', async () => {
   const page = await newPage();
   const noise = watchAudioNoise(page);
-  await page.evaluate(() => window.physicslab.audioDirector.setSettings({ enabled: false }));
+  await page.evaluate(() => window.physixlab.audioDirector.setSettings({ enabled: false }));
   await page.mouse.click(330, 160);
   await page.waitForTimeout(400);
   let s = await page.evaluate(() => ({
-    state: window.physicslab.audio.state,
-    ctx: window.physicslab.audio.context,
-    watched: window.physicslab.audioDirector.stats.contactsWatched,
+    state: window.physixlab.audio.state,
+    ctx: window.physixlab.audio.context,
+    watched: window.physixlab.audioDirector.stats.contactsWatched,
   }));
   assert(s.state === 'idle' && s.ctx === null, `no context while sound is off ${JSON.stringify(s)}`);
   assert(s.watched === false, 'the physics is asked for no contact events for sound');
   await page.click('#tab-fx');
   await page.waitForSelector('.fx-panel .section-head:has-text("Sound")');
   await page.click('.fx-panel label.switch:has-text("Sound")');
-  await page.waitForFunction(() => window.physicslab.audio.state === 'running', null, { timeout: 15000 });
-  s = await page.evaluate(() => window.physicslab.prefs.value.audio.enabled);
+  await page.waitForFunction(() => window.physixlab.audio.state === 'running', null, { timeout: 15000 });
+  s = await page.evaluate(() => window.physixlab.prefs.value.audio.enabled);
   assert(s === true, 'switched on from the panel (that click is the gesture)');
   assert(noise.length === 0, `no audio noise: ${noise.join(' | ')}`);
   noErrors(page);
@@ -187,7 +187,7 @@ test('audio: Sound panel — volumes, switches, mute (Shift+M leaves Measure on 
   });
   await page.waitForTimeout(400);
   await shot(page, 'audio-panel');
-  const audio = () => page.evaluate(() => window.physicslab.prefs.value.audio);
+  const audio = () => page.evaluate(() => window.physixlab.prefs.value.audio);
   let a = await audio();
   assert(a.enabled && !a.muted && a.master > 0.5 && a.spatial && a.uiSounds, `defaults ${JSON.stringify(a)}`);
 
@@ -214,7 +214,7 @@ test('audio: Sound panel — volumes, switches, mute (Shift+M leaves Measure on 
 
   // The volumes reach the bus gains (master 0.5 → −12 dB).
   await page.waitForTimeout(300);
-  const g = await page.evaluate(() => window.physicslab.audio.volumeOf('rolling'));
+  const g = await page.evaluate(() => window.physixlab.audio.volumeOf('rolling'));
   assert(Math.abs(g - 0.25 * 0.0625) < 1e-6, `bus volume ${g}`);
 
   // Switches: the Doppler shift, then 3D positioning off and on.
@@ -228,14 +228,14 @@ test('audio: Sound panel — volumes, switches, mute (Shift+M leaves Measure on 
   await page.mouse.click(330, 160);
   await page.keyboard.press('KeyM');
   assert(
-    (await page.evaluate(() => window.physicslab.prefs.value.tool)) === 'measure',
+    (await page.evaluate(() => window.physixlab.prefs.value.tool)) === 'measure',
     'M still selects the Measure tool',
   );
   await page.keyboard.press('Escape');
   await page.keyboard.press('Shift+M');
   a = await audio();
   assert(a.muted === true, 'Shift+M mutes');
-  assert((await page.evaluate(() => window.physicslab.prefs.value.tool)) !== 'measure', 'Shift+M did not switch tools');
+  assert((await page.evaluate(() => window.physixlab.prefs.value.tool)) !== 'measure', 'Shift+M did not switch tools');
   assert((await page.getAttribute('.sound-btn', 'aria-pressed')) === 'true', 'the speaker button shows the mute');
   await page.waitForTimeout(400); // the switch animation
   await shot(page, 'audio-muted');
@@ -263,7 +263,7 @@ test('audio: Sound panel — volumes, switches, mute (Shift+M leaves Measure on 
   // Persisted across a reload.
   await page.click('.fx-panel label.switch:has-text("Interface sounds")');
   await page.reload();
-  await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport);
+  await page.waitForFunction(() => !!window.physixlab && window.physixlab.viewport);
   a = await audio();
   assert(
     Math.abs(a.master - 0.5) < 0.011 &&
@@ -295,16 +295,16 @@ test('audio: collisions play material sounds scaled by the impact, measured at t
   );
   await gesture(page);
   await play(page);
-  await page.waitForFunction(() => window.physicslab.audio.recent.length >= 5, null, { timeout: 90000 });
+  await page.waitForFunction(() => window.physixlab.audio.recent.length >= 5, null, { timeout: 90000 });
   // Sample the measured output level while the rings die away.
   let peak = 0;
   for (let i = 0; i < 40; i++) {
-    peak = Math.max(peak, await page.evaluate(() => window.physicslab.audio.level()));
+    peak = Math.max(peak, await page.evaluate(() => window.physixlab.audio.level()));
     await page.waitForTimeout(25);
   }
   assert(peak > 0.003, `sound reaches the output (peak RMS ${peak.toFixed(4)})`);
   await simTime(page, 3);
-  await page.waitForFunction(() => window.physicslab.audio.cachedKeys().some((k) => k.endsWith('|x')), null, {
+  await page.waitForFunction(() => window.physixlab.audio.cachedKeys().some((k) => k.endsWith('|x')), null, {
     timeout: 120000,
   });
   const keys = await keysOf(page);
@@ -315,7 +315,7 @@ test('audio: collisions play material sounds scaled by the impact, measured at t
     keys.some((k) => k.startsWith('i|glass|') && k.endsWith('|x')),
     'the glass bomb breaks: its ring is cut short',
   );
-  await page.waitForFunction(() => window.physicslab.audio.cachedKeys().some((k) => k.startsWith('e|b|glass|')), null, {
+  await page.waitForFunction(() => window.physixlab.audio.cachedKeys().some((k) => k.startsWith('e|b|glass|')), null, {
     timeout: 30000,
   });
   const levels = await recent(page);
@@ -328,14 +328,14 @@ test('audio: collisions play material sounds scaled by the impact, measured at t
 
   // Mute: silent within a moment, and the physics stops being asked for contacts.
   await page.keyboard.press('Shift+M');
-  await page.waitForFunction(() => window.physicslab.audio.context.state === 'suspended', null, { timeout: 10000 });
-  assert((await page.evaluate(() => window.physicslab.audio.level())) === 0, 'muted output is silent');
+  await page.waitForFunction(() => window.physixlab.audio.context.state === 'suspended', null, { timeout: 10000 });
+  assert((await page.evaluate(() => window.physixlab.audio.level())) === 0, 'muted output is silent');
   assert((await stats(page)).contactsWatched === false, 'no contact events while muted');
   const started = (await stats(page)).started;
   await page.waitForTimeout(500);
   assert((await stats(page)).started === started, 'no new voices while muted');
   await page.keyboard.press('Shift+M');
-  await page.waitForFunction(() => window.physicslab.audioDirector.stats.contactsWatched === true, null, {
+  await page.waitForFunction(() => window.physixlab.audioDirector.stats.contactsWatched === true, null, {
     timeout: 10000,
   });
 
@@ -593,14 +593,14 @@ test('audio: a motorised joint and a rolling ball get voices that follow the sim
   await play(page);
   await page.waitForFunction(
     () => {
-      const l = window.physicslab.audioDirector.describeLoops();
+      const l = window.physixlab.audioDirector.describeLoops();
       return Object.keys(l.motors).length >= 1 && Object.keys(l.rolling).length >= 1;
     },
     null,
     { timeout: 90000 },
   );
   await page.waitForFunction(
-    () => window.physicslab.liveJoint(window.physicslab.store.joints()[0].id)?.speed > 3.5,
+    () => window.physixlab.liveJoint(window.physixlab.store.joints()[0].id)?.speed > 3.5,
     null,
     { timeout: 90000 },
   );
@@ -615,12 +615,12 @@ test('audio: a motorised joint and a rolling ball get voices that follow the sim
   assert(l.bed !== null && l.bed.gain > 0, 'the quiet air bed runs while simulating');
   // Rolling ball: rumble. Sliding crate: scrape (read while they are still moving).
   const names = await page.evaluate(() =>
-    Object.fromEntries(window.physicslab.store.bodies().map((b) => [b.name, b.id])),
+    Object.fromEntries(window.physixlab.store.bodies().map((b) => [b.name, b.id])),
   );
   await page
     .waitForFunction(
       ({ ball }) => {
-        const r = window.physicslab.audioDirector.describeLoops().rolling[ball];
+        const r = window.physixlab.audioDirector.describeLoops().rolling[ball];
         return r && r.rumbleGain > 0.01;
       },
       { ball: names['Rolling ball'] },
@@ -636,13 +636,13 @@ test('audio: a motorised joint and a rolling ball get voices that follow the sim
   // The motor's pitch follows its speed: ask for three times the speed and wait until it has got there.
   const f1Slow = (await loops(page)).motors[motorKey].f1;
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const j = a.store.joints()[0];
     a.store.updateMany([[j.id, { motor: { ...j.motor, targetVelocity: 14 } }]], 'faster');
   });
   await page.waitForFunction(
     () => {
-      const a = window.physicslab;
+      const a = window.physixlab;
       const j = a.store.joints()[0];
       return a.liveJoint(j.id)?.speed > 13.7;
     },
@@ -653,8 +653,8 @@ test('audio: a motorised joint and a rolling ball get voices that follow the sim
   const f1Fast = Math.max(...Object.values((await loops(page)).motors).map((m) => m.f1));
   assert(f1Fast > f1Slow * 1.4, `pitch rises with motor speed (${f1Slow.toFixed(0)} → ${f1Fast.toFixed(0)} Hz)`);
   // Slow motion lowers the pitch of the running voice (0.5× → 0.73).
-  await page.evaluate(() => (window.physicslab.sim.timeScale = 0.5));
-  await page.waitForFunction(() => Math.abs(window.physicslab.audio.pitch - 0.73) < 0.02, null, { timeout: 10000 });
+  await page.evaluate(() => (window.physixlab.sim.timeScale = 0.5));
+  await page.waitForFunction(() => Math.abs(window.physixlab.audio.pitch - 0.73) < 0.02, null, { timeout: 10000 });
   await page.waitForTimeout(500);
   const f1Half = Math.max(...Object.values((await loops(page)).motors).map((m) => m.f1));
   assert(
@@ -663,7 +663,7 @@ test('audio: a motorised joint and a rolling ball get voices that follow the sim
   );
   // One-shots follow the time scale too.
   const shotRate = await page.evaluate(async () => {
-    const a = window.physicslab.audio;
+    const a = window.physixlab.audio;
     a.playEvent('launch', null, { level: 0.6 });
     const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
     await frame();
@@ -674,11 +674,11 @@ test('audio: a motorised joint and a rolling ball get voices that follow the sim
     shotRate.key.startsWith('e|la|') && Math.abs(shotRate.rate - 0.73) < 0.03,
     `a one-shot plays at the slowed pitch (${shotRate.rate})`,
   );
-  await page.evaluate(() => (window.physicslab.sim.timeScale = 1));
+  await page.evaluate(() => (window.physixlab.sim.timeScale = 1));
   // Pausing silences the sustained voices.
   await pause(page);
   await page.waitForFunction(
-    () => window.physicslab.audioDirector.stats.motors === 0 && window.physicslab.audioDirector.stats.rolling === 0,
+    () => window.physixlab.audioDirector.stats.motors === 0 && window.physixlab.audioDirector.stats.rolling === 0,
     null,
     { timeout: 10000 },
   );
@@ -698,7 +698,7 @@ test('audio: a sliding box scrapes (the voice is driven by the slip speed, not t
   await gesture(page);
   await play(page);
   await page.waitForFunction(
-    () => Object.values(window.physicslab.audioDirector.describeLoops().rolling).some((r) => r.scrapeGain > 0.01),
+    () => Object.values(window.physixlab.audioDirector.describeLoops().rolling).some((r) => r.scrapeGain > 0.01),
     null,
     { timeout: 60000 },
   );
@@ -719,20 +719,20 @@ test('audio: wind rushes past a camera following a fast body, and the air goes a
     { position: [0, 300, 12], target: [0, 300, 0] },
   );
   await gesture(page);
-  const id = await page.evaluate(() => window.physicslab.store.bodies()[0].id);
+  const id = await page.evaluate(() => window.physixlab.store.bodies()[0].id);
   await page.evaluate((id) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.setSelection([id]);
     a.prefs.set({ followSelection: true });
   }, id);
   await play(page);
-  await page.waitForFunction(() => window.physicslab.audioDirector.describeLoops().wind !== null, null, {
+  await page.waitForFunction(() => window.physixlab.audioDirector.describeLoops().wind !== null, null, {
     timeout: 90000,
   });
   // The wind swells in with the body's speed (smoothed over a third of a second): wait until it is blowing properly.
   await page.waitForFunction(
     () => {
-      const w = window.physicslab.audioDirector.describeLoops().wind;
+      const w = window.physixlab.audioDirector.describeLoops().wind;
       return w && w.gain > 0.05 && w.cutoff > 800;
     },
     null,
@@ -742,11 +742,11 @@ test('audio: wind rushes past a camera following a fast body, and the air goes a
   assert(w.gain > 0.05 && w.cutoff > 800, `wind blows ${JSON.stringify(w)}`);
   await shot(page, 'audio-wind');
   // No gravity, no air: the wind and the bed fade out.
-  await page.evaluate(() => window.physicslab.store.updateSettings({ gravity: [0, 0, 0] }, 'zero g'));
+  await page.evaluate(() => window.physixlab.store.updateSettings({ gravity: [0, 0, 0] }, 'zero g'));
   await page.waitForFunction(
     () =>
-      window.physicslab.audioDirector.describeLoops().wind === null &&
-      window.physicslab.audioDirector.describeLoops().bed === null,
+      window.physixlab.audioDirector.describeLoops().wind === null &&
+      window.physixlab.audioDirector.describeLoops().bed === null,
     null,
     { timeout: 30000 },
   );
@@ -758,13 +758,13 @@ test('audio: wind rushes past a camera following a fast body, and the air goes a
 test('audio: sounds are positioned relative to the camera — pan, distance, air; Doppler is optional (FX-14)', async () => {
   const page = await newPage();
   await gesture(page);
-  await page.evaluate(() => window.physicslab.viewport.setView({ position: [0, 2, 10], target: [0, 2, 0] }));
+  await page.evaluate(() => window.physixlab.viewport.setView({ position: [0, 2, 10], target: [0, 2, 0] }));
   await page.waitForTimeout(400);
   // A sound whose buffer is not ready waits a frame or two: look at the log after two rendered frames.
   const play3 = (id, p, v) =>
     page.evaluate(
       async ({ id, p, v }) => {
-        const a = window.physicslab.audio;
+        const a = window.physixlab.audio;
         a.playEvent(id, p, { level: 0.6 }, v);
         const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
         await frame();
@@ -796,7 +796,7 @@ test('audio: sounds are positioned relative to the camera — pan, distance, air
   assert(lr.r > 3 * lr.l, `a sound on the right is in the right channel (${lr.l.toFixed(4)} vs ${lr.r.toFixed(4)})`);
 
   // Doppler: a source rushing towards the camera rises in pitch, one leaving falls.
-  await page.evaluate(() => window.physicslab.audioDirector.setSettings({ doppler: true }));
+  await page.evaluate(() => window.physixlab.audioDirector.setSettings({ doppler: true }));
   const towards = await play3('launch', [0, 2, -40], [0, 0, 30]);
   const away = await play3('launch', [0, 2, -40], [0, 0, -30]);
   assert(
@@ -805,7 +805,7 @@ test('audio: sounds are positioned relative to the camera — pan, distance, air
   );
 
   // 3D positioning off: everything centred at full level.
-  await page.evaluate(() => window.physicslab.audioDirector.setSettings({ spatial: false, doppler: false }));
+  await page.evaluate(() => window.physixlab.audioDirector.setSettings({ spatial: false, doppler: false }));
   const flat = await play3('launch', [60, 2, 0]);
   assert(flat.pan === 0 && flat.gain > near.gain * 0.99, `flat when positioning is off (${flat.pan}, ${flat.gain})`);
   noErrors(page);
@@ -836,13 +836,13 @@ test('audio: the blast tool, a shot, a spawn, a breaking spring and a trampoline
   );
   await gesture(page);
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.prefs.set({ shootSpeed: 25 });
   });
   await play(page);
   await page.waitForFunction(
     () => {
-      const k = window.physicslab.audio.cachedKeys();
+      const k = window.physixlab.audio.cachedKeys();
       return k.some((x) => x.startsWith('e|sn|')) && k.some((x) => x.startsWith('e|tr|'));
     },
     null,
@@ -852,30 +852,30 @@ test('audio: the blast tool, a shot, a spawn, a breaking spring and a trampoline
   assert(hasKey(keys, 'e|sn|'), 'the spring snapped with a twang');
   assert(hasKey(keys, 'e|tr|'), 'the ball boinged on the trampoline');
   // The Blast tool: a real click on the target.
-  await page.evaluate(() => window.physicslab.setTool('blast'));
+  await page.evaluate(() => window.physixlab.setTool('blast'));
   const at = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const v = a.bodies.get(a.store.bodies().find((b) => b.name === 'Target').id);
     const p = v.position.clone().project(a.camera);
     const r = a.viewport.dom.getBoundingClientRect();
     return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height };
   });
   await page.mouse.click(at.x, at.y);
-  await page.waitForFunction(() => window.physicslab.audio.cachedKeys().some((x) => x.startsWith('e|x|')), null, {
+  await page.waitForFunction(() => window.physixlab.audio.cachedKeys().some((x) => x.startsWith('e|x|')), null, {
     timeout: 30000,
   });
   // The Fire tool: the report of the shot.
-  await page.evaluate(() => window.physicslab.setTool('shoot'));
+  await page.evaluate(() => window.physixlab.setTool('shoot'));
   await page.mouse.click(at.x, at.y);
-  await page.waitForFunction(() => window.physicslab.audio.cachedKeys().some((x) => x.startsWith('e|la|')), null, {
+  await page.waitForFunction(() => window.physixlab.audio.cachedKeys().some((x) => x.startsWith('e|la|')), null, {
     timeout: 30000,
   });
   // A body added to the running world pops in.
   await page.evaluate(() => {
-    window.physicslab.setTool('select');
-    window.physicslab.addShape('sphere', [0, 5, 0]);
+    window.physixlab.setTool('select');
+    window.physixlab.addShape('sphere', [0, 5, 0]);
   });
-  await page.waitForFunction(() => window.physicslab.audio.cachedKeys().some((x) => x.startsWith('e|sp|')), null, {
+  await page.waitForFunction(() => window.physixlab.audio.cachedKeys().some((x) => x.startsWith('e|sp|')), null, {
     timeout: 30000,
   });
   keys = await keysOf(page);
@@ -902,10 +902,10 @@ test('audio: components can ask for a sound — ignite, bounce and a named sound
   await gesture(page);
   await play(page);
   await simTime(page, 0.2);
-  const owner = await page.evaluate(() => window.physicslab.store.bodies()[0].id);
+  const owner = await page.evaluate(() => window.physixlab.store.bodies()[0].id);
   await page.evaluate((owner) => {
     const emit = (name, data) =>
-      window.physicslab.sim.client.emit('event', {
+      window.physixlab.sim.client.emit('event', {
         kind: 'component',
         t: 0,
         owner,
@@ -935,22 +935,22 @@ test('audio: interface sounds — select, place, delete, error, success are subt
   await gesture(page);
   await page.waitForTimeout(300);
   const wait = () => page.waitForTimeout(450);
-  const id = await page.evaluate(() => window.physicslab.store.bodies()[0].id);
+  const id = await page.evaluate(() => window.physixlab.store.bodies()[0].id);
   await page.evaluate((id) => {
-    window.physicslab.store.setSelection([]);
-    window.physicslab.store.setSelection([id]);
+    window.physixlab.store.setSelection([]);
+    window.physixlab.store.setSelection([id]);
   }, id);
   await wait();
   assert((await keysOf(page)).includes('u|ui.select'), 'selecting ticks');
-  await page.evaluate(() => window.physicslab.addShape('box'));
+  await page.evaluate(() => window.physixlab.addShape('box'));
   await wait();
   assert((await keysOf(page)).includes('u|ui.place'), 'placing chimes');
-  await page.evaluate(() => window.physicslab.store.remove(window.physicslab.store.selection));
+  await page.evaluate(() => window.physixlab.store.remove(window.physixlab.store.selection));
   await wait();
   assert((await keysOf(page)).includes('u|ui.delete'), 'deleting sounds');
-  await page.evaluate(() => window.physicslab.toast('Something went wrong', 'error'));
+  await page.evaluate(() => window.physixlab.toast('Something went wrong', 'error'));
   await wait();
-  await page.evaluate(() => window.physicslab.toast('Saved', 'success'));
+  await page.evaluate(() => window.physixlab.toast('Saved', 'success'));
   await wait();
   const k = await keysOf(page);
   assert(k.includes('u|ui.error') && k.includes('u|ui.success'), 'error and success sounds');
@@ -963,7 +963,7 @@ test('audio: interface sounds — select, place, delete, error, success are subt
   // Rate limiting: a selection that flips thirty times in a blink makes one tick, not thirty.
   const before = (await recent(page)).filter((r) => r.key === 'u|ui.select').length;
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const first = a.store.bodies()[0].id;
     for (let i = 0; i < 30; i++) a.store.setSelection(i % 2 ? [] : [first]);
   });
@@ -976,8 +976,8 @@ test('audio: interface sounds — select, place, delete, error, success are subt
   await page.click('.fx-panel label.switch:has-text("Interface sounds")');
   const n = (await stats(page)).started;
   await page.evaluate(() => {
-    window.physicslab.toast('Another failure', 'error');
-    window.physicslab.addShape('box');
+    window.physixlab.toast('Another failure', 'error');
+    window.physixlab.addShape('box');
   });
   await wait();
   assert((await stats(page)).started === n, 'interface sounds can be switched off');
@@ -989,9 +989,9 @@ test('audio: interface sounds — select, place, delete, error, success are subt
 test('audio: voice limiting — 300 balls landing keep within the voice budget, steal quiet voices and never disturb the frame loop', async () => {
   const page = await newPage('&scene=pit');
   await gesture(page);
-  await page.evaluate(() => window.physicslab.viewport.setView({ position: [0, 8.5, 5.5], target: [0, 0.2, 0] }));
+  await page.evaluate(() => window.physixlab.viewport.setView({ position: [0, 8.5, 5.5], target: [0, 0.2, 0] }));
   await play(page);
-  await page.waitForFunction(() => window.physicslab.audioDirector.stats.started > 300, null, { timeout: 120000 });
+  await page.waitForFunction(() => window.physixlab.audioDirector.stats.started > 300, null, { timeout: 120000 });
   let max = 0;
   let maxImpacts = 0;
   for (let i = 0; i < 25; i++) {
@@ -1005,7 +1005,7 @@ test('audio: voice limiting — 300 balls landing keep within the voice budget, 
   assert(maxImpacts <= 24, `impact voices stay within their category budget (${maxImpacts})`);
   assert(s.rejected + s.stolen > 0, `the limiter had to act (${s.rejected} rejected, ${s.stolen} stolen)`);
   assert(s.buffers < 280, `the buffer cache is bounded (${s.buffers})`);
-  await page.evaluate(() => window.physicslab.sim.reset());
-  await page.waitForFunction(() => window.physicslab.audioDirector.stats.voices === 0, null, { timeout: 10000 });
+  await page.evaluate(() => window.physixlab.sim.reset());
+  await page.waitForFunction(() => window.physixlab.audioDirector.stats.voices === 0, null, { timeout: 10000 });
   noErrors(page);
 });

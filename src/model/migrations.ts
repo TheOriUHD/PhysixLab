@@ -24,9 +24,10 @@
  *       has none of these, so the upgrade is only the version stamp.
  */
 import { SceneFormatError } from './errors';
+import { isFormat } from './legacy';
 import { obj } from './sanitize/primitives';
 
-export const SCENE_FORMAT = 'physicslab-scene';
+export const SCENE_FORMAT = 'physixlab-scene';
 export const SCENE_VERSION = 3;
 
 /** A raw (untrusted) document or entity: only ever read through the coercion helpers. */
@@ -76,12 +77,13 @@ export function assertChainIntegrity(chain: readonly Migration[] = MIGRATIONS, t
  * Throws `SceneFormatError` with a user-facing message for garbage and for newer-than-supported files.
  */
 export function migrateDocument(input: unknown, chain: readonly Migration[] = MIGRATIONS, target = SCENE_VERSION): Raw {
-  if (!input || typeof input !== 'object' || Array.isArray(input) || (input as Raw).format !== SCENE_FORMAT) {
-    throw new SceneFormatError('not-a-scene', 'Not a PhysicsLab scene file.');
+  if (!input || typeof input !== 'object' || Array.isArray(input) || !isFormat((input as Raw).format, SCENE_FORMAT)) {
+    throw new SceneFormatError('not-a-scene', 'Not a PhysixLab scene file.');
   }
   let doc = input as Raw;
+  if (doc.format !== SCENE_FORMAT) doc = { ...doc, format: SCENE_FORMAT }; // a pre-rename file: re-stamp it
   if (!Array.isArray(doc.entities)) {
-    throw new SceneFormatError('not-a-scene', 'Not a PhysicsLab scene file (it has no list of objects).');
+    throw new SceneFormatError('not-a-scene', 'Not a PhysixLab scene file (it has no list of objects).');
   }
   // The first release always wrote 1; a hand-made file without a version is treated the same way.
   const found = doc.version === undefined ? 1 : doc.version;
@@ -94,7 +96,7 @@ export function migrateDocument(input: unknown, chain: readonly Migration[] = MI
   if (found > target) {
     throw new SceneFormatError(
       'too-new',
-      `This scene was saved by a newer version of PhysicsLab (scene format v${found}); this version reads up to v${target}. Reload the page to get the latest version, then open the file again.`,
+      `This scene was saved by a newer version of PhysixLab (scene format v${found}); this version reads up to v${target}. Reload the page to get the latest version, then open the file again.`,
     );
   }
   for (let v = found; v < target; v++) {

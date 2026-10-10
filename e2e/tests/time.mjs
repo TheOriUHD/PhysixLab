@@ -15,15 +15,15 @@ const assertClean = (page) => {
 };
 
 const showTab = async (page, id) => {
-  await page.evaluate((tab) => window.physicslab.prefs.set({ bottomTab: tab, showBottom: true }), id);
+  await page.evaluate((tab) => window.physixlab.prefs.set({ bottomTab: tab, showBottom: true }), id);
   await page.waitForSelector('.dock:not(.collapsed)');
 };
 const tt = (page, fn, ...args) =>
-  page.evaluate(`(${fn})(window.physicslab.timeTravel, window.physicslab, ...${JSON.stringify(args)})`);
-const step = (page) => page.evaluate(() => window.physicslab.sim.client.stats?.stepCount ?? 0);
+  page.evaluate(`(${fn})(window.physixlab.timeTravel, window.physixlab, ...${JSON.stringify(args)})`);
+const step = (page) => page.evaluate(() => window.physixlab.sim.client.stats?.stepCount ?? 0);
 const hashPoses = (page) =>
   page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     return a.store
       .bodies()
       .filter((b) => b.bodyType === 'dynamic')
@@ -35,7 +35,7 @@ test('time: timeline tab shows the run, scrub back restores the exact earlier st
   const page = await newPage();
   await showTab(page, 'timeline');
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) > 150, null, {
+  await page.waitForFunction(() => (window.physixlab.sim.client.stats?.stepCount ?? 0) > 150, null, {
     timeout: 15000,
   });
   await page.keyboard.press('Space'); // pause
@@ -44,7 +44,7 @@ test('time: timeline tab shows the run, scrub back restores the exact earlier st
   const p1 = await hashPoses(page);
   // run on a little, then scrub back to s1 by seeking
   await page.keyboard.press('Space');
-  await page.waitForFunction((s) => (window.physicslab.sim.client.stats?.stepCount ?? 0) > s + 120, s1, {
+  await page.waitForFunction((s) => (window.physixlab.sim.client.stats?.stepCount ?? 0) > s + 120, s1, {
     timeout: 15000,
   });
   await page.keyboard.press('Space');
@@ -55,7 +55,7 @@ test('time: timeline tab shows the run, scrub back restores the exact earlier st
   const box = await page.locator('.tm-canvas').boundingBox();
   await shot(page, 'tm-timeline-run');
   await tt(page, (t, a, s) => t.seek(s), s1);
-  await page.waitForFunction((s) => (window.physicslab.sim.client.stats?.stepCount ?? 0) === s, s1, { timeout: 8000 });
+  await page.waitForFunction((s) => (window.physixlab.sim.client.stats?.stepCount ?? 0) === s, s1, { timeout: 8000 });
   const p2 = await hashPoses(page);
   assert(p1 === p2, `scrubbing to step ${s1} restores the state\n${p1}\n${p2}`);
   // the drag itself
@@ -76,13 +76,13 @@ test('time: hold Backspace to rewind, release resumes from the past (new branch)
   const page = await newPage();
   await showTab(page, 'timeline');
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) > 200, null, {
+  await page.waitForFunction(() => (window.physixlab.sim.client.stats?.stepCount ?? 0) > 200, null, {
     timeout: 15000,
   });
   const before = await step(page);
   await page.keyboard.down('Backspace');
   // software-GL frames are slow here (≈10 fps), so rewinding takes a few seconds to cover a second of simulation
-  await page.waitForFunction((b) => (window.physicslab.sim.client.stats?.stepCount ?? 0) < b - 20, before, {
+  await page.waitForFunction((b) => (window.physixlab.sim.client.stats?.stepCount ?? 0) < b - 20, before, {
     timeout: 20000,
   });
   const during = await step(page);
@@ -97,11 +97,11 @@ test('time: hold Backspace to rewind, release resumes from the past (new branch)
   await sleep(200);
   const s0 = await step(page);
   await page.keyboard.press('Comma');
-  await page.waitForFunction((s) => (window.physicslab.sim.client.stats?.stepCount ?? 0) === s - 1, s0, {
+  await page.waitForFunction((s) => (window.physixlab.sim.client.stats?.stepCount ?? 0) === s - 1, s0, {
     timeout: 5000,
   });
   await page.keyboard.press('Period');
-  await page.waitForFunction((s) => (window.physicslab.sim.client.stats?.stepCount ?? 0) === s, s0, { timeout: 5000 });
+  await page.waitForFunction((s) => (window.physixlab.sim.client.stats?.stepCount ?? 0) === s, s0, { timeout: 5000 });
   // bookmark
   await page.keyboard.press('Control+Shift+b');
   const n = await tt(page, (t) => t.bookmarks.length);
@@ -114,10 +114,10 @@ test('time: record a replay, save it, open it in the viewer and watch it verify'
   const page = await newPage();
   await showTab(page, 'replay');
   await page.click('.tm-actions button:has-text("Record")');
-  await page.waitForFunction(() => window.physicslab.timeTravel.recording, null, { timeout: 10000 });
+  await page.waitForFunction(() => window.physixlab.timeTravel.recording, null, { timeout: 10000 });
   // recording starts the simulation when it is not running yet
-  await page.waitForFunction(() => window.physicslab.sim.mode === 'running', null, { timeout: 5000 });
-  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) > 200, null, {
+  await page.waitForFunction(() => window.physixlab.sim.mode === 'running', null, { timeout: 5000 });
+  await page.waitForFunction(() => (window.physixlab.sim.client.stats?.stepCount ?? 0) > 200, null, {
     timeout: 60000,
   });
   await page.keyboard.press('Space');
@@ -135,7 +135,7 @@ test('time: record a replay, save it, open it in the viewer and watch it verify'
     mimeType: 'application/octet-stream',
     buffer: bytes,
   });
-  await viewer.waitForFunction(() => window.physicslab.timeTravel.replaying, null, { timeout: 60000 });
+  await viewer.waitForFunction(() => window.physixlab.timeTravel.replaying, null, { timeout: 60000 });
   await viewer.keyboard.press('Space');
   await viewer.waitForFunction(() => document.querySelector('.tm-verify.ok'), null, { timeout: 90000 });
   const text = await viewer.locator('.tm-verify').innerText();
@@ -147,15 +147,15 @@ test('time: record a replay, save it, open it in the viewer and watch it verify'
 test('time: the previous run shows up as a ghost, the determinism check passes, the seed reseeds', async () => {
   const page = await newPage();
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) > 150, null, {
+  await page.waitForFunction(() => (window.physixlab.sim.client.stats?.stepCount ?? 0) > 150, null, {
     timeout: 15000,
   });
   await page.keyboard.press('Space');
-  await page.evaluate(() => window.physicslab.sim.reset());
+  await page.evaluate(() => window.physixlab.sim.reset());
   await sleep(300);
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.physicslab.timeTravel.ghosts.runs.length > 0, null, { timeout: 15000 });
-  await page.waitForFunction(() => window.physicslab.viewport.scene.getObjectByName('ghosts')?.visible === true, null, {
+  await page.waitForFunction(() => window.physixlab.timeTravel.ghosts.runs.length > 0, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.physixlab.viewport.scene.getObjectByName('ghosts')?.visible === true, null, {
     timeout: 8000,
   });
   await showTab(page, 'ghosts');
@@ -167,10 +167,10 @@ test('time: the previous run shows up as a ghost, the determinism check passes, 
   const det = await page.locator('.tm-det').innerText();
   assert(/Deterministic/.test(det), `determinism shown: ${det}`);
   // seed
-  await page.evaluate(() => window.physicslab.prefs.set({ rightTab: 'world', showRight: true }));
-  const before = await page.evaluate(() => window.physicslab.store.settings.seed);
+  await page.evaluate(() => window.physixlab.prefs.set({ rightTab: 'world', showRight: true }));
+  const before = await page.evaluate(() => window.physixlab.store.settings.seed);
   await page.click('button:has-text("Reseed")');
-  const after = await page.evaluate(() => window.physicslab.store.settings.seed);
+  const after = await page.evaluate(() => window.physixlab.store.settings.seed);
   assert(before !== after, `reseed changed the seed (${before} → ${after})`);
   assertClean(page);
 });
@@ -179,7 +179,7 @@ test('time: bookmarks (add, rename, jump), a loop region replays the recorded pa
   const page = await newPage();
   await showTab(page, 'timeline');
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) > 260, null, {
+  await page.waitForFunction(() => (window.physixlab.sim.client.stats?.stepCount ?? 0) > 260, null, {
     timeout: 90000,
   });
   await page.keyboard.press('Space'); // pause
@@ -196,7 +196,7 @@ test('time: bookmarks (add, rename, jump), a loop region replays the recorded pa
   await page.evaluate(() =>
     [...document.querySelectorAll('.tm-bm')].find((e) => /first drop/.test(e.textContent)).click(),
   );
-  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) === 60, null, {
+  await page.waitForFunction(() => (window.physixlab.sim.client.stats?.stepCount ?? 0) === 60, null, {
     timeout: 15000,
   });
   // loop 40..100 over the recorded run
@@ -221,7 +221,7 @@ test('time: bookmarks (add, rename, jump), a loop region replays the recorded pa
   // leave the loop, then auto slow-mo
   await tt(page, (t) => t.clearLoop());
   const slow = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.timeTravel.setOptions({ autoSlowmo: true });
     a.sim.client.emit('event', {
       kind: 'contact',
@@ -239,7 +239,7 @@ test('time: bookmarks (add, rename, jump), a loop region replays the recorded pa
     return a.sim.timeScale;
   });
   assert(slow <= 0.25, `time scale dropped after the impact (${slow})`);
-  await page.waitForFunction(() => window.physicslab.sim.timeScale === window.physicslab.prefs.value.timeScale, null, {
+  await page.waitForFunction(() => window.physixlab.sim.timeScale === window.physixlab.prefs.value.timeScale, null, {
     timeout: 15000,
   });
   assertClean(page);
@@ -248,21 +248,21 @@ test('time: bookmarks (add, rename, jump), a loop region replays the recorded pa
 test('time: two runs compared: the distance chart appears', async () => {
   const page = await newPage();
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) > 150, null, {
+  await page.waitForFunction(() => (window.physixlab.sim.client.stats?.stepCount ?? 0) > 150, null, {
     timeout: 90000,
   });
   await page.keyboard.press('Space');
-  await page.evaluate(() => window.physicslab.sim.reset());
+  await page.evaluate(() => window.physixlab.sim.reset());
   await sleep(300);
-  await page.evaluate(() => window.physicslab.prefs.set({ bottomTab: 'ghosts', showBottom: true }));
+  await page.evaluate(() => window.physixlab.prefs.set({ bottomTab: 'ghosts', showBottom: true }));
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.physicslab.timeTravel.ghosts.runs.length > 0, null, { timeout: 30000 });
+  await page.waitForFunction(() => window.physixlab.timeTravel.ghosts.runs.length > 0, null, { timeout: 30000 });
   // nudge the second run so it differs: shoot a body with an impulse through the op channel
-  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) > 120, null, {
+  await page.waitForFunction(() => (window.physixlab.sim.client.stats?.stepCount ?? 0) > 120, null, {
     timeout: 90000,
   });
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const mass = a.sim.client.info.mass;
     const b = a.store
       .bodies()
@@ -270,12 +270,12 @@ test('time: two runs compared: the distance chart appears', async () => {
       .sort((p, q) => mass[p.id] - mass[q.id])[0];
     a.sim.client.op({ op: 'impulse', id: b.id, impulse: [0, 40, 30], point: b.position });
   });
-  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) > 300, null, {
+  await page.waitForFunction(() => (window.physixlab.sim.client.stats?.stepCount ?? 0) > 300, null, {
     timeout: 90000,
   });
-  await page.evaluate(() => window.physicslab.timeTravel.ghosts.compareWithLive());
-  await page.waitForFunction(() => window.physicslab.timeTravel.ghosts.comparison !== null, null, { timeout: 15000 });
-  const peak = await page.evaluate(() => window.physicslab.timeTravel.ghosts.comparison.peak.distance);
+  await page.evaluate(() => window.physixlab.timeTravel.ghosts.compareWithLive());
+  await page.waitForFunction(() => window.physixlab.timeTravel.ghosts.comparison !== null, null, { timeout: 15000 });
+  const peak = await page.evaluate(() => window.physixlab.timeTravel.ghosts.comparison.peak.distance);
   assert(peak > 0.001, `the two runs drifted apart (${peak} m)`);
   await sleep(500);
   await shot(page, 'tm-compare');

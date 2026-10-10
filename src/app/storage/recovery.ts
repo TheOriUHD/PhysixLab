@@ -20,7 +20,7 @@ export interface CrashInfo {
   lastAlive: number | null;
 }
 
-export const SESSION_KEY = 'physicslab:session:v1';
+export const SESSION_KEY = 'physixlab:session:v1';
 export const HEARTBEAT_MS = 4000;
 /** A heartbeat older than this means the writer is gone (3 missed beats). */
 export const STALE_MS = HEARTBEAT_MS * 3;

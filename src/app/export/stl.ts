@@ -32,7 +32,7 @@ export function buildStl(scene: ExportScene, options: StlOptions = {}): StlResul
   const data = new Uint8Array(STL_HEADER_BYTES + 4 + count * STL_TRIANGLE_BYTES);
   const dv = new DataView(data.buffer);
   // The header must not start with "solid" or some readers mistake the file for ASCII STL.
-  data.set(new TextEncoder().encode('PhysicsLab binary STL'), 0);
+  data.set(new TextEncoder().encode('PhysixLab binary STL'), 0);
   dv.setUint32(STL_HEADER_BYTES, count, true);
 
   let o = STL_HEADER_BYTES + 4;

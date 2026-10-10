@@ -36,7 +36,7 @@ export const DEFAULT_CAMERA_SETTINGS: CameraSettings = {
   transition: 0.6,
 };
 
-const KEY = 'physicslab:camera:v1';
+const KEY = 'physixlab:camera:v1';
 
 export function sanitizeCameraSettings(raw: unknown): CameraSettings {
   const d = DEFAULT_CAMERA_SETTINGS;

@@ -7,7 +7,7 @@
  */
 import { ZONE_SOUNDS } from '../model/zones';
 
-const MUTE_KEY = 'physicslab.zones.muted';
+const MUTE_KEY = 'physixlab.zones.muted';
 
 let audio: AudioContext | null = null;
 let muted = read();

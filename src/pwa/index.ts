@@ -14,6 +14,6 @@ export function initPwa(app: App): void {
   wireFileIntake(app);
   registerServiceWorker({
     onUpdate: (apply) => showUpdatePrompt(apply),
-    onOfflineReady: () => app.toast('PhysicsLab is ready to work offline.', 'success'),
+    onOfflineReady: () => app.toast('PhysixLab is ready to work offline.', 'success'),
   });
 }

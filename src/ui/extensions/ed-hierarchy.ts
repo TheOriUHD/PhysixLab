@@ -20,7 +20,7 @@ import { isGroup } from '../../model/types';
 import { groupScaleSection } from '../edit/groupSection';
 import { promptText } from '../modal';
 
-const currentApp = (): App | undefined => (window as unknown as { physicslab?: App }).physicslab;
+const currentApp = (): App | undefined => (window as unknown as { physixlab?: App }).physixlab;
 
 // ── groups ──────────────────────────────────────────────────────────────────────────────────────────
 
@@ -180,7 +180,7 @@ registerCommand({
   label: 'Paste from system clipboard',
   category: 'Edit',
   description:
-    'Paste a PhysicsLab copy that arrived as text (from another browser or window); the browser may ask permission',
+    'Paste a PhysixLab copy that arrived as text (from another browser or window); the browser may ask permission',
   keywords: ['text', 'external', 'other tab'],
   run: async ({ app }) => {
     const text = await readSystemClipboard(false);
@@ -269,7 +269,7 @@ if (typeof document !== 'undefined') {
     const t = e.target as HTMLElement | null;
     if (!app || (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))) return;
     const text = e.clipboardData?.getData('text/plain');
-    if (!text || !text.includes('physicslab-clipboard')) return;
+    if (!text || !text.includes('physixlab-clipboard')) return;
     e.preventDefault();
     const opts: PasteOptions = { at: pasteAt() };
     toastPaste(app, pasteText(app.editor, text, opts), opts);

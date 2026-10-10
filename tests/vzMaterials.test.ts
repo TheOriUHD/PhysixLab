@@ -225,7 +225,7 @@ describe('VZ-10..13 environment settings', () => {
     expect(back.settings.environment).toEqual(doc.settings.environment);
     expect(back.settings.ground.type).toBe('water');
     const bad = sanitizeDocument({
-      format: 'physicslab-scene',
+      format: 'physixlab-scene',
       entities: [],
       settings: {
         environment: {

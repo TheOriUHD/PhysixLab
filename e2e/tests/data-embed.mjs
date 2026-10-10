@@ -16,7 +16,7 @@ async function hostPage(srcOrFn) {
     res.setHeader('content-type', 'text/html');
     res.end(`<!doctype html><body style="margin:0"><iframe id="v" src="${src}" style="width:900px;height:600px;border:0"></iframe><script>
         window.msgs = [];
-        addEventListener('message', (e) => { if (e.data && e.data.type === 'physicslab') window.msgs.push({ origin: e.origin, data: e.data }); });
+        addEventListener('message', (e) => { if (e.data && e.data.type === 'physixlab') window.msgs.push({ origin: e.origin, data: e.data }); });
         window.send = (m) => document.getElementById('v').contentWindow.postMessage(m, '*');
       </script>`);
   });
@@ -37,7 +37,7 @@ async function hostPage(srcOrFn) {
 /** Send a command carrying a fresh id and wait for the reply with that id. */
 async function ask(host, msg) {
   const id = `t${Math.random().toString(36).slice(2, 8)}`;
-  await host.evaluate(([m, id]) => window.send({ type: 'physicslab', v: 1, id, ...m }), [msg, id]);
+  await host.evaluate(([m, id]) => window.send({ type: 'physixlab', v: 1, id, ...m }), [msg, id]);
   const handle = await host.waitForFunction((id) => window.msgs.find((m) => m.data.id === id), id, { timeout: 30000 });
   return (await handle.jsonValue()).data;
 }
@@ -55,7 +55,7 @@ test('DT-22 embed viewer shows minimal chrome: no panels / menus / toolbox, only
     panels: document.querySelectorAll('aside, .panel, .dock, .topbar, .menubar, .toolbox, .viewbar, .statusbar').length,
     bar: !!document.querySelector('.embed-bar'),
     buttons: document.querySelectorAll('.embed-bar button').length,
-    bodies: window.physicslab.store.bodies().length,
+    bodies: window.physixlab.store.bodies().length,
     canvas: !!document.querySelector('canvas.viewport-canvas'),
   }));
   assert(chrome.panels === 0, `no editor chrome (${chrome.panels} found)`);
@@ -63,32 +63,32 @@ test('DT-22 embed viewer shows minimal chrome: no panels / menus / toolbox, only
   assert(chrome.canvas && chrome.bodies > 3, 'the car scene is shown');
   // Bar buttons work: play, then pause.
   await p.click('.embed-play');
-  await p.waitForFunction(() => window.physicslab.sim.mode === 'running');
+  await p.waitForFunction(() => window.physixlab.sim.mode === 'running');
   await p.click('.embed-play');
-  await p.waitForFunction(() => window.physicslab.sim.mode === 'paused');
+  await p.waitForFunction(() => window.physixlab.sim.mode === 'paused');
   await p.click('.embed-reset');
-  await p.waitForFunction(() => window.physicslab.sim.mode === 'edit');
+  await p.waitForFunction(() => window.physixlab.sim.mode === 'edit');
   await p.close();
 });
 
 test('DT-22 embed options: autoplay, controls=0, camera=fixed, share payload, unknown scene reported', async () => {
   const a = await newPage('&embed=1&scene=car&autoplay=1&controls=0&camera=fixed');
-  await a.waitForFunction(() => window.physicslab.sim.mode === 'running', null, { timeout: 30000 });
+  await a.waitForFunction(() => window.physixlab.sim.mode === 'running', null, { timeout: 30000 });
   const o = await a.evaluate(() => ({
     bar: !!document.querySelector('.embed-bar'),
-    orbit: window.physicslab.viewport.controls.enabled,
+    orbit: window.physixlab.viewport.controls.enabled,
   }));
   assert(!o.bar && o.orbit === false, `controls=0 hides the bar, camera=fixed locks orbit (${JSON.stringify(o)})`);
   await a.close();
 
   const maker = await newPage();
   const hash = await maker.evaluate(async () => {
-    window.physicslab.store.setName('Embedded share');
-    return new URL((await window.physicslab.persistence.shareInfo()).url).hash;
+    window.physixlab.store.setName('Embedded share');
+    return new URL((await window.physixlab.persistence.shareInfo()).url).hash;
   });
   await maker.close();
   const s = await newPage(`&embed=1${hash}`);
-  const name = await s.evaluate(() => window.physicslab.store.name);
+  const name = await s.evaluate(() => window.physixlab.store.name);
   assert(name === 'Embedded share', `scene from #s= opened (${name})`);
   await s.close();
 
@@ -159,10 +159,10 @@ test('DT-22 embed postMessage API ignores other senders and non-listed origins',
   const origin = await appOrigin();
   // 1) the viewer's own window is not its parent: a self-posted command is ignored
   const v = await newPage('&embed=1&scene=car');
-  await v.evaluate(() => window.postMessage({ type: 'physicslab', cmd: 'play' }, '*'));
+  await v.evaluate(() => window.postMessage({ type: 'physixlab', cmd: 'play' }, '*'));
   await sleep(600);
   assert(
-    (await v.evaluate(() => window.physicslab.sim.mode)) === 'edit',
+    (await v.evaluate(() => window.physixlab.sim.mode)) === 'edit',
     'self-posted command ignored (source is not the parent)',
   );
   await v.close();
@@ -170,7 +170,7 @@ test('DT-22 embed postMessage API ignores other senders and non-listed origins',
   const host = await hostPage(`${origin}/?nowelcome&embed=1&scene=car&origin=https://trusted.example`);
   await host.waitForFunction(() => !!document.getElementById('v'), null, { timeout: 30000 });
   await sleep(2500);
-  await host.evaluate(() => window.send({ type: 'physicslab', v: 1, id: 'x1', cmd: 'play' }));
+  await host.evaluate(() => window.send({ type: 'physixlab', v: 1, id: 'x1', cmd: 'play' }));
   await sleep(1500);
   const got = await host.evaluate(() => window.msgs.length);
   assert(got === 0, `allow-listed viewer stays silent for a foreign origin (${got} messages)`);
@@ -188,13 +188,13 @@ test('DT-22 embed postMessage API ignores other senders and non-listed origins',
 test('DT-22 embed locks editing: selection, drags and shortcuts do nothing; interact=1 only grabs while running', async () => {
   const p = await newPage('&embed=1&scene=car');
   const target = await p.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const b = a.store.bodies().find((x) => x.bodyType === 'dynamic');
     return { id: b.id, position: [...b.position], n: a.store.size };
   });
   // Programmatic and real selection both end up empty.
-  await p.evaluate((id) => window.physicslab.store.setSelection([id]), target.id);
-  const sel = await p.evaluate(() => window.physicslab.store.selection.length);
+  await p.evaluate((id) => window.physixlab.store.setSelection([id]), target.id);
+  const sel = await p.evaluate(() => window.physixlab.store.selection.length);
   assert(sel === 0, 'selection is cleared immediately');
   const at = await screenOf(p, target.id);
   await p.mouse.move(at.x, at.y);
@@ -204,7 +204,7 @@ test('DT-22 embed locks editing: selection, drags and shortcuts do nothing; inte
   await p.keyboard.press('Delete');
   await p.keyboard.press('Control+a');
   const after = await p.evaluate((id) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const b = a.store.body(id);
     return { position: [...b.position], n: a.store.size, sel: a.store.selection.length, rev: a.store.revision };
   }, target.id);
@@ -217,7 +217,7 @@ test('DT-22 embed locks editing: selection, drags and shortcuts do nothing; inte
 
   const q = await newPage('&embed=1&scene=car&interact=1');
   const info = await q.evaluate(() => {
-    const b = window.physicslab.store.bodies().find((x) => x.bodyType === 'dynamic');
+    const b = window.physixlab.store.bodies().find((x) => x.bodyType === 'dynamic');
     return { id: b.id, position: [...b.position] };
   });
   const pt = await screenOf(q, info.id);
@@ -225,13 +225,13 @@ test('DT-22 embed locks editing: selection, drags and shortcuts do nothing; inte
   await q.mouse.down();
   await q.mouse.move(pt.x + 100, pt.y, { steps: 5 });
   await q.mouse.up();
-  const moved = await q.evaluate((id) => [...window.physicslab.store.body(id).position], info.id);
+  const moved = await q.evaluate((id) => [...window.physixlab.store.body(id).position], info.id);
   assert(
     moved.every((v, i) => v === info.position[i]),
     'interact=1 still cannot edit while stopped',
   );
   await q.click('.embed-play');
-  await q.waitForFunction(() => window.physicslab.sim.mode === 'running');
+  await q.waitForFunction(() => window.physixlab.sim.mode === 'running');
   const pt2 = await screenOf(q, info.id);
   await q.mouse.move(pt2.x, pt2.y);
   await q.mouse.down();
@@ -242,7 +242,7 @@ test('DT-22 embed locks editing: selection, drags and shortcuts do nothing; inte
       () => false,
     );
   await q.mouse.up();
-  const docAfter = await q.evaluate((id) => [...window.physicslab.store.body(id).position], info.id);
+  const docAfter = await q.evaluate((id) => [...window.physixlab.store.body(id).position], info.id);
   assert(
     docAfter.every((v, i) => v === info.position[i]),
     'grabbing never writes to the document',

@@ -1,3 +1,4 @@
+import './app/storage/legacyBoot';
 import './styles/app.css';
 import './styles/ed-select.css';
 import './styles/ed-arrange.css';
@@ -84,7 +85,7 @@ async function boot(): Promise<void> {
     const { bootEmbed } = await import('./ui/embed/boot');
     const bridge = await bootEmbed(app, shell, embedOptions);
     app.start();
-    (window as unknown as { physicslab: App }).physicslab = app;
+    (window as unknown as { physixlab: App }).physixlab = app;
     bridge.announceReady();
     return;
   }
@@ -214,8 +215,8 @@ async function boot(): Promise<void> {
   installQol(app); // UI-B: presentation mode, recents, drop overlay, clipboard paste
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
   // -- DT-30: the versioned public API (src/api); falls through to the App for the internal members --
-  (window as unknown as { physicslab: App }).physicslab = publishApi(app);
-  window.dispatchEvent(new Event('physicslab:ready')); // -- DT-31: lets installed plugins start --
+  (window as unknown as { physixlab: App }).physixlab = publishApi(app);
+  window.dispatchEvent(new Event('physixlab:ready')); // -- DT-31: lets installed plugins start --
   if (!app.prefs.value.seenWelcome && !new URLSearchParams(location.search).has('nowelcome'))
     setTimeout(() => showWelcome(app), 400);
 }

@@ -104,7 +104,7 @@ describe('zone prefabs', () => {
     for (const p of zp) {
       const doc = sanitizeDocument(
         {
-          format: 'physicslab-scene',
+          format: 'physixlab-scene',
           version: 3,
           name: p.name,
           entities: JSON.parse(JSON.stringify(p.build())) as unknown[],

@@ -1,4 +1,4 @@
-// -- DT-40: open `.physicslab.json` files via the OS (file_handlers + launchQueue) and Web Share Target --
+// -- DT-40: open `.physixlab.json` files via the OS (file_handlers + launchQueue) and Web Share Target --
 import type { App } from '../app/app';
 import { importDocument } from '../ui/sceneActions';
 
@@ -29,14 +29,14 @@ export async function takeSharedScene(): Promise<File | null> {
     const at = Number(res.headers.get('x-stashed-at'));
     if (!(Date.now() - at <= SHARE_TTL_MS)) return null; // stale stash: ignore
     const raw = res.headers.get('x-file-name');
-    const name = raw ? decodeURIComponent(raw) : 'shared.physicslab.json';
+    const name = raw ? decodeURIComponent(raw) : 'shared.physixlab.json';
     return new File([await res.blob()], name, { type: 'application/json' });
   } catch {
     return null;
   }
 }
 
-/** Wire the launch queue (OS "Open with PhysicsLab") and the share target to the normal import path. */
+/** Wire the launch queue (OS "Open with PhysixLab") and the share target to the normal import path. */
 export function wireFileIntake(app: App): void {
   const lq = (window as unknown as { launchQueue?: LaunchQueue }).launchQueue;
   if (lq) {

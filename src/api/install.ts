@@ -1,16 +1,16 @@
 /**
- * DT-30: connects the public API to the running `App` and publishes it as `window.physicslab`.
+ * DT-30: connects the public API to the running `App` and publishes it as `window.physixlab`.
  *
- * `window.physicslab` is a Proxy: the documented, versioned members (see ./types.ts) come from the API object;
+ * `window.physixlab` is a Proxy: the documented, versioned members (see ./types.ts) come from the API object;
  * every other property falls through to the `App` instance (functions are bound to it), so the debugging handle
- * that the e2e tests and DevTools sessions rely on (`physicslab.store`, `.editor`, …) keeps working. Those internal
+ * that the e2e tests and DevTools sessions rely on (`physixlab.store`, `.editor`, …) keeps working. Those internal
  * members are NOT part of the stable surface.
  */
 import type { App } from '../app/app';
 import { commandRegistry, runCommand } from '../app/registry/commands';
 import { listTools } from '../app/registry/tools';
 import { createApi, type ApiHost } from './create';
-import type { ApiEvents, PhysicsLabApi } from './types';
+import type { ApiEvents, PhysixLabApi } from './types';
 
 const API_EVENTS: ReadonlySet<string> = new Set<keyof ApiEvents>([
   'scene:change',
@@ -59,18 +59,18 @@ export function hostOf(app: App): ApiHost {
   };
 }
 
-export function createAppApi(app: App): PhysicsLabApi {
+export function createAppApi(app: App): PhysixLabApi {
   const api = createApi(hostOf(app));
   // Unknown event names fall back to the App's own emitter (frame, view, scene, …) so old callers keep working.
   const on = ((event: string, handler: (p: never) => void) =>
     API_EVENTS.has(event)
       ? api.on(event as keyof ApiEvents, handler as never)
-      : (app.on as (e: string, h: (p: never) => void) => () => void)(event, handler)) as PhysicsLabApi['on'];
+      : (app.on as (e: string, h: (p: never) => void) => () => void)(event, handler)) as PhysixLabApi['on'];
   return { ...api, on };
 }
 
-/** The object to assign to `window.physicslab`. */
-export function publishApi(app: App): App & PhysicsLabApi {
+/** The object to assign to `window.physixlab`. */
+export function publishApi(app: App): App & PhysixLabApi {
   const api = createAppApi(app);
   return new Proxy(app, {
     get(target, prop) {
@@ -79,5 +79,5 @@ export function publishApi(app: App): App & PhysicsLabApi {
       return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(target) : v;
     },
     has: (target, prop) => Object.hasOwn(api, prop) || prop in target,
-  }) as unknown as App & PhysicsLabApi;
+  }) as unknown as App & PhysixLabApi;
 }

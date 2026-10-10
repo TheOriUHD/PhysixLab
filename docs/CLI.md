@@ -5,7 +5,7 @@ rendering, fixed time step, seeded RNG — so results are reproducible. Use it f
 data collection for reports.
 
 ```bash
-npm run cli -- run scene.physicslab.json --steps 600 --every 10 --out result.csv
+npm run cli -- run scene.physixlab.json --steps 600 --every 10 --out result.csv
 npm run cli -- run template:car --steps 300 --sweep gravity=-1.6,-9.81,-24.8 --track Chassis --final
 npm run cli -- run scene.json --steps 1200 --sweep Ball.material.restitution=0:1:5 --sweep seed=1,2,3 --out sweep.json
 ```
@@ -34,6 +34,6 @@ runs: [{ index, params, seed, samples: [{ step, time, bodies: { id: [x y z vx vy
 `3` the scene could not be read or is invalid.
 
 **Determinism.** Same scene + same seed + same options ⇒ byte-identical output (tested). The CLI is bundled on first use
-with Vite's SSR build into `node_modules/.cache/physicslab-cli`, which takes about a second.
+with Vite's SSR build into `node_modules/.cache/physixlab-cli`, which takes about a second.
 
 Programmatic use: `import { runBatch, parseSweep, toCsv } from './src/cli/batch'` (pure TypeScript, no DOM).

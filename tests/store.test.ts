@@ -108,7 +108,7 @@ describe('serialization', () => {
     const back = parseDocument(serializeDocument(doc));
     expect(back.entities).toHaveLength(1);
     const sparse = sanitizeDocument({
-      format: 'physicslab-scene',
+      format: 'physixlab-scene',
       entities: [{ kind: 'body', id: 'x', shape: { type: 'sphere', size: [2, 2, 2] } }],
     });
     const b = sparse.entities[0] as BodyEntity;
@@ -121,7 +121,7 @@ describe('serialization', () => {
     expect(() => parseDocument('not json')).toThrow();
     expect(() => parseDocument('{"format":"nope"}')).toThrow();
     const doc = sanitizeDocument({
-      format: 'physicslab-scene',
+      format: 'physixlab-scene',
       entities: [
         { kind: 'body', id: 'a', shape: { type: 'box', size: [1, -5, NaN] }, position: [Infinity, 0, 0] },
         { kind: 'joint', id: 'j', type: 'hinge', bodyA: 'a', bodyB: 'missing', anchorA: [0, 0, 0] },

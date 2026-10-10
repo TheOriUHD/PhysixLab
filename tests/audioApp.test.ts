@@ -510,7 +510,7 @@ describe('stored sound preferences (FX-10: settings persisted)', () => {
     install();
     const { PrefsStore } = await import('../src/app/prefs');
     store.set(
-      'physicslab:prefs:v1',
+      'physixlab:prefs:v1',
       JSON.stringify({
         audio: { muted: true, master: 9, volume: { rolling: 0.3, engines: 'x', ghost: 1 }, doppler: 'sure' },
       }),
@@ -522,13 +522,13 @@ describe('stored sound preferences (FX-10: settings persisted)', () => {
     expect(p.value.audio.volume.engines).toBeGreaterThan(0);
     expect(p.value.audio.doppler).toBe(false);
     p.set({ audio: { ...p.value.audio, muted: false, master: 0.4 } });
-    const saved = JSON.parse(store.get('physicslab:prefs:v1') as string) as {
+    const saved = JSON.parse(store.get('physixlab:prefs:v1') as string) as {
       audio: { master: number; muted: boolean };
     };
     expect(saved.audio.master).toBe(0.4);
     expect(saved.audio.muted).toBe(false);
     expect(new PrefsStore().value.audio.master).toBe(0.4); // a reload sees it
-    store.set('physicslab:prefs:v1', '{not json');
+    store.set('physixlab:prefs:v1', '{not json');
     expect(new PrefsStore().value.audio.enabled).toBe(true); // storage garbage: defaults
   });
 });

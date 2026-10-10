@@ -10,60 +10,60 @@ export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
 const stats = (page) =>
-  page.evaluate(() => ({ ...window.physicslab.fxDirector.stats, time: window.physicslab.fx.time }));
+  page.evaluate(() => ({ ...window.physixlab.fxDirector.stats, time: window.physixlab.fx.time }));
 const noErrors = (page) => assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
-const play = (page) => page.evaluate(() => window.physicslab.sim.play());
-const pause = (page) => page.evaluate(() => window.physicslab.sim.pause());
+const play = (page) => page.evaluate(() => window.physixlab.sim.play());
+const pause = (page) => page.evaluate(() => window.physixlab.sim.pause());
 
 test('fx: Effects panel — master switch, quality and intensity drive the system and persist', async () => {
   const page = await newPage('&quality=medium');
   await page.click('#tab-fx');
   await page.waitForSelector('.fx-panel .section-head:has-text("Visual effects")');
   await shot(page, 'fx-panel');
-  let s = await page.evaluate(() => window.physicslab.fx.settings);
+  let s = await page.evaluate(() => window.physixlab.fx.settings);
   assert(s.enabled && s.quality === 'auto' && s.intensity === 1, `defaults ${JSON.stringify(s)}`);
 
   // Master switch: the labelled switch toggles effects, the dependent sections are dimmed.
   await page.click('.fx-panel label.switch:has-text("Visual effects")');
-  s = await page.evaluate(() => window.physicslab.fx.settings);
+  s = await page.evaluate(() => window.physixlab.fx.settings);
   assert(s.enabled === false, 'master off');
   assert(
     await page.evaluate(() => document.querySelector('.fx-panel .section.fx-dim').classList.contains('fx-disabled')),
     'sections dimmed',
   );
-  assert(await page.evaluate(() => window.physicslab.prefs.value.fx.enabled === false), 'stored in the preferences');
+  assert(await page.evaluate(() => window.physixlab.prefs.value.fx.enabled === false), 'stored in the preferences');
   await page.waitForTimeout(350); // the switch animation
   await shot(page, 'fx-panel-off');
   await page.click('.fx-panel label.switch:has-text("Visual effects")');
 
   // Quality select and per-effect switch.
   await page.selectOption('.fx-panel select', 'high');
-  s = await page.evaluate(() => ({ q: window.physicslab.fx.settings.quality, tier: window.physicslab.fx.tier.id }));
+  s = await page.evaluate(() => ({ q: window.physixlab.fx.settings.quality, tier: window.physixlab.fx.tier.id }));
   assert(s.q === 'high' && s.tier === 'high', `quality ${JSON.stringify(s)}`);
   await page.click('.fx-panel label.switch:has-text("Skid marks")');
-  assert(await page.evaluate(() => window.physicslab.fx.settings.skidMarks === false), 'skid marks off');
+  assert(await page.evaluate(() => window.physixlab.fx.settings.skidMarks === false), 'skid marks off');
 
   // Persisted: reload and read the settings back.
   await page.reload();
-  await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport);
-  s = await page.evaluate(() => window.physicslab.fx.settings);
+  await page.waitForFunction(() => !!window.physixlab && window.physixlab.viewport);
+  s = await page.evaluate(() => window.physixlab.fx.settings);
   assert(s.quality === 'high' && s.skidMarks === false && s.enabled === true, `after reload ${JSON.stringify(s)}`);
   noErrors(page);
 });
 
 test('fx: ball pit — 300 balls fill the pit within the particle budget, and Reset clears every particle', async () => {
   const page = await newPage('&scene=pit&quality=medium');
-  await page.evaluate(() => window.physicslab.viewport.setView({ position: [0, 8.5, 5.5], target: [0, 0.2, 0] }));
+  await page.evaluate(() => window.physixlab.viewport.setView({ position: [0, 8.5, 5.5], target: [0, 0.2, 0] }));
   assert((await stats(page)).contactsWatched === true, 'contact events are requested from the physics');
   await play(page);
-  await page.waitForFunction(() => window.physicslab.fx.stats.spawned > 400, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.physixlab.fx.stats.spawned > 400, null, { timeout: 60000 });
   const s = await stats(page);
   assert(s.live > 0 && s.bursts > 20, `bursts ${s.bursts}, live ${s.live}`);
   assert(s.live <= s.budget, `within the particle budget (${s.live} / ${s.budget})`);
   await pause(page);
   await page.waitForTimeout(400);
   await shot(page, 'fx-ball-pit');
-  await page.evaluate(() => window.physicslab.sim.reset());
+  await page.evaluate(() => window.physixlab.sim.reset());
   await page.waitForTimeout(200);
   const after = await stats(page);
   assert(after.live === 0 && after.skidSegments === 0, 'reset clears the effects');
@@ -84,7 +84,7 @@ test('fx: ball drop — sparks, dust, chips, shards and scuffs follow the materi
         material: m,
       });
     }
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.loadDocument(b.done());
     a.viewport.setView({ position: [0.5, 2.4, 8.5], target: [0, 0.7, 0] });
   });
@@ -92,9 +92,9 @@ test('fx: ball drop — sparks, dust, chips, shards and scuffs follow the materi
   // Wait for every kind (the balls land at different times; pausing at "18 bursts" raced with the slow ones).
   await page.waitForFunction(
     () => {
-      const by = window.physicslab.fx.emittedByType();
+      const by = window.physixlab.fx.emittedByType();
       return (
-        window.physicslab.fx.stats.bursts >= 18 &&
+        window.physixlab.fx.stats.bursts >= 18 &&
         ['spark', 'dust', 'chip.wood', 'shard.glass', 'scuff.rubber', 'chip.stone'].every((t) => by[t] > 0)
       );
     },
@@ -104,7 +104,7 @@ test('fx: ball drop — sparks, dust, chips, shards and scuffs follow the materi
   await pause(page);
   await page.waitForTimeout(500);
   await shot(page, 'fx-ball-drop');
-  const by = await page.evaluate(() => window.physicslab.fx.emittedByType());
+  const by = await page.evaluate(() => window.physixlab.fx.emittedByType());
   for (const t of ['spark', 'dust', 'chip.wood', 'shard.glass', 'scuff.rubber', 'chip.stone'])
     assert(by[t] > 0, `${t} was emitted (${JSON.stringify(by)})`);
   assert(by['glint'] > 0, 'glass glints');
@@ -115,7 +115,7 @@ test('fx: car braking skid — slipping wheels smoke and leave skid marks; Reset
   const page = await newPage('&scene=car&quality=medium');
   await page.evaluate(async () => {
     const { buildCar } = await import('/src/model/templates.ts');
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.loadDocument(buildCar(false)); // the car on an empty ground: no ramp to jump
     a.prefs.set({ followSelection: false });
     a.viewport.setView({ position: [5, 2.2, 6], target: [3, 0.3, 0] });
@@ -126,18 +126,18 @@ test('fx: car braking skid — slipping wheels smoke and leave skid marks; Reset
   await simTime(page, 1.9);
   await page.keyboard.up('KeyW');
   await page.keyboard.down('KeyS'); // hard on the brakes: the rear wheels fight the car's speed
-  await page.waitForFunction(() => window.physicslab.fx.stats.skidSegments > 8, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.physixlab.fx.stats.skidSegments > 8, null, { timeout: 60000 });
   const during = await page.evaluate(() => ({
-    smoke: window.physicslab.fx.emittedByType()['smoke.tyre'] ?? 0,
-    dust: window.physicslab.fx.emittedByType()['dust.trail'] ?? 0,
-    segments: window.physicslab.fx.stats.skidSegments,
+    smoke: window.physixlab.fx.emittedByType()['smoke.tyre'] ?? 0,
+    dust: window.physixlab.fx.emittedByType()['dust.trail'] ?? 0,
+    segments: window.physixlab.fx.stats.skidSegments,
   }));
   assert(during.segments > 8, `skid marks laid (${during.segments})`);
   assert(during.smoke > 0, `tyre smoke emitted (${during.smoke})`);
   assert(during.dust > 0, `a dust trail behind the fast car (${during.dust})`);
   await page.keyboard.up('KeyS');
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const car = a.sim.poseOf(a.store.bodies().find((b) => b.name === 'Chassis').id).position;
     a.viewport.setView({ position: [car[0] - 2.5, 1.7, car[2] + 5], target: [car[0] - 3.5, 0.1, car[2]] });
   });
@@ -145,7 +145,7 @@ test('fx: car braking skid — slipping wheels smoke and leave skid marks; Reset
   await page.waitForTimeout(600);
   await shot(page, 'fx-car-skid');
   assert((await stats(page)).skidSegments > 8, 'the marks stay while the simulation is paused');
-  await page.evaluate(() => window.physicslab.sim.reset());
+  await page.evaluate(() => window.physixlab.sim.reset());
   await page.waitForTimeout(200);
   assert((await stats(page)).skidSegments === 0, 'Reset clears the skid marks');
   noErrors(page);
@@ -154,29 +154,29 @@ test('fx: car braking skid — slipping wheels smoke and leave skid marks; Reset
 test('fx: blast tool — fireball, shock ring, debris, smoke and a light flash', async () => {
   const page = await newPage('&scene=wreck&quality=medium');
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.viewport.setView({ position: [3, 4, 14], target: [3, 2, 0] });
     a.setTool('blast');
   });
   await play(page);
   await simTime(page, 0.05);
   const wallBrick = await page.evaluate(() => {
-    const b = window.physicslab.store.bodies().find((e) => /brick/i.test(e.name));
+    const b = window.physixlab.store.bodies().find((e) => /brick/i.test(e.name));
     return b ? b.id : null;
   });
   assert(wallBrick, 'the scene has a wall to blast');
   const p = await screenOf(page, wallBrick);
   await page.mouse.click(p.x, p.y);
-  await page.waitForFunction(() => window.physicslab.fx.stats.explosions >= 1, null, { timeout: 30000 });
-  const peak = await page.evaluate(() => window.physicslab.fx.flashIntensity);
+  await page.waitForFunction(() => window.physixlab.fx.stats.explosions >= 1, null, { timeout: 30000 });
+  const peak = await page.evaluate(() => window.physixlab.fx.flashIntensity);
   assert(peak > 50, `the light flash is on (${peak} cd)`);
   // Let the explosion develop a little, then freeze the frame.
   const t0 = (await stats(page)).time;
-  await page.waitForFunction((t) => window.physicslab.fx.time > t + 0.28, t0, { timeout: 30000 });
+  await page.waitForFunction((t) => window.physixlab.fx.time > t + 0.28, t0, { timeout: 30000 });
   await pause(page);
   await page.waitForTimeout(500);
   const kinds = await page.evaluate(() => {
-    const fx = window.physicslab.fx;
+    const fx = window.physixlab.fx;
     return Object.fromEntries(
       ['blast.fire', 'blast.ring', 'blast.flash', 'spark.hot', 'debris', 'smoke.dark'].map((t) => [
         t,
@@ -194,14 +194,14 @@ test('fx: blast tool — fireball, shock ring, debris, smoke and a light flash',
 
 test('fx: switched off — nothing is emitted, no contact events are requested, the blast keeps its plain shock wave', async () => {
   const page = await newPage('&scene=pit&quality=medium');
-  await page.evaluate(() => window.physicslab.fxDirector.setSettings({ enabled: false }));
+  await page.evaluate(() => window.physixlab.fxDirector.setSettings({ enabled: false }));
   assert((await stats(page)).contactsWatched === false, 'no contact events requested');
   await play(page);
   await simTime(page, 1.4);
   const s = await stats(page);
   assert(s.spawned === 0 && s.live === 0, `nothing emitted (${s.spawned})`);
   const shock = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.setTool('blast');
     return a.fxDirector.blast({ x: 0, y: 1, z: 0 }, 7, 60);
   });
@@ -224,16 +224,16 @@ test('fx: determinism — the same scene seed gives the same effects, another se
     }
     const doc = b.done();
     doc.settings.seed = 5;
-    window.physicslab.loadDocument(doc);
+    window.physixlab.loadDocument(doc);
   });
   const stepTo = async (steps) => {
     for (let done = 0; done < steps; done += 10) {
       const f = await page.evaluate(() => {
-        const a = window.physicslab;
+        const a = window.physixlab;
         a.sim.step(10);
         return a.sim.client.frameNo;
       });
-      await page.waitForFunction((f) => window.physicslab.sim.client.frameNo > f, f, { timeout: 30000 });
+      await page.waitForFunction((f) => window.physixlab.sim.client.frameNo > f, f, { timeout: 30000 });
       await page.waitForTimeout(30); // a render frame consumes the events
     }
   };
@@ -241,20 +241,20 @@ test('fx: determinism — the same scene seed gives the same effects, another se
     await stepTo(130);
     await page.waitForTimeout(150);
     return page.evaluate(() => ({
-      digest: window.physicslab.fx.digest(),
-      emitted: window.physicslab.fx.emittedByType(),
-      live: window.physicslab.fx.stats.live,
+      digest: window.physixlab.fx.digest(),
+      emitted: window.physixlab.fx.emittedByType(),
+      live: window.physixlab.fx.stats.live,
     }));
   };
   const a = await run();
   assert(a.live > 0 && Object.keys(a.emitted).length >= 2, `effects happened: ${JSON.stringify(a.emitted)}`);
-  await page.evaluate(() => window.physicslab.sim.reset());
+  await page.evaluate(() => window.physixlab.sim.reset());
   await page.waitForTimeout(200);
   const b = await run();
   assert(b.digest === a.digest, `same seed, same particles (${a.digest} vs ${b.digest})`);
   assert(JSON.stringify(b.emitted) === JSON.stringify(a.emitted), 'same effects emitted');
-  await page.evaluate(() => window.physicslab.sim.reset());
-  await page.evaluate(() => window.physicslab.store.updateSettings({ seed: 6 }, 'seed'));
+  await page.evaluate(() => window.physixlab.sim.reset());
+  await page.evaluate(() => window.physixlab.store.updateSettings({ seed: 6 }, 'seed'));
   await page.waitForTimeout(200);
   const c = await run();
   assert(c.digest !== a.digest, 'another seed gives other particles');
@@ -264,7 +264,7 @@ test('fx: determinism — the same scene seed gives the same effects, another se
 test('fx: a hard projectile hit sets off a small blast on top of the material effects', async () => {
   const page = await newPage('&scene=wreck&quality=medium');
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.prefs.set({ shootSpeed: 30 });
     a.viewport.setView({ position: [3, 2.4, 11], target: [3, 1.8, 0] });
     a.setTool('shoot');
@@ -272,11 +272,11 @@ test('fx: a hard projectile hit sets off a small blast on top of the material ef
   await play(page);
   await simTime(page, 0.1);
   const before = (await stats(page)).explosions;
-  const brick = await page.evaluate(() => window.physicslab.store.bodies().find((e) => /brick/i.test(e.name)).id);
+  const brick = await page.evaluate(() => window.physixlab.store.bodies().find((e) => /brick/i.test(e.name)).id);
   const p = await screenOf(page, brick);
   await page.mouse.click(p.x, p.y);
-  await page.waitForFunction((n) => window.physicslab.fx.stats.explosions > n, before, { timeout: 60000 });
-  const by = await page.evaluate(() => window.physicslab.fx.emittedByType());
+  await page.waitForFunction((n) => window.physixlab.fx.stats.explosions > n, before, { timeout: 60000 });
+  const by = await page.evaluate(() => window.physixlab.fx.emittedByType());
   assert(by['blast.flash'] > 0 && by['blast.fire'] > 0, `a small blast: ${JSON.stringify(by)}`);
   assert(by['spark'] > 0 || by['chip.stone'] > 0 || by['dust'] > 0, 'and the material effects of the hit');
   await pause(page);
@@ -292,23 +292,23 @@ test('fx: physical debris — off by default; on, a glass pane hit by steel thro
     const b = new Builder('Pane');
     b.body('Pane', 'box', [3, 0.25, 3], [0, 0.125, 0], { material: 'glass', bodyType: 'static' });
     b.body('Wrecking ball', 'sphere', [0.6, 0.6, 0.6], [0, 4.5, 0], { material: 'steel' });
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.loadDocument(b.done());
     a.viewport.setView({ position: [3, 2.2, 6], target: [0, 0.4, 0] });
   });
   // 1. switch off: visual debris chunks only, no rigid fragments.
   await play(page);
-  await page.waitForFunction(() => window.physicslab.fx.emittedByType()['debris'] > 0, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.physixlab.fx.emittedByType()['debris'] > 0, null, { timeout: 60000 });
   assert((await stats(page)).fragments === 0, 'no physical fragments while the switch is off');
-  await page.evaluate(() => window.physicslab.sim.reset());
+  await page.evaluate(() => window.physixlab.sim.reset());
   // 2. switch on through the panel.
   await page.click('#tab-fx');
   await page.click('.fx-panel label.switch:has-text("Physical debris bodies")');
-  assert(await page.evaluate(() => window.physicslab.fx.settings.physicalDebris === true), 'switched on');
+  assert(await page.evaluate(() => window.physixlab.fx.settings.physicalDebris === true), 'switched on');
   await play(page);
-  await page.waitForFunction(() => window.physicslab.fxDirector.stats.fragments > 0, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.physixlab.fxDirector.stats.fragments > 0, null, { timeout: 60000 });
   const info = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const frags = [...a.sim.ephemeral.values()].filter((d) => d.tags.includes('fx-debris'));
     return {
       n: frags.length,
@@ -324,11 +324,11 @@ test('fx: physical debris — off by default; on, a glass pane hit by steel thro
   );
   await shot(page, 'fx-physical-debris');
   // 3. they are removed again.
-  await page.evaluate(() => (window.physicslab.sim.timeScale = 4));
+  await page.evaluate(() => (window.physixlab.sim.timeScale = 4));
   await page.waitForFunction(
     () =>
-      window.physicslab.fxDirector.stats.fragments === 0 &&
-      ![...window.physicslab.sim.ephemeral.values()].some((d) => d.tags.includes('fx-debris')),
+      window.physixlab.fxDirector.stats.fragments === 0 &&
+      ![...window.physixlab.sim.ephemeral.values()].some((d) => d.tags.includes('fx-debris')),
     null,
     { timeout: 120000 },
   );
@@ -339,7 +339,7 @@ test('fx: previews, the clear button and the palette commands act on the real sy
   const page = await newPage('&scene=car&quality=medium');
   await page.click('#tab-fx');
   await page.waitForSelector('.fx-panel .fx-previews');
-  const live = () => page.evaluate(() => window.physicslab.fx.stats.live);
+  const live = () => page.evaluate(() => window.physixlab.fx.stats.live);
   assert((await live()) === 0, 'nothing alive at the start');
   await page.click('.fx-previews button:has-text("Sparks")');
   await page.click('.fx-previews button:has-text("Dust")');
@@ -350,21 +350,21 @@ test('fx: previews, the clear button and the palette commands act on the real sy
   assert((await stats(page)).explosions === before + 1, 'explosion preview');
   // They play out in real time while no simulation runs.
   const peak = await live();
-  await page.waitForFunction((n) => window.physicslab.fx.stats.live < n * 0.6, peak, { timeout: 60000 });
+  await page.waitForFunction((n) => window.physixlab.fx.stats.live < n * 0.6, peak, { timeout: 60000 });
   // A preview works even for an effect whose own switch is off (only the master switch rules).
-  await page.evaluate(() => window.physicslab.fxDirector.setSettings({ impacts: false, explosions: false }));
-  const sparks0 = await page.evaluate(() => window.physicslab.fx.emittedByType()['spark'] ?? 0);
+  await page.evaluate(() => window.physixlab.fxDirector.setSettings({ impacts: false, explosions: false }));
+  const sparks0 = await page.evaluate(() => window.physixlab.fx.emittedByType()['spark'] ?? 0);
   await page.click('.fx-previews button:has-text("Sparks")');
   await page.click('.fx-previews button:has-text("Explosion")');
   assert(
-    (await page.evaluate(() => window.physicslab.fx.emittedByType()['spark'] ?? 0)) > sparks0,
+    (await page.evaluate(() => window.physixlab.fx.emittedByType()['spark'] ?? 0)) > sparks0,
     'sparks preview with impacts off',
   );
   assert((await stats(page)).explosions === before + 2, 'explosion preview with explosions off');
-  await page.evaluate(() => window.physicslab.fxDirector.setSettings({ impacts: true, explosions: true }));
+  await page.evaluate(() => window.physixlab.fxDirector.setSettings({ impacts: true, explosions: true }));
   // Skid marks: lay some by hand, clear them with the button.
   await page.evaluate(() => {
-    const fx = window.physicslab.fx;
+    const fx = window.physixlab.fx;
     for (let i = 0; i < 30; i++) {
       fx.beginScan();
       fx.skid(1, i * 0.2, 0, 0.4, 1, 0);
@@ -381,7 +381,7 @@ test('fx: previews, the clear button and the palette commands act on the real sy
   await page.keyboard.press('Enter');
   assert(
     await page.evaluate(
-      () => window.physicslab.fx.settings.quality === 'low' && window.physicslab.fx.tier.id === 'low',
+      () => window.physixlab.fx.settings.quality === 'low' && window.physixlab.fx.tier.id === 'low',
     ),
     'quality low from the palette',
   );
@@ -389,7 +389,7 @@ test('fx: previews, the clear button and the palette commands act on the real sy
   await page.waitForSelector('.palette .palette-input');
   await page.keyboard.type('Visual effects');
   await page.keyboard.press('Enter');
-  assert(await page.evaluate(() => window.physicslab.fx.settings.enabled === false), 'master switch from the palette');
+  assert(await page.evaluate(() => window.physixlab.fx.settings.enabled === false), 'master switch from the palette');
   // View menu entry for the same command.
   await page.click('.menubar >> text=View');
   await page.waitForSelector('.menu-item:has-text("Visual effects")');
@@ -400,7 +400,7 @@ test('fx: previews, the clear button and the palette commands act on the real sy
 test('fx: skid marks fade with age and are drawn as darker ground (read back from the rendered image)', async () => {
   const page = await newPage('&quality=medium');
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     a.viewport.setView({ position: [0.5, 5, 2.51], target: [0.5, 0, 2.5] });
     for (let i = 0; i < 40; i++) {
@@ -409,12 +409,12 @@ test('fx: skid marks fade with age and are drawn as darker ground (read back fro
       a.fx.endScan();
     }
   });
-  await page.waitForFunction(() => window.physicslab.fx.skidMesh.mesh.visible, null, { timeout: 30000 }); // a frame has run
+  await page.waitForFunction(() => window.physixlab.fx.skidMesh.mesh.visible, null, { timeout: 30000 }); // a frame has run
   // Mean luminance of a patch of the picture around a world point, read straight from the renderer.
   const sample = (x, z) =>
     page.evaluate(
       async ([x, z]) => {
-        const a = window.physicslab;
+        const a = window.physixlab;
         const v = a.viewport;
         v.post.render(0.016);
         const img = new Image();
@@ -444,10 +444,10 @@ test('fx: skid marks fade with age and are drawn as darker ground (read back fro
   );
   await shot(page, 'fx-skid-top');
   // Age it: halfway through the fade the mark is lighter, past it it is gone.
-  await page.evaluate(() => window.physicslab.fx.update(55, window.physicslab.camera));
+  await page.evaluate(() => window.physixlab.fx.update(55, window.physixlab.camera));
   const half = await sample(0.5, 2.5);
   assert(half > mark + 3 && half < ground, `half faded (${half.toFixed(1)})`);
-  await page.evaluate(() => window.physicslab.fx.update(40, window.physicslab.camera));
+  await page.evaluate(() => window.physixlab.fx.update(40, window.physixlab.camera));
   const gone = await sample(0.5, 2.5);
   assert(Math.abs(gone - ground) < 4, `faded away (${gone.toFixed(1)} vs ${ground.toFixed(1)})`);
   noErrors(page);

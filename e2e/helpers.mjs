@@ -105,7 +105,7 @@ export async function newPage(query = '', viewport = { width: 1600, height: 900 
     }
   });
   await page.goto(`${env.url}/?nowelcome${query}`);
-  await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport, null, { timeout: 30000 });
+  await page.waitForFunction(() => !!window.physixlab && window.physixlab.viewport, null, { timeout: 30000 });
   await page.waitForTimeout(400);
   page.errors = errors;
   return page;
@@ -131,7 +131,7 @@ export const nextFrame = (page) =>
 export const screenOf = async (page, id) => {
   await nextFrame(page);
   return page.evaluate((id) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const v = a.bodies.get(id);
     const p = v.position.clone().project(a.camera);
     const r = a.viewport.dom.getBoundingClientRect();
@@ -139,7 +139,7 @@ export const screenOf = async (page, id) => {
   }, id);
 };
 
-export const pose = (page, id) => page.evaluate((id) => window.physicslab.sim.poseOf(id), id);
+export const pose = (page, id) => page.evaluate((id) => window.physixlab.sim.poseOf(id), id);
 
 export const shot = async (page, name) => {
   if (process.env.E2E_SHOTS) {
@@ -150,4 +150,4 @@ export const shot = async (page, name) => {
 
 /** Wait until the simulation has advanced at least `s` simulated seconds. */
 export const simTime = (page, s) =>
-  page.waitForFunction((s) => (window.physicslab.sim.client.stats?.simTime ?? 0) >= s, s, { timeout: 60000 });
+  page.waitForFunction((s) => (window.physixlab.sim.client.stats?.simTime ?? 0) >= s, s, { timeout: 60000 });

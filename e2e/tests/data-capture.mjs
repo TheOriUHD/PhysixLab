@@ -10,7 +10,7 @@ const VIEW = { width: 760, height: 480 };
 const run = (page, id) =>
   page.evaluate(async (cid) => {
     const m = await import('/src/app/registry/index.ts');
-    return m.runCommand(cid, window.physicslab, 'api');
+    return m.runCommand(cid, window.physixlab, 'api');
   }, id);
 
 /** Set a dialog control (select / input / checkbox) the way a user would. */
@@ -71,7 +71,7 @@ async function startPage(query = '&scene=pit') {
   const page = await newPage(query, VIEW);
   await page.evaluate(() => {
     window.__downloadHook = true;
-    window.physicslab.store.setSelection([]);
+    window.physixlab.store.setSelection([]);
   });
   return page;
 }
@@ -111,7 +111,7 @@ test('capture: 1 s deterministic GIF through the command has the right header, f
     new Set(first.hashes).size >= 5,
     `the simulation advanced between frames (${new Set(first.hashes).size} distinct)`,
   );
-  const sim = await page.evaluate(() => window.physicslab.sim.mode);
+  const sim = await page.evaluate(() => window.physixlab.sim.mode);
   assert(sim === 'edit', `the editor is back in edit mode (${sim})`);
 
   // Second capture with identical settings: frame by frame identical.
@@ -169,7 +169,7 @@ test('capture: dialog explains limits, Esc cancels a running capture without sav
   await page.waitForFunction(() => !document.querySelector('.capture-indicator'), null, { timeout: 30000 });
   await page.waitForSelector('.toast:has-text("cancelled")');
   assert(!(await page.evaluate(() => !!window.__lastDownload)), 'nothing was saved after Esc');
-  assert((await page.evaluate(() => window.physicslab.sim.mode)) === 'edit', 'simulation state restored after cancel');
+  assert((await page.evaluate(() => window.physixlab.sim.mode)) === 'edit', 'simulation state restored after cancel');
 
   // Stop early keeps the frames so far.
   await run(page, 'capture.gif');
@@ -199,13 +199,13 @@ test('capture: deterministic turntable GIF orbits a full 360 degrees and restore
   let still = 0,
     last = '';
   for (let i = 0; i < 60 && still < 3; i++) {
-    const v = JSON.stringify(await page.evaluate(() => window.physicslab.viewport.getView()));
+    const v = JSON.stringify(await page.evaluate(() => window.physixlab.viewport.getView()));
     still = v === last ? still + 1 : 0;
     last = v;
     await page.waitForTimeout(1000);
   }
   assert(still >= 3, 'camera came to rest');
-  const before = await page.evaluate(() => window.physicslab.viewport.getView());
+  const before = await page.evaluate(() => window.physixlab.viewport.getView());
   const sum = await capture(page, 'capture.turntable', {
     'format-gif': undefined,
     width: 320,
@@ -221,14 +221,14 @@ test('capture: deterministic turntable GIF orbits a full 360 degrees and restore
   assert(distinct >= 10, `the camera moved between frames (${distinct} distinct of 12)`);
   const g = inspectGif((await lastBytes(page)).bytes);
   assert(g.frames === 12 && g.head === 'GIF89a', 'valid 12-frame GIF');
-  const after = await page.evaluate(() => window.physicslab.viewport.getView());
+  const after = await page.evaluate(() => window.physixlab.viewport.getView());
   const close = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-3);
   assert(
     close(before.position, after.position) && close(before.target, after.target),
     `camera restored (before ${JSON.stringify(before)}, after ${JSON.stringify(after)})`,
   );
   assert(
-    (await page.evaluate(() => window.physicslab.sim.mode)) === 'edit',
+    (await page.evaluate(() => window.physixlab.sim.mode)) === 'edit',
     'no simulation was started by a paused turntable',
   );
   await page.close();

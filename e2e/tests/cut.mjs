@@ -9,13 +9,13 @@ const test = (name, fn) => tests.push({ name, fn });
 
 const bodies = (page) =>
   page.evaluate(() =>
-    window.physicslab.store.bodies().map((b) => ({ id: b.id, type: b.shape.type, size: b.shape.size, p: b.position })),
+    window.physixlab.store.bodies().map((b) => ({ id: b.id, type: b.shape.type, size: b.shape.size, p: b.position })),
   );
 
 test('cut tool: drag a line across a box -> two chunks; Ctrl+Z restores it in one step', async () => {
   const page = await newPage();
   const id = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     const b = a.editor.addShape('box', [0, 1, 0], { name: 'Slab' });
     a.viewport.setView({ position: [0, 4, 9], target: [0, 1, 0] });
@@ -27,7 +27,7 @@ test('cut tool: drag a line across a box -> two chunks; Ctrl+Z restores it in on
   // the tool is registered and the shortcut K selects it
   await page.locator('.viewport-canvas').focus();
   await page.keyboard.press('k');
-  const tool = await page.evaluate(() => window.physicslab.prefs.value.tool);
+  const tool = await page.evaluate(() => window.physixlab.prefs.value.tool);
   assert(tool === 'cut', `K activates the cut tool (got ${tool})`);
 
   // a too-short drag only explains itself
@@ -57,7 +57,7 @@ test('cut tool: drag a line across a box -> two chunks; Ctrl+Z restores it in on
   );
   near(after[0].p[0] + after[1].p[0], 0, 0.05, 'the pieces sit symmetrically about the cut');
   assert(Math.abs(after[0].p[0] - after[1].p[0]) > 0.3, 'the pieces are apart along x');
-  assert((await page.evaluate(() => window.physicslab.store.selection.length)) === 2, 'both halves are selected');
+  assert((await page.evaluate(() => window.physixlab.store.selection.length)) === 2, 'both halves are selected');
 
   await page.keyboard.press('Control+z');
   const restored = await bodies(page);

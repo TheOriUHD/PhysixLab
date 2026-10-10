@@ -1,6 +1,6 @@
 /** DT-31: plugin manager dialog and permission prompt. Loaded on demand. */
 import type { App } from '../app/app';
-import type { PhysicsLabApi } from '../api/types';
+import type { PhysixLabApi } from '../api/types';
 import { button } from '../ui/controls';
 import { h } from '../ui/dom';
 import { openModal } from '../ui/modal';
@@ -21,7 +21,7 @@ let host: PluginHost | null = null;
 export function pluginHost(app: App): PluginHost {
   host ??= new PluginHost(
     app,
-    ((window as unknown as { physicslab?: unknown }).physicslab ?? app) as PhysicsLabApi,
+    ((window as unknown as { physixlab?: unknown }).physixlab ?? app) as PhysixLabApi,
     new LocalPluginStore(),
   );
   return host;
@@ -166,7 +166,7 @@ export function openPluginManager(app: App): void {
     class: 'dtb-code plg-paste',
     spellcheck: false,
     placeholder:
-      '/* @physicslab-plugin\n{ "id": "my-plugin", "name": "My plugin", "version": "1.0.0", "permissions": ["ui"] }\n*/\nplugin.registerCommand({ id: "hello", label: "Say hello", run: () => plugin.toast("Hello!") });',
+      '/* @physixlab-plugin\n{ "id": "my-plugin", "name": "My plugin", "version": "1.0.0", "permissions": ["ui"] }\n*/\nplugin.registerCommand({ id: "hello", label: "Say hello", run: () => plugin.toast("Hello!") });',
     'aria-label': 'Plugin code',
   });
   paste.addEventListener('keydown', (e) => e.stopPropagation());

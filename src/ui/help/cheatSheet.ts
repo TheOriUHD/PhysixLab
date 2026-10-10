@@ -7,7 +7,7 @@ import { openModal } from '../modal';
 import { cheatSections, filterCheat, type CheatRow } from './cheatLogic';
 import { openHelp } from './helpPanel';
 
-const UNBOUND_KEY = 'physicslab.cheat.unbound';
+const UNBOUND_KEY = 'physixlab.cheat.unbound';
 
 function readUnbound(): boolean {
   try {

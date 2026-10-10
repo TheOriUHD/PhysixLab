@@ -18,7 +18,7 @@ import { openTraceDialog } from './traceDialog';
 import { ChartWidget } from './widget';
 import type { WidgetHost } from './widget';
 
-const STORAGE_KEY = 'physicslab.charts.v1';
+const STORAGE_KEY = 'physixlab.charts.v1';
 
 interface Persisted {
   v: 1;
@@ -435,7 +435,7 @@ class ChartsPanel implements WidgetHost {
 }
 
 const panels = new WeakMap<App, ChartsPanel>();
-/** The panel of the running app: `window.physicslab` is a Proxy of the App, so lookups by identity can miss. */
+/** The panel of the running app: `window.physixlab` is a Proxy of the App, so lookups by identity can miss. */
 let current: ChartsPanel | undefined;
 
 /** The charts panel of an app (created on first use); for tests, tools and other panels. */

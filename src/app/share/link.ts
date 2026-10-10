@@ -85,7 +85,7 @@ export async function parseShareHash(hash: string, report?: LoadReport): Promise
   if (m[2].length > LIMITS.maxShareLinkChars * 2)
     throw new SceneFormatError(
       'limit',
-      'This share link is far too long to be a PhysicsLab scene, so it was not opened.',
+      'This share link is far too long to be a PhysixLab scene, so it was not opened.',
     );
   const damaged = new SceneFormatError(
     'invalid-json',

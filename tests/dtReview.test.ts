@@ -90,9 +90,9 @@ describe('review fixes', () => {
     const sync = new FolderSync(dir);
     const doc = newDocument('S');
     await sync.saveScene(doc);
-    files.set('S.physicslab.json', JSON.stringify({ other: 'device' }));
+    files.set('S.physixlab.json', JSON.stringify({ other: 'device' }));
     expect(await sync.saveScene(doc)).toBe('conflict');
     expect(await sync.saveScene(doc)).toBe('conflict'); // still a conflict, not an overwrite
-    expect(files.get('S.physicslab.json')).toContain('other');
+    expect(files.get('S.physixlab.json')).toContain('other');
   });
 });

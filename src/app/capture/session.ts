@@ -497,7 +497,7 @@ export class CaptureSession {
     const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
     return {
       blob,
-      filename: `physicslab-${name}${o.turntable ? '-turntable' : ''}-${stamp}.${o.format}`,
+      filename: `physixlab-${name}${o.turntable ? '-turntable' : ''}-${stamp}.${o.format}`,
       format: o.format,
       mime,
       frames,

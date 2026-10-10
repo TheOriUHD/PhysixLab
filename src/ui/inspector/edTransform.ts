@@ -9,7 +9,7 @@ import { numberField, row, rowStack, section, segmented, vec3Field } from '../co
 import { h } from '../dom';
 import type { InspectorContext } from './shared';
 
-const KEY = 'physicslab:rotateBy';
+const KEY = 'physixlab:rotateBy';
 let rotateAngle = 15;
 try {
   const saved = Number(localStorage.getItem(KEY));

@@ -1,6 +1,6 @@
 /**
  * Paste a scene from the clipboard (UI-42). Ctrl+V keeps pasting copied entities; only when the clipboard text is a
- * PhysicsLab scene (and the focus is not in a text field) is the paste taken over and offered as "open this scene".
+ * PhysixLab scene (and the focus is not in a text field) is the paste taken over and offered as "open this scene".
  * The File menu / palette command reads the clipboard explicitly for the same thing.
  */
 import type { App } from '../../app/app';
@@ -46,10 +46,10 @@ export async function pasteSceneFromClipboard(app: App): Promise<void> {
     text = await navigator.clipboard.readText();
   } catch {
     app.toast(
-      'The browser did not let PhysicsLab read the clipboard. Click the page and press Ctrl+V instead.',
+      'The browser did not let PhysixLab read the clipboard. Click the page and press Ctrl+V instead.',
       'warn',
     );
     return;
   }
-  if (!(await offerPastedScene(app, text))) app.toast('The clipboard does not hold a PhysicsLab scene.', 'warn');
+  if (!(await offerPastedScene(app, text))) app.toast('The clipboard does not hold a PhysixLab scene.', 'warn');
 }

@@ -341,8 +341,8 @@ describe('packs', () => {
   it('rejects hostile and malformed payloads with clear messages', () => {
     const pack = (o: object) => JSON.stringify({ format: PACK_FORMAT, version: 1, ...o });
     expect(() => importPack('not json')).toThrow(/not valid JSON/);
-    expect(() => importPack('[]')).toThrow(/not a PhysicsLab prefab pack/);
-    expect(() => importPack(JSON.stringify({ format: 'physicslab-scene' }))).toThrow(/scene file/);
+    expect(() => importPack('[]')).toThrow(/not a PhysixLab prefab pack/);
+    expect(() => importPack(JSON.stringify({ format: 'physixlab-scene' }))).toThrow(/scene file/);
     expect(() => importPack(pack({ version: 99, prefabs: [] }))).toThrow(/newer version/);
     expect(() => importPack(pack({}))).toThrow(/no list of prefabs/);
     expect(() => importPack(pack({ prefabs: new Array(PREFAB_LIMITS.maxPrefabs + 1).fill({}) }))).toThrow(

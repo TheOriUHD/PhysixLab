@@ -22,7 +22,7 @@ export interface OpenGraphInput {
 export function buildOpenGraphTags(i: OpenGraphInput): string {
   const lines = [
     `<meta property="og:type" content="website">`,
-    `<meta property="og:site_name" content="${esc(i.siteName ?? 'PhysicsLab')}">`,
+    `<meta property="og:site_name" content="${esc(i.siteName ?? 'PhysixLab')}">`,
     `<meta property="og:title" content="${esc(i.title)}">`,
     `<meta property="og:description" content="${esc(i.description ?? 'An interactive physics scene - open the link to play with it.')}">`,
     `<meta property="og:url" content="${esc(i.url)}">`,

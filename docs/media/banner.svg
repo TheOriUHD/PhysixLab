@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img" aria-label="PhysicsLab: an advanced 3D physics sandbox in your browser">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img" aria-label="PhysixLab: an advanced 3D physics sandbox in your browser">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#0d1422"/>
@@ -41,7 +41,7 @@
   <ellipse cx="420" cy="296" rx="46" ry="8" fill="#000" fill-opacity="0.5" filter="url(#soft)"/>
   <!-- wordmark -->
   <g font-family="Inter, 'SF Pro Display', 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif">
-    <text x="500" y="168" font-size="108" font-weight="300" fill="#e8eef9" letter-spacing="-2">Physics<tspan font-weight="800" fill="url(#word)">Lab</tspan></text>
+    <text x="500" y="168" font-size="108" font-weight="300" fill="#e8eef9" letter-spacing="-2">Physix<tspan font-weight="800" fill="url(#word)">Lab</tspan></text>
     <text x="504" y="214" font-size="30" font-weight="500" fill="#9fb0c8" letter-spacing="0.2">An advanced 3D physics sandbox that runs entirely in your browser.</text>
     <g font-size="21" font-weight="600" letter-spacing="0.6" fill="#5eead4" fill-opacity="0.9">
       <text x="504" y="262">RIGID BODIES  ·  JOINTS &amp; MOTORS  ·  SOFT BODIES  ·  VEHICLES  ·  TIME TRAVEL</text>

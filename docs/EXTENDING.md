@@ -1,6 +1,6 @@
-# Extending PhysicsLab
+# Extending PhysixLab
 
-PhysicsLab grows by **adding files**, not by editing shared ones (rule 4 of `docs/DEV_RULES.md`). Everything a feature
+PhysixLab grows by **adding files**, not by editing shared ones (rule 4 of `docs/DEV_RULES.md`). Everything a feature
 package contributes — a shape, a component, a command, a tool, a panel, an inspector section, a menu entry, a
 template, a prefab, a map — is *registered* with a small typed registry, and the rest of the app (the palette, the
 inspector, the menus, the toolbox, the keyboard, the library tabs, the shortcut help, the loader) is generated from
@@ -707,7 +707,7 @@ The API, all from `src/ui/tour`:
   `until: (app) => boolean` is polled about eight times a second for anything no event announces. A step that waits
   lets clicks through to the app and gets a **Skip step** button, so a tour can never get stuck.
 - `startTour(id, app)`, `stopTour()`, `isTourRunning()`, `runningTourId()`, `onTourChange(fn)`, `getTour`, `listTours`.
-- What the user finished or declined is remembered in `localStorage` (key `physicslab.guide.v1`, every access guarded),
+- What the user finished or declined is remembered in `localStorage` (key `physixlab.guide.v1`, every access guarded),
   so a tour you offer on first run is not offered twice.
 
 **Context hints** are the small cousin: `registerHint({ id, text, trigger?, when?, delayMs? })` shows a one-time card

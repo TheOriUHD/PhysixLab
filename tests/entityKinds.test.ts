@@ -80,7 +80,7 @@ describe('sanitising', () => {
 
   it('repairs garbage without throwing', () => {
     const doc = sanitizeDocument({
-      format: 'physicslab-scene',
+      format: 'physixlab-scene',
       version: SCENE_VERSION,
       entities: [
         { kind: 'group', id: 'g1', name: 5, position: [Infinity, 'x'], rotation: [0, 0, 0, 0], locked: 'yes' },
@@ -145,7 +145,7 @@ describe('sanitising', () => {
     }));
     const report = newReport();
     const doc = sanitizeDocument(
-      { format: 'physicslab-scene', version: SCENE_VERSION, entities: [{ kind: 'path', id: 'p', points }, ...lights] },
+      { format: 'physixlab-scene', version: SCENE_VERSION, entities: [{ kind: 'path', id: 'p', points }, ...lights] },
       report,
     );
     expect((doc.entities[0] as PathEntity).points.length).toBe(LIMITS.maxPathPoints);

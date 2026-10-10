@@ -21,6 +21,7 @@ import { sanitizeDocument } from '../serialize';
 import { hexColor, idStr, nameStr, num, obj, oneOf, position3, str } from '../sanitize/primitives';
 import { normalizeShapeSize, shapeBoundingRadius, shapeConvexPoints } from '../shapeRegistry';
 import { cloneEntities } from '../store';
+import { isFormat } from '../legacy';
 import { SCENE_FORMAT, SCENE_VERSION } from '../migrations';
 import type { Asset, BodyEntity, Entity, ShapeSpec } from '../types';
 import { isBody, isJoint, isLight, isPath, isPosed, isSoft } from '../types';
@@ -45,7 +46,7 @@ export const PREFAB_LIMITS = {
   maxVariableName: 40,
 } as const;
 
-export const PACK_FORMAT = 'physicslab-prefab-pack';
+export const PACK_FORMAT = 'physixlab-prefab-pack';
 export const PACK_VERSION = 1;
 
 /** A pack that cannot be imported; the message is written for the user. */
@@ -739,7 +740,7 @@ export interface ImportedPack {
 export function importPack(text: string): ImportedPack {
   if (typeof text !== 'string' || text.length > PREFAB_LIMITS.maxPackChars) {
     throw new PrefabPackError(
-      `This file is larger than ${formatBytes(PREFAB_LIMITS.maxPackChars)}, the biggest prefab pack PhysicsLab opens.`,
+      `This file is larger than ${formatBytes(PREFAB_LIMITS.maxPackChars)}, the biggest prefab pack PhysixLab opens.`,
     );
   }
   let raw: unknown;
@@ -749,11 +750,11 @@ export function importPack(text: string): ImportedPack {
     throw new PrefabPackError('This file is not valid JSON, so it cannot be a prefab pack.');
   }
   const r = obj(raw);
-  if (r.format !== PACK_FORMAT) {
+  if (!isFormat(r.format, PACK_FORMAT)) {
     throw new PrefabPackError(
-      r.format === SCENE_FORMAT
+      isFormat(r.format, SCENE_FORMAT)
         ? 'This is a scene file, not a prefab pack. Open it with File → Import, or select objects and save them as a prefab.'
-        : 'This is not a PhysicsLab prefab pack.',
+        : 'This is not a PhysixLab prefab pack.',
     );
   }
   if (typeof r.version !== 'number' || !Number.isInteger(r.version) || r.version < 1) {
@@ -761,13 +762,13 @@ export function importPack(text: string): ImportedPack {
   }
   if (r.version > PACK_VERSION) {
     throw new PrefabPackError(
-      `This pack was saved by a newer version of PhysicsLab (pack format v${r.version}); this version reads up to v${PACK_VERSION}. Reload the page to get the latest version.`,
+      `This pack was saved by a newer version of PhysixLab (pack format v${r.version}); this version reads up to v${PACK_VERSION}. Reload the page to get the latest version.`,
     );
   }
   if (!Array.isArray(r.prefabs)) throw new PrefabPackError('This prefab pack has no list of prefabs.');
   if (r.prefabs.length > PREFAB_LIMITS.maxPrefabs) {
     throw new PrefabPackError(
-      `This pack has ${formatCount(r.prefabs.length)} prefabs; PhysicsLab imports up to ${formatCount(PREFAB_LIMITS.maxPrefabs)} at a time.`,
+      `This pack has ${formatCount(r.prefabs.length)} prefabs; PhysixLab imports up to ${formatCount(PREFAB_LIMITS.maxPrefabs)} at a time.`,
     );
   }
   const prefabs: StoredPrefab[] = [];

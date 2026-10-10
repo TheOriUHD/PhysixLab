@@ -152,7 +152,7 @@ export function buildGltf(scene: ExportScene, options: GltfOptions = {}): GltfRe
   const accessors: NonNullable<GltfJson['accessors']> = [];
   const bufferViews: NonNullable<GltfJson['bufferViews']> = [];
   const json: GltfJson = {
-    asset: { version: '2.0', generator: 'PhysicsLab', extras: { name: scene.name } },
+    asset: { version: '2.0', generator: 'PhysixLab', extras: { name: scene.name } },
     scene: 0,
     scenes: [{ name: scene.name, nodes: [] }],
     nodes: [],

@@ -4,7 +4,7 @@ What to do when something looks wrong, and how to read the Diagnostics and Profi
 
 ## The app shows an error card
 
-If something unexpected goes wrong, PhysicsLab shows a card that explains it in plain words instead of a blank screen. Your scene is never discarded without saying so. The card offers:
+If something unexpected goes wrong, PhysixLab shows a card that explains it in plain words instead of a blank screen. Your scene is never discarded without saying so. The card offers:
 
 - **Copy diagnostics** – copies a text report (version, browser, graphics card, limits, recent errors, a summary of the scene) that you can paste into a bug report.
 - **Dismiss** – close the card and keep working, if the app still responds.
@@ -18,7 +18,7 @@ If errors repeat in a loop, the card shows the first ones and counts the rest in
 
 ## "Can't start" messages
 
-At start-up PhysicsLab checks what your browser supports: **WebGL 2** (3D drawing), **WebAssembly** (the physics engine), **Web Workers** (physics runs off the main thread), **module workers** and **local storage** (autosave, library, preferences). If something is missing you see which one, why it matters and what to try: update the browser, turn on hardware acceleration, leave private mode. Without local storage the app still works but cannot save, and says so.
+At start-up PhysixLab checks what your browser supports: **WebGL 2** (3D drawing), **WebAssembly** (the physics engine), **Web Workers** (physics runs off the main thread), **module workers** and **local storage** (autosave, library, preferences). If something is missing you see which one, why it matters and what to try: update the browser, turn on hardware acceleration, leave private mode. Without local storage the app still works but cannot save, and says so.
 
 ## Common problems
 

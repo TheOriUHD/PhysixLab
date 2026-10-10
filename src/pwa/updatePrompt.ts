@@ -15,7 +15,7 @@ export function showUpdatePrompt(apply: () => void): HTMLElement {
     h(
       'div',
       { class: 'pwa-update-text' },
-      h('strong', null, 'A new version of PhysicsLab is ready.'),
+      h('strong', null, 'A new version of PhysixLab is ready.'),
       h('span', null, 'Your scene is autosaved. Reload when it suits you.'),
     ),
     h('div', { class: 'pwa-update-actions' }, later, reload),

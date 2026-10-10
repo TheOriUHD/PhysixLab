@@ -46,7 +46,7 @@ export function resetPreferences(storage: Pick<Storage, 'length' | 'key' | 'remo
   for (let i = 0; i < storage.length; i++) {
     const k = storage.key(i);
     // Scene data in the legacy localStorage layout must survive a "reset".
-    if (k && /^physicslab[:.]/.test(k) && !/autosave|library|scene/i.test(k)) doomed.push(k);
+    if (k && /^physixlab[:.]/.test(k) && !/autosave|library|scene/i.test(k)) doomed.push(k);
   }
   for (const k of doomed) storage.removeItem(k);
   return doomed;
@@ -253,7 +253,7 @@ export function showRuntimeCard(a: RuntimeCardArgs): CardHandle {
   const handle = buildCard({
     title: 'Something went wrong',
     explanation: [
-      'PhysicsLab hit an unexpected error. The app may still work, or part of it may be stuck.',
+      'PhysixLab hit an unexpected error. The app may still work, or part of it may be stuck.',
       'Nothing has been deleted. If you want to be sure, download your scene first, then choose one of the options below.',
     ],
     detail,
@@ -281,14 +281,14 @@ export function showBootScreen(
   const missing = o.caps.fatal;
   const handle = buildCard({
     boot: true,
-    title: 'PhysicsLab couldn’t start',
+    title: 'PhysixLab couldn’t start',
     explanation: missing
       ? [
           o.caps.headline,
-          'Nothing is wrong with your scenes: they are stored in this browser and will be there once PhysicsLab can run. Here is what to try:',
+          'Nothing is wrong with your scenes: they are stored in this browser and will be there once PhysixLab can run. Here is what to try:',
         ]
       : [
-          'PhysicsLab ran into a problem while starting. Reloading often fixes it; if it keeps happening, copy the diagnostics and send them with a bug report.',
+          'PhysixLab ran into a problem while starting. Reloading often fixes it; if it keeps happening, copy the diagnostics and send them with a bug report.',
           'Your scenes are stored in this browser and have not been touched.',
         ],
     caps: o.caps,

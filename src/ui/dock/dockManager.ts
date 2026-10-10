@@ -51,7 +51,7 @@ import {
   type RegionId,
 } from './layout';
 
-const STORE_KEY = 'physicslab:dock:v1';
+const STORE_KEY = 'physixlab:dock:v1';
 const SIZE_VAR: Record<RegionId, string> = { left: '--left-w', right: '--right-w', bottom: '--dock-h' };
 const SIZE_LIMITS: Record<RegionId, [number, number]> = { left: [180, 640], right: [220, 720], bottom: [90, 640] };
 

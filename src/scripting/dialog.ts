@@ -9,7 +9,7 @@ import { applyScriptScene, type ApplyMode } from './apply';
 import { SCRIPT_EXAMPLES } from './examples';
 import { runSceneScript, ScriptFailure, SCRIPT_LIMITS, type ScriptRun } from './run';
 
-const STORAGE_KEY = 'physicslab.sceneScript';
+const STORAGE_KEY = 'physixlab.sceneScript';
 
 function remembered(): string {
   try {
@@ -149,7 +149,7 @@ export function openSceneScriptDialog(app: App): void {
     h(
       'p',
       { class: 'dtb-note' },
-      `The script runs in an isolated sandbox: no network, no page or storage access, at most ${SCRIPT_LIMITS.timeoutMs / 1000} s and 20 000 calls. It only describes objects; PhysicsLab validates and builds them.`,
+      `The script runs in an isolated sandbox: no network, no page or storage access, at most ${SCRIPT_LIMITS.timeoutMs / 1000} s and 20 000 calls. It only describes objects; PhysixLab validates and builds them.`,
     ),
   );
 

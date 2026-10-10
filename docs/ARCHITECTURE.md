@@ -1,4 +1,4 @@
-# PhysicsLab — architecture & design decisions
+# PhysixLab — architecture & design decisions
 
 How the code is organised, why, and where to look. For *adding* something (a shape, a command, a map …) read
 `docs/EXTENDING.md`; for the engineering rules every contributor follows, `docs/DEV_RULES.md`; for what the engine
@@ -106,7 +106,7 @@ Every document that enters the app — a file, the autosave, a library entry, a 
    SCENE_VERSION` of pure structural transforms runs *before* sanitising, so the sanitiser only understands the
    current format and files from any older release keep loading (history: v1 first release; v2 shape `params`, assets,
    per-body fields, compound parts, new settings; v3 group / light / path kinds, `parent`, `components`). A newer-than-
-   supported file is rejected with a clear message ("reload the page …"), garbage with "not a PhysicsLab scene". Adding a
+   supported file is rejected with a clear message ("reload the page …"), garbage with "not a PhysixLab scene". Adding a
    format change: bump `SCENE_VERSION`, append a migration, keep a fixture of the old format in `tests/fixtures/`.
 2. **Sanitising.** Unknown fields dropped, missing fields defaulted, numbers clamped, joints to missing bodies removed,
    grouping links that point nowhere (or loop) repaired, unknown shapes replaced by a box, unknown component types
@@ -393,7 +393,7 @@ rendered waveform; the browser tests render the very same graphs offline and mea
 
 ## 9. Orchestration (`app/`)
 
-* **`App`** (`app/app.ts`, exposed as `window.physicslab`) is the façade the UI talks to. It owns the long-lived objects
+* **`App`** (`app/app.ts`, exposed as `window.physixlab`) is the façade the UI talks to. It owns the long-lived objects
   (store, simulation controller, editor, viewport, views, gizmo) and forwards commands to small collaborators: `prefsSync`
   (preferences → renderer / simulation / gizmo, tool hints), `viewSync`, `gizmoController`, `measureTool`, `placement`
   (picking, where new objects go; `placement.ghost` is the ghost-placement controller, see below), `cameraControl`,

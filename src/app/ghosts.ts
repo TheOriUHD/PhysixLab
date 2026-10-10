@@ -24,7 +24,7 @@ export interface RunEntry {
   time?: number;
 }
 
-const BEST_PREFIX = 'physicslab.tm.best.';
+const BEST_PREFIX = 'physixlab.tm.best.';
 const BEST_MAX_FLOATS = 400_000; // ≈1.6 MB of Float32, ≈2.1 MB as base64: still fits localStorage
 
 const keyOf = (t: TrackData): string =>

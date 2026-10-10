@@ -65,26 +65,26 @@ describe('postMessage validation', () => {
     return r.parsed;
   };
   it('ignores anything that is not ours', () => {
-    for (const d of [null, 'play', 42, [], {}, { type: 'other', cmd: 'play' }, { type: 'physicslab', event: 'ready' }])
+    for (const d of [null, 'play', 42, [], {}, { type: 'other', cmd: 'play' }, { type: 'physixlab', event: 'ready' }])
       expect(parseMessage(d).kind).toBe('ignore');
   });
   it('accepts the documented commands', () => {
-    expect(ok({ type: 'physicslab', cmd: 'play', id: 'a' })).toEqual({ id: 'a', command: { cmd: 'play' } });
-    expect(ok({ type: 'physicslab', v: 1, cmd: 'step' }).command).toEqual({ cmd: 'step', count: 1 });
-    expect(ok({ type: 'physicslab', cmd: 'step', count: 30 }).command).toEqual({ cmd: 'step', count: 30 });
-    expect(ok({ type: 'physicslab', cmd: 'setCamera', position: [1, 2, 3] }).command).toMatchObject({
+    expect(ok({ type: 'physixlab', cmd: 'play', id: 'a' })).toEqual({ id: 'a', command: { cmd: 'play' } });
+    expect(ok({ type: 'physixlab', v: 1, cmd: 'step' }).command).toEqual({ cmd: 'step', count: 1 });
+    expect(ok({ type: 'physixlab', cmd: 'step', count: 30 }).command).toEqual({ cmd: 'step', count: 30 });
+    expect(ok({ type: 'physixlab', cmd: 'setCamera', position: [1, 2, 3] }).command).toMatchObject({
       position: [1, 2, 3],
     });
-    expect(ok({ type: 'physicslab', cmd: 'setCamera', reset: true }).command).toMatchObject({ reset: true });
-    expect(ok({ type: 'physicslab', cmd: 'loadScene', template: 'car' }).command).toEqual({
+    expect(ok({ type: 'physixlab', cmd: 'setCamera', reset: true }).command).toMatchObject({ reset: true });
+    expect(ok({ type: 'physixlab', cmd: 'loadScene', template: 'car' }).command).toEqual({
       cmd: 'loadScene',
       template: 'car',
     });
-    expect(ok({ type: 'physicslab', cmd: 'loadScene', share: '#s=abc' }).command).toEqual({
+    expect(ok({ type: 'physixlab', cmd: 'loadScene', share: '#s=abc' }).command).toEqual({
       cmd: 'loadScene',
       share: '#s=abc',
     });
-    expect(ok({ type: 'physicslab', cmd: 'loadScene', document: { version: 1 } }).command.cmd).toBe('loadScene');
+    expect(ok({ type: 'physixlab', cmd: 'loadScene', document: { version: 1 } }).command.cmd).toBe('loadScene');
   });
   it('rejects malformed messages with a reason (and keeps the id for the reply)', () => {
     const bad = (d: unknown) => {
@@ -92,23 +92,23 @@ describe('postMessage validation', () => {
       expect(r.kind).toBe('invalid');
       return r as { kind: 'invalid'; id?: string; message: string };
     };
-    const unknown = bad({ type: 'physicslab', cmd: 'explode', id: 'q' });
+    const unknown = bad({ type: 'physixlab', cmd: 'explode', id: 'q' });
     expect(unknown.id).toBe('q');
     expect(unknown.message).toContain('explode');
-    expect(bad({ type: 'physicslab', cmd: 'play', v: 2 }).message).toMatch(/version/);
-    expect(bad({ type: 'physicslab', cmd: 'play', id: 5 }).message).toMatch(/id/);
-    expect(bad({ type: 'physicslab', cmd: 'play', id: 'x'.repeat(65) }).message).toMatch(/id/);
-    for (const count of [0, -1, 1.5, 601, '3', NaN]) bad({ type: 'physicslab', cmd: 'step', count });
-    bad({ type: 'physicslab', cmd: 'setCamera' });
-    bad({ type: 'physicslab', cmd: 'setCamera', position: [1, 2] });
-    bad({ type: 'physicslab', cmd: 'setCamera', position: [1, 2, Infinity] });
-    bad({ type: 'physicslab', cmd: 'setCamera', position: [1, 2, 1e9] });
-    bad({ type: 'physicslab', cmd: 'setCamera', reset: 'yes' });
-    bad({ type: 'physicslab', cmd: 'loadScene' });
-    bad({ type: 'physicslab', cmd: 'loadScene', template: 'car', share: '#s=a' });
-    bad({ type: 'physicslab', cmd: 'loadScene', template: '../etc' });
-    bad({ type: 'physicslab', cmd: 'loadScene', document: [] });
-    bad({ type: 'physicslab', cmd: 'loadScene', share: 12 });
+    expect(bad({ type: 'physixlab', cmd: 'play', v: 2 }).message).toMatch(/version/);
+    expect(bad({ type: 'physixlab', cmd: 'play', id: 5 }).message).toMatch(/id/);
+    expect(bad({ type: 'physixlab', cmd: 'play', id: 'x'.repeat(65) }).message).toMatch(/id/);
+    for (const count of [0, -1, 1.5, 601, '3', NaN]) bad({ type: 'physixlab', cmd: 'step', count });
+    bad({ type: 'physixlab', cmd: 'setCamera' });
+    bad({ type: 'physixlab', cmd: 'setCamera', position: [1, 2] });
+    bad({ type: 'physixlab', cmd: 'setCamera', position: [1, 2, Infinity] });
+    bad({ type: 'physixlab', cmd: 'setCamera', position: [1, 2, 1e9] });
+    bad({ type: 'physixlab', cmd: 'setCamera', reset: 'yes' });
+    bad({ type: 'physixlab', cmd: 'loadScene' });
+    bad({ type: 'physixlab', cmd: 'loadScene', template: 'car', share: '#s=a' });
+    bad({ type: 'physixlab', cmd: 'loadScene', template: '../etc' });
+    bad({ type: 'physixlab', cmd: 'loadScene', document: [] });
+    bad({ type: 'physixlab', cmd: 'loadScene', share: 12 });
   });
   it('origin allow-list: any parent without one, exact match with one', () => {
     expect(originAllowed('https://x.example', [])).toBe(true);
@@ -119,7 +119,7 @@ describe('postMessage validation', () => {
   });
   it('envelopes carry the type, version and id; share payloads are extracted from links and hashes', () => {
     expect(envelope({ event: 'error', code: 'c', message: 'm' }, 'i')).toEqual({
-      type: 'physicslab',
+      type: 'physixlab',
       v: 1,
       event: 'error',
       code: 'c',

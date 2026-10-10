@@ -6,7 +6,7 @@ export interface KeyValueStore {
   setItem(key: string, value: string): void;
 }
 
-const KEY = 'physicslab:palette-recent:v1';
+const KEY = 'physixlab:palette-recent:v1';
 
 export class PaletteHistory {
   constructor(

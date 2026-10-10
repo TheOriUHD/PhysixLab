@@ -473,7 +473,7 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
   if (raw.entities.length > LIMITS.maxEntities) {
     throw new SceneFormatError(
       'limit',
-      `This scene has ${formatCount(raw.entities.length)} objects; PhysicsLab opens scenes of up to ${formatCount(LIMITS.maxEntities)}. Split it into several scenes.`,
+      `This scene has ${formatCount(raw.entities.length)} objects; PhysixLab opens scenes of up to ${formatCount(LIMITS.maxEntities)}. Split it into several scenes.`,
     );
   }
   const entities: Entity[] = [];
@@ -560,7 +560,7 @@ export function parseDocument(text: string, report?: LoadReport): SceneDocument 
   if (text.length > LIMITS.maxDocumentChars) {
     throw new SceneFormatError(
       'limit',
-      `This file is ${formatBytes(text.length)}; PhysicsLab opens scene files of up to ${formatBytes(LIMITS.maxDocumentChars)}.`,
+      `This file is ${formatBytes(text.length)}; PhysixLab opens scene files of up to ${formatBytes(LIMITS.maxDocumentChars)}.`,
     );
   }
   let raw: unknown;

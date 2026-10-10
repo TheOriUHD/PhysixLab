@@ -94,7 +94,7 @@ export function installTour(app: App): void {
     label: 'Tip of the day',
     category: 'Help',
     setting: true,
-    description: 'Show a tip once a day when you open PhysicsLab',
+    description: 'Show a tip once a day when you open PhysixLab',
     keywords: ['tips', 'hints', 'help', 'guide'],
     checked: () => guide.state.tipsOn,
     run: () => guide.setTipsOn(!guide.state.tipsOn),

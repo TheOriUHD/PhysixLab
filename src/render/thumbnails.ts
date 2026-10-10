@@ -39,7 +39,7 @@ const cache = new ThumbCache(
       return null;
     }
   })(),
-  'physicslab.shapeThumb.',
+  'physixlab.shapeThumb.',
 );
 
 /** What a thumbnail was made from: it is redrawn when any of this changes. */

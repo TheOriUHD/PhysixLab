@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "PhysicsLab",
-  "short_name": "PhysicsLab",
+  "name": "PhysixLab",
+  "short_name": "PhysixLab",
   "description": "An advanced 3D physics sandbox: build mechanisms, vehicles and experiments and watch them obey real rigid-body physics.",
   "start_url": "./",
   "scope": "./",
@@ -19,7 +19,7 @@
   "file_handlers": [
     {
       "action": "./",
-      "accept": { "application/json": [".physicslab.json", ".json"] }
+      "accept": { "application/json": [".physixlab.json", ".json"] }
     }
   ],
   "share_target": {
@@ -27,7 +27,7 @@
     "method": "POST",
     "enctype": "multipart/form-data",
     "params": {
-      "files": [{ "name": "scene", "accept": ["application/json", ".json", ".physicslab.json"] }]
+      "files": [{ "name": "scene", "accept": ["application/json", ".json", ".physixlab.json"] }]
     }
   }
 }

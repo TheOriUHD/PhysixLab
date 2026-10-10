@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const outDir = path.join(root, 'node_modules', '.cache', 'physicslab-cli');
+const outDir = path.join(root, 'node_modules', '.cache', 'physixlab-cli');
 const logLevel = process.env.CLI_VERBOSE ? 'info' : 'silent';
 
 await build({

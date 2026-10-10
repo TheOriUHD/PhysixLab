@@ -51,7 +51,7 @@ test('diag: the shortcut cheat-sheet opens with ?, filters, navigates and runs a
     await page.keyboard.press('Enter');
     await page.waitForSelector('.modal.cheat', { state: 'detached' });
     await sleep(100);
-    assert(await page.evaluate(() => window.physicslab.store.selection.length > 0), 'Enter ran "Select all"');
+    assert(await page.evaluate(() => window.physixlab.store.selection.length > 0), 'Enter ran "Select all"');
     // Esc closes
     await page.keyboard.press('?');
     await page.waitForSelector('.modal.cheat');
@@ -85,7 +85,7 @@ test('diag: the Help panel lists pages, searches with highlights, follows links 
     // deep link
     await page.evaluate(async () => {
       const m = await import('/src/ui/help/helpPanel.ts');
-      m.openHelp(window.physicslab, 'joints-and-motors#motors');
+      m.openHelp(window.physixlab, 'joints-and-motors#motors');
     });
     await page.waitForFunction(() => document.querySelector('.help-doc h2#motors'));
     // no results

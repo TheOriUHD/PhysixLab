@@ -19,12 +19,12 @@ const scene = (page, types) =>
       const c = b.body(`B ${t}`, 'cylinder', [0.6, 0.3, 0.6], [x + 1, 2, 0], {});
       ids[t] = b.joint(t, a, c, [x + 0.5, 2, 0], [0, 0, 1]).id;
     });
-    window.physicslab.newScene();
-    window.physicslab.store.load(b.done());
+    window.physixlab.newScene();
+    window.physixlab.store.load(b.done());
     return ids;
   }, types);
 
-const select = (page, id) => page.evaluate((id) => window.physicslab.store.setSelection([id]), id);
+const select = (page, id) => page.evaluate((id) => window.physixlab.store.setSelection([id]), id);
 
 test('joint picker: grouped types with diagrams; converting keeps the bodies and is one undo step (JT-9)', async () => {
   const page = await newPage();
@@ -41,14 +41,14 @@ test('joint picker: grouped types with diagrams; converting keeps the bodies and
   assert(info.tiles === 16 && info.svgs === 16, `16 tiles with a diagram each (${info.tiles} / ${info.svgs})`);
   assert(info.current === 'hinge', 'the current type is highlighted');
   const before = await page.evaluate((id) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const j = a.store.joint(id);
     a.store.update(id, { limit: { enabled: true, min: -1, max: 1 } }, 'limit');
     return { a: j.bodyA, b: j.bodyB, anchor: j.anchorA, depth: a.store.undoLabel };
   }, ids.hinge);
   await page.click('.jt-picker .jt-tile[data-type="slider"]');
   const after = await page.evaluate((id) => {
-    const j = window.physicslab.store.joint(id);
+    const j = window.physixlab.store.joint(id);
     return { type: j.type, a: j.bodyA, b: j.bodyB, anchor: j.anchorA, limit: j.limit };
   }, ids.hinge);
   assert(after.type === 'slider', 'converted to a slider');
@@ -56,8 +56,8 @@ test('joint picker: grouped types with diagrams; converting keeps the bodies and
   assert(JSON.stringify(after.anchor) === JSON.stringify(before.anchor), 'anchor kept');
   assert(after.limit.enabled, 'the limit switch is kept');
   await page.waitForSelector('.panel.right .section-head:has-text("Limits")');
-  await page.evaluate(() => window.physicslab.store.undo());
-  const back = await page.evaluate((id) => window.physicslab.store.joint(id).type, ids.hinge);
+  await page.evaluate(() => window.physixlab.store.undo());
+  const back = await page.evaluate((id) => window.physixlab.store.joint(id).type, ids.hinge);
   assert(back === 'hinge', 'one undo returns to the hinge');
   assert(page.errors.length === 0, `no console errors: ${page.errors.join('; ')}`);
 });
@@ -65,7 +65,7 @@ test('joint picker: grouped types with diagrams; converting keeps the bodies and
 test('joint picker: coupling types are disabled with a reason when an end is the world', async () => {
   const page = await newPage();
   const ids = await scene(page, ['ball']);
-  await page.evaluate((id) => window.physicslab.store.update(id, { bodyA: null }, 'world'), ids.ball);
+  await page.evaluate((id) => window.physixlab.store.update(id, { bodyA: null }, 'world'), ids.ball);
   await select(page, ids.ball);
   await page.click('.panel.right button:has-text("Change type")');
   const gear = await page.evaluate(() => {
@@ -103,12 +103,12 @@ test('inspector sections: every new type shows its own section and edits through
   const swing = page.locator('.panel.right .row:has-text("Swing cone") input.num-input');
   await swing.fill('60');
   await swing.press('Enter');
-  const rad = await page.evaluate((id) => window.physicslab.store.joint(id).params.swing, ids.conetwist);
+  const rad = await page.evaluate((id) => window.physixlab.store.joint(id).params.swing, ids.conetwist);
   near(rad, Math.PI / 3, 1e-6, 'swing cone stored in radians');
   // 6-DOF: switching an axis to limited reveals its fields
   await select(page, ids.sixdof);
   await page.locator('.dof-card[data-axis="0"] .seg-btn:has-text("Limited")').click();
-  const mode = await page.evaluate((id) => window.physicslab.store.joint(id).params.dof[0].mode, ids.sixdof);
+  const mode = await page.evaluate((id) => window.physixlab.store.joint(id).params.dof[0].mode, ids.sixdof);
   assert(mode === 'limited', '6-DOF X axis limited');
   assert(await page.locator('.dof-card[data-axis="0"] .dof-grid').isVisible(), 'limit fields visible');
   // gear: ratio edit is one undo step
@@ -117,12 +117,12 @@ test('inspector sections: every new type shows its own section and edits through
   await ratio.fill('3');
   await ratio.press('Enter');
   assert(
-    (await page.evaluate((id) => window.physicslab.store.joint(id).params.ratio, ids.gear)) === 3,
+    (await page.evaluate((id) => window.physixlab.store.joint(id).params.ratio, ids.gear)) === 3,
     'gear ratio set',
   );
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   assert(
-    (await page.evaluate((id) => window.physicslab.store.joint(id).params.ratio, ids.gear)) === 1,
+    (await page.evaluate((id) => window.physixlab.store.joint(id).params.ratio, ids.gear)) === 1,
     'undo restores',
   );
   assert(page.errors.length === 0, `no console errors: ${page.errors.join('; ')}`);
@@ -132,7 +132,7 @@ test('re-zero: the live angle becomes the new zero and a locked reference refuse
   const page = await newPage();
   const ids = await scene(page, ['hinge']);
   await page.evaluate((id) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.update(id, { axis: [0, 0, 1], anchorA: [0.5, 0, 0] }, 'axis');
     a.store.update(
       id,
@@ -145,7 +145,7 @@ test('re-zero: the live angle becomes the new zero and a locked reference refuse
   await simTime(page, 0.6);
   await page.waitForSelector('.panel.right button:has-text("Re-zero reference pose")');
   const r = await page.evaluate(async (id) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const live = a.liveJoint(id).value;
     document
       .querySelector('.panel.right')
@@ -158,7 +158,7 @@ test('re-zero: the live angle becomes the new zero and a locked reference refuse
   assert(Math.abs(r.live) > 0.1, `the hinge has turned (${r.live})`);
   near(r.off, -r.live, 0.6, 'refOffset is minus the live value (the hinge keeps turning while the click happens)');
   await page.locator('.panel.right label.switch:has-text("Lock reference pose")').click();
-  const locked = await page.evaluate((id) => window.physicslab.store.joint(id).params.refLocked, ids.hinge);
+  const locked = await page.evaluate((id) => window.physixlab.store.joint(id).params.refLocked, ids.hinge);
   assert(locked, 'reference locked');
   assert(
     await page.locator('.panel.right button:has-text("Re-zero reference pose")').isDisabled(),
@@ -171,7 +171,7 @@ test('copy settings and mirror: commands act on the selection in one undo step (
   const ids = await scene(page, ['hinge', 'hinge']);
   void ids;
   const out = await page.evaluate(async () => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const { runCommand } = await import('/src/app/registry/commands.ts');
     const [j1, j2] = a.store.joints();
     a.store.update(j1.id, { limit: { enabled: true, min: -0.5, max: 0.7 } }, 'limit');

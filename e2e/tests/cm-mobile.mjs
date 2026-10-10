@@ -120,7 +120,7 @@ async function suite(page, w, h, tag) {
     cb.x >= left.width - 1 && cb.x + cb.width <= w,
     `${label}: close button beside the drawer ${JSON.stringify(cb)}`,
   );
-  assert(await page.evaluate(() => window.physicslab.prefs.value.showLeft), `${label}: the show-left preference is on`);
+  assert(await page.evaluate(() => window.physixlab.prefs.value.showLeft), `${label}: the show-left preference is on`);
   const tabsSmall = await smallTargets(page, '.panel.left .tab', 44, false);
   assert(tabsSmall.length === 0, `${label}: library tabs ${tabsSmall.join(' | ')}`);
   assert(
@@ -130,11 +130,11 @@ async function suite(page, w, h, tag) {
   await shot(page, `cm-mobile-${tag}-library`);
   await page.click('.m-scrim', { position: { x: w - 12, y: 300 } });
   await waitShown(page, '.panel.left', false);
-  assert(!(await page.evaluate(() => window.physicslab.prefs.value.showLeft)), `${label}: scrim closes the drawer`);
+  assert(!(await page.evaluate(() => window.physixlab.prefs.value.showLeft)), `${label}: scrim closes the drawer`);
 
   // inspector on the right, with something selected
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.setSelection([a.store.bodies()[0].id]);
   });
   await page.click('[data-nav="right"]');
@@ -189,7 +189,7 @@ async function suite(page, w, h, tag) {
   await shot(page, `cm-mobile-${tag}-tools`);
   await page.click('.toolbox [data-tool="measure"]');
   assert(
-    (await page.evaluate(() => window.physicslab.prefs.value.tool)) === 'measure',
+    (await page.evaluate(() => window.physixlab.prefs.value.tool)) === 'measure',
     `${label}: a tool can be picked from the popover`,
   );
   await page.click('[data-nav="view"]');
@@ -204,7 +204,7 @@ async function suite(page, w, h, tag) {
   await shot(page, `cm-mobile-${tag}-view`);
   await tap(page, w / 2, h / 2 + 40); // a tap in the viewport dismisses the popover
   await waitShown(page, '.viewbar', false);
-  await page.evaluate(() => window.physicslab.prefs.set({ tool: 'select' }));
+  await page.evaluate(() => window.physixlab.prefs.set({ tool: 'select' }));
 
   // ---- the combined menu ----
   await page.click('[data-nav="menu"]');
@@ -245,7 +245,7 @@ async function suite(page, w, h, tag) {
   await page.waitForSelector('.input-modal', { state: 'detached' });
 
   // ---- simulate with touch controls over the viewport ----
-  await page.evaluate(() => window.physicslab.store.setSelection([]));
+  await page.evaluate(() => window.physixlab.store.setSelection([]));
   await page.click('.tbtn.play');
   await page.waitForSelector('.tc-overlay:not([hidden])');
   const rt = await box(page, '.tc-btn-RT');
@@ -299,19 +299,19 @@ test('mobile: wide layouts (1600x900, 1280x720) keep the docked panels; narrowin
       cv.x >= cols[0] - 1 && cv.width >= w - cols[0] - cols[2] - 2,
       `${w}: canvas between the panels ${JSON.stringify(cv)}`,
     );
-    assert(!(await page.evaluate(() => localStorage.getItem('physicslab:desktop-panels'))), `${w}: nothing stashed`);
+    assert(!(await page.evaluate(() => localStorage.getItem('physixlab:desktop-panels'))), `${w}: nothing stashed`);
     if (w === 1280) {
       // narrow, then wide again: the desktop arrangement comes back
       await page.setViewportSize({ width: 390, height: 844 });
       await waitShown(page, '.m-nav');
       await waitShown(page, '.panel.left', false);
-      assert(!(await page.evaluate(() => window.physicslab.prefs.value.showLeft)), 'panels closed while narrow');
+      assert(!(await page.evaluate(() => window.physixlab.prefs.value.showLeft)), 'panels closed while narrow');
       await page.setViewportSize({ width: 1280, height: 720 });
       await waitShown(page, '.m-nav', false);
       await waitShown(page, '.panel.left');
       await waitShown(page, '.panel.right');
       await waitShown(page, '.dock');
-      const v = await page.evaluate(() => window.physicslab.prefs.value);
+      const v = await page.evaluate(() => window.physixlab.prefs.value);
       assert(v.showLeft && v.showRight && v.showBottom, 'desktop panels restored');
       await shot(page, 'cm-mobile-wide-1280');
     } else await shot(page, 'cm-mobile-wide-1600');

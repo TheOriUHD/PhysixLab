@@ -21,7 +21,7 @@ import { h } from './dom';
 import { icon } from './icons';
 import { openModal } from './modal';
 
-const STORE_KEY = 'physicslab:capture:v1';
+const STORE_KEY = 'physixlab:capture:v1';
 
 export interface ActiveCapture {
   stop(): void;

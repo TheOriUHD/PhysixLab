@@ -44,7 +44,7 @@ import { ThumbnailCache } from './thumbnails';
 import { VirtualList } from './virtualList';
 
 export const ROW_HEIGHT = 28;
-const MIME = 'text/x-physicslab-entities';
+const MIME = 'text/x-physixlab-entities';
 
 const JOINT_ICON = {
   fixed: 'weld',

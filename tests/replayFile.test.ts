@@ -82,7 +82,7 @@ describe('replay files', () => {
 
   it('rejects files that are not replays, damaged logs and links', async () => {
     expect(() => parseReplay('not json')).toThrow(ReplayFormatError);
-    expect(() => parseReplay('{"format":"other"}')).toThrow(/not a PhysicsLab replay/);
+    expect(() => parseReplay('{"format":"other"}')).toThrow(/not a PhysixLab replay/);
     const { file } = await recorded(false);
     const json = JSON.parse(replayToJson(file)) as { version: number; replay: { entries: unknown[]; endStep: number } };
     expect(() => parseReplay(JSON.stringify({ ...json, version: 99 }))).toThrow(/newer version/);

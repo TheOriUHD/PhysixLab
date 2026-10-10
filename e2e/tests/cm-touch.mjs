@@ -28,7 +28,7 @@ export async function newTouchPage(query = '', viewport = { width: 1100, height:
     }
   });
   await page.goto(`${appUrl()}/?nowelcome${query}`);
-  await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport, null, { timeout: 30000 });
+  await page.waitForFunction(() => !!window.physixlab && window.physixlab.viewport, null, { timeout: 30000 });
   await page.waitForTimeout(400);
   page.errors = errors;
   page.cdp = await ctx.newCDPSession(page);
@@ -83,7 +83,7 @@ const centre = async (page, sel) => {
 
 const cameraState = (page) =>
   page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const c = a.camera.position;
     const t = a.viewport.controls.target;
     return {
@@ -97,7 +97,7 @@ const cameraState = (page) =>
 /** Three well-separated boxes on the ground, camera looking at them. */
 async function boxScene(page) {
   const ids = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.prefs.set({ showLeft: false, showRight: false, showBottom: false, followSelection: false }); // the canvas fills the window; the car template turns following on
     // Software GL needs a second per frame: a long hold time keeps taps from turning into long presses.
     // -- NAV: these gestures predate the one-finger orbit and two-finger pan defaults; they test the selection rectangle and the two-finger orbit
@@ -124,7 +124,7 @@ export async function settleCamera(page) {
   for (let i = 0; i < 80 && same < 3; i++) {
     await nextFrame(page);
     const now = await page.evaluate(() => {
-      const a = window.physicslab;
+      const a = window.physixlab;
       return JSON.stringify([a.camera.position.toArray(), a.viewport.controls.target.toArray()]);
     });
     same = now === last ? same + 1 : 0;
@@ -136,7 +136,7 @@ export async function settleCamera(page) {
 const screenOf = async (page, id) => {
   await nextFrame(page);
   return page.evaluate((id) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const [x, y, z] = a.store.body(id).position;
     a.camera.updateMatrixWorld(true);
     a.camera.matrixWorldInverse.copy(a.camera.matrixWorld).invert();
@@ -152,25 +152,25 @@ const waitFor = (page, fn, arg, msg) =>
   });
 const holdTime = (page, ms) =>
   page.evaluate((ms) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.input.update_settings({ touch: { ...a.input.settings.touch, longPressMs: ms } });
   }, ms);
-const sel = (page) => page.evaluate(() => [...window.physicslab.store.selection]);
-const posOf = (page, id) => page.evaluate((id) => window.physicslab.store.body(id).position, id);
+const sel = (page) => page.evaluate(() => [...window.physixlab.store.selection]);
+const posOf = (page, id) => page.evaluate((id) => window.physixlab.store.body(id).position, id);
 
 test('touch: overlay joysticks + RT button drive the car through the analog axes (multi-touch, release resets)', async () => {
   const page = await newTouchPage('&scene=car');
   assert(await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches), 'context is coarse-pointer');
   // Hidden until the simulation runs (auto mode), then shown.
   assert(await page.locator('.tc-overlay').isHidden(), 'overlay hidden in edit mode');
-  await page.evaluate(() => window.physicslab.sim.toggle());
+  await page.evaluate(() => window.physixlab.sim.toggle());
   await page.waitForSelector('.tc-overlay:not([hidden])');
   await shot(page, 'cm-touch-overlay-car');
   const rt = await centre(page, '.tc-btn-RT');
   const ls = await centre(page, '.tc-stick[data-stick="L"]');
   assert(rt.w >= 44 && rt.h >= 44, `RT button is ${rt.w}x${rt.h}`);
   const before = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const c = a.store.bodies().find((b) => /chassis|body/i.test(b.name)) ?? a.store.bodies()[0];
     return a.sim.poseOf(c.id)?.position;
   });
@@ -179,17 +179,17 @@ test('touch: overlay joysticks + RT button drive the car through the analog axes
     [2, ls.x - 44, ls.y],
   ]);
   const pad = await page.evaluate(() => {
-    const h = window.physicslab.input;
+    const h = window.physixlab.input;
     return { RT: h.touch.RT, south: h.touch.buttons.RT, LX: h.touch.LX, active: h.touchActive };
   });
   assert(pad.RT === 1 && pad.south && pad.active, `RT pressed: ${JSON.stringify(pad)}`);
   assert(pad.LX < -0.5 && pad.LX > -1.0001, `left stick LX ${pad.LX}`);
   await simTime(page, 2.5);
-  const axes = await page.evaluate(() => ({ ...window.physicslab.sim.client.axes }));
+  const axes = await page.evaluate(() => ({ ...window.physixlab.sim.client.axes }));
   assert(axes.drive > 0.9, `drive axis ${JSON.stringify(axes)}`);
   assert(axes.steer > 0.2, `steer axis (stick left = +) ${JSON.stringify(axes)}`);
   const after = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const c = a.store.bodies().find((b) => /chassis|body/i.test(b.name)) ?? a.store.bodies()[0];
     return a.sim.poseOf(c.id)?.position;
   });
@@ -197,22 +197,22 @@ test('touch: overlay joysticks + RT button drive the car through the analog axes
   await shot(page, 'cm-touch-driving');
   // lift the stick finger only: the button keeps driving
   await up(page, 2);
-  const mid = await page.evaluate(() => ({ ...window.physicslab.input.touch, b: window.physicslab.input.touchActive }));
+  const mid = await page.evaluate(() => ({ ...window.physixlab.input.touch, b: window.physixlab.input.touchActive }));
   assert(mid.LX === 0 && mid.RT === 1 && mid.b, `stick released, button held: ${JSON.stringify(mid)}`);
   await up(page, 1);
   const end = await page.evaluate(() => {
-    const t = window.physicslab.input.touch;
+    const t = window.physixlab.input.touch;
     return {
       LX: t.LX,
       LY: t.LY,
       RT: t.RT,
       any: Object.values(t.buttons).some(Boolean),
-      active: window.physicslab.input.touchActive,
+      active: window.physixlab.input.touchActive,
     };
   });
   assert(end.LX === 0 && end.RT === 0 && !end.any && !end.active, `released: ${JSON.stringify(end)}`);
   await page.waitForFunction(
-    () => !window.physicslab.sim.client.axes.drive && !window.physicslab.sim.client.axes.steer,
+    () => !window.physixlab.sim.client.axes.drive && !window.physixlab.sim.client.axes.steer,
     null,
     {
       timeout: 8000,
@@ -225,7 +225,7 @@ test('touch: overlay joysticks + RT button drive the car through the analog axes
 test('touch: both sticks, the right stick axis and a button at once; buttons produce pad key codes', async () => {
   const page = await newTouchPage('&scene=car');
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.input.update_settings({
       touchControls: 'on',
       profile: 'general',
@@ -244,7 +244,7 @@ test('touch: both sticks, the right stick axis and a button at once; buttons pro
   ]);
   await simTime(page, 1);
   const st = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     return { t: { ...a.input.touch, buttons: undefined }, keys: [...a.sim.keys], axes: { ...a.sim.client.axes } };
   });
   assert(st.t.LX > 0.4 && st.t.LY > 0.1, `L stick ${JSON.stringify(st.t)}`);
@@ -263,13 +263,13 @@ test('touch: tap selects, tap on empty space deselects, a second finger cancels 
   const [a, b] = (await boxScene(page)).slice(0, 2);
   const pa = await screenOf(page, a);
   await tap(page, pa.x, pa.y);
-  await waitFor(page, (id) => window.physicslab.store.selection.join() === id, a, 'tap selects the box');
+  await waitFor(page, (id) => window.physixlab.store.selection.join() === id, a, 'tap selects the box');
   // tap on empty sky deselects
   await tap(page, 1000, 330);
-  await waitFor(page, () => window.physicslab.store.selection.length === 0, null, 'tap on empty space deselects');
+  await waitFor(page, () => window.physixlab.store.selection.length === 0, null, 'tap on empty space deselects');
 
   // marquee + second finger: nothing is selected, the marquee disappears
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), b);
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), b);
   await down(page, 1, 200, 400);
   await drag(page, [1], 120, 80, 4);
   await waitFor(
@@ -298,13 +298,13 @@ test('touch: tap selects, tap on empty space deselects, a second finger cancels 
   const startPos = await posOf(page, a);
   // an undo step and a redo step exist before the drag, so a leftover entry of either kind would show
   await page.evaluate(() => {
-    const st = window.physicslab.store;
+    const st = window.physixlab.store;
     const id = st.bodies()[0].id;
     st.update(id, { name: 'one' }, 'Rename one');
     st.update(id, { name: 'two' }, 'Rename two');
     st.undo();
   });
-  const hist = () => page.evaluate(() => [window.physicslab.store.undoDepth, window.physicslab.store.redoLabel]);
+  const hist = () => page.evaluate(() => [window.physixlab.store.undoDepth, window.physixlab.store.redoLabel]);
   const before = await hist();
   const p = await screenOf(page, a);
   await down(page, 1, p.x, p.y);
@@ -312,7 +312,7 @@ test('touch: tap selects, tap on empty space deselects, a second finger cancels 
   await waitFor(
     page,
     ([id, x, z]) => {
-      const q = window.physicslab.store.body(id).position;
+      const q = window.physixlab.store.body(id).position;
       return Math.hypot(q[0] - x, q[2] - z) > 0.3;
     },
     [a, startPos[0], startPos[2]],
@@ -322,7 +322,7 @@ test('touch: tap selects, tap on empty space deselects, a second finger cancels 
   await waitFor(
     page,
     ([id, x, z]) => {
-      const q = window.physicslab.store.body(id).position;
+      const q = window.physixlab.store.body(id).position;
       return Math.hypot(q[0] - x, q[2] - z) < 1e-6;
     },
     [a, startPos[0], startPos[2]],
@@ -422,7 +422,7 @@ test('touch: long-press opens the context menu without select-dragging; a short 
   await up(page, 1);
   assert((await page.locator('.menu').count()) === 0, 'no menu after a tap');
   await tap(page, 1000, 330); // deselect with a real tap
-  await page.waitForFunction(() => !window.physicslab.gizmo.controls.object, null, { timeout: 15000 });
+  await page.waitForFunction(() => !window.physixlab.gizmo.controls.object, null, { timeout: 15000 });
   // long press
   await holdTime(page, 900);
   await down(page, 1, p.x, p.y);
@@ -451,8 +451,8 @@ test('touch: long-press opens the context menu without select-dragging; a short 
 test('touch: "move selection with two fingers" moves the selection (one undo step), pinch still zooms, off by default', async () => {
   const page = await newTouchPage();
   const [a, b] = await boxScene(page);
-  assert(!(await page.evaluate(() => window.physicslab.input.settings.touch.moveWithTwoFingers)), 'off by default');
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), a);
+  assert(!(await page.evaluate(() => window.physixlab.input.settings.touch.moveWithTwoFingers)), 'off by default');
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), a);
   const start = await posOf(page, a);
   const other = await posOf(page, b);
   const cam0 = await cameraState(page);
@@ -471,13 +471,13 @@ test('touch: "move selection with two fingers" moves the selection (one undo ste
   near(unmoved[0], start[0], 1e-6, 'selection not moved by default');
   // turn the mode on, reset the view
   await page.evaluate(() => {
-    const app = window.physicslab;
+    const app = window.physixlab;
     app.input.update_settings({ touch: { ...app.input.settings.touch, moveWithTwoFingers: true } });
     // plain grid snapping: the other boxes must not pull the moved one onto their corners
     app.prefs.set({ snapVertex: false, snapSurface: false });
     app.viewport.setView({ position: [0, 9, 12], target: [0, 0.5, 0] });
   });
-  await page.waitForFunction(() => window.physicslab.camera.position.distanceTo({ x: 0, y: 9, z: 12 }) < 0.05, null, {
+  await page.waitForFunction(() => window.physixlab.camera.position.distanceTo({ x: 0, y: 9, z: 12 }) < 0.05, null, {
     timeout: 20000,
   });
   await nextFrame(page);
@@ -498,7 +498,7 @@ test('touch: "move selection with two fingers" moves the selection (one undo ste
   const camAfter = await cameraState(page);
   near(camAfter.az, camBefore.az, 0.02, 'camera did not orbit while moving');
   // one undo step brings it back
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   const undone = await posOf(page, a);
   near(undone[0], start[0], 1e-6, 'one undo restores the position');
   // pinch in this mode zooms the camera
@@ -518,7 +518,7 @@ test('touch: "move selection with two fingers" moves the selection (one undo ste
   const stay = await posOf(page, a);
   near(stay[0], start[0], 1e-6, 'pinch did not move the selection');
   // nothing selected: two fingers orbit again
-  await page.evaluate(() => window.physicslab.store.setSelection([]));
+  await page.evaluate(() => window.physixlab.store.setSelection([]));
   const o0 = await cameraState(page);
   await downAll(page, [
     [1, 450, 300],
@@ -536,11 +536,11 @@ test('touch: "move selection with two fingers" moves the selection (one undo ste
 
 test('touch settings: choose buttons, sticks, size and left-handed layout; saved and applied to the overlay', async () => {
   const page = await newTouchPage('&scene=car');
-  await page.evaluate(() => window.physicslab.input.update_settings({ touchControls: 'on' }));
+  await page.evaluate(() => window.physixlab.input.update_settings({ touchControls: 'on' }));
   await page.waitForSelector('.tc-overlay:not([hidden])');
   // touch-friendly hit areas: bigger gizmo handles on a touch device, every control at least 44 px
   assert(
-    (await page.evaluate(() => window.physicslab.gizmo.controls.size)) > 0.85,
+    (await page.evaluate(() => window.physixlab.gizmo.controls.size)) > 0.85,
     'gizmo handles are enlarged on touch devices',
   );
   for (const sel of ['.tc-btn-LT', '.tc-btn-RT', '.tc-btn-South', '.tc-btn-East']) {
@@ -559,7 +559,7 @@ test('touch settings: choose buttons, sticks, size and left-handed layout; saved
   await shot(page, 'cm-touch-settings');
   await page.click('.touch-tab .tc-choice [data-btn="West"]');
   await page.click('.touch-tab .tc-choice [data-btn="South"]');
-  const cfg = await page.evaluate(() => window.physicslab.input.settings.touch);
+  const cfg = await page.evaluate(() => window.physixlab.input.settings.touch);
   assert(cfg.buttons.includes('West') && !cfg.buttons.includes('South'), `buttons ${cfg.buttons}`);
   assert(
     (await page.locator('.tc-btn-West').count()) === 1 && (await page.locator('.tc-btn-South').count()) === 0,
@@ -567,20 +567,20 @@ test('touch settings: choose buttons, sticks, size and left-handed layout; saved
   );
   // left-handed
   await page.locator('.touch-tab .row', { hasText: 'Left-handed' }).locator('.switch').click();
-  assert((await page.evaluate(() => window.physicslab.input.settings.touch.leftHanded)) === true, 'left-handed saved');
+  assert((await page.evaluate(() => window.physixlab.input.settings.touch.leftHanded)) === true, 'left-handed saved');
   await page.click('.input-modal .modal-close, .modal-close').catch(() => page.keyboard.press('Escape'));
   await page.waitForTimeout(200);
   assert((await leftZoneX()) > 550, 'left-handed puts the left stick on the right');
   // sticks: none
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.input.update_settings({ touch: { ...a.input.settings.touch, sticks: 'right', size: 1.4 } });
   });
   assert((await page.locator('.tc-stick').count()) === 1, 'only the right stick');
   const stick = await centre(page, '.tc-stick');
   near(stick.w, 128 * 1.4, 1, 'size scales the stick');
   // persisted through the prefs store
-  const stored = await page.evaluate(() => JSON.stringify(window.physicslab.prefs.value.input.touch));
+  const stored = await page.evaluate(() => JSON.stringify(window.physixlab.prefs.value.input.touch));
   assert(stored.includes('"leftHanded":true') && stored.includes('"sticks":"right"'), stored);
   assert(page.errors.length === 0, page.errors.join('\n'));
   await page.closeAll();

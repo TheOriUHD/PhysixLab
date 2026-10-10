@@ -59,7 +59,7 @@ describe('migration chain', () => {
       { from: 2, to: 3, migrate: (d) => ({ ...d, version: 3, trail: [...((d.trail as string[]) ?? []), '2>3'] }) },
       { from: 3, to: 4, migrate: (d) => ({ ...d, version: 4, trail: [...((d.trail as string[]) ?? []), '3>4'] }) },
     ];
-    const input = deepFreeze({ format: 'physicslab-scene', version: 1, entities: [] });
+    const input = deepFreeze({ format: 'physixlab-scene', version: 1, entities: [] });
     const out = migrateDocument(input, chain, 4);
     expect(out.version).toBe(4);
     expect(out.trail).toEqual(['1>2', '2>3', '3>4']);
@@ -131,7 +131,7 @@ describe('v1 → v2', () => {
 describe('versions the app cannot read', () => {
   it('rejects a newer format with a message that says what to do', () => {
     const future = { ...fixture('scene-v1.json'), version: SCENE_VERSION + 1 };
-    expectError(() => sanitizeDocument(future), 'too-new', /newer version of PhysicsLab/);
+    expectError(() => sanitizeDocument(future), 'too-new', /newer version of PhysixLab/);
     expectError(() => parseDocument(JSON.stringify(future)), 'too-new', new RegExp(`v${SCENE_VERSION + 1}`));
   });
 
@@ -142,7 +142,7 @@ describe('versions the app cannot read', () => {
 });
 
 describe('garbage input', () => {
-  it.each([undefined, null, 0, 42, 'text', true, [], [1, 2], {}, { format: 'nope' }, { format: 'physicslab-scene' }])(
+  it.each([undefined, null, 0, 42, 'text', true, [], [1, 2], {}, { format: 'nope' }, { format: 'physixlab-scene' }])(
     'rejects %j as "not a scene"',
     (v) => {
       expectError(() => sanitizeDocument(v), 'not-a-scene', /scene/i);
@@ -157,7 +157,7 @@ describe('garbage input', () => {
 
   it('survives hostile entity lists: wrong types, duplicates, prototype keys', () => {
     const doc = sanitizeDocument({
-      format: 'physicslab-scene',
+      format: 'physixlab-scene',
       version: 2,
       name: 42,
       entities: [
@@ -197,7 +197,7 @@ describe('limits', () => {
   it('truncates over-long strings and clamps absurd coordinates', () => {
     const long = 'x'.repeat(10_000);
     const doc = sanitizeDocument({
-      format: 'physicslab-scene',
+      format: 'physixlab-scene',
       name: long,
       entities: [{ kind: 'body', id: long, name: long, position: [1e12, -1e12, 0], material: { color: long } }],
     });

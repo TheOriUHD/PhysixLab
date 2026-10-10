@@ -14,7 +14,7 @@ import {
   API_VERSION,
   type ApiEvents,
   type EntityPatch,
-  type PhysicsLabApi,
+  type PhysixLabApi,
   type SimMode,
   type Unsubscribe,
 } from './types';
@@ -73,11 +73,11 @@ function sanitizeNew(store: SceneStore, raws: EntityPatch[]): Entity[] {
   return added;
 }
 
-export function createApi(host: ApiHost): PhysicsLabApi {
+export function createApi(host: ApiHost): PhysixLabApi {
   const store = host.store;
   const find = (id: string): Entity | null => store.get(id) ?? null;
 
-  const scene: PhysicsLabApi['scene'] = {
+  const scene: PhysixLabApi['scene'] = {
     get: () => clone(store.toDocument()),
     toJSON: (indent) => serializeDocument(store.toDocument(), indent),
     load(docOrJson) {
@@ -156,7 +156,7 @@ export function createApi(host: ApiHost): PhysicsLabApi {
     },
   };
 
-  const simulation: PhysicsLabApi['simulation'] = {
+  const simulation: PhysixLabApi['simulation'] = {
     get mode() {
       return host.sim.mode;
     },
@@ -177,7 +177,7 @@ export function createApi(host: ApiHost): PhysicsLabApi {
     },
   };
 
-  const query: PhysicsLabApi['query'] = {
+  const query: PhysixLabApi['query'] = {
     pose: (id) => {
       const p = host.sim.poseOf(id);
       return p ? clone(p) : null;
@@ -193,7 +193,7 @@ export function createApi(host: ApiHost): PhysicsLabApi {
     },
   };
 
-  const assets: PhysicsLabApi['assets'] = {
+  const assets: PhysixLabApi['assets'] = {
     list: () =>
       Object.values(store.assets).map((a: Asset) => ({
         id: a.id,
@@ -206,7 +206,7 @@ export function createApi(host: ApiHost): PhysicsLabApi {
     remove: (id) => store.removeAsset(id, 'Remove asset (API)'),
   };
 
-  const api: PhysicsLabApi = {
+  const api: PhysixLabApi = {
     apiVersion: API_VERSION,
     scene,
     simulation,

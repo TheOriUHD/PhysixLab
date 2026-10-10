@@ -1,8 +1,9 @@
 /**
  * What a dropped file is (UI-42). Pure: classification by name / type, and a sniff of JSON text (a scene, a replay
- * and a prefab pack are all `.json`). Whether PhysicsLab can *do* something with a kind is decided by the handlers
+ * and a prefab pack are all `.json`). Whether PhysixLab can *do* something with a kind is decided by the handlers
  * registered in `dropHandlers.ts`, so the overlay never promises an import that does not exist.
  */
+import { isFormat } from '../../model/legacy';
 import { isRecord } from './storage';
 
 export type DropKind = 'scene' | 'replay' | 'prefabPack' | 'image' | 'mesh' | 'audio' | 'json' | 'unknown';
@@ -34,8 +35,8 @@ export function sniffJsonKind(text: string): DropKind {
   }
   if (!isRecord(raw)) return 'unknown';
   if (Array.isArray(raw.entities)) return 'scene';
-  if (raw.format === 'physicslab-replay' || Array.isArray(raw.frames) || isRecord(raw.replay)) return 'replay';
-  if (raw.format === 'physicslab-prefabs' || Array.isArray(raw.prefabs)) return 'prefabPack';
+  if (isFormat(raw.format, 'physixlab-replay') || Array.isArray(raw.frames) || isRecord(raw.replay)) return 'replay';
+  if (isFormat(raw.format, 'physixlab-prefabs') || Array.isArray(raw.prefabs)) return 'prefabPack';
   return 'unknown';
 }
 
@@ -56,7 +57,7 @@ export function unsupportedMessage(kind: DropKind, name: string): string {
     case 'replay':
       return "Replays aren't supported yet: there is no replay format to import.";
     case 'prefabPack':
-      return "Prefab packs aren't supported yet: PhysicsLab cannot import them.";
+      return "Prefab packs aren't supported yet: PhysixLab cannot import them.";
     case 'image':
       return `Images aren't supported yet: “${name}” was not imported (nothing in a scene can use an image file).`;
     case 'mesh':
@@ -64,7 +65,7 @@ export function unsupportedMessage(kind: DropKind, name: string): string {
     case 'audio':
       return `Audio files aren't supported yet: “${name}” was not imported.`;
     default:
-      return `“${name}” is not a PhysicsLab scene, so it was not imported.`;
+      return `“${name}” is not a PhysixLab scene, so it was not imported.`;
   }
 }
 
@@ -98,7 +99,7 @@ export function describeDrag(
       first === 'unknown'
         ? 'This file type can’t be imported'
         : `${capitalise(KIND_LABEL[first])}s can’t be imported yet`,
-    detail: 'Only PhysicsLab scene files (.json) can be dropped here for now.',
+    detail: 'Only PhysixLab scene files (.json) can be dropped here for now.',
     ok: false,
   };
 }

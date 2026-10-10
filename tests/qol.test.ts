@@ -87,10 +87,10 @@ describe('recent scenes', () => {
 
   it('survives damaged storage', () => {
     const s = memoryStorage();
-    s.setItem('physicslab:qol:recents:v1', '{not json');
+    s.setItem('physixlab:qol:recents:v1', '{not json');
     expect(new RecentsStore(s).list()).toEqual([]);
     s.setItem(
-      'physicslab:qol:recents:v1',
+      'physixlab:qol:recents:v1',
       JSON.stringify([{ key: 1 }, null, { key: 'a', name: 'n', source: { kind: 'evil' } }]),
     );
     expect(new RecentsStore(s).list()).toEqual([]);
@@ -132,9 +132,9 @@ describe('favourites', () => {
     const f = new FavouritesStore(s);
     for (let i = 0; i < FAV_LIMIT + 5; i++) f.toggle('prefab', `p${i}`);
     expect(f.list('prefab')).toHaveLength(FAV_LIMIT);
-    s.setItem('physicslab:qol:favourites:v1', '[1,2');
+    s.setItem('physixlab:qol:favourites:v1', '[1,2');
     expect(f.list('prefab')).toEqual([]);
-    s.setItem('physicslab:qol:favourites:v1', JSON.stringify({ map: ['ok', 7, 'Bad Id', 'ok'] }));
+    s.setItem('physixlab:qol:favourites:v1', JSON.stringify({ map: ['ok', 7, 'Bad Id', 'ok'] }));
     expect(f.list('map')).toEqual(['ok']);
   });
 });
@@ -165,7 +165,7 @@ describe('thumbnail cache', () => {
 describe('dropped files', () => {
   it('classifies by name and type', () => {
     const cases: [string, string, DropKind][] = [
-      ['a.physicslab.json', 'application/json', 'json'],
+      ['a.physixlab.json', 'application/json', 'json'],
       ['x.png', 'image/png', 'image'],
       ['x.JPG', '', 'image'],
       ['m.obj', '', 'mesh'],
@@ -180,7 +180,7 @@ describe('dropped files', () => {
   it('looks inside JSON: scene, replay, prefab pack', () => {
     const doc = serializeDocument(newDocument('Dropped'));
     expect(sniffJsonKind(doc)).toBe('scene');
-    expect(sniffJsonKind('{"format":"physicslab-replay","frames":[]}')).toBe('replay');
+    expect(sniffJsonKind('{"format":"physixlab-replay","frames":[]}')).toBe('replay');
     expect(sniffJsonKind('{"prefabs":[]}')).toBe('prefabPack');
     expect(sniffJsonKind('{"hello":1}')).toBe('unknown');
     expect(sniffJsonKind('[1,2]')).toBe('unknown');
@@ -202,7 +202,7 @@ describe('dropped files', () => {
     expect(unsupportedMessage('replay', 'r.json')).toMatch(/Replays aren't supported yet/);
     expect(unsupportedMessage('image', 'p.png')).toMatch(/Images aren't supported yet/);
     expect(unsupportedMessage('mesh', 'm.obj')).toMatch(/Mesh files aren't supported yet/);
-    expect(unsupportedMessage('unknown', 'x.bin')).toMatch(/not a PhysicsLab scene/);
+    expect(unsupportedMessage('unknown', 'x.bin')).toMatch(/not a PhysixLab scene/);
   });
 });
 

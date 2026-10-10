@@ -35,7 +35,7 @@ export function buildObj(scene: ExportScene, options: ObjOptions = {}): ObjResul
   const mtlName = options.mtlName ?? 'scene.mtl';
   const k = options.scale ?? 1;
   const withMtl = options.materials !== false;
-  const lines: string[] = [`# PhysicsLab: ${scene.name.replace(/[\r\n]+/g, ' ')}`];
+  const lines: string[] = [`# PhysixLab: ${scene.name.replace(/[\r\n]+/g, ' ')}`];
   if (withMtl) lines.push(`mtllib ${mtlName}`);
   let vBase = 0;
   let triangles = 0;
@@ -83,7 +83,7 @@ export function buildObj(scene: ExportScene, options: ObjOptions = {}): ObjResul
 }
 
 function buildMtl(materials: readonly ExportMaterial[], used: ReadonlySet<number>): string {
-  const lines = ['# PhysicsLab materials'];
+  const lines = ['# PhysixLab materials'];
   materials.forEach((m, i) => {
     if (!used.has(i)) return;
     const [r, g, b] = m.color;

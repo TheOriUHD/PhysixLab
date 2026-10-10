@@ -59,7 +59,7 @@ const bodyWith = (meshId?: string, over: Partial<BodyEntity> = {}) =>
   createBody({ shape: { type: 'box' }, ...(meshId ? { meshId } : {}), ...over });
 
 const raw = (assets: unknown, entities: unknown[] = []) => ({
-  format: 'physicslab-scene',
+  format: 'physixlab-scene',
   version: 2,
   entities,
   assets,
@@ -110,7 +110,7 @@ describe('base64 codec and content hash', () => {
     expect(contentHash(['x'])).not.toBe(contentHash(['y']));
     expect(contentHash([''])).toHaveLength(32);
     // changing the algorithm would orphan every stored hash: pin one value
-    expect(contentHash(['physicslab'])).toBe('eca24206a458839969ee433ebfa27e82');
+    expect(contentHash(['physixlab'])).toBe('9261e731b907b4763e00998c7259de3c');
     expect(contentHash(['mesh', 'AAAA', 'x'])).toBe('d2353c309b74e774adb4c3b67b3aa940');
   });
 

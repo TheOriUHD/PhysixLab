@@ -227,7 +227,7 @@ describe('InputMap', () => {
     expect(() => m.importJson('{nope')).toThrow(/valid JSON/);
     expect(() => m.importJson('{"format":"other"}')).toThrow(/key-bindings file/);
     const partly = JSON.stringify({
-      format: 'physicslab-keybindings',
+      format: 'physixlab-keybindings',
       version: 1,
       bindings: { 'does.not.exist': ['Q'], 'sim.toggle': ['Esc'], 'sim.reset': ['F10'] },
     });
@@ -400,7 +400,7 @@ describe('hostile axis names and settings', () => {
         motor: { mode: 'velocity', axis: name },
       });
       const doc = sanitizeDocument({
-        format: 'physicslab-scene',
+        format: 'physixlab-scene',
         version: 3,
         name: 'x',
         settings: {},

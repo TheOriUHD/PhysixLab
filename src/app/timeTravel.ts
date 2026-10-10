@@ -50,7 +50,7 @@ interface TTEvents extends Record<string, unknown> {
 
 const WEIGHTY_IMPACT = 3; // N·s: contacts weaker than this are not marked
 const MAX_MARKERS = 1500;
-const OPT_KEY = 'physicslab.timeTravel';
+const OPT_KEY = 'physixlab.timeTravel';
 
 interface Options {
   markImpacts: boolean;
@@ -644,7 +644,7 @@ export function timeTravelFor(app: App): TimeTravel {
 /** Called once from `main.ts` after the app exists: starts listening, and opens a `#replay=` link. */
 export function installTimeTravel(app: App): TimeTravel {
   const t = timeTravelFor(app);
-  (app as unknown as { timeTravel: TimeTravel }).timeTravel = t; // debugging / e2e handle: window.physicslab.timeTravel
+  (app as unknown as { timeTravel: TimeTravel }).timeTravel = t; // debugging / e2e handle: window.physixlab.timeTravel
   if (/replay=/.test(location.hash)) void t.openFromHash(location.hash);
   return t;
 }

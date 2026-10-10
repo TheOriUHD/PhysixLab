@@ -66,7 +66,7 @@ function checkSize(name: string, bytes: number): void {
   if (bytes > LIMITS.maxAssetBytes) {
     throw new SceneFormatError(
       'limit',
-      `The asset “${name}” is ${formatBytes(bytes)}; PhysicsLab stores assets of up to ${formatBytes(LIMITS.maxAssetBytes)} each. Use a smaller or simplified file.`,
+      `The asset “${name}” is ${formatBytes(bytes)}; PhysixLab stores assets of up to ${formatBytes(LIMITS.maxAssetBytes)} each. Use a smaller or simplified file.`,
     );
   }
 }
@@ -241,7 +241,7 @@ export function sanitizeAssetMap(
   if (ids.length > LIMITS.maxAssets) {
     throw new SceneFormatError(
       'limit',
-      `This scene has ${ids.length.toLocaleString('en-US')} assets; PhysicsLab opens scenes with up to ${LIMITS.maxAssets}.`,
+      `This scene has ${ids.length.toLocaleString('en-US')} assets; PhysixLab opens scenes with up to ${LIMITS.maxAssets}.`,
     );
   }
   const assets: Record<string, Asset> = {};
@@ -266,7 +266,7 @@ export function sanitizeAssetMap(
     if (total > LIMITS.maxTotalAssetBytes) {
       throw new SceneFormatError(
         'limit',
-        `This scene's assets add up to more than ${formatBytes(LIMITS.maxTotalAssetBytes)}, the most PhysicsLab opens. Remove unused assets or use smaller files.`,
+        `This scene's assets add up to more than ${formatBytes(LIMITS.maxTotalAssetBytes)}, the most PhysixLab opens. Remove unused assets or use smaller files.`,
       );
     }
     byHash.set(a.hash, a);

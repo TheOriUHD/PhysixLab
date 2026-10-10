@@ -71,7 +71,7 @@ export class BroadcastLink extends Link {
   constructor(readonly room: string) {
     super();
     if (!isRoomCode(room)) throw new Error('A room code is 4-32 letters or digits.');
-    this.ch = new BroadcastChannel(`physicslab-collab-${room}`);
+    this.ch = new BroadcastChannel(`physixlab-collab-${room}`);
     this.ch.onmessage = (ev: MessageEvent) => this.deliver(ev.data);
     queueMicrotask(() => this.opened());
   }
@@ -149,7 +149,7 @@ export function encodeSignal(kind: SignalKind, sdp: string): string {
 export function decodeSignal(blob: string, expect: SignalKind): string {
   const text = blob.replace(/\s+/g, '');
   if (!text.startsWith(SIGNAL_PREFIX))
-    throw new Error('That is not a PhysicsLab connection code (it should start with PLRTC1.).');
+    throw new Error('That is not a PhysixLab connection code (it should start with PLRTC1.).');
   if (text.length > MAX_SIGNAL_CHARS) throw new Error('That connection code is too long.');
   let parsed: unknown;
   try {
@@ -210,7 +210,7 @@ export class WebRtcLink extends Link {
   static async createOffer(opts: WebRtcOptions = {}): Promise<{ link: WebRtcLink; offer: string }> {
     const pc = new RTCPeerConnection({ iceServers: opts.iceServers ?? [] });
     const link = new WebRtcLink(pc);
-    link.bind(pc.createDataChannel('physicslab', { ordered: true }));
+    link.bind(pc.createDataChannel('physixlab', { ordered: true }));
     await pc.setLocalDescription(await pc.createOffer());
     await gathered(pc, opts.gatherTimeoutMs ?? 5000);
     return { link, offer: encodeSignal('offer', pc.localDescription?.sdp ?? '') };

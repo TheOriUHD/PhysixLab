@@ -12,7 +12,7 @@ const test = (name, fn) => tests.push({ name, fn });
 const compOf = (page, entityName, type) =>
   page.evaluate(
     ([entityName, type]) => {
-      const a = window.physicslab;
+      const a = window.physixlab;
       const e = a.store.all().find((x) => x.name === entityName);
       const c = e.components.find((c) => c.type === type);
       return { owner: e.id, id: c.id, params: c.params };
@@ -21,19 +21,19 @@ const compOf = (page, entityName, type) =>
   );
 const stateOf = (page, id) =>
   page.evaluate((id) => {
-    const v = window.physicslab.sim.client.stateOf(id);
+    const v = window.physixlab.sim.client.stateOf(id);
     return v ? [...v] : null;
   }, id);
-const velocity = (page, id) => page.evaluate((id) => window.physicslab.sim.velocityOf(id)?.linear ?? null, id);
+const velocity = (page, id) => page.evaluate((id) => window.physixlab.sim.velocityOf(id)?.linear ?? null, id);
 /** Pause on a frame that shows what the test just made happen, take the screenshot, and carry on. */
 const freezeShot = async (page, name) => {
-  await page.evaluate(() => window.physicslab.sim.pause());
+  await page.evaluate(() => window.physixlab.sim.pause());
   for (let i = 0; i < 3; i++) await nextFrame(page);
   await shot(page, name);
-  await page.evaluate(() => window.physicslab.sim.play());
+  await page.evaluate(() => window.physixlab.sim.play());
 };
 const play = async (page) => {
-  await page.evaluate(() => window.physicslab.sim.play());
+  await page.evaluate(() => window.physixlab.sim.play());
   await simTime(page, 0.3);
 };
 const openControls = async (page) => {
@@ -52,7 +52,7 @@ test('powered: the Controls panel lists the keys and axes of a rocket and its sl
   assert(await page.locator('.ctl-slider').first().isDisabled(), 'the slider waits for Play');
   assert(/Press Play/.test((await page.locator('.ctl-hint').textContent()) ?? ''), 'the hint says Press Play');
   // while editing, the selected rocket shows a faint flame preview (one drawn thing)
-  await page.waitForFunction(() => window.physicslab.componentFx.count === 1, null, { timeout: 10000 });
+  await page.waitForFunction(() => window.physixlab.componentFx.count === 1, null, { timeout: 10000 });
   await shot(page, 'powered-01-controls-idle');
 
   await play(page);
@@ -61,7 +61,7 @@ test('powered: the Controls panel lists the keys and axes of a rocket and its sl
   await page.locator('.ctl-slider').first().fill('0.5');
   await page.waitForFunction(
     (id) => {
-      const v = window.physicslab.sim.client.stateOf(id);
+      const v = window.physixlab.sim.client.stateOf(id);
       return v && Math.abs(v[0] - 450) < 8;
     },
     rocket.id,
@@ -74,7 +74,7 @@ test('powered: the Controls panel lists the keys and axes of a rocket and its sl
   await page.locator('.ctl-reset').first().click();
   await page.waitForFunction(
     (id) => {
-      const v = window.physicslab.sim.client.stateOf(id);
+      const v = window.physixlab.sim.client.stateOf(id);
       return v && v[0] < 5;
     },
     rocket.id,
@@ -93,26 +93,26 @@ test('powered: holding the F key cap fires the rocket; a flame is drawn and the 
   const box = await key.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
-  assert(await page.evaluate(() => window.physicslab.sim.keys.has('KeyF')), 'the key cap holds F for the simulation');
+  assert(await page.evaluate(() => window.physixlab.sim.keys.has('KeyF')), 'the key cap holds F for the simulation');
   assert((await key.getAttribute('aria-pressed')) === 'true', 'the cap shows it is pressed');
   await page.waitForFunction(
     (id) => {
-      const v = window.physicslab.sim.client.stateOf(id);
+      const v = window.physixlab.sim.client.stateOf(id);
       return v && v[0] > 800;
     },
     rocket.id,
     { timeout: 20000 },
   );
-  await page.waitForFunction(() => window.physicslab.componentFx.count >= 1, null, { timeout: 10000 });
-  await page.waitForFunction((id) => window.physicslab.sim.poseOf(id).position[1] > 6, rocket.owner, {
+  await page.waitForFunction(() => window.physixlab.componentFx.count >= 1, null, { timeout: 10000 });
+  await page.waitForFunction((id) => window.physixlab.sim.poseOf(id).position[1] > 6, rocket.owner, {
     timeout: 30000,
   });
   await freezeShot(page, 'powered-02-rocket-firing');
   const climbing = await velocity(page, rocket.owner);
   assert(climbing[1] > 3, `the rocket climbs (${climbing[1].toFixed(1)} m/s)`);
   await page.mouse.up();
-  assert(await page.evaluate(() => !window.physicslab.sim.keys.has('KeyF')), 'releasing the cap releases the key');
-  await page.waitForFunction(() => window.physicslab.componentFx.count === 0, null, { timeout: 20000 });
+  assert(await page.evaluate(() => !window.physixlab.sim.keys.has('KeyF')), 'releasing the cap releases the key');
+  await page.waitForFunction(() => window.physixlab.componentFx.count === 0, null, { timeout: 20000 });
   assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
   await page.close();
 });
@@ -120,9 +120,9 @@ test('powered: holding the F key cap fires the rocket; a flame is drawn and the 
 test('powered: the powertrain car drives with the real keyboard and shows its engine gauges in the inspector', async () => {
   const page = await newPage('&scene=powertrain-car');
   await play(page);
-  const car = await page.evaluate(() => window.physicslab.store.bodies().find((b) => /chassis/i.test(b.name)).id);
+  const car = await page.evaluate(() => window.physixlab.store.bodies().find((b) => /chassis/i.test(b.name)).id);
   // select the chassis: the inspector lists the engine with its live numbers
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), car);
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), car);
   await page.getByRole('tab', { name: 'Inspector' }).click();
   await page.waitForSelector('.panel.right .comp[data-type="engine"]');
   await page.keyboard.down('KeyW');
@@ -147,17 +147,17 @@ test('powered: servo arm - the dial gauge and the key-driven target', async () =
   assert((await page.locator('.ctl-key').count()) >= 2, 'the servo arm lists its keys');
   await play(page);
   const joint = await page.evaluate(() => {
-    const j = window.physicslab.store.joints().find((j) => j.components.some((c) => c.type === 'servo'));
+    const j = window.physixlab.store.joints().find((j) => j.components.some((c) => c.type === 'servo'));
     return { id: j.id, comp: j.components.find((c) => c.type === 'servo').id };
   });
-  const key = await page.evaluate((id) => window.physicslab.store.joint(id).components[0].params, joint.id);
+  const key = await page.evaluate((id) => window.physixlab.store.joint(id).components[0].params, joint.id);
   const hold = key.keyPlus;
   await page.keyboard.down(hold);
   await simTime(page, 1.6);
   await page.keyboard.up(hold);
   const s = await stateOf(page, joint.comp);
   assert(s && Math.abs(s[0]) > 5, `the servo moved (${s?.[0]?.toFixed?.(1)} deg)`);
-  await page.waitForFunction(() => window.physicslab.componentFx.count >= 1, null, { timeout: 10000 });
+  await page.waitForFunction(() => window.physixlab.componentFx.count >= 1, null, { timeout: 10000 });
   await freezeShot(page, 'powered-04-servo-arm');
   assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
   await page.close();
@@ -170,7 +170,7 @@ test('powered: the helicopter scene lifts off from the keyboard and its rotor bl
   await play(page);
   const heli = await compOf(page, 'Helicopter', 'rotor');
   await page.keyboard.down('KeyR');
-  await page.waitForFunction((id) => window.physicslab.sim.poseOf(id).position[1] > 2.2, heli.owner, {
+  await page.waitForFunction((id) => window.physixlab.sim.poseOf(id).position[1] > 2.2, heli.owner, {
     timeout: 90000,
   });
   const y = (await pose(page, heli.owner)).position[1];
@@ -185,8 +185,8 @@ test('powered: the helicopter scene lifts off from the keyboard and its rotor bl
 
 test('powered: the Add component menu offers the powered parts and a shaft field suggests the names in use', async () => {
   const page = await newPage('&scene=powertrain-car');
-  const car = await page.evaluate(() => window.physicslab.store.bodies().find((b) => /chassis/i.test(b.name)).id);
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), car);
+  const car = await page.evaluate(() => window.physixlab.store.bodies().find((b) => /chassis/i.test(b.name)).id);
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), car);
   await page.getByRole('tab', { name: 'Inspector' }).click();
   await page.waitForSelector('.panel.right .comp[data-type="engine"]');
   await page.click('.panel.right .comp-add');
@@ -220,24 +220,24 @@ test('powered: the jet car draws an exhaust that grows with the afterburner, the
   await page.keyboard.down('KeyW');
   await page.waitForFunction(
     (id) => {
-      const v = window.physicslab.sim.client.stateOf(id);
+      const v = window.physixlab.sim.client.stateOf(id);
       return v && v[1] > 90;
     },
     jet.id,
     { timeout: 60000 },
   );
-  assert(await page.evaluate(() => window.physicslab.componentFx.count >= 1), 'an exhaust flame is drawn');
+  assert(await page.evaluate(() => window.physixlab.componentFx.count >= 1), 'an exhaust flame is drawn');
   await freezeShot(page, 'powered-07-jet-exhaust');
   await page.keyboard.down('ShiftLeft');
   await page.waitForFunction(
     (id) => {
-      const v = window.physicslab.sim.client.stateOf(id);
+      const v = window.physixlab.sim.client.stateOf(id);
       return v && v[2] === 1;
     },
     jet.id,
     { timeout: 30000 },
   );
-  await simTime(page, (await page.evaluate(() => window.physicslab.sim.client.stats.simTime)) + 0.6);
+  await simTime(page, (await page.evaluate(() => window.physixlab.sim.client.stats.simTime)) + 0.6);
   await freezeShot(page, 'powered-08-jet-afterburner');
   await page.keyboard.up('ShiftLeft');
   await page.keyboard.up('KeyW');
@@ -249,13 +249,13 @@ test('powered: the jet car draws an exhaust that grows with the afterburner, the
   await cart.keyboard.down('KeyW');
   await cart.waitForFunction(
     (id) => {
-      const v = window.physicslab.sim.client.stateOf(id);
+      const v = window.physixlab.sim.client.stateOf(id);
       return v && v[0] > 2000;
     },
     prop.id,
     { timeout: 60000 },
   );
-  assert(await cart.evaluate(() => window.physicslab.componentFx.count >= 1), 'the propeller blur is drawn');
+  assert(await cart.evaluate(() => window.physixlab.componentFx.count >= 1), 'the propeller blur is drawn');
   await freezeShot(cart, 'powered-09-propeller-blur');
   await cart.keyboard.up('KeyW');
   assert(cart.errors.length === 0, `no errors: ${cart.errors.join(' | ')}`);

@@ -23,7 +23,7 @@ import { favStar } from './qol/favUi';
 import { favouriteStore } from './qol/stores';
 // -- end UI-B --
 
-const COLLAPSED_KEY = 'physicslab.shapePalette.collapsed';
+const COLLAPSED_KEY = 'physixlab.shapePalette.collapsed';
 
 /** State that outlives a re-render of the Add tab. */
 const state = { query: '', collapsed: null as Set<string> | null, focusId: '' };

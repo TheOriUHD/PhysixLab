@@ -1,7 +1,7 @@
 /**
  * DT-31: plugin manifest. A plugin is one JavaScript file that starts with a manifest comment:
  *
- *   /* @physicslab-plugin
+ *   /* @physixlab-plugin
  *   { "id": "my-plugin", "name": "My plugin", "version": "1.0.0", "description": "…", "permissions": ["scene.write"] }
  *   *\/
  *
@@ -9,7 +9,7 @@
  * what the plugin asks for.
  */
 export const PERMISSIONS = {
-  ui: 'Add commands, panels and example scenes to PhysicsLab',
+  ui: 'Add commands, panels and example scenes to PhysixLab',
   'scene.read': 'Read the scene: objects, settings, selection, poses',
   'scene.write': 'Change the scene (every change can be undone)',
   simulation: 'Start, pause, step and reset the simulation',
@@ -30,14 +30,15 @@ export const MAX_PLUGIN_CHARS = 200_000;
 
 export class ManifestError extends Error {}
 
-const HEADER = /\/\*\s*@physicslab-plugin\s*([\s\S]*?)\*\//;
+// `@physicslab-plugin` is the pre-rename tag; plugins saved with it still load.
+const HEADER = /\/\*\s*@(?:physixlab|physicslab)-plugin\s*([\s\S]*?)\*\//;
 
 export function parseManifest(source: string): PluginManifest {
   if (typeof source !== 'string' || !source.trim()) throw new ManifestError('The plugin is empty');
   if (source.length > MAX_PLUGIN_CHARS)
     throw new ManifestError(`The plugin is larger than ${MAX_PLUGIN_CHARS} characters`);
   const m = HEADER.exec(source);
-  if (!m) throw new ManifestError('The plugin must start with a /* @physicslab-plugin { … } */ manifest comment');
+  if (!m) throw new ManifestError('The plugin must start with a /* @physixlab-plugin { … } */ manifest comment');
   let raw: unknown;
   try {
     raw = JSON.parse(m[1]);

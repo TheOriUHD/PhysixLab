@@ -12,7 +12,7 @@ import { CONTEXT_BLURB, type LegendSection } from '../../app/input/contexts';
 import { DRIVE_CAMERA_LABEL } from '../../app/drive/immersive';
 import { h } from '../dom';
 
-const STORE_KEY = 'physicslab:legend:v1';
+const STORE_KEY = 'physixlab:legend:v1';
 
 /** The user's open / closed choice for the legend (per browser). */
 export const legendState = {

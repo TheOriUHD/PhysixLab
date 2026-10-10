@@ -24,7 +24,7 @@ export function pwa(): Plugin {
   let outDir = '';
   let info: (msg: string) => void = () => undefined;
   return {
-    name: 'physicslab:pwa-service-worker',
+    name: 'physixlab:pwa-service-worker',
     apply: 'build',
     configResolved(config) {
       outDir = path.resolve(config.root, config.build.outDir);

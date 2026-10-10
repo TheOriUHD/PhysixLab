@@ -11,17 +11,17 @@ const wait = (page, sel) =>
     throw new Error(`timed out waiting for ${sel}`);
   });
 const emptyScene = async (page) => {
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   await sleep(300);
 };
-const bodyCount = (page) => page.evaluate(() => window.physicslab.store.bodies().length);
+const bodyCount = (page) => page.evaluate(() => window.physixlab.store.bodies().length);
 
 test('edB history panel lists commands and a click restores the earlier state', async () => {
   const page = await newPage();
   await emptyScene(page);
   await page.evaluate(() => {
-    window.physicslab.editor.addShape('box', [0, 0.5, 0]);
-    window.physicslab.editor.addShape('sphere', [3, 0.5, 0]);
+    window.physixlab.editor.addShape('box', [0, 0.5, 0]);
+    window.physixlab.editor.addShape('sphere', [3, 0.5, 0]);
   });
   await page.click('.panel.right .tab:has-text("History")');
   await wait(page, '.hist-row');
@@ -44,8 +44,8 @@ test('edB history panel lists commands and a click restores the earlier state', 
 test('edB right-click: body menu has Delete and a Material submenu, empty space has Add', async () => {
   const page = await newPage();
   await emptyScene(page);
-  const id = await page.evaluate(() => window.physicslab.editor.addShape('box', [0, 0.5, 0]).id);
-  await page.evaluate(() => window.physicslab.store.setSelection([]));
+  const id = await page.evaluate(() => window.physixlab.editor.addShape('box', [0, 0.5, 0]).id);
+  await page.evaluate(() => window.physixlab.store.setSelection([]));
   const sp = await screenOf(page, id);
   await page.mouse.click(sp.x, sp.y, { button: 'right' });
   await wait(page, '.menu');
@@ -62,14 +62,14 @@ test('edB right-click: body menu has Delete and a Material submenu, empty space 
   await page.locator('.menu .menu-item', { hasText: 'Material' }).click();
   await wait(page, '.menu .menu-back');
   await page.locator('.menu .menu-item', { hasText: 'Steel' }).click();
-  const preset = await page.evaluate((id) => window.physicslab.store.body(id).material.preset, id);
+  const preset = await page.evaluate((id) => window.physixlab.store.body(id).material.preset, id);
   assert(preset === 'steel', `material applied: ${preset}`);
   assert(!(await page.$('.menu')), 'menu closed after choosing');
 
   // empty space
   await page.mouse.click(1000, 300, { button: 'right' });
   await wait(page, '.menu');
-  const sel = await page.evaluate(() => window.physicslab.store.selection.length);
+  const sel = await page.evaluate(() => window.physixlab.store.selection.length);
   assert(sel === 0, 'right-clicking nothing leaves nothing selected');
   const empty = await page.locator('.menu .menu-item').allTextContents();
   assert(
@@ -96,8 +96,8 @@ test('edB Shift+A opens the add menu, typing "sph" + Enter adds a sphere', async
   await shot(page, 'edB-addmenu');
   await page.keyboard.type('sph');
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => window.physicslab.store.bodies().length === 1);
-  const type = await page.evaluate(() => window.physicslab.store.bodies()[0].shape.type);
+  await page.waitForFunction(() => window.physixlab.store.bodies().length === 1);
+  const type = await page.evaluate(() => window.physixlab.store.bodies()[0].shape.type);
   assert(type === 'sphere', `added ${type}`);
   assert(!(await page.$('.addmenu')), 'menu closed');
   await page.keyboard.press('Shift+A');

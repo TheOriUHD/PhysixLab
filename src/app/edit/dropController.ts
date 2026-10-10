@@ -4,7 +4,7 @@
  * inserts the thing exactly there. `shell.ts` forwards the viewport's drag events here.
  *
  * Browsers hide the dragged data until the drop, so the payload is read once, at `dragstart`, from the data the tile
- * itself stored (`text/x-physicslab-shape` / `text/x-physicslab-prefab`).
+ * itself stored (`text/x-physixlab-shape` / `text/x-physixlab-prefab`).
  */
 import type { BufferGeometry } from 'three';
 import { BoxGeometry, EdgesGeometry, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial } from 'three';
@@ -19,8 +19,8 @@ import { hideSnap, showSnap } from './snapIndicator';
 import { invertKey } from './snapScene';
 import { dropPoseForShape, surfaceDropPose, type DropPose } from './surfaceDrop';
 
-export const SHAPE_MIME = 'text/x-physicslab-shape';
-export const PREFAB_MIME = 'text/x-physicslab-prefab';
+export const SHAPE_MIME = 'text/x-physixlab-shape';
+export const PREFAB_MIME = 'text/x-physixlab-prefab';
 
 type Payload = { kind: 'shape'; type: string } | { kind: 'prefab'; id: string };
 

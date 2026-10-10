@@ -10,13 +10,13 @@ const test = (name, fn) => tests.push({ name, fn });
 
 const box = (page, pos, size = [1, 1, 1], over = {}) =>
   page.evaluate(
-    ([pos, size, over]) => window.physicslab.editor.addShape('box', pos, { shape: { type: 'box', size }, ...over }).id,
+    ([pos, size, over]) => window.physixlab.editor.addShape('box', pos, { shape: { type: 'box', size }, ...over }).id,
     [pos, size, over],
   );
-const select = (page, ids) => page.evaluate((ids) => window.physicslab.store.setSelection(ids), ids);
+const select = (page, ids) => page.evaluate((ids) => window.physixlab.store.setSelection(ids), ids);
 const body = (page, id) =>
   page.evaluate((id) => {
-    const b = window.physicslab.store.body(id);
+    const b = window.physixlab.store.body(id);
     return { position: [...b.position], rotation: [...b.rotation], size: [...b.shape.size] };
   }, id);
 // Errors raised by other packages' extensions (e.g. a shortcut clash between two of them) are not this file's concern.
@@ -26,7 +26,7 @@ const noErrors = (page) => {
 };
 const fresh = async () => {
   const page = await newPage();
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   return page;
 };
 const openArrange = async (page) => {
@@ -34,7 +34,7 @@ const openArrange = async (page) => {
   await page.waitForSelector('.ed-arrange [data-cmd="arrange.stack"]');
 };
 const press = (page, id) => page.locator(`.ed-arrange [data-cmd="${id}"]`).click();
-const undoDepth = (page) => page.evaluate(() => window.physicslab.store.undoLabel);
+const undoDepth = (page) => page.evaluate(() => window.physixlab.store.undoLabel);
 
 test('arrange panel: align max X lines up the right edges in ONE undo step', async () => {
   const page = await fresh();
@@ -54,7 +54,7 @@ test('arrange panel: align max X lines up the right edges in ONE undo step', asy
     near(s.position[0] + w / 2, 6, 1e-6, `right edge of ${id}`);
   }
   assert((await undoDepth(page)) === 'Align X max', `label ${await undoDepth(page)}`);
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   near((await body(page, a)).position[0], 0, 1e-9, 'undo restored a');
   near((await body(page, b)).position[0], 5, 1e-9, 'undo restored b');
   near((await body(page, c)).position[0], -3, 1e-9, 'undo restored c');
@@ -106,14 +106,14 @@ test('arrange: drop onto surface rests on a body below; randomise is seeded and 
   await press(page, 'arrange.randomise');
   const once = await r();
   assert(JSON.stringify(once.position) !== JSON.stringify(base.position), 'randomise moved it');
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   await press(page, 'arrange.randomise');
   assert(JSON.stringify((await r()).position) === JSON.stringify(once.position), 'same seed, same result');
   await press(page, 'arrange.reroll');
   const rerolled = await r();
   assert(JSON.stringify(rerolled.position) !== JSON.stringify(once.position), 're-roll picks a new result');
   // Re-roll replaced the previous randomise: one undo returns to the un-randomised pose.
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   near((await r()).position[0], base.position[0], 1e-9, 'one undo back to the start');
   noErrors(page);
 });
@@ -123,10 +123,10 @@ test('pivot: modes through the real gizmo (centre, 3D cursor, individual origins
   const a = await box(page, [0, 0.5, 0]);
   const b = await box(page, [4, 0.5, 0]);
   await select(page, [a, b]);
-  await page.evaluate(() => window.physicslab.setGizmo('rotate'));
+  await page.evaluate(() => window.physixlab.setGizmo('rotate'));
   const turn = (deg) =>
     page.evaluate((deg) => {
-      const g = window.physicslab.gizmo;
+      const g = window.physixlab.gizmo;
       g.beginDrag();
       const half = (deg * Math.PI) / 360;
       g.pivot.quaternion.set(0, Math.sin(half), 0, Math.cos(half)).multiply(g.startPivot.q);
@@ -138,19 +138,19 @@ test('pivot: modes through the real gizmo (centre, 3D cursor, individual origins
   await turn(180);
   near((await body(page, a)).position[0], 4, 1e-6, 'a swapped');
   near((await body(page, b)).position[0], 0, 1e-6, 'b swapped');
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
 
   // Individual origins: nobody moves, both turn.
-  await page.evaluate(() => window.physicslab.prefs.set({ pivotMode: 'origins' }));
+  await page.evaluate(() => window.physixlab.prefs.set({ pivotMode: 'origins' }));
   await turn(90);
   const sa = await body(page, a);
   near(sa.position[0], 0, 1e-6, 'a stays');
   near(Math.abs(sa.rotation[1]), Math.SQRT1_2, 1e-6, 'a turned 90 deg about Y');
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
 
   // 3D cursor at (2, 0, 0): a goes to (4,..), b to (0,..) after a half turn.
-  await page.evaluate(() => window.physicslab.prefs.set({ pivotMode: 'cursor' }));
-  const cursor = await page.evaluate(() => window.physicslab.viewport.scene.getObjectByName('3d-cursor'));
+  await page.evaluate(() => window.physixlab.prefs.set({ pivotMode: 'cursor' }));
+  const cursor = await page.evaluate(() => window.physixlab.viewport.scene.getObjectByName('3d-cursor'));
   assert(cursor !== null, 'cursor marker exists');
   await turn(180); // cursor is still at the origin: a (0,0.5,0) stays, b goes to (-4, .., 0)
   near((await body(page, a)).position[0], 0, 1e-6, 'a is at the cursor, stays');
@@ -164,11 +164,11 @@ test('pivot: local gizmo space follows the active object for a multi-selection',
   const half = Math.SQRT1_2;
   const b = await box(page, [3, 0.5, 0], [1, 1, 1], { rotation: [0, half, 0, half] });
   await select(page, [a, b]);
-  await page.evaluate(() => window.physicslab.prefs.set({ space: 'local' }));
-  const q = await page.evaluate(() => window.physicslab.gizmo.pivot.quaternion.toArray());
+  await page.evaluate(() => window.physixlab.prefs.set({ space: 'local' }));
+  const q = await page.evaluate(() => window.physixlab.gizmo.pivot.quaternion.toArray());
   near(Math.abs(q[1]), half, 1e-6, 'handle takes the active (last selected) object frame');
-  await page.evaluate(() => window.physicslab.prefs.set({ space: 'world' }));
-  const q2 = await page.evaluate(() => window.physicslab.gizmo.pivot.quaternion.toArray());
+  await page.evaluate(() => window.physixlab.prefs.set({ space: 'world' }));
+  const q2 = await page.evaluate(() => window.physixlab.gizmo.pivot.quaternion.toArray());
   near(q2[3], 1, 1e-9, 'world space: identity');
   noErrors(page);
 });
@@ -177,17 +177,17 @@ test('pivot: rotate about an arbitrary axis dialog; 3D cursor tool places the cu
   const page = await fresh();
   const a = await box(page, [2, 0.5, 0]);
   await select(page, [a]);
-  await page.evaluate(() => window.physicslab.prefs.set({ pivotMode: 'cursor' }));
+  await page.evaluate(() => window.physixlab.prefs.set({ pivotMode: 'cursor' }));
   // Place the cursor with the tool: click the ground in front of the camera.
   await page.keyboard.press('Shift+O');
-  assert((await page.evaluate(() => window.physicslab.prefs.value.tool)) === 'cursor3d', 'tool active');
+  assert((await page.evaluate(() => window.physixlab.prefs.value.tool)) === 'cursor3d', 'tool active');
   const box0 = await page.locator('.viewport-canvas').boundingBox();
   await page.mouse.click(box0.x + box0.width * 0.5, box0.y + box0.height * 0.8);
   const pos = await page.evaluate(() =>
-    window.physicslab.viewport.scene.getObjectByName('3d-cursor').position.toArray(),
+    window.physixlab.viewport.scene.getObjectByName('3d-cursor').position.toArray(),
   );
   near(pos[1], 0, 1e-6, 'cursor on the ground');
-  assert((await page.evaluate(() => window.physicslab.prefs.value.tool)) === 'select', 'back to select');
+  assert((await page.evaluate(() => window.physixlab.prefs.value.tool)) === 'select', 'back to select');
 
   // Rotate 180 deg about a custom vertical axis through the cursor: the box ends up mirrored through the cursor.
   await openArrange(page);
@@ -219,11 +219,11 @@ test('pivot: custom group pivot keeps members, menu and palette list the arrange
   const a = await box(page, [2, 1, 0], [2, 2, 2]);
   const b = await box(page, [4, 1, 0], [2, 2, 2]);
   await select(page, [a, b]);
-  const gid = await page.evaluate(() => window.physicslab.editor.groupSelection().id);
+  const gid = await page.evaluate(() => window.physixlab.editor.groupSelection().id);
   await openArrange(page);
   await select(page, [gid]);
   await press(page, 'pivot.group.bottom');
-  const g = await page.evaluate((id) => [...window.physicslab.store.group(id).position], gid);
+  const g = await page.evaluate((id) => [...window.physixlab.store.group(id).position], gid);
   near(g[0], 3, 1e-6, 'pivot x');
   near(g[1], 0, 1e-6, 'pivot at the bottom');
   near((await body(page, a)).position[0], 2, 1e-9, 'members untouched');

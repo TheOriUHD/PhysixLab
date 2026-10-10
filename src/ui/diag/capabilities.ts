@@ -1,5 +1,5 @@
 /**
- * Capability checks (UI-43): what the browser must offer for PhysicsLab to run, and plain-language guidance when it
+ * Capability checks (UI-43): what the browser must offer for PhysixLab to run, and plain-language guidance when it
  * does not. `checkCapabilities(env)` is pure (it takes a plain description of the environment, so tests can feed it a
  * fake one); `probeEnvironment()` fills that description from the real browser.
  */
@@ -57,7 +57,7 @@ export function checkCapabilities(env: CapEnv): CapReport {
           'WebGL 2 (3D graphics)',
           'fail',
           env.webgl2 === null ? 'Could not be checked.' : 'Not available.',
-          'PhysicsLab draws its 3D view with WebGL 2. Turn on hardware acceleration in your browser settings, update your browser and graphics driver, or try another browser such as a current Chrome, Edge, Firefox or Safari. Remote desktops and some virtual machines do not offer WebGL.',
+          'PhysixLab draws its 3D view with WebGL 2. Turn on hardware acceleration in your browser settings, update your browser and graphics driver, or try another browser such as a current Chrome, Edge, Firefox or Safari. Remote desktops and some virtual machines do not offer WebGL.',
         ),
   );
   items.push(
@@ -132,10 +132,10 @@ export function checkCapabilities(env: CapEnv): CapReport {
   const degraded = !fatal && items.some((i) => i.status === 'warn');
   const failing = items.filter((i) => i.status === 'fail').map((i) => i.label);
   const headline = fatal
-    ? `This browser is missing ${failing.length === 1 ? 'a feature' : 'features'} PhysicsLab needs: ${failing.join(', ')}.`
+    ? `This browser is missing ${failing.length === 1 ? 'a feature' : 'features'} PhysixLab needs: ${failing.join(', ')}.`
     : degraded
-      ? 'PhysicsLab works here, with limits: some things cannot be saved.'
-      : 'Everything PhysicsLab needs is available.';
+      ? 'PhysixLab works here, with limits: some things cannot be saved.'
+      : 'Everything PhysixLab needs is available.';
   return { items, fatal, degraded, headline };
 }
 
@@ -149,7 +149,7 @@ export function probeEnvironment(
     try {
       const s = g[key] as Storage | undefined;
       if (!s) return false;
-      const k = '__physicslab_probe__';
+      const k = '__physixlab_probe__';
       s.setItem(k, '1');
       s.removeItem(k);
       return true;

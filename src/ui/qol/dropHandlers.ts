@@ -55,8 +55,8 @@ export async function handleDroppedFiles(app: App, files: readonly File[]): Prom
         if (sniffed !== 'unknown') kind = sniffed;
       }
     }
-    // A file named like a PhysicsLab export is opened as a scene so a damaged one reports what is wrong with it.
-    if (kind === 'json' && /physicslab/i.test(file.name)) kind = 'scene';
+    // A file named like a PhysixLab export is opened as a scene so a damaged one reports what is wrong with it.
+    if (kind === 'json' && /physixlab/i.test(file.name)) kind = 'scene';
     const handler = handlers.get(kind);
     if (!handler) {
       app.toast(unsupportedMessage(kind, file.name), 'warn');

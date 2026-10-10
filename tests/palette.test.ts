@@ -219,11 +219,11 @@ describe('recent items memory', () => {
     const s = fake();
     new PaletteHistory(s).record('x');
     expect(new PaletteHistory(s).list()).toEqual(['x']);
-    s.setItem('physicslab:palette-recent:v1', '{"not":"a list"}');
+    s.setItem('physixlab:palette-recent:v1', '{"not":"a list"}');
     expect(new PaletteHistory(s).list()).toEqual([]);
-    s.setItem('physicslab:palette-recent:v1', 'garbage');
+    s.setItem('physixlab:palette-recent:v1', 'garbage');
     expect(new PaletteHistory(s).list()).toEqual([]);
-    s.setItem('physicslab:palette-recent:v1', JSON.stringify(['ok', 3, null, 'fine']));
+    s.setItem('physixlab:palette-recent:v1', JSON.stringify(['ok', 3, null, 'fine']));
     expect(new PaletteHistory(s).list()).toEqual(['ok', 'fine']);
     expect(new PaletteHistory(null).list()).toEqual([]);
     expect(() => new PaletteHistory(null).record('y')).not.toThrow();

@@ -1,5 +1,5 @@
 /* global plugin */
-/* @physicslab-plugin
+/* @physixlab-plugin
 {
   "id": "domino-tools",
   "name": "Domino tools",

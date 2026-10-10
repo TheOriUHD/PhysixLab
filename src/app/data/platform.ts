@@ -99,7 +99,7 @@ export async function initDataPlatform(app: App): Promise<DataPlatform> {
             : 'No saved scene was found.';
       showBanner(
         'crash-recovery',
-        `PhysicsLab did not close properly last time${when}. ${what}`,
+        `PhysixLab did not close properly last time${when}. ${what}`,
         [
           {
             label: 'Browse restore points',

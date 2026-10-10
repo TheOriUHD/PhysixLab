@@ -147,7 +147,7 @@ export class Persistence {
     const blob = new Blob([serializeDocument(doc, 1)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${(doc.name || 'scene').replace(/[^\w-]+/g, '_')}.physicslab.json`;
+    a.download = `${(doc.name || 'scene').replace(/[^\w-]+/g, '_')}.physixlab.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();

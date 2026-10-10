@@ -13,7 +13,7 @@ const SIZES = [
 const command = (page, id) =>
   page.evaluate(async (id) => {
     const { runCommand } = await import('/src/app/registry/commands.ts');
-    runCommand(id, window.physicslab);
+    runCommand(id, window.physixlab);
   }, id);
 const tip = (page) => page.evaluate(() => document.querySelector('.status-tip')?.textContent ?? '');
 
@@ -23,27 +23,27 @@ test('diag: the status bar shows a contextual tip, follows the context, takes re
     await page.waitForSelector('.status-tip b');
     assert(vp.width < 1400 || /Tip/.test(await tip(page)), `a tip is shown: ${await tip(page)}`);
     // context: nothing selected in edit mode -> select hint; selecting -> gizmo hint; running -> throw hint
-    await page.evaluate(() => window.physicslab.store.setSelection([]));
+    await page.evaluate(() => window.physixlab.store.setSelection([]));
     await page.waitForFunction(() =>
       /Click an object to select it/.test(document.querySelector('.status-tip')?.textContent ?? ''),
     );
-    await page.evaluate(() => window.physicslab.store.setSelection([window.physicslab.store.bodies()[0].id]));
+    await page.evaluate(() => window.physixlab.store.setSelection([window.physixlab.store.bodies()[0].id]));
     await page.waitForFunction(() => /Press W to move/.test(document.querySelector('.status-tip')?.textContent ?? ''));
-    await page.evaluate(() => window.physicslab.sim.play());
+    await page.evaluate(() => window.physixlab.sim.play());
     await page.waitForFunction(() =>
       /Drag a body to throw it/.test(document.querySelector('.status-tip')?.textContent ?? ''),
     );
     assert(/Space/.test(await tip(page)), 'the running tip names the real key from the command registry');
-    await page.evaluate(() => window.physicslab.sim.reset());
+    await page.evaluate(() => window.physixlab.sim.reset());
     await sleep(300);
     await shot(page, `diag-tip-${tag}`);
     // a tip registered later by anyone shows up
     await page.evaluate(async () => {
       const { registerStatusTip } = await import('/src/app/registry/tips.ts');
       registerStatusTip({ id: 'tip.test', text: 'A tip from a test', priority: 100 });
-      window.dispatchEvent(new Event('physicslab:tips'));
+      window.dispatchEvent(new Event('physixlab:tips'));
     });
-    await page.evaluate(() => window.physicslab.store.setSelection([]));
+    await page.evaluate(() => window.physixlab.store.setSelection([]));
     await page.waitForFunction(() =>
       /A tip from a test/.test(document.querySelector('.status-tip')?.textContent ?? ''),
     );
@@ -61,7 +61,7 @@ test('diag: empty lists show an illustration, a title and a hint (inspector, out
     const page = await newPage('', vp);
     const art = (sel) => page.evaluate((sel) => !!document.querySelector(`${sel} .empty-state svg.es-art`), sel);
     // nothing selected
-    await page.evaluate(() => window.physicslab.store.setSelection([]));
+    await page.evaluate(() => window.physixlab.store.setSelection([]));
     await command(page, 'panel.inspector');
     await page.waitForSelector('.panel.right .empty-state:visible .es-art');
     assert(
@@ -70,7 +70,7 @@ test('diag: empty lists show an illustration, a title and a hint (inspector, out
     );
     await shot(page, `diag-empty-inspector-${tag}`);
     // empty scene: inspector + outliner
-    await page.evaluate(() => window.physicslab.newScene());
+    await page.evaluate(() => window.physixlab.newScene());
     await page.waitForFunction(() =>
       /An empty lab/.test(document.querySelector('.panel.right .empty-state')?.textContent ?? ''),
     );
@@ -89,7 +89,7 @@ test('diag: empty lists show an illustration, a title and a hint (inspector, out
     // help search without result
     await page.evaluate(async () => {
       const m = await import('/src/ui/help/helpPanel.ts');
-      m.openHelp(window.physicslab, '', 'qqqzzz');
+      m.openHelp(window.physixlab, '', 'qqqzzz');
     });
     await page.waitForSelector('.help-body .empty-state:visible .es-art');
     assert(await art('.help-body'), 'help search: illustration');

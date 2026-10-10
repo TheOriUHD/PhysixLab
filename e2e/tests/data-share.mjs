@@ -64,7 +64,7 @@ test('DT-21 share dialog says so when the link is too long for a QR code', async
   const p = await newPage();
   // Random 110-character names do not compress, so a few dozen bodies push the link past what a QR code holds.
   const len = await p.evaluate(async () => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     let s = 7;
     const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
     const abc = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -115,10 +115,10 @@ test('DT-22 embed dialog: snippet from options, live preview viewer, copy', asyn
     { timeout: 90000 },
   );
   const frame = await (await p.waitForSelector('.embed-preview iframe')).contentFrame();
-  await frame.waitForFunction(() => !!window.physicslab, null, { timeout: 90000 });
+  await frame.waitForFunction(() => !!window.physixlab, null, { timeout: 90000 });
   const inFrame = await frame.evaluate(() => ({
     bar: !!document.querySelector('.embed-bar'),
-    orbit: window.physicslab.viewport.controls.enabled,
+    orbit: window.physixlab.viewport.controls.enabled,
     panels: document.querySelectorAll('aside, .topbar').length,
   }));
   assert(

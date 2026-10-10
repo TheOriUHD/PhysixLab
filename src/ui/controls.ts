@@ -548,7 +548,7 @@ export function section(
   body: HTMLElement | HTMLElement[],
   opts: { id?: string; open?: boolean; badge?: string } = {},
 ): HTMLElement {
-  const key = opts.id ? `physicslab:section:${opts.id}` : '';
+  const key = opts.id ? `physixlab:section:${opts.id}` : '';
   let open = opts.open ?? true;
   if (key) {
     try {

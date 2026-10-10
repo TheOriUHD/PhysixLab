@@ -11,7 +11,7 @@ const test = (name, fn) => tests.push({ name, fn });
 
 const camState = (page) =>
   page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const c = a.camera.position;
     const t = a.viewport.controls.target;
     const d = c.distanceTo(t);
@@ -28,7 +28,7 @@ const camState = (page) =>
 /** A calm scene: three boxes, a fixed camera, no damping, panels closed so the canvas is large. */
 async function scene(page, device = 'trackpad') {
   await page.evaluate((device) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.prefs.set({ followSelection: false });
     a.store.clear();
     for (const x of [-3, 0, 3]) a.addShape('box', [x, 0.5, 0]);
@@ -41,14 +41,14 @@ async function scene(page, device = 'trackpad') {
 }
 
 const settle = async (page) => {
-  await page.waitForFunction(() => !window.physicslab.nav.busy, null, { timeout: 20000 });
+  await page.waitForFunction(() => !window.physixlab.nav.busy, null, { timeout: 20000 });
   for (let i = 0; i < 3; i++) await nextFrame(page);
 };
 
 /** Dispatch a wheel event on the canvas; returns whether the page's default (zoom, history swipe …) was prevented. */
 const wheel = (page, init) =>
   page.evaluate((init) => {
-    const c = window.physicslab.viewport.dom;
+    const c = window.physixlab.viewport.dom;
     const r = c.getBoundingClientRect();
     const e = new WheelEvent('wheel', {
       bubbles: true,
@@ -63,7 +63,7 @@ const wheel = (page, init) =>
 /** The screen position (client px) of a world point. */
 const project = (page, p) =>
   page.evaluate((p) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.camera.updateMatrixWorld(true);
     a.camera.updateProjectionMatrix();
     const v = a.camera.position.clone().set(p[0], p[1], p[2]).project(a.camera);
@@ -80,7 +80,7 @@ test('nav: a trackpad pinch (ctrl + wheel) zooms towards the cursor and never zo
   const fy = 0.35;
   const p = await page.evaluate(
     ([fx, fy]) => {
-      const a = window.physicslab;
+      const a = window.physixlab;
       a.camera.updateMatrixWorld(true);
       const r = a.viewport.dom.getBoundingClientRect();
       const ndc = a.camera.position.clone().set(fx * 2 - 1, -(fy * 2 - 1), 0.5);
@@ -149,7 +149,7 @@ test('nav: a two-finger swipe orbits, Shift pans, Option zooms; the setting swap
   assert(c4.dist < c3.dist * 0.8, `option + swipe zoomed in: ${c3.dist} -> ${c4.dist}`);
   // swap: the swipe pans, shift orbits
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.input.update_settings({ nav: { ...a.input.settings.nav, swipe: 'pan' } });
   });
   for (let i = 0; i < 6; i++) await wheel(page, { deltaX: -12.5, deltaY: 0.5 });
@@ -172,7 +172,7 @@ test('nav: Safari pinch / rotate gesture events zoom and turn the view and are p
   const fire = (type, scale, rotation) =>
     page.evaluate(
       ([type, scale, rotation]) => {
-        const c = window.physicslab.viewport.dom;
+        const c = window.physixlab.viewport.dom;
         const r = c.getBoundingClientRect();
         const e = new Event(type, { bubbles: true, cancelable: true });
         Object.assign(e, { scale, rotation, clientX: r.left + r.width * 0.5, clientY: r.top + r.height * 0.5 });
@@ -195,7 +195,7 @@ test('nav: Safari pinch / rotate gesture events zoom and turn the view and are p
 test('nav: the pointing device is detected from the wheel events, overridable, and a mouse wheel zooms', async () => {
   const page = await newPage();
   await scene(page, 'auto');
-  const dev = () => page.evaluate(() => window.physicslab.nav.device);
+  const dev = () => page.evaluate(() => window.physixlab.nav.device);
   assert((await dev()) === 'mouse', 'Linux starts as a mouse');
   // a finger glides: bursts of two-axis fractional deltas
   for (let i = 0; i < 10; i++) {
@@ -215,7 +215,7 @@ test('nav: the pointing device is detected from the wheel events, overridable, a
   assert(c1.dist > c0.dist * 1.2, `a mouse wheel zooms out: ${c0.dist} -> ${c1.dist}`);
   // the override wins
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.input.update_settings({ nav: { ...a.input.settings.nav, device: 'trackpad' } });
   });
   assert((await dev()) === 'trackpad', 'override: trackpad');
@@ -244,8 +244,8 @@ test('nav: Settings › Navigation shows the detected device, applies presets, s
   await page.click('.nav-presets [data-preset="trackpad-map"]');
   await page.waitForFunction(
     () =>
-      window.physicslab.input.settings.nav.device === 'trackpad' &&
-      window.physicslab.input.settings.nav.swipe === 'pan',
+      window.physixlab.input.settings.nav.device === 'trackpad' &&
+      window.physixlab.input.settings.nav.swipe === 'pan',
   );
   sheet = await page.locator('.nav-sheet').innerText();
   assert(/Two-finger swipe/.test(sheet) && /Pinch/.test(sheet), `the trackpad cheat sheet: ${sheet}`);
@@ -254,16 +254,16 @@ test('nav: Settings › Navigation shows the detected device, applies presets, s
     'the status says it is the user choice',
   );
   await page.click('.nav-presets [data-preset="touch"]');
-  await page.waitForFunction(() => window.physicslab.input.settings.nav.device === 'touch');
+  await page.waitForFunction(() => window.physixlab.input.settings.nav.device === 'touch');
   assert(/Double-tap/.test(await page.locator('.nav-sheet').innerText()), 'the touch cheat sheet');
   await page.click('.nav-presets [data-preset="auto"]');
-  await page.waitForFunction(() => window.physicslab.input.settings.nav.device === 'auto');
+  await page.waitForFunction(() => window.physixlab.input.settings.nav.device === 'auto');
   // an inversion and a speed are saved
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.input.update_settings({ nav: { ...a.input.settings.nav, invertZoom: true, zoomSpeed: 2 } });
   });
-  const nav = await page.evaluate(() => window.physicslab.input.settings.nav);
+  const nav = await page.evaluate(() => window.physixlab.input.settings.nav);
   assert(nav.invertZoom && nav.zoomSpeed === 2, 'inversion and speed are kept');
   assert(page.errors.length === 0, page.errors.join('\n'));
   await page.close();
@@ -272,7 +272,7 @@ test('nav: Settings › Navigation shows the detected device, applies presets, s
 test('nav: keyboard navigation — arrows orbit, shift pans, +/- zoom, Option+7 top view, Home frames all', async () => {
   const page = await newPage();
   await scene(page, 'mouse');
-  await page.evaluate(() => window.physicslab.viewport.dom.focus());
+  await page.evaluate(() => window.physixlab.viewport.dom.focus());
   const c0 = await camState(page);
   await page.keyboard.down('ArrowLeft');
   await page.waitForTimeout(500);
@@ -311,9 +311,9 @@ test('nav: keyboard navigation — arrows orbit, shift pans, +/- zoom, Option+7 
   await page.keyboard.down('Alt');
   await page.keyboard.press('Digit7');
   await page.keyboard.up('Alt');
-  await page.waitForFunction(() => window.physicslab.cameraRig.preset === 'top', null, { timeout: 30000 });
+  await page.waitForFunction(() => window.physixlab.cameraRig.preset === 'top', null, { timeout: 30000 });
   assert((await camState(page)).ortho, 'Alt + 7 shows the orthographic top view');
-  assert((await page.evaluate(() => window.physicslab.store.bodies().length)) === 3, 'Alt + digit did not add a shape');
+  assert((await page.evaluate(() => window.physixlab.store.bodies().length)) === 3, 'Alt + digit did not add a shape');
   assert(page.errors.length === 0, page.errors.join('\n'));
   await page.close();
 });
@@ -322,17 +322,17 @@ test('nav: with a selection plain arrows still nudge it, Option + arrows orbit; 
   const page = await newPage();
   await scene(page, 'mouse');
   const id = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const b = a.store.bodies()[1];
     a.store.setSelection([b.id]);
     a.viewport.dom.focus();
     return b.id;
   });
-  const x0 = await page.evaluate((id) => window.physicslab.store.body(id).position.slice(), id);
+  const x0 = await page.evaluate((id) => window.physixlab.store.body(id).position.slice(), id);
   const c0 = await camState(page);
   await page.keyboard.press('ArrowRight');
   await nextFrame(page);
-  const x1 = await page.evaluate((id) => window.physicslab.store.body(id).position.slice(), id);
+  const x1 = await page.evaluate((id) => window.physixlab.store.body(id).position.slice(), id);
   assert(Math.hypot(x1[0] - x0[0], x1[2] - x0[2]) > 0.05, 'a plain arrow nudges the selected body');
   near((await camState(page)).az, c0.az, 0.001, 'and does not orbit');
   await page.keyboard.down('Alt');
@@ -342,7 +342,7 @@ test('nav: with a selection plain arrows still nudge it, Option + arrows orbit; 
   await page.keyboard.up('Alt');
   await settle(page);
   assert(Math.abs((await camState(page)).az - c0.az) > 0.2, 'Option / Alt + arrow orbits even with a selection');
-  const x2 = await page.evaluate((id) => window.physicslab.store.body(id).position.slice(), id);
+  const x2 = await page.evaluate((id) => window.physixlab.store.body(id).position.slice(), id);
   near(x2[0], x1[0], 1e-6, 'Alt + arrow does not nudge');
   await page.close();
 });
@@ -351,7 +351,7 @@ test('nav: Option + drag orbits, Space + drag pans, a plain drag on empty space 
   const page = await newPage();
   await scene(page, 'trackpad');
   const r = await page.evaluate(() => {
-    const b = window.physicslab.viewport.dom.getBoundingClientRect();
+    const b = window.physixlab.viewport.dom.getBoundingClientRect();
     return { x: b.left, y: b.top, w: b.width, h: b.height };
   });
   const sx = r.x + r.w * 0.5;
@@ -367,7 +367,7 @@ test('nav: Option + drag orbits, Space + drag pans, a plain drag on empty space 
   await settle(page);
   const c1 = await camState(page);
   assert(Math.abs(c1.az - c0.az) > 0.25, `Alt + drag orbits: ${c0.az} -> ${c1.az}`);
-  assert((await page.evaluate(() => window.physicslab.store.selection.length)) === 0, 'and selects nothing');
+  assert((await page.evaluate(() => window.physixlab.store.selection.length)) === 0, 'and selects nothing');
   // space + drag
   await page.mouse.move(sx, sy);
   await page.keyboard.down('Space');
@@ -380,7 +380,7 @@ test('nav: Option + drag orbits, Space + drag pans, a plain drag on empty space 
   assert(Math.hypot(c2.target[0] - c1.target[0], c2.target[2] - c1.target[2]) > 0.5, 'Space + drag pans');
   near(c2.az, c1.az, 0.01, 'pan keeps the azimuth');
   assert(
-    !(await page.evaluate(() => window.physicslab.sim.active)),
+    !(await page.evaluate(() => window.physixlab.sim.active)),
     'Space used as a pan modifier does not start the simulation',
   );
   // a plain drag draws the rectangle and leaves the camera alone
@@ -394,7 +394,7 @@ test('nav: Option + drag orbits, Space + drag pans, a plain drag on empty space 
   // a tap on Space still plays
   await page.mouse.move(sx, sy);
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.physicslab.sim.active, null, { timeout: 30000 });
+  await page.waitForFunction(() => window.physixlab.sim.active, null, { timeout: 30000 });
   await page.keyboard.press('Space');
   assert(page.errors.length === 0, page.errors.join('\n'));
   await page.close();
@@ -402,7 +402,7 @@ test('nav: Option + drag orbits, Space + drag pans, a plain drag on empty space 
 
 const ballScene = (page) =>
   page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     const b = a.editor.addShape('sphere', [0, 0.5, 0], { material: { preset: 'rubber', density: 300 } });
     a.viewport.setView({ position: [0, 4, 9], target: [0, 1, 0] });
@@ -428,11 +428,11 @@ test('nav: holding a body — push / pull with W S ↑ ↓, turn with Q E A D in
   await page.mouse.move(sp.x, sp.y - 60, { steps: 6 });
   await page.waitForTimeout(500);
   assert(
-    (await page.evaluate(() => window.physicslab.contexts.current)) === 'grab',
+    (await page.evaluate(() => window.physixlab.contexts.current)) === 'grab',
     'the context is grab while holding',
   );
-  const z0 = await page.evaluate((id) => window.physicslab.bodies.get(id).position.z, id);
-  const zOf = (id) => page.evaluate((id) => window.physicslab.bodies.get(id).position.z, id);
+  const z0 = await page.evaluate((id) => window.physixlab.bodies.get(id).position.z, id);
+  const zOf = (id) => page.evaluate((id) => window.physixlab.bodies.get(id).position.z, id);
   // hold a key for a moment (the target moves at a speed that scales with the distance), then let the spring catch up
   const tap = async (code, ms) => {
     await page.keyboard.down(code);
@@ -442,7 +442,7 @@ test('nav: holding a body — push / pull with W S ↑ ↓, turn with Q E A D in
   const settleZ = (id, test, msg) =>
     page
       .waitForFunction(
-        ([id, src]) => new Function('z', `return ${src}`)(window.physicslab.bodies.get(id).position.z),
+        ([id, src]) => new Function('z', `return ${src}`)(window.physixlab.bodies.get(id).position.z),
         [id, test],
         { timeout: 25000 },
       )
@@ -474,7 +474,7 @@ test('nav: holding a body — push / pull with W S ↑ ↓, turn with Q E A D in
   // The turn is a teleport that keeps the velocities: record what each step asked for next to the pose it started from
   // (the held body keeps wobbling about its grab point, so two frames apart it has moved by more than the step).
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const c = a.sim.client;
     const orig = c.op.bind(c);
     window.__turns = [];
@@ -515,7 +515,7 @@ test('nav: holding a body — push / pull with W S ↑ ↓, turn with Q E A D in
   near(b.position[1], a.position[1], 0.01, 'frozen body stays in the air');
   assert((await page.evaluate(() => window.__wheels)) === 0, 'no wheel event was needed');
   assert(
-    (await page.evaluate(() => window.physicslab.contexts.current)) === 'simulating',
+    (await page.evaluate(() => window.physixlab.contexts.current)) === 'simulating',
     'back to the simulating context',
   );
   assert(page.errors.length === 0, page.errors.join('\n'));
@@ -525,7 +525,7 @@ test('nav: holding a body — push / pull with W S ↑ ↓, turn with Q E A D in
 test('nav: on touch, a second finger pinching while a body is held pushes / pulls it', async () => {
   const page = await newTouchPage();
   const id = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.prefs.set({ showLeft: false, showRight: false, showBottom: false, followSelection: false });
     a.input.update_settings({ touch: { ...a.input.settings.touch, longPressMs: 9000 } });
     a.newScene();
@@ -533,27 +533,27 @@ test('nav: on touch, a second finger pinching while a body is held pushes / pull
     a.viewport.setView({ position: [0, 4, 9], target: [0, 1, 0] });
     return b.id;
   });
-  await page.evaluate(() => window.physicslab.sim.play());
+  await page.evaluate(() => window.physixlab.sim.play());
   await simTime(page, 0.8);
   await settle(page);
   const sp = await screenOf(page, id);
   await downAll(page, [[1, sp.x, sp.y]]);
   await drag(page, [1], 0, -50, 5);
-  await page.waitForFunction(() => window.physicslab.contexts.current === 'grab', null, { timeout: 20000 });
-  const z0 = await page.evaluate((id) => window.physicslab.bodies.get(id).position.z, id);
+  await page.waitForFunction(() => window.physixlab.contexts.current === 'grab', null, { timeout: 20000 });
+  const z0 = await page.evaluate((id) => window.physixlab.bodies.get(id).position.z, id);
   // the second finger lands: the body stays held (no cancel) and the context stays grab
   await downAll(page, [[2, sp.x + 160, sp.y - 50]]);
   assert(
-    (await page.evaluate(() => window.physicslab.contexts.current)) === 'grab',
+    (await page.evaluate(() => window.physixlab.contexts.current)) === 'grab',
     'a second finger does not drop the held body',
   );
   for (let i = 1; i <= 8; i++) await moveTo(page, 2, sp.x + 160 + i * 25, sp.y - 50);
   await page
-    .waitForFunction((a) => window.physicslab.bodies.get(a[0]).position.z > a[1] + 1.5, [id, z0], { timeout: 25000 })
+    .waitForFunction((a) => window.physixlab.bodies.get(a[0]).position.z > a[1] + 1.5, [id, z0], { timeout: 25000 })
     .catch(() => {
       throw new Error('assertion failed: pinching apart pulls the held body towards the camera');
     });
-  assert((await page.evaluate(() => window.physicslab.contexts.current)) === 'grab', 'still holding');
+  assert((await page.evaluate(() => window.physixlab.contexts.current)) === 'grab', 'still holding');
   await up(page, 2);
   await up(page, 1);
   assert(page.errors.length === 0, page.errors.join('\n'));
@@ -563,7 +563,7 @@ test('nav: on touch, a second finger pinching while a body is held pushes / pull
 test('nav: the controls legend names the context, lists what works now, and says what does not', async () => {
   const page = await newPage('&scene=powertrain-car');
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.prefs.set({ followSelection: false });
     a.store.setSelection([]);
   });
@@ -580,7 +580,7 @@ test('nav: the controls legend names the context, lists what works now, and says
   await shot(page, 'nav-legend-edit');
   // simulating the powertrain car: Q W E R belong to the car
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.physicslab.sim.active, null, { timeout: 30000 });
+  await page.waitForFunction(() => window.physixlab.sim.active, null, { timeout: 30000 });
   await page.waitForFunction(() => document.querySelector('.ctl-legend')?.dataset.ctx === 'simulating');
   assert((await page.locator('.ctl-pill .ctl-ctx').innerText()) === 'Simulating', 'the pill follows the simulation');
   await page.waitForSelector('.ctl-row[data-id="tool.KeyQ"].off');
@@ -595,7 +595,7 @@ test('nav: the controls legend names the context, lists what works now, and says
   await page.keyboard.up('KeyW');
   await page.waitForFunction(() => !document.querySelector('.ctl-sec[data-sec="scene"] .ctl-row.down'));
   // the fly camera
-  await page.evaluate(() => window.physicslab.cameraRig.setMode('fly'));
+  await page.evaluate(() => window.physixlab.cameraRig.setMode('fly'));
   await page.waitForFunction(() => document.querySelector('.ctl-legend')?.dataset.ctx === 'fly');
   assert(/Fly camera/.test(await page.locator('.ctl-pill .ctl-ctx').innerText()), 'fly pill');
   assert(
@@ -613,12 +613,12 @@ test('nav: the controls legend names the context, lists what works now, and says
 test('nav: Q and E work where the legend says they do — tools in the editor, the car’s gearbox while simulating, up / down in the fly camera, turning a held body', async () => {
   const page = await newPage('&scene=powertrain-car');
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.prefs.set({ followSelection: false });
     a.store.setSelection([]);
     a.viewport.dom.focus();
   });
-  const gizmo = () => page.evaluate(() => window.physicslab.prefs.value.gizmo);
+  const gizmo = () => page.evaluate(() => window.physixlab.prefs.value.gizmo);
   // edit: E = rotate gizmo, Q = select
   await page.keyboard.press('KeyE');
   assert((await gizmo()) === 'rotate', 'E selects the rotate gizmo in the editor');
@@ -628,11 +628,11 @@ test('nav: Q and E work where the legend says they do — tools in the editor, t
   assert((await gizmo()) === 'translate', 'W: move gizmo');
   // simulating the powertrain car: Q / E / W are the car's and leave the gizmo alone
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.physicslab.sim.active, null, { timeout: 30000 });
-  await page.waitForFunction(() => window.physicslab.contexts.current === 'simulating');
+  await page.waitForFunction(() => window.physixlab.sim.active, null, { timeout: 30000 });
+  await page.waitForFunction(() => window.physixlab.contexts.current === 'simulating');
   await page.keyboard.down('KeyE');
   await page
-    .waitForFunction(() => window.physicslab.sim.keys.has('KeyE'), null, { timeout: 30000 })
+    .waitForFunction(() => window.physixlab.sim.keys.has('KeyE'), null, { timeout: 30000 })
     .catch(() => {
       throw new Error('assertion failed: E reaches the simulation (gear up)');
     });
@@ -642,23 +642,23 @@ test('nav: Q and E work where the legend says they do — tools in the editor, t
   assert((await gizmo()) === 'translate', 'Q does not select the select tool while simulating');
   await page.keyboard.down('KeyW');
   await page
-    .waitForFunction(() => window.physicslab.sim.keys.has('KeyW'), null, { timeout: 30000 })
+    .waitForFunction(() => window.physixlab.sim.keys.has('KeyW'), null, { timeout: 30000 })
     .catch(() => {
       throw new Error('assertion failed: W reaches the engine');
     });
   await page.keyboard.up('KeyW');
   await page.keyboard.press('Space'); // pause
   // fly camera: E up, Q down
-  await page.evaluate(() => window.physicslab.cameraRig.setMode('fly'));
-  await page.waitForFunction(() => window.physicslab.contexts.current === 'fly');
+  await page.evaluate(() => window.physixlab.cameraRig.setMode('fly'));
+  await page.waitForFunction(() => window.physixlab.contexts.current === 'fly');
   await page.waitForTimeout(500);
-  const camY = () => page.evaluate(() => window.physicslab.camera.position.y);
+  const camY = () => page.evaluate(() => window.physixlab.camera.position.y);
   /** Hold a key until the camera height satisfies `test` (frames can take seconds on a loaded machine). */
   const holdUntil = async (code, test, msg) => {
     await page.keyboard.down(code);
     try {
       await page.waitForFunction(
-        (src) => new Function('y', `return ${src}`)(window.physicslab.camera.position.y),
+        (src) => new Function('y', `return ${src}`)(window.physixlab.camera.position.y),
         test,
         { timeout: 30000 },
       );
@@ -680,7 +680,7 @@ test('nav: Q and E work where the legend says they do — tools in the editor, t
 test('nav: touch — one finger orbits on empty space, two fingers pan, a pinch zooms, a twist turns the view, a double-tap focuses', async () => {
   const page = await newTouchPage();
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.prefs.set({ showLeft: false, showRight: false, showBottom: false, followSelection: false });
     a.input.update_settings({
       touch: { ...a.input.settings.touch, longPressMs: 9000 },
@@ -749,19 +749,19 @@ test('nav: touch — one finger orbits on empty space, two fingers pan, a pinch 
   assert(c4.dist < c3.dist * 0.8, `pinch out zooms in: ${c3.dist} -> ${c4.dist}`);
   // double-tap on a box selects and frames it (the gestures above moved the view: look at the boxes again first)
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.viewport.setView({ position: [0, 9, 12], target: [0, 0.5, 0] });
     a.input.update_settings({ nav: { ...a.input.settings.nav, smooth: false } });
   });
   await settle(page);
-  const id = await page.evaluate(() => window.physicslab.store.bodies()[2].id);
+  const id = await page.evaluate(() => window.physixlab.store.bodies()[2].id);
   const p = await screenOf(page, id);
   const target0 = (await camState(page)).target;
   // both taps go out back to back, so a slow machine cannot stretch the gap between them
   const pts = [{ id: 9, x: p.x, y: p.y, radiusX: 8, radiusY: 8, force: 1 }];
   const send = (type) => page.cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
   await Promise.all([send('touchStart'), send('touchEnd'), send('touchStart'), send('touchEnd')]);
-  await page.waitForFunction((id) => window.physicslab.store.selection.includes(id), id, { timeout: 30000 });
+  await page.waitForFunction((id) => window.physixlab.store.selection.includes(id), id, { timeout: 30000 });
   await page.waitForTimeout(800);
   await settle(page);
   const c5 = await camState(page);
@@ -814,7 +814,7 @@ test('top bar: the centred transport (with Drive and Play) never covers the menu
     }
     // the mode chip changes width with the mode; the transport must follow
     await page.locator('.tbtn.play').click();
-    await page.waitForFunction(() => window.physicslab.sim.active, null, { timeout: 30000 });
+    await page.waitForFunction(() => window.physixlab.sim.active, null, { timeout: 30000 });
     await clear('running');
     if (width === 1600) await shot(page, 'nav-topbar-1600');
     await page.close();

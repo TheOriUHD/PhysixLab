@@ -154,7 +154,7 @@ export function collectReport(app: App | null, log: ErrorLog): ReportInput {
     /* not a Vite build */
   }
   return {
-    app: { name: 'PhysicsLab', version: pkg.version, mode },
+    app: { name: 'PhysixLab', version: pkg.version, mode },
     time: new Date().toISOString(),
     userAgent: nav.userAgent,
     platform: nav.platform,

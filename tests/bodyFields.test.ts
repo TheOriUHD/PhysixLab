@@ -464,7 +464,7 @@ describe('sleepThreshold (emulated: Rapier 0.21 has no per-body threshold)', () 
 
 describe('tags, layer and parent', () => {
   const sparse = (entities: unknown[], report = newReport()) => ({
-    doc: sanitizeDocument({ format: 'physicslab-scene', entities }, report),
+    doc: sanitizeDocument({ format: 'physixlab-scene', entities }, report),
     report,
   });
   const body = (id: string, extra: Record<string, unknown> = {}) => ({ kind: 'body', id, ...extra });

@@ -28,7 +28,7 @@ async function pageIn(ctx) {
     if (m.type() === 'error') errors.push(`console.error: ${m.text()}`);
   });
   await page.goto(await baseUrl());
-  await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport, null, { timeout: 30000 });
+  await page.waitForFunction(() => !!window.physixlab && window.physixlab.viewport, null, { timeout: 30000 });
   await page.waitForTimeout(400);
   page.errors = errors;
   return page;
@@ -50,14 +50,14 @@ const openDialog = async (page, name) => {
   await page.fill('#collab-name', name);
 };
 const bodies = (page) =>
-  page.evaluate(() => window.physicslab.store.bodies().map((b) => ({ id: b.id, name: b.name, type: b.shape.type })));
+  page.evaluate(() => window.physixlab.store.bodies().map((b) => ({ id: b.id, name: b.name, type: b.shape.type })));
 const waitBodies = (page, n, timeout = 60000) =>
-  page.waitForFunction((n) => window.physicslab.store.bodies().length === n, n, { timeout });
-const simMode = (page) => page.evaluate(() => window.physicslab.sim.mode);
+  page.waitForFunction((n) => window.physixlab.store.bodies().length === n, n, { timeout });
+const simMode = (page) => page.evaluate(() => window.physixlab.sim.mode);
 
 test('collab: BroadcastChannel session - edits sync both ways, selection cursor, host-authoritative simulation', async () => {
   const [A, B] = await pair();
-  await A.evaluate(() => window.physicslab.newScene());
+  await A.evaluate(() => window.physixlab.newScene());
   await A.click('.viewport-canvas', { position: { x: 700, y: 400 } });
   await A.keyboard.press('1'); // a box: armed, then placed at the pointer
   await A.keyboard.press('Enter');
@@ -71,7 +71,7 @@ test('collab: BroadcastChannel session - edits sync both ways, selection cursor,
   await A.keyboard.press('Escape');
 
   // The guest has its own, different scene first - joining replaces it.
-  await B.evaluate(() => window.physicslab.newScene());
+  await B.evaluate(() => window.physixlab.newScene());
   await openDialog(B, 'Bob');
   await B.fill('#collab-room', room);
   await B.click('#collab-join');
@@ -79,9 +79,9 @@ test('collab: BroadcastChannel session - edits sync both ways, selection cursor,
   const [ba] = await bodies(A);
   const [bb] = await bodies(B);
   assert(ba.id === bb.id, 'the guest received the host box (same id)');
-  await B.waitForFunction(() => window.physicslabCollab.session.status === 'live');
+  await B.waitForFunction(() => window.physixlabCollab.session.status === 'live');
   await B.keyboard.press('Escape');
-  await A.waitForFunction(() => window.physicslabCollab.session.peers.length === 1);
+  await A.waitForFunction(() => window.physixlabCollab.session.peers.length === 1);
 
   // Guest adds a sphere through the real UI -> appears on the host.
   await B.click('.viewport-canvas', { position: { x: 900, y: 500 } });
@@ -95,14 +95,14 @@ test('collab: BroadcastChannel session - edits sync both ways, selection cursor,
   );
 
   // Host renames the box -> guest sees it. Concurrent edits to different fields both survive.
-  await A.evaluate((id) => window.physicslab.store.update(id, { name: 'Renamed by Alice' }), ba.id);
-  await B.evaluate((id) => window.physicslab.store.update(id, { position: [2, 3, 1] }), ba.id);
-  await B.waitForFunction((id) => window.physicslab.store.body(id).name === 'Renamed by Alice', ba.id, {
+  await A.evaluate((id) => window.physixlab.store.update(id, { name: 'Renamed by Alice' }), ba.id);
+  await B.evaluate((id) => window.physixlab.store.update(id, { position: [2, 3, 1] }), ba.id);
+  await B.waitForFunction((id) => window.physixlab.store.body(id).name === 'Renamed by Alice', ba.id, {
     timeout: 60000,
   });
-  await A.waitForFunction((id) => window.physicslab.store.body(id).position[0] === 2, ba.id, { timeout: 60000 });
-  const sa = JSON.stringify(await A.evaluate(() => window.physicslab.store.toDocument().entities));
-  const sb = JSON.stringify(await B.evaluate(() => window.physicslab.store.toDocument().entities));
+  await A.waitForFunction((id) => window.physixlab.store.body(id).position[0] === 2, ba.id, { timeout: 60000 });
+  const sa = JSON.stringify(await A.evaluate(() => window.physixlab.store.toDocument().entities));
+  const sb = JSON.stringify(await B.evaluate(() => window.physixlab.store.toDocument().entities));
   assert(sa === sb, 'documents are identical on both pages');
 
   // Bob selected the sphere (after adding it): Alice sees a coloured outline labelled "Bob".
@@ -115,42 +115,42 @@ test('collab: BroadcastChannel session - edits sync both ways, selection cursor,
 
   // Host-authoritative simulation.
   // Lift the sphere (the host edits, the guest receives it) so that it has something to fall.
-  await A.evaluate((id) => window.physicslab.store.update(id, { position: [0.75, 6, 1.5] }), sphere.id);
-  await B.waitForFunction((id) => window.physicslab.store.body(id).position[1] === 6, sphere.id);
+  await A.evaluate((id) => window.physixlab.store.update(id, { position: [0.75, 6, 1.5] }), sphere.id);
+  await B.waitForFunction((id) => window.physixlab.store.body(id).position[1] === 6, sphere.id);
   // Only the foreground tab renders frames: bring each page forward before reading its simulation.
   await B.bringToFront();
   const y0 = (await pose(B, sphere.id)).position[1];
-  await A.evaluate(() => window.physicslab.sim.play());
-  await B.waitForFunction(() => window.physicslab.sim.mode === 'running', null, { timeout: 60000 });
-  await B.waitForFunction(([id, y0]) => window.physicslab.sim.poseOf(id).position[1] < y0 - 0.05, [sphere.id, y0], {
+  await A.evaluate(() => window.physixlab.sim.play());
+  await B.waitForFunction(() => window.physixlab.sim.mode === 'running', null, { timeout: 60000 });
+  await B.waitForFunction(([id, y0]) => window.physixlab.sim.poseOf(id).position[1] < y0 - 0.05, [sphere.id, y0], {
     timeout: 60000,
   });
   await A.bringToFront();
-  await A.waitForFunction(([id, y0]) => window.physicslab.sim.poseOf(id).position[1] < y0 - 0.05, [sphere.id, y0]);
+  await A.waitForFunction(([id, y0]) => window.physixlab.sim.poseOf(id).position[1] < y0 - 0.05, [sphere.id, y0]);
   const ya = (await pose(A, sphere.id)).position[1];
-  const yb = await B.evaluate((id) => window.physicslab.sim.poseOf(id).position[1], sphere.id);
+  const yb = await B.evaluate((id) => window.physixlab.sim.poseOf(id).position[1], sphere.id);
   assert(
     ya < y0 && yb < y0,
     `both pages simulate the fall (A ${ya.toFixed(2)}, B ${yb.toFixed(2)} < ${y0.toFixed(2)})`,
   );
-  await B.evaluate(() => window.physicslab.sim.pause()); // a guest cannot pause the host's run
+  await B.evaluate(() => window.physixlab.sim.pause()); // a guest cannot pause the host's run
   await B.waitForTimeout(300);
   assert((await simMode(B)) === 'running', 'guest pause is overridden by the host');
-  await A.evaluate(() => window.physicslab.sim.pause());
-  await B.waitForFunction(() => window.physicslab.sim.mode === 'paused', null, { timeout: 60000 });
-  await A.evaluate(() => window.physicslab.sim.reset());
-  await B.waitForFunction(() => window.physicslab.sim.mode === 'edit', null, { timeout: 60000 });
+  await A.evaluate(() => window.physixlab.sim.pause());
+  await B.waitForFunction(() => window.physixlab.sim.mode === 'paused', null, { timeout: 60000 });
+  await A.evaluate(() => window.physixlab.sim.reset());
+  await B.waitForFunction(() => window.physixlab.sim.mode === 'edit', null, { timeout: 60000 });
 
   // Leaving.
-  await B.evaluate(() => window.physicslabCollab.leave());
-  await A.waitForFunction(() => window.physicslabCollab.session.peers.length === 0, null, { timeout: 60000 });
+  await B.evaluate(() => window.physixlabCollab.leave());
+  await A.waitForFunction(() => window.physixlabCollab.session.peers.length === 0, null, { timeout: 60000 });
   assert(A.errors.length === 0, `no page errors on A: ${A.errors.join(' | ')}`);
   assert(B.errors.length === 0, `no page errors on B: ${B.errors.join(' | ')}`);
 });
 
 test('collab: WebRTC session with copy/paste connection codes (offer -> answer -> connected, edits sync)', async () => {
   const [A, B] = await pair();
-  await A.evaluate(() => window.physicslab.newScene());
+  await A.evaluate(() => window.physixlab.newScene());
   await A.click('.viewport-canvas', { position: { x: 700, y: 400 } });
   await A.keyboard.press('1');
   await A.keyboard.press('Enter');
@@ -175,20 +175,20 @@ test('collab: WebRTC session with copy/paste connection codes (offer -> answer -
   await A.fill('#collab-answer-in', answer);
   await A.click('#collab-connect');
   await waitBodies(B, 1, 90000);
-  await B.waitForFunction(() => window.physicslabCollab.session?.status === 'live', null, { timeout: 60000 });
-  await A.waitForFunction(() => window.physicslabCollab.session.peers.some((p) => p.name === 'Bob'), null, {
+  await B.waitForFunction(() => window.physixlabCollab.session?.status === 'live', null, { timeout: 60000 });
+  await A.waitForFunction(() => window.physixlabCollab.session.peers.some((p) => p.name === 'Bob'), null, {
     timeout: 60000,
   });
 
   const [ba] = await bodies(A);
-  await B.evaluate((id) => window.physicslab.store.update(id, { name: 'Renamed over WebRTC' }), ba.id);
-  await A.waitForFunction((id) => window.physicslab.store.body(id).name === 'Renamed over WebRTC', ba.id, {
+  await B.evaluate((id) => window.physixlab.store.update(id, { name: 'Renamed over WebRTC' }), ba.id);
+  await A.waitForFunction((id) => window.physixlab.store.body(id).name === 'Renamed over WebRTC', ba.id, {
     timeout: 60000,
   });
-  await A.evaluate(() => window.physicslab.sim.play());
-  await B.waitForFunction(() => window.physicslab.sim.mode === 'running', null, { timeout: 60000 });
-  await A.evaluate(() => window.physicslab.sim.reset());
-  await B.waitForFunction(() => window.physicslab.sim.mode === 'edit', null, { timeout: 60000 });
+  await A.evaluate(() => window.physixlab.sim.play());
+  await B.waitForFunction(() => window.physixlab.sim.mode === 'running', null, { timeout: 60000 });
+  await A.evaluate(() => window.physixlab.sim.reset());
+  await B.waitForFunction(() => window.physixlab.sim.mode === 'edit', null, { timeout: 60000 });
   assert(A.errors.length === 0, `no page errors on A: ${A.errors.join(' | ')}`);
   assert(B.errors.length === 0, `no page errors on B: ${B.errors.join(' | ')}`);
 });

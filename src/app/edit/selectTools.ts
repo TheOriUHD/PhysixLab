@@ -32,7 +32,7 @@ import type { App } from '../app';
 
 export const BRUSH_MIN = 6;
 export const BRUSH_MAX = 240;
-const BRUSH_KEY = 'physicslab:ed-select:brush';
+const BRUSH_KEY = 'physixlab:ed-select:brush';
 let brushRadius = (() => {
   try {
     const v = Number(localStorage.getItem(BRUSH_KEY));

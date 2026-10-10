@@ -57,7 +57,7 @@ export function showStorageDialog(app: App): void {
         ),
       );
     }
-    body.appendChild(h('div', { class: 'group-title' }, `PhysicsLab data: ${formatBytes(usage.bytes)}`));
+    body.appendChild(h('div', { class: 'group-title' }, `PhysixLab data: ${formatBytes(usage.bytes)}`));
     for (const c of COLLECTIONS) {
       const u = usage.perCollection[c];
       const info = LABELS[c];

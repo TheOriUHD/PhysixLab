@@ -1,17 +1,17 @@
 {
-  "name": "physicslab",
+  "name": "physixlab",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "PhysicsLab \u2014 an advanced in-browser 3D physics sandbox",
+  "description": "PhysixLab \u2014 an advanced in-browser 3D physics sandbox",
   "license": "MIT",
-  "homepage": "https://github.com/TheOriUHD/PhysicsSandbox#readme",
+  "homepage": "https://github.com/TheOriUHD/PhysixLab#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TheOriUHD/PhysicsSandbox.git"
+    "url": "git+https://github.com/TheOriUHD/PhysixLab.git"
   },
   "bugs": {
-    "url": "https://github.com/TheOriUHD/PhysicsSandbox/issues"
+    "url": "https://github.com/TheOriUHD/PhysixLab/issues"
   },
   "keywords": [
     "physics",

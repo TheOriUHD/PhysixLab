@@ -239,7 +239,7 @@ export function browserName(ua: string): string {
 /** The text copied by "Copy diagnostics": pretty JSON, easy to paste into a bug report and to read. */
 export function formatReport(r: ReportInput): string {
   const doc = {
-    report: 'PhysicsLab diagnostics',
+    report: 'PhysixLab diagnostics',
     time: r.time,
     app: r.app,
     browser: { userAgent: r.userAgent, platform: r.platform, language: r.language, online: r.online },

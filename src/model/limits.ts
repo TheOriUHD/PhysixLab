@@ -15,7 +15,7 @@ export const LIMITS = {
   maxEntities: 20_000,
   /** Largest scene file / autosave / share-link payload accepted, in characters of JSON text. */
   maxDocumentChars: 160 * MIB,
-  /** Longest share link PhysicsLab will hand out, in characters (chat apps and servers truncate beyond this). */
+  /** Longest share link PhysixLab will hand out, in characters (chat apps and servers truncate beyond this). */
   maxShareLinkChars: 150_000,
 
   // ── strings ─────────────────────────────────────────────────────────────────────────────────────

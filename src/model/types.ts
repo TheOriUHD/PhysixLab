@@ -1,5 +1,5 @@
 /**
- * The PhysicsLab scene document.
+ * The PhysixLab scene document.
  *
  * The document is the single source of truth for what the user has built. It is plain,
  * JSON-serializable data. The physics worker builds a Rapier world from it, the renderer
@@ -847,7 +847,7 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 export type AssetInput = DistributiveOmit<Asset, 'id' | 'hash' | 'bytes'>;
 
 export interface SceneDocument {
-  format: 'physicslab-scene';
+  format: 'physixlab-scene';
   version: number;
   name: string;
   settings: SceneSettings;

@@ -11,7 +11,7 @@ const settle = async (page) => {
 
 const setEnv = async (page, patch) => {
   await page.evaluate((p) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.updateSettings({ environment: { ...a.store.settings.environment, ...p } }, 'test');
   }, patch);
   await settle(page);
@@ -19,7 +19,7 @@ const setEnv = async (page, patch) => {
 
 const firstBody = (page) =>
   page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const b = a.store.bodies().find((x) => x.shape.type === 'sphere') ?? a.store.bodies()[0];
     a.store.setSelection([b.id]);
     return b.id;
@@ -28,7 +28,7 @@ const firstBody = (page) =>
 const pieceMat = (page, id, field) =>
   page.evaluate(
     ([i, f]) => {
-      const m = window.physicslab.bodies.get(i).pieces[0].material;
+      const m = window.physixlab.bodies.get(i).pieces[0].material;
       return f === 'map'
         ? !!m.map
         : f === 'normalMap'
@@ -64,7 +64,7 @@ test('VZ-A: material editor: picker search + preset click, preview sphere, textu
   await page.fill('input[aria-label="Search materials"]', 'brass');
   assert((await page.locator('.material-swatch:visible').count()) === 1, 'search narrows to one swatch');
   await page.locator('.material-swatch:visible').click();
-  const preset = await page.evaluate((i) => window.physicslab.store.body(i).material.preset, id);
+  const preset = await page.evaluate((i) => window.physixlab.store.body(i).material.preset, id);
   assert(preset === 'brass', `brass applied (${preset})`);
   await page.fill('input[aria-label="Search materials"]', 'carbon');
   await page.locator('.material-swatch:visible').click();
@@ -73,7 +73,7 @@ test('VZ-A: material editor: picker search + preset click, preview sphere, textu
   assert(await pieceMat(page, id, 'normalMap'), 'carbon preset has a derived normal map');
   assert((await pieceMat(page, id, 'clearcoat')) === 1, 'carbon preset has clearcoat 1');
   await page.evaluate((i) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const b = a.store.body(i);
     a.store.update(i, { material: { ...b.material, texture: { ...b.material.texture, triplanar: true } } }, 'tri');
   }, id);
@@ -81,7 +81,7 @@ test('VZ-A: material editor: picker search + preset click, preview sphere, textu
   await shot(page, 'vz-material-triplanar');
   // the editor applies to a multi-selection
   const two = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const ids = a.store
       .bodies()
       .filter((x) => x.shape.type === 'sphere')
@@ -93,7 +93,7 @@ test('VZ-A: material editor: picker search + preset click, preview sphere, textu
   await page.waitForSelector('.material-swatch');
   await page.fill('input[aria-label="Search materials"]', 'copper');
   await page.locator('.material-swatch:visible').click();
-  const presets = await page.evaluate((ids) => ids.map((i) => window.physicslab.store.body(i).material.preset), two);
+  const presets = await page.evaluate((ids) => ids.map((i) => window.physixlab.store.body(i).material.preset), two);
   assert(
     presets.every((p) => p === 'copper'),
     `multi-selection edit applies to all (${presets})`,
@@ -106,7 +106,7 @@ test('VZ-A: material: glass transmission, emissive glow and user image textures'
   await page.waitForTimeout(600);
   const id = await firstBody(page);
   await page.evaluate((i) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.update(
       i,
       {
@@ -127,7 +127,7 @@ test('VZ-A: material: glass transmission, emissive glow and user image textures'
   assert((await pieceMat(page, id, 'emissive')) > 0.3, 'emissive colour applied');
   // user image as albedo + a generated normal map, stored as assets
   const ok = await page.evaluate(async (i) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const mk = (fill) => {
       const c = document.createElement('canvas');
       c.width = c.height = 16;
@@ -172,7 +172,7 @@ test('VZ-A: material: glass transmission, emissive glow and user image textures'
   }, id);
   assert(ok, 'image albedo + normal map applied with UV transform and loaded');
   const refs = await page.evaluate(
-    (i) => window.physicslab.store.assetRefCount(window.physicslab.store.body(i).material.texture.imageId),
+    (i) => window.physixlab.store.assetRefCount(window.physixlab.store.body(i).material.texture.imageId),
     id,
   );
   assert(refs === 1, 'texture asset is referenced by the body');
@@ -200,7 +200,7 @@ test('VZ-A: environment: every preset, the physical sky and tone mappings render
   }
   for (const toneMapping of ['aces', 'agx', 'neutral', 'linear']) {
     await setEnv(page, { toneMapping });
-    const tm = await page.evaluate(() => window.physicslab.viewport.renderer.toneMapping);
+    const tm = await page.evaluate(() => window.physixlab.viewport.renderer.toneMapping);
     assert(typeof tm === 'number' && tm >= 0, `tone mapping ${toneMapping} → ${tm}`);
   }
   assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
@@ -211,7 +211,7 @@ test('VZ-A: time of day moves the sun, its light and its shadow direction; the c
   await page.waitForTimeout(600);
   const read = () =>
     page.evaluate(() => {
-      const v = window.physicslab.viewport;
+      const v = window.physixlab.viewport;
       return { dir: v.sunDir.toArray(), i: v.sun.intensity, hours: v.env.hours };
     });
   await setEnv(page, {
@@ -230,7 +230,7 @@ test('VZ-A: time of day moves the sun, its light and its shadow direction; the c
   assert(noon.i > dawn.i && dawn.i > night.i && night.i === 0, `sun intensity ${noon.i} > ${dawn.i} > ${night.i}`);
   await setEnv(page, { timeOfDay: 6, cycle: { enabled: true, hoursPerSecond: 6 } });
   const h0 = (await read()).hours;
-  await page.waitForFunction((h) => window.physicslab.viewport.env.hours !== h, h0, { timeout: 15000 }).catch(() => {});
+  await page.waitForFunction((h) => window.physixlab.viewport.env.hours !== h, h0, { timeout: 15000 }).catch(() => {});
   const h1 = (await read()).hours;
   assert(h1 !== h0, `day cycle advances (${h0} → ${h1})`);
   await setEnv(page, { cycle: { enabled: false, hoursPerSecond: 6 } });
@@ -241,7 +241,7 @@ test('VZ-A: user HDRI: a .hdr stored as an asset lights the scene; removing it f
   const page = await newPage('&scene=pit&quality=low');
   await page.waitForTimeout(600);
   const result = await page.evaluate(async () => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     // 4×2 uncompressed Radiance image: bright sky on top, dark ground below
     const head = new TextEncoder().encode('#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 2 +X 4\n');
     const px = [];
@@ -283,7 +283,7 @@ test('VZ-A: fog (linear / exponential / height) and ground types apply', async (
   await page.waitForTimeout(600);
   const fogKind = () =>
     page.evaluate(() => {
-      const f = window.physicslab.viewport.scene.fog;
+      const f = window.physixlab.viewport.scene.fog;
       return f ? (f.isFogExp2 ? 'exp' : f.far < 0 ? 'height' : 'linear') : 'none';
     });
   assert((await fogKind()) === 'none', 'no fog by default');
@@ -295,12 +295,12 @@ test('VZ-A: fog (linear / exponential / height) and ground types apply', async (
   }
   for (const type of ['checker', 'plain', 'water', 'none', 'grid']) {
     await page.evaluate((t) => {
-      const a = window.physicslab;
+      const a = window.physixlab;
       a.store.updateSettings({ ground: { ...a.store.settings.ground, type: t } }, 'g');
     }, type);
     await settle(page);
     const vis = await page.evaluate(() => {
-      const v = window.physicslab.viewport;
+      const v = window.physixlab.viewport;
       return {
         slab: v.slab.visible,
         grid: v.grid.visible,
@@ -327,7 +327,7 @@ test('VZ-A: fog (linear / exponential / height) and ground types apply', async (
 test('VZ-A: World panel: environment controls edit the scene settings', async () => {
   const page = await newPage('&scene=pit&quality=low');
   await page.waitForTimeout(600);
-  await page.evaluate(() => window.physicslab.store.setSelection([]));
+  await page.evaluate(() => window.physixlab.store.setSelection([]));
   await page
     .getByText('World', { exact: true })
     .first()
@@ -347,7 +347,7 @@ test('VZ-A: light entities render as real lights; flicker animates the intensity
   const page = await newPage('&scene=pit&quality=medium');
   await page.waitForTimeout(600);
   const res = await page.evaluate(async () => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const { createLight } = await import('/src/model/factory.ts');
     const mk = (type, pos, extra = {}) => ({ ...createLight(type), position: pos, castShadow: true, ...extra });
     const lights = [

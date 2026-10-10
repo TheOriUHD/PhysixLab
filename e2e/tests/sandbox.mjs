@@ -47,7 +47,7 @@ await attempt('sendBeacon', () => navigator.sendBeacon(URL_ + 'beacon', 'x'));
 await attempt('indexedDB', () => indexedDB.open('x'));
 await attempt('caches', () => caches.open('x'));
 await attempt('localStorage', () => localStorage.getItem('x'));
-await attempt('BroadcastChannel', () => new BroadcastChannel('physicslab'));
+await attempt('BroadcastChannel', () => new BroadcastChannel('physixlab'));
 await attempt('WebAssembly', () => new WebAssembly.Module(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0])));
 await attempt('postMessage parent', () => postMessage('hi'));
 await attempt('window/document/parent/top', () => {
@@ -230,7 +230,7 @@ test('Scene script: errors report the user line; bad output is rejected, never a
 
 test('Scene script dialog: open from the palette, run an example, one undo step, add mode', async () => {
   const page = await newPage();
-  await page.evaluate(() => window.physicslab.scene.clear());
+  await page.evaluate(() => window.physixlab.scene.clear());
   await page.keyboard.press('Control+k');
   await page.waitForSelector('.palette .palette-input');
   await page.keyboard.type('scene script');
@@ -241,15 +241,15 @@ test('Scene script dialog: open from the palette, run an example, one undo step,
   assert(code.includes('Pendulum chain'), 'example should load into the editor');
   await page.click('button:has-text("Replace scene")');
   await page.waitForSelector('.dtb-status.ok', { timeout: 30000 });
-  const n1 = await page.evaluate(() => window.physicslab.scene.entities().length);
+  const n1 = await page.evaluate(() => window.physixlab.scene.entities().length);
   assert(n1 >= 15, `pendulum chain should have bodies and hinges, got ${n1}`);
   await page.click('button:has-text("Add to scene")');
-  await page.waitForFunction((n) => window.physicslab.scene.entities().length >= 2 * n, n1, { timeout: 30000 });
-  await page.evaluate(() => window.physicslab.scene.undo());
-  const n2 = await page.evaluate(() => window.physicslab.scene.entities().length);
+  await page.waitForFunction((n) => window.physixlab.scene.entities().length >= 2 * n, n1, { timeout: 30000 });
+  await page.evaluate(() => window.physixlab.scene.undo());
+  const n2 = await page.evaluate(() => window.physixlab.scene.entities().length);
   assert(n2 === n1, `undo of the add run must restore ${n1}, got ${n2}`);
-  await page.evaluate(() => window.physicslab.scene.undo());
-  const n3 = await page.evaluate(() => window.physicslab.scene.entities().length);
+  await page.evaluate(() => window.physixlab.scene.undo());
+  const n3 = await page.evaluate(() => window.physixlab.scene.entities().length);
   assert(n3 === 0, `undo of the replace run must restore the empty scene, got ${n3}`);
   assert(page.errors.length === 0, page.errors.join('; '));
 });

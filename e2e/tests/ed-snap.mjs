@@ -9,7 +9,7 @@ const test = (name, fn) => tests.push({ name, fn });
 
 async function fresh(page) {
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     a.store.remove(
       a.store.all().map((e) => e.id),
@@ -33,14 +33,14 @@ async function fresh(page) {
 const addBox = (page, name, pos, over = {}) =>
   page.evaluate(
     ([name, pos, over]) => {
-      const a = window.physicslab;
+      const a = window.physixlab;
       const b = a.editor.addShape('box', pos, { name, shape: { type: 'box', size: [1, 1, 1] }, ...over });
       return b.id;
     },
     [name, pos, over],
   );
 
-const body = (page, id) => page.evaluate((id) => JSON.parse(JSON.stringify(window.physicslab.store.body(id))), id);
+const body = (page, id) => page.evaluate((id) => JSON.parse(JSON.stringify(window.physixlab.store.body(id))), id);
 
 async function typeInto(page, locator, text) {
   await locator.click();
@@ -59,7 +59,7 @@ test('numeric entry: +0.5 moves the body by 0.5, units and expressions work, bad
   const page = await newPage();
   await fresh(page);
   const id = await addBox(page, 'A', [1, 0.5, 2]);
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), id);
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), id);
   await page.waitForSelector('.row.stack .num-input');
 
   await typeInto(page, posField(page, 0), '+0.5');
@@ -86,7 +86,7 @@ test('numeric entry: +0.5 moves the body by 0.5, units and expressions work, bad
   await shot(page, 'ed-snap-entry-error');
 
   // every entry above was ONE undo step: undo walks back through them
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   near((await body(page, id)).position[0], 2, 1e-9, 'undo reverts the last entry only');
   assert(page.errors.length === 0, `page errors: ${page.errors.join(' | ')}`);
   await page.close();
@@ -96,9 +96,9 @@ test('numeric entry: +15 in a Rotation field turns the body 15° about that axis
   const page = await newPage();
   await fresh(page);
   const id = await addBox(page, 'A', [0, 0.5, 0]);
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), id);
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), id);
   await page.waitForSelector('.row.stack .num-input');
-  await page.evaluate(() => window.physicslab.prefs.set({ space: 'world' }));
+  await page.evaluate(() => window.physixlab.prefs.set({ space: 'world' }));
   await typeInto(page, rotField(page, 1), '+15');
   let q = (await body(page, id)).rotation;
   // yaw of 15° about Y: (0, sin 7.5°, 0, cos 7.5°)
@@ -118,7 +118,7 @@ test('numeric entry: +15 in a Rotation field turns the body 15° about that axis
   // the object was yawed 30° about Y, then turned 90° about world X: qx component must now be sin45°·cos15°
   near(Math.hypot(...after), 1, 1e-9, 'unit quaternion');
   near(after[0], Math.sin(Math.PI / 4) * Math.cos((15 * Math.PI) / 180), 1e-6, 'qx after the 90° turn about X');
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   const undone = (await body(page, id)).rotation;
   near(undone[0], 0, 1e-9, 'one undo step reverts the whole Rotate by');
   assert(page.errors.length === 0, `page errors: ${page.errors.join(' | ')}`);
@@ -130,7 +130,7 @@ test('numeric entry: several bodies — the centre field moves the selection rig
   await fresh(page);
   const a = await addBox(page, 'A', [0, 0.5, 0]);
   const b = await addBox(page, 'B', [2, 0.5, 4]);
-  await page.evaluate(([a, b]) => window.physicslab.store.setSelection([a, b]), [a, b]);
+  await page.evaluate(([a, b]) => window.physixlab.store.setSelection([a, b]), [a, b]);
   await page.waitForSelector('.row.stack:has(.row-label:text-is("Centre (m)"))');
   const centreX = page.locator('.row.stack:has(.row-label:text-is("Centre (m)")) .num-input').nth(0);
   await typeInto(page, centreX, '5'); // centre was x = 1
@@ -144,7 +144,7 @@ test('numeric entry: several bodies — the centre field moves the selection rig
   // a physics field on two bodies: *2 doubles each body's own value (their masses differ)
   await page.evaluate(
     ([a, b]) => {
-      const s = window.physicslab.store;
+      const s = window.physixlab.store;
       s.update(a, { linearDamping: 0.2 }, 'x');
       s.update(b, { linearDamping: 0.5 }, 'x');
     },
@@ -164,12 +164,12 @@ test('numeric entry: several bodies — the centre field moves the selection rig
 /** Drag body `id` so that its picked point ends over the world point `to` on the plane of the pick. */
 async function dragBodyTo(page, id, wantCentre) {
   // a selected body wears the gizmo, whose centre handle would take the press: start from no selection
-  await page.evaluate(() => window.physicslab.store.setSelection([]));
+  await page.evaluate(() => window.physixlab.store.setSelection([]));
   await nextFrame(page);
   const sp = await screenOf(page, id);
   const info = await page.evaluate(
     ([id, sp, want]) => {
-      const a = window.physicslab;
+      const a = window.physixlab;
       const hit = a.pickEntity({ clientX: sp.x, clientY: sp.y });
       const start = a.store.body(id).position;
       const target = hit.point.clone();
@@ -190,7 +190,7 @@ async function dragBodyTo(page, id, wantCentre) {
   for (let i = 1; i <= steps; i++) {
     await page.mouse.move(sp.x + ((info.x - sp.x) * i) / steps, sp.y + ((info.y - sp.y) * i) / steps);
     (info.trace ??= []).push(
-      await page.evaluate((id) => window.physicslab.store.body(id).position.map((v) => +v.toFixed(2)), id),
+      await page.evaluate((id) => window.physixlab.store.body(id).position.map((v) => +v.toFixed(2)), id),
     );
   }
   return info;
@@ -199,10 +199,10 @@ async function dragBodyTo(page, id, wantCentre) {
 test('snap: a dragged box corner snaps exactly onto a vertex of another box; Ctrl suspends it', async () => {
   const page = await newPage();
   await fresh(page);
-  await page.evaluate(() => window.physicslab.prefs.set({ snapVertex: true }));
+  await page.evaluate(() => window.physixlab.prefs.set({ snapVertex: true }));
   await addBox(page, 'T', [0.1, 0.5, 0], { bodyType: 'static' });
   const mover = await addBox(page, 'M', [3, 0.5, 3]);
-  await page.evaluate(() => window.physicslab.viewport.setView({ position: [4, 9, 8], target: [1, 0.5, 1] }));
+  await page.evaluate(() => window.physixlab.viewport.setView({ position: [4, 9, 8], target: [1, 0.5, 1] }));
   await nextFrame(page);
   // the mover's (-,-,-) bottom corner is 0.03 m / 0.04 m from the target's (+,-,+) bottom corner (0.6, 0, 0.5)
   const dinfo = await dragBodyTo(page, mover, [1.13, 0.5, 1.04]);
@@ -212,9 +212,9 @@ test('snap: a dragged box corner snaps exactly onto a vertex of another box; Ctr
     .catch(async () => {
       const dbg = await page.evaluate(
         (id) => ({
-          p: window.physicslab.store.body(id).position,
-          sel: window.physicslab.store.selection,
-          prefs: window.physicslab.prefs.value.snapVertex,
+          p: window.physixlab.store.body(id).position,
+          sel: window.physixlab.store.selection,
+          prefs: window.physixlab.prefs.value.snapVertex,
         }),
         mover,
       );
@@ -232,7 +232,7 @@ test('snap: a dragged box corner snaps exactly onto a vertex of another box; Ctr
   assert((await page.locator('.v-label.snap').count()) === 0, 'the indicator is gone after the drop');
 
   // with Ctrl held the object snaps are suspended: the box ends where the pointer put it
-  await page.evaluate((id) => window.physicslab.editor.moveTo(new Map([[id, [3, 0.5, 3]]])), mover);
+  await page.evaluate((id) => window.physixlab.editor.moveTo(new Map([[id, [3, 0.5, 3]]])), mover);
   await nextFrame(page);
   await page.keyboard.down('Control');
   await dragBodyTo(page, mover, [1.13, 0.5, 1.04]);
@@ -247,10 +247,10 @@ test('snap: a dragged box corner snaps exactly onto a vertex of another box; Ctr
 test('snap: dragging over another box puts the box flush on its top (surface snap) and the move is one undo step', async () => {
   const page = await newPage();
   await fresh(page);
-  await page.evaluate(() => window.physicslab.prefs.set({ snapSurface: true }));
+  await page.evaluate(() => window.physixlab.prefs.set({ snapSurface: true }));
   await addBox(page, 'T', [0, 0.5, 0], { bodyType: 'static' });
   const mover = await addBox(page, 'M', [3, 0.5, 3]);
-  await page.evaluate(() => window.physicslab.viewport.setView({ position: [4, 9, 8], target: [1, 0.5, 1] }));
+  await page.evaluate(() => window.physixlab.viewport.setView({ position: [4, 9, 8], target: [1, 0.5, 1] }));
   await nextFrame(page);
   await dragBodyTo(page, mover, [0.1, 0.5, 0.05]);
   const label = await page.locator('.v-label.snap').textContent();
@@ -259,7 +259,7 @@ test('snap: dragging over another box puts the box flush on its top (surface sna
   near(p[1], 1.5 + 0.002, 1e-6, `resting on the top face (target top 1.0 + half height 0.5 + 2 mm)`);
   assert(Math.abs(p[0]) < 0.6 && Math.abs(p[2]) < 0.6, `above the target (${p})`);
   assert(label === 'Surface', `indicator label "${label}"`);
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   const back = (await body(page, mover)).position;
   near(back[0], 3, 1e-9, 'undo returns the box to its start (one step)');
   assert(page.errors.length === 0, `page errors: ${page.errors.join(' | ')}`);
@@ -268,7 +268,7 @@ test('snap: dragging over another box puts the box flush on its top (surface sna
 
 test('snap: the Snap chip opens the popover with every switch; toggling updates the preference and the chip', async () => {
   const page = await newPage('', { width: 1280, height: 720 });
-  await page.evaluate(() => window.physicslab.prefs.set({ snapVertex: false, snapSurface: true }));
+  await page.evaluate(() => window.physixlab.prefs.set({ snapVertex: false, snapSurface: true }));
   const chip = page.locator('[data-tool="snapMenu"]');
   await chip.waitFor();
   // the first-run "New here?" suggestion floats over the view bar: dismiss it like a user would
@@ -295,7 +295,7 @@ test('snap: the Snap chip opens the popover with every switch; toggling updates 
   }
   await shot(page, 'ed-snap-popover');
   await page.locator('.menu .menu-item', { hasText: 'Snap to vertices' }).click();
-  assert(await page.evaluate(() => window.physicslab.prefs.value.snapVertex), 'vertex snap switched on');
+  assert(await page.evaluate(() => window.physixlab.prefs.value.snapVertex), 'vertex snap switched on');
   // the toolbox does not overflow the 720 px viewport and the chip does not overlap another button
   const geo = await page.evaluate(() => {
     const t = document.querySelector('.toolbox').getBoundingClientRect();
@@ -334,20 +334,20 @@ test('drop: a palette tile dragged onto a 30° slope lands flush on it, aligned 
     rotation: [Math.sin(Math.PI / 12), 0, 0, Math.cos(Math.PI / 12)],
   });
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.viewport.setView({ position: [7, 6, 9], target: [0, 1, 0] });
     a.prefs.set({ snapSurface: true, snapAlignNormal: true, snap: false, snapVertex: false });
   });
   await nextFrame(page);
   await page.waitForTimeout(300);
   const target = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const r = a.viewport.dom.getBoundingClientRect();
     const p = a.camera ? { x: 0, y: 1.1, z: 0.3 } : null;
     const v = a.camera && new a.camera.position.constructor(p.x, p.y, p.z).project(a.camera);
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
   });
-  const before = await page.evaluate(() => window.physicslab.store.bodies().length);
+  const before = await page.evaluate(() => window.physixlab.store.bodies().length);
   // a real HTML5 drag from the Add tab's Box tile
   const tile = page.locator('.tile', { hasText: 'Box' }).first();
   await tile.dragTo(page.locator('.stage'), {
@@ -359,7 +359,7 @@ test('drop: a palette tile dragged onto a 30° slope lands flush on it, aligned 
   await page.waitForTimeout(200);
   const info = await page.evaluate(
     ([slabId, before]) => {
-      const a = window.physicslab;
+      const a = window.physixlab;
       const bodies = a.store.bodies();
       const s = a.store.body(slabId);
       const nb = bodies.find((b) => b.id !== slabId && b.name.startsWith('Box'));
@@ -397,7 +397,7 @@ test('drop: a prefab card dragged onto the scene is inserted at the pointer (not
   const page = await newPage();
   await fresh(page);
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.viewport.setView({ position: [9, 7, 11], target: [0, 0, 0] });
     a.prefs.set({ snap: false, leftTab: 'prefabs', showLeft: true });
   });
@@ -405,19 +405,19 @@ test('drop: a prefab card dragged onto the scene is inserted at the pointer (not
   await nextFrame(page);
   const box = await page.locator('.stage').boundingBox();
   const target = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const r = a.viewport.dom.getBoundingClientRect();
     const v = new a.camera.position.constructor(4, 0, 3).project(a.camera);
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
   });
-  const before = await page.evaluate(() => window.physicslab.store.bodies().length);
+  const before = await page.evaluate(() => window.physixlab.store.bodies().length);
   await page
     .locator('.card[data-placeable]')
     .first()
     .dragTo(page.locator('.stage'), { targetPosition: { x: target.x - box.x, y: target.y - box.y } });
   await page.waitForTimeout(250);
   const out = await page.evaluate(() => {
-    const bodies = window.physicslab.store.bodies();
+    const bodies = window.physixlab.store.bodies();
     const c = [0, 0, 0];
     for (const b of bodies) for (let i = 0; i < 3; i++) c[i] += b.position[i] / bodies.length;
     return { n: bodies.length, c };
@@ -425,9 +425,9 @@ test('drop: a prefab card dragged onto the scene is inserted at the pointer (not
   assert(out.n > before, 'the prefab was inserted');
   near(out.c[0], 4, 1.6, 'inserted around the pointer x');
   near(out.c[2], 3, 1.6, 'inserted around the pointer z');
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   assert(
-    (await page.evaluate(() => window.physicslab.store.bodies().length)) === before,
+    (await page.evaluate(() => window.physixlab.store.bodies().length)) === before,
     'one undo removes the whole prefab',
   );
   assert(page.errors.length === 0, `page errors: ${page.errors.join(' | ')}`);

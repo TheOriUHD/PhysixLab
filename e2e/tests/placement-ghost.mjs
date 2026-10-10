@@ -14,7 +14,7 @@ const HINT = 'Click to place · Esc to cancel · Q/E or R rotate · [ ] raise/lo
 /** An empty scene viewed from a fixed camera, grid snapping on (0.25 m), a known viewport rectangle. */
 async function fresh(page, prefs = {}) {
   await page.evaluate((prefs) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     a.store.remove(
       a.store.all().map((e) => e.id),
@@ -45,7 +45,7 @@ async function fresh(page, prefs = {}) {
 /** Client position of a ground point (the pointer that lands the ghost there). */
 const screenOfPoint = (page, p) =>
   page.evaluate((p) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const v = new a.camera.position.constructor(p[0], p[1], p[2]).project(a.camera);
     const r = a.viewport.dom.getBoundingClientRect();
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
@@ -53,7 +53,7 @@ const screenOfPoint = (page, p) =>
 
 const ghost = (page) =>
   page.evaluate(() => {
-    const g = window.physicslab.placement.ghost;
+    const g = window.physixlab.placement.ghost;
     return {
       active: g.active,
       mode: g.mode,
@@ -72,7 +72,7 @@ const ghost = (page) =>
 const sceneCount = (page) =>
   page.evaluate(() => {
     let n = 0;
-    window.physicslab.viewport.scene.traverse(() => n++);
+    window.physixlab.viewport.scene.traverse(() => n++);
     return n;
   });
 
@@ -80,14 +80,14 @@ const sceneCount = (page) =>
 const ghostNodes = (page) =>
   page.evaluate(() => {
     let n = 0;
-    window.physicslab.viewport.scene.traverse((o) => {
+    window.physixlab.viewport.scene.traverse((o) => {
       if (o.name === 'placement-ghost' || o.name === 'placement-ghost-marks') o.traverse(() => n++);
     });
     return n;
   });
 
-const bodies = (page) => page.evaluate(() => window.physicslab.store.bodies().length);
-const entities = (page) => page.evaluate(() => window.physicslab.store.all().length);
+const bodies = (page) => page.evaluate(() => window.physixlab.store.bodies().length);
+const entities = (page) => page.evaluate(() => window.physixlab.store.all().length);
 const tileBox = async (page, sel) => {
   const t = page.locator(sel).first();
   await t.scrollIntoViewIfNeeded();
@@ -122,12 +122,12 @@ test('placement ghost: dragging a tile into the viewport shows a ghost that foll
   assert((await sceneCount(page)) > base, 'the ghost is in the three.js scene');
   assert((await bodies(page)) === n0 && (await entities(page)) === n0, 'nothing was created while dragging');
   assert(
-    (await page.evaluate(() => window.physicslab.bodies.views.size)) === n0,
+    (await page.evaluate(() => window.physixlab.bodies.views.size)) === n0,
     'no body view was made for the ghost (it is not part of the scene or the physics)',
   );
   // the ghost is never hit by a pick ray
   const hit = await page.evaluate(
-    ([x, y]) => window.physicslab.pickEntity({ clientX: x, clientY: y }),
+    ([x, y]) => window.physixlab.pickEntity({ clientX: x, clientY: y }),
     [spot1.x, spot1.y],
   );
   assert(hit === null, 'the ghost cannot be picked');
@@ -151,7 +151,7 @@ test('placement ghost: dragging a tile into the viewport shows a ghost that foll
   assert((await ghostNodes(page)) === 0, 'every ghost object left the scene');
   assert((await bodies(page)) === n0 + 1, 'one body was created on release');
   const placed = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const b = a.store.body(a.store.selection[0]);
     return { pos: b.position, sel: a.store.selection.length, label: a.store.undoLabel };
   });
@@ -159,7 +159,7 @@ test('placement ghost: dragging a tile into the viewport shows a ghost that foll
     near(placed.pos[i], ghostAt[i], 1e-6, `the body is exactly where the ghost was (axis ${i})`);
   assert(placed.sel === 1, 'the new object is selected');
   assert(/Add Box/.test(placed.label), `one undo step named for it (${placed.label})`);
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   assert((await bodies(page)) === n0, 'one undo removes it');
   assert(page.errors.length === 0, `page errors: ${page.errors.join(' | ')}`);
   await page.close();
@@ -233,7 +233,7 @@ test('placement ghost: a click arms placement; click places, Shift+click places 
   await page.mouse.click(a.x, a.y);
   await nextFrame(page);
   assert(!(await ghost(page)).active && (await bodies(page)) === 1, 'a click places one and ends placement');
-  near(await page.evaluate(() => window.physicslab.store.bodies()[0].position[0]), 2, 0.01, 'placed under the click');
+  near(await page.evaluate(() => window.physixlab.store.bodies()[0].position[0]), 2, 0.01, 'placed under the click');
   // Shift+click keeps it armed
   await page.locator('.shape-tile[data-shape="sphere"]').first().click();
   const b1 = await screenOfPoint(page, [-1, 0, 0]);
@@ -286,7 +286,7 @@ test('placement ghost: Q/E rotate, [ ] raise and lower, X aligns, Alt suspends s
   await page.locator('.shape-tile[data-shape="box"]').first().click();
   const spot = await screenOfPoint(page, [1.13, 0, 0.9]);
   await page.mouse.move(spot.x, spot.y, { steps: 5 });
-  const tool0 = await page.evaluate(() => window.physicslab.prefs.value.tool);
+  const tool0 = await page.evaluate(() => window.physixlab.prefs.value.tool);
   const key = async (k, mod) => {
     if (mod) await page.keyboard.down(mod);
     await page.keyboard.press(k);
@@ -318,10 +318,10 @@ test('placement ghost: Q/E rotate, [ ] raise and lower, X aligns, Alt suspends s
   await key('BracketRight');
   near((await ghost(page)).lift, 0.5, 1e-9, 'back up to +0.5 m');
   // X flips the alignment toggle
-  const a0 = await page.evaluate(() => window.physicslab.placement.ghost.hud().align);
+  const a0 = await page.evaluate(() => window.physixlab.placement.ghost.hud().align);
   await key('KeyX');
   assert(
-    (await page.evaluate(() => window.physicslab.placement.ghost.hud().align)) === !a0,
+    (await page.evaluate(() => window.physixlab.placement.ghost.hud().align)) === !a0,
     'X toggles align to surface',
   );
   await key('KeyX');
@@ -329,30 +329,30 @@ test('placement ghost: Q/E rotate, [ ] raise and lower, X aligns, Alt suspends s
   await key('KeyW');
   await key('KeyT');
   assert(
-    (await page.evaluate(() => window.physicslab.prefs.value.tool)) === tool0,
+    (await page.evaluate(() => window.physixlab.prefs.value.tool)) === tool0,
     'W / T do not change the tool while placing',
   );
   assert((await ghost(page)).active, 'and the ghost is still armed');
   // legend
-  const legend = await page.evaluate(() => window.physicslab.placement.ghost.legendEntries());
+  const legend = await page.evaluate(() => window.physixlab.placement.ghost.legendEntries());
   const keysText = legend.map((l) => l.keys).join(' | ');
   for (const k of ['Q / E', '[ / ]', 'X', 'Esc', 'Click'])
     assert(keysText.includes(k), `legend lists ${k} (${keysText})`);
   assert(
     await page.evaluate(() =>
-      window.physicslab.placement.ghost.handleKey(new KeyboardEvent('keydown', { code: 'KeyW', key: 'w' })),
+      window.physixlab.placement.ghost.handleKey(new KeyboardEvent('keydown', { code: 'KeyW', key: 'w' })),
     ),
     'handleKey swallows plain letters',
   );
   assert(
     !(await page.evaluate(() =>
-      window.physicslab.placement.ghost.handleKey(new KeyboardEvent('keydown', { code: 'Digit4', key: '4' })),
+      window.physixlab.placement.ghost.handleKey(new KeyboardEvent('keydown', { code: 'Digit4', key: '4' })),
     )),
     'handleKey leaves digits to the shape commands',
   );
   assert(
     !(await page.evaluate(() =>
-      window.physicslab.placement.ghost.handleKey(
+      window.physixlab.placement.ghost.handleKey(
         new KeyboardEvent('keydown', { code: 'KeyZ', key: 'z', ctrlKey: true }),
       ),
     )),
@@ -360,7 +360,7 @@ test('placement ghost: Q/E rotate, [ ] raise and lower, X aligns, Alt suspends s
   );
   // the same key event handed over twice is applied once
   const once = await page.evaluate(() => {
-    const g = window.physicslab.placement.ghost;
+    const g = window.physixlab.placement.ghost;
     const e = new KeyboardEvent('keydown', { code: 'KeyE', key: 'e' });
     const y0 = g.yawDeg;
     g.handleKey(e);
@@ -383,7 +383,7 @@ test('placement ghost: Q/E rotate, [ ] raise and lower, X aligns, Alt suspends s
   // place it and compare with what the ghost showed
   await key('Enter');
   const b = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const e = a.store.body(a.store.selection[0]);
     return { pos: e.position, rot: e.rotation };
   });
@@ -396,7 +396,7 @@ test('placement ghost: tilt alignment follows a slope, and Alt places without sn
   const page = await newPage();
   await fresh(page, { snapAlignNormal: true });
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.editor.addShape('box', [0, 1, 0], {
       bodyType: 'static',
       shape: { type: 'box', size: [6, 0.2, 6] },
@@ -436,7 +436,7 @@ test('placement ghost: prefabs show every body, soft bodies show their surface; 
   assert(g.active && g.id.startsWith('prefab:'), 'a prefab ghost appears');
   assert(g.objects > 4, `a prefab ghost is more than a box (${g.objects} objects)`);
   const ghostBodies = await page.evaluate(
-    () => window.physicslab.placement.ghost.placeable.entities().filter((e) => e.kind === 'body').length,
+    () => window.physixlab.placement.ghost.placeable.entities().filter((e) => e.kind === 'body').length,
   );
   assert(ghostBodies >= 14, `it stands for every body of the prefab (${ghostBodies})`);
   assert((await entities(page)) === 0, 'nothing is created while dragging');
@@ -446,21 +446,21 @@ test('placement ghost: prefabs show every body, soft bodies show their surface; 
   await nextFrame(page);
   const n = await bodies(page);
   assert(n === ghostBodies, `all ${ghostBodies} bodies were created on release (${n})`);
-  const sel = await page.evaluate(() => window.physicslab.store.selection.length);
+  const sel = await page.evaluate(() => window.physixlab.store.selection.length);
   assert(sel === n, 'they are all selected');
   const c = await page.evaluate(() => {
-    const bs = window.physicslab.store.bodies();
+    const bs = window.physixlab.store.bodies();
     const m = [0, 0, 0];
     for (const b of bs) for (let i = 0; i < 3; i++) m[i] += b.position[i] / bs.length;
     return m;
   });
   near(c[0], at[0], 1.2, 'the assembly is where the ghost was (x)');
   near(c[2], at[2], 1.2, 'the assembly is where the ghost was (z)');
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   assert((await entities(page)) === 0, 'one undo removes the whole assembly');
   assert((await ghostNodes(page)) === 0, 'no ghost objects left');
   // soft bodies
-  await page.evaluate(() => window.physicslab.prefs.set({ leftTab: 'add' }));
+  await page.evaluate(() => window.physixlab.prefs.set({ leftTab: 'add' }));
   await page.waitForSelector('.tile:has-text("Jelly")');
   await pressTile(page, '.tile:has-text("Jelly")');
   await page.mouse.move(spot.x, spot.y, { steps: 8 });
@@ -473,9 +473,9 @@ test('placement ghost: prefabs show every body, soft bodies show their surface; 
   await shot(page, 'placement-ghost-jelly');
   await page.mouse.up();
   await nextFrame(page);
-  const soft = await page.evaluate(() => window.physicslab.store.all().filter((e) => e.kind === 'soft').length);
+  const soft = await page.evaluate(() => window.physixlab.store.all().filter((e) => e.kind === 'soft').length);
   assert(soft === 1, 'the jelly was created on release');
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   // cloth hovers above the surface
   await pressTile(page, '.tile:has-text("Cloth")');
   await page.mouse.move(spot.x, spot.y, { steps: 8 });
@@ -501,16 +501,16 @@ test('placement ghost: lights and zones place on the surface under the pointer',
   near(g.pose.position[1], 3.01, 0.02, 'a light hangs 3 m above the point under the pointer');
   await page.mouse.up();
   await nextFrame(page);
-  const light = await page.evaluate(() => window.physicslab.store.lights().length);
+  const light = await page.evaluate(() => window.physixlab.store.lights().length);
   assert(light === 1, 'the light was created');
-  await page.evaluate(() => window.physicslab.store.setSelection([]));
+  await page.evaluate(() => window.physixlab.store.setSelection([]));
   await pressTile(page, '.zone-tiles .tile[data-zone="checkpoint"]');
   await page.mouse.move(spot.x, spot.y, { steps: 6 });
   g = await ghost(page);
   assert(g.active && g.id === 'zone:checkpoint', 'a zone ghost appears');
   await page.mouse.up();
   await nextFrame(page);
-  const zones = await page.evaluate(() => window.physicslab.zones.zones().length);
+  const zones = await page.evaluate(() => window.physixlab.zones.zones().length);
   assert(zones === 1, 'the zone was created');
   assert(page.errors.length === 0, `page errors: ${page.errors.join(' | ')}`);
   await page.close();
@@ -520,7 +520,7 @@ test('placement ghost: red outside the world bounds (nothing is placed there), a
   const page = await newPage();
   await fresh(page);
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.updateSettings({
       bounds: { ...a.store.settings.bounds, enabled: true, min: [-6, -3, -6], max: [1, 20, 6] },
     });
@@ -578,11 +578,11 @@ test('placement ghost: no ghost is left behind by blur, a new scene or starting 
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
   assert(!(await ghost(page)).active && (await ghostNodes(page)) === 0, 'window blur ends placement');
   await arm('box');
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   assert(!(await ghost(page)).active && (await ghostNodes(page)) === 0, 'loading a scene ends placement');
   await arm('box');
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.physicslab.sim.mode === 'running');
+  await page.waitForFunction(() => window.physixlab.sim.mode === 'running');
   assert(!(await ghost(page)).active && (await ghostNodes(page)) === 0, 'starting the simulation ends placement');
   // while running: a live body
   const n0 = await bodies(page);
@@ -591,11 +591,11 @@ test('placement ghost: no ghost is left behind by blur, a new scene or starting 
   await page.mouse.move(spot.x, spot.y, { steps: 4 });
   await page.mouse.click(spot.x, spot.y);
   assert((await bodies(page)) === n0 + 1, 'placing while running adds a body');
-  const id = await page.evaluate(() => window.physicslab.store.selection[0]);
-  await page.waitForFunction((id) => !!window.physicslab.sim.poseOf(id), id);
+  const id = await page.evaluate(() => window.physixlab.store.selection[0]);
+  await page.waitForFunction((id) => !!window.physixlab.sim.poseOf(id), id);
   // paused
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.physicslab.sim.mode === 'paused');
+  await page.waitForFunction(() => window.physixlab.sim.mode === 'paused');
   await arm('cone');
   assert((await ghost(page)).active, 'a ghost can be armed while paused');
   await page.keyboard.press('Enter');

@@ -1,15 +1,15 @@
 /**
  * One-time migration of the pre-IndexedDB data (localStorage) into the storage layer (DT-10).
- *  - `physicslab:autosave:v1`  → meta/autosave        (serialized scene JSON string)
- *  - `physicslab:library:v1`   → scenes/<id>           (LibraryEntry objects)
+ *  - `physixlab:autosave:v1`  → meta/autosave        (serialized scene JSON string)
+ *  - `physixlab:library:v1`   → scenes/<id>           (LibraryEntry objects)
  * The localStorage keys are removed only after the copy is verified by reading it back, and a marker in meta/migrated
  * stops it running twice. UI preferences stay in localStorage on purpose: they are tiny and must be readable
  * synchronously at start-up.
  */
 import type { StorageBackend } from './types';
 
-export const LS_AUTOSAVE_KEY = 'physicslab:autosave:v1';
-export const LS_LIBRARY_KEY = 'physicslab:library:v1';
+export const LS_AUTOSAVE_KEY = 'physixlab:autosave:v1';
+export const LS_LIBRARY_KEY = 'physixlab:library:v1';
 
 export interface MigrationReport {
   ran: boolean;

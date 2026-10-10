@@ -115,11 +115,11 @@ test('diag: every interactive element has an accessible name (panels, selections
   const showPanel = (id) =>
     page.evaluate(async (id) => {
       const { runCommand } = await import('/src/app/registry/commands.ts');
-      runCommand(`panel.${id}`, window.physicslab);
+      runCommand(`panel.${id}`, window.physixlab);
     }, id);
   // selections: a body, a joint, a soft body, a light, a path, a group, nothing, several
   const kinds = await page.evaluate(async () => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const { Builder } = await import('/src/model/builder.ts');
     const b = new Builder('audit');
     const box = b.body('A', 'box', [1, 1, 1], [0, 1, 0]);
@@ -136,12 +136,12 @@ test('diag: every interactive element has an accessible name (panels, selections
     nothing: [],
     body: [kinds.body],
     joint: [kinds.joint],
-    several: await page.evaluate(() => window.physicslab.store.bodies().map((b) => b.id)),
+    several: await page.evaluate(() => window.physixlab.store.bodies().map((b) => b.id)),
   };
   // add a soft body, a light, a path and a group through the commands
   const extra = await page.evaluate(async () => {
     const { runCommand } = await import('/src/app/registry/commands.ts');
-    const a = window.physicslab;
+    const a = window.physixlab;
     const out = {};
     for (const [key, cmd, pick] of [
       ['soft', 'add.soft.cloth', () => a.store.softs().at(-1)],
@@ -159,7 +159,7 @@ test('diag: every interactive element has an accessible name (panels, selections
   });
   for (const [k, id] of Object.entries(extra)) if (id) selections[k] = [id];
   for (const [kind, ids] of Object.entries(selections)) {
-    await page.evaluate((ids) => window.physicslab.store.setSelection(ids), ids);
+    await page.evaluate((ids) => window.physixlab.store.setSelection(ids), ids);
     for (const id of panels) {
       await showPanel(id);
       await page.waitForTimeout(120);

@@ -21,8 +21,8 @@ for (const ex of examples) {
     const page = await newPage();
     const result = await page.evaluate(async (code) => {
       const logs = [];
-      const fn = new (Object.getPrototypeOf(async function () {}).constructor)('physicslab', 'console', code);
-      await fn(window.physicslab, { log: (...a) => logs.push(a.map(String).join(' ')) });
+      const fn = new (Object.getPrototypeOf(async function () {}).constructor)('physixlab', 'console', code);
+      await fn(window.physixlab, { log: (...a) => logs.push(a.map(String).join(' ')) });
       return logs;
     }, ex.code);
     assert(Array.isArray(result), 'example did not finish');
@@ -30,10 +30,10 @@ for (const ex of examples) {
   });
 }
 
-test('API: window.physicslab is versioned, typed data in/out, and still exposes the app internals', async () => {
+test('API: window.physixlab is versioned, typed data in/out, and still exposes the app internals', async () => {
   const page = await newPage();
   const r = await page.evaluate(() => {
-    const p = window.physicslab;
+    const p = window.physixlab;
     const id = p.scene.addBody('box', [0, 3, 0], { name: 'Probe' });
     const copy = p.scene.entity(id);
     copy.name = 'tampered';
@@ -62,7 +62,7 @@ test('API: window.physicslab is versioned, typed data in/out, and still exposes 
 test('API: simulation control, queries and events work on the live app', async () => {
   const page = await newPage();
   const r = await page.evaluate(async () => {
-    const p = window.physicslab;
+    const p = window.physixlab;
     p.scene.clear();
     const id = p.scene.addBody('sphere', [0, 5, 0], { name: 'Ball' });
     const modes = [];

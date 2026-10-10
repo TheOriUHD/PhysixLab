@@ -3,7 +3,7 @@
  * localStorage and on the system clipboard, travel to another scene, tab or browser, and be pasted back through the
  * same sanitiser every scene goes through — so a hostile, damaged or old clipboard can never inject garbage.
  *
- *   { format: 'physicslab-clipboard', version: 1, sceneVersion, sceneName, origin, entities, assets, connections }
+ *   { format: 'physixlab-clipboard', version: 1, sceneVersion, sceneName, origin, entities, assets, connections }
  *
  * `entities` are the copied objects with everything below a copied group and the joints between copied bodies.
  * `connections` lists the ids of joints (inside `entities`) that were attached to a body that was *not* copied: they
@@ -21,7 +21,7 @@ import { cloneEntities } from '../store';
 import type { Asset, BodyEntity, Entity, JointEntity, PosedEntity } from '../types';
 import { isBody, isJoint, isPosed } from '../types';
 
-export const CLIPBOARD_FORMAT = 'physicslab-clipboard';
+export const CLIPBOARD_FORMAT = 'physixlab-clipboard';
 export const CLIPBOARD_VERSION = 1;
 /** Largest clipboard text accepted / written (characters). localStorage allows ~5 MB in total. */
 export const MAX_CLIPBOARD_CHARS = 3_000_000;
@@ -148,7 +148,7 @@ export const looksLikeClipboard = (text: string): boolean =>
   text.length < MAX_CLIPBOARD_CHARS && text.includes(`"${CLIPBOARD_FORMAT}"`);
 
 /**
- * Parse and sanitise clipboard text. Returns null when the text is not a PhysicsLab clipboard (any other text);
+ * Parse and sanitise clipboard text. Returns null when the text is not a PhysixLab clipboard (any other text);
  * throws `SceneFormatError` with a user-facing message when it is one but cannot be used (too big, newer version).
  */
 export function parseClipboard(text: string): ParsedClipboard | null {
@@ -171,7 +171,7 @@ export function parseClipboard(text: string): ParsedClipboard | null {
   if (r.version > CLIPBOARD_VERSION) {
     throw new SceneFormatError(
       'too-new',
-      `The clipboard was copied by a newer version of PhysicsLab (clipboard format v${r.version}). Reload the page to update.`,
+      `The clipboard was copied by a newer version of PhysixLab (clipboard format v${r.version}). Reload the page to update.`,
     );
   }
   if (!Array.isArray(r.entities)) return null;

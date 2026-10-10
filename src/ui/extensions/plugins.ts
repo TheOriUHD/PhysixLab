@@ -19,15 +19,15 @@ registerMenuEntry({ id: 'menu.file.plugins', menu: 'file', group: 'automation', 
 
 // Start the plugins the user installed once the app exists. The check is a cheap localStorage read, so nothing
 // plugin-related is downloaded unless there is something to start.
-window.addEventListener('physicslab:ready', () => {
+window.addEventListener('physixlab:ready', () => {
   let any = false;
   try {
-    const list = JSON.parse(localStorage.getItem('physicslab.plugins.v1') ?? '[]') as { enabled?: boolean }[];
+    const list = JSON.parse(localStorage.getItem('physixlab.plugins.v1') ?? '[]') as { enabled?: boolean }[];
     any = Array.isArray(list) && list.some((p) => p.enabled);
   } catch {
     /* unreadable: treat as none */
   }
   if (!any) return;
-  const app = (window as unknown as { physicslab: App }).physicslab;
+  const app = (window as unknown as { physixlab: App }).physixlab;
   void manager().then((m) => m.pluginHost(app).startAll());
 });

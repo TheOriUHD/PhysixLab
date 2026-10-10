@@ -24,7 +24,7 @@ export type { Sheet };
 /** The width at and below which the sheet layout applies (keep in sync with `cm-mobile.css`). */
 export const NARROW_QUERY = '(max-width: 900px)';
 
-const STASH_KEY = 'physicslab:desktop-panels';
+const STASH_KEY = 'physixlab:desktop-panels';
 /** Fallback when storage is unavailable: the arrangement is still restored within this page's life. */
 let memoryStash: Panels | null = null;
 

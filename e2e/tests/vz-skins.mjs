@@ -6,7 +6,7 @@ const test = (name, fn) => tests.push({ name, fn });
 
 const carInfo = (page) =>
   page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const chassis = a.store.bodies().find((b) => b.name === 'Chassis');
     const wheels = a.store.bodies().filter((b) => b.tags.includes('car-wheel'));
     return {
@@ -18,7 +18,7 @@ const carInfo = (page) =>
   });
 
 const view = (page, position, target) =>
-  page.evaluate(([p, t]) => window.physicslab.viewport.setView({ position: p, target: t }), [position, target]);
+  page.evaluate(([p, t]) => window.physixlab.viewport.setView({ position: p, target: t }), [position, target]);
 
 test('skin: the car template draws the detailed skin and drives with W', async () => {
   const page = await newPage('&scene=car&quality=low');
@@ -42,14 +42,14 @@ test('skin: the car template draws the detailed skin and drives with W', async (
     await shot(page, `vz42-car-${name}`);
   }
 
-  await page.evaluate(() => window.physicslab.sim.play());
+  await page.evaluate(() => window.physixlab.sim.play());
   await simTime(page, 0.8);
-  const x0 = await page.evaluate((id) => window.physicslab.sim.poseOf(id).position[0], info.chassisId);
+  const x0 = await page.evaluate((id) => window.physixlab.sim.poseOf(id).position[0], info.chassisId);
   await page.keyboard.down('KeyW');
   await simTime(page, 2.8);
   const r = await page.evaluate(
     ({ id, wheels }) => {
-      const a = window.physicslab;
+      const a = window.physixlab;
       return {
         x: a.sim.poseOf(id).position[0],
         spin: wheels.map((w) => Math.hypot(...a.sim.velocityOf(w).angular)),
@@ -72,11 +72,11 @@ test('skin: the tail-lights brighten with the brake key and the struts follow th
   const page = await newPage('&scene=car&quality=low');
   await page.waitForTimeout(500);
   const id = (await carInfo(page)).chassisId;
-  await page.evaluate(() => window.physicslab.sim.play());
+  await page.evaluate(() => window.physixlab.sim.play());
   await simTime(page, 0.8);
   const read = () =>
     page.evaluate((id) => {
-      const h = window.physicslab.bodies.get(id).skin.root.userData.car;
+      const h = window.physixlab.bodies.get(id).skin.root.userData.car;
       return { tail: h.tail.emissiveIntensity, struts: Array.from(h.strutLength) };
     }, id);
   const idle = await read();
@@ -97,15 +97,15 @@ test('skin: the inspector offers the skin of a box and switches it off (undoable
   const page = await newPage('&scene=car&quality=low');
   await page.waitForTimeout(500);
   const id = (await carInfo(page)).chassisId;
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), id);
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), id);
   await page.waitForTimeout(300);
   const sel = page.locator('select[data-skin-select]');
   assert((await sel.count()) === 1, 'Skin select is in the inspector');
   await sel.selectOption('');
   await page.waitForTimeout(300);
-  assert(await page.evaluate((id) => !window.physicslab.bodies.get(id).skin, id), 'skin removed');
-  await page.evaluate(() => window.physicslab.store.undo());
+  assert(await page.evaluate((id) => !window.physixlab.bodies.get(id).skin, id), 'skin removed');
+  await page.evaluate(() => window.physixlab.store.undo());
   await page.waitForTimeout(300);
-  assert(await page.evaluate((id) => !!window.physicslab.bodies.get(id).skin, id), 'undo restores the skin');
+  assert(await page.evaluate((id) => !!window.physixlab.bodies.get(id).skin, id), 'undo restores the skin');
   await page.close();
 });

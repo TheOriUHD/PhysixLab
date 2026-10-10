@@ -1,9 +1,9 @@
 /**
- * DT-30: the public, versioned `window.physicslab` API.
+ * DT-30: the public, versioned `window.physixlab` API.
  *
  * Semver: `apiVersion` is `MAJOR.MINOR.PATCH`. Additions bump MINOR, behaviour fixes PATCH, any removal or change of
  * meaning of a documented member bumps MAJOR. Everything here exchanges plain JSON-compatible data (documents,
- * entities, vectors) — never live objects — so callers cannot corrupt editor state. Anything on `window.physicslab`
+ * entities, vectors) — never live objects — so callers cannot corrupt editor state. Anything on `window.physixlab`
  * that is not declared in this file (`store`, `editor`, `viewport`, …) is internal and may change at any time.
  *
  * Documented with runnable examples in docs/API.md (a test keeps the two in sync).
@@ -125,7 +125,7 @@ export interface AssetsApi {
   remove(id: string): boolean;
 }
 
-export interface PhysicsLabApi {
+export interface PhysixLabApi {
   readonly apiVersion: string;
   readonly scene: SceneApi;
   readonly simulation: SimulationApi;

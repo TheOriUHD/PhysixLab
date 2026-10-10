@@ -19,7 +19,7 @@ const SIZES = [
 const command = (page, id) =>
   page.evaluate(async (id) => {
     const { runCommand } = await import('/src/app/registry/commands.ts');
-    runCommand(id, window.physicslab);
+    runCommand(id, window.physixlab);
   }, id);
 
 // -- diagnostics + profiler -------------------------------------------------------------------------------------------
@@ -44,9 +44,9 @@ test('diag: the Diagnostics panel shows device, GPU, limits and worker status; t
     await shot(page, `diag-diagnostics-${tag}`);
     // profiler
     await command(page, 'panel.profiler');
-    await page.evaluate(() => window.physicslab.sim.play());
+    await page.evaluate(() => window.physixlab.sim.play());
     await page.waitForSelector('.prof-graph');
-    await page.waitForFunction(() => (window.physicslab.sim.client.stats?.simTime ?? 0) > 1, null, { timeout: 60000 });
+    await page.waitForFunction(() => (window.physixlab.sim.client.stats?.simTime ?? 0) > 1, null, { timeout: 60000 });
     await page.waitForFunction(
       () => {
         const c = document.querySelector('.prof-graph');
@@ -85,7 +85,7 @@ test('diag: the Diagnostics panel shows device, GPU, limits and worker status; t
 test('diag: an uncaught error shows the recovery card; a loop shows one card; recovery never drops the scene silently', async () => {
   for (const [tag, vp] of SIZES) {
     const page = await newPage('', vp);
-    const count = await page.evaluate(() => window.physicslab.store.all().length);
+    const count = await page.evaluate(() => window.physixlab.store.all().length);
     await page.evaluate(() => {
       window.dispatchEvent(new ErrorEvent('error', { message: 'boom from test', error: new Error('boom from test') }));
     });
@@ -118,7 +118,7 @@ test('diag: an uncaught error shows the recovery card; a loop shows one card; re
       const { collectReport } = await import('/src/ui/diag/collect.ts');
       const { errorLog } = await import('/src/ui/diag/boot.ts');
       const { formatReport } = await import('/src/ui/diag/report.ts');
-      return formatReport(collectReport(window.physicslab, errorLog));
+      return formatReport(collectReport(window.physixlab, errorLog));
     });
     const j = JSON.parse(json);
     assert(
@@ -134,7 +134,7 @@ test('diag: an uncaught error shows the recovery card; a loop shows one card; re
     const start = page.locator('.err-card button', { hasText: 'Start empty' });
     await start.click();
     assert(
-      (await page.evaluate(() => window.physicslab.store.all().length)) === count,
+      (await page.evaluate(() => window.physixlab.store.all().length)) === count,
       'first click does not replace the scene',
     );
     assert((await page.locator('.err-card button', { hasText: 'Click again' }).count()) === 1, 'asks to click again');
@@ -159,9 +159,9 @@ test('diag: an uncaught error shows the recovery card; a loop shows one card; re
 
 test('diag: restore autosave and start empty replace the scene only after confirmation; download offers the scene', async () => {
   const page = await newPage();
-  await page.evaluate(() => window.physicslab.persistence.saveNow());
-  await page.evaluate(() => window.physicslab.persistence.flush());
-  const before = await page.evaluate(() => window.physicslab.store.all().length);
+  await page.evaluate(() => window.physixlab.persistence.saveNow());
+  await page.evaluate(() => window.physixlab.persistence.flush());
+  const before = await page.evaluate(() => window.physixlab.store.all().length);
   assert(before > 0, 'a scene is loaded');
   await page.evaluate(() => window.dispatchEvent(new ErrorEvent('error', { message: 'x', error: new Error('x') })));
   await page.waitForSelector('.err-card');
@@ -170,18 +170,18 @@ test('diag: restore autosave and start empty replace the scene only after confir
   const file = await dl;
   assert(/\.json$/.test(file.suggestedFilename()), `downloads a json file (${file.suggestedFilename()})`);
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.remove([a.store.bodies()[0].id]);
   });
-  const reduced = await page.evaluate(() => window.physicslab.store.all().length);
+  const reduced = await page.evaluate(() => window.physixlab.store.all().length);
   assert(reduced < before, 'something was removed');
   const restore = page.locator('.err-card button', { hasText: 'Restore last autosave' });
   await restore.click();
-  assert((await page.evaluate(() => window.physicslab.store.all().length)) === reduced, 'first click changes nothing');
+  assert((await page.evaluate(() => window.physixlab.store.all().length)) === reduced, 'first click changes nothing');
   await page.locator('.err-card button', { hasText: 'Click again' }).click();
   await page.waitForSelector('.err-card', { state: 'detached' });
   assert(
-    (await page.evaluate(() => window.physicslab.store.all().length)) === before,
+    (await page.evaluate(() => window.physixlab.store.all().length)) === before,
     'autosave restored after the second click',
   );
   noErrors(page);

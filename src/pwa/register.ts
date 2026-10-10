@@ -59,7 +59,7 @@ export function registerServiceWorker(cb: PwaCallbacks): void {
           if (document.visibilityState === 'visible') void reg.update().catch(() => undefined);
         });
       })
-      .catch((e: unknown) => console.warn('PhysicsLab: service worker registration failed', e));
+      .catch((e: unknown) => console.warn('PhysixLab: service worker registration failed', e));
   };
   if (document.readyState === 'complete') start();
   else window.addEventListener('load', start, { once: true });

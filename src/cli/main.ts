@@ -11,7 +11,7 @@ import { parseDocument } from '../model/serialize';
 import type { SceneDocument } from '../model/types';
 import { BatchError, parseSweep, runBatch, toCsv, type SweepSpec } from './batch';
 
-export const USAGE = `PhysicsLab headless batch runner
+export const USAGE = `PhysixLab headless batch runner
 
 Usage:
   npm run cli -- run <scene.json | template:<id>> [options]

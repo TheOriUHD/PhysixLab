@@ -15,7 +15,7 @@ test('themes: each theme re-colours the chrome, persists, and the chart canvas f
   const page = await newPage();
   const seen = new Set();
   for (const t of THEMES) {
-    await page.evaluate((t) => window.physicslab.prefs.set({ theme: t }), t);
+    await page.evaluate((t) => window.physixlab.prefs.set({ theme: t }), t);
     await page.waitForTimeout(150);
     assert((await page.evaluate(() => document.documentElement.dataset.theme)) === t, `data-theme ${t}`);
     const bg = await token(page, '--bg');
@@ -25,9 +25,9 @@ test('themes: each theme re-colours the chrome, persists, and the chart canvas f
     await shot(page, `theme-${t}`);
   }
   assert(seen.size === THEMES.length, 'every theme has its own --bg');
-  await page.evaluate(() => window.physicslab.prefs.set({ theme: 'light', accent: '#ff8800' }));
+  await page.evaluate(() => window.physixlab.prefs.set({ theme: 'light', accent: '#ff8800' }));
   await page.reload();
-  await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport, null, { timeout: 30000 });
+  await page.waitForFunction(() => !!window.physixlab && window.physixlab.viewport, null, { timeout: 30000 });
   assert((await page.evaluate(() => document.documentElement.dataset.theme)) === 'light', 'theme persisted');
   const acc = await token(page, '--accent');
   assert(/^#[0-9a-f]{6}$/i.test(acc) && acc !== '#0a769b', `custom accent persisted (got ${acc})`);
@@ -44,7 +44,7 @@ test('themes: Appearance dialog is keyboard operable and sets theme + accent', a
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(100);
   assert(
-    (await page.evaluate(() => window.physicslab.prefs.value.theme)) === 'light',
+    (await page.evaluate(() => window.physixlab.prefs.value.theme)) === 'light',
     'ArrowRight selects the next theme',
   );
   assert((await page.locator('.modal .theme-grid').count()) === 1, 'dialog still open after arrow key');
@@ -53,11 +53,11 @@ test('themes: Appearance dialog is keyboard operable and sets theme + accent', a
   }); // fade-in is slow under software GL
   await shot(page, 'theme-dialog');
   await page.click('.accent-swatch[data-value="#f472b6"]');
-  assert((await page.evaluate(() => window.physicslab.prefs.value.accent)) === '#f472b6', 'accent preset applied');
+  assert((await page.evaluate(() => window.physixlab.prefs.value.accent)) === '#f472b6', 'accent preset applied');
   const pink = await token(page, '--accent'); // light panel: nudged darker until legible, so not the exact preset
   assert(/^#[0-9a-f]{6}$/i.test(pink) && pink !== '#0a769b', `accent token applied inline (got ${pink})`);
   await page.click('text=Theme default');
-  assert((await page.evaluate(() => window.physicslab.prefs.value.accent)) === '', 'accent reset');
+  assert((await page.evaluate(() => window.physixlab.prefs.value.accent)) === '', 'accent reset');
   await page.keyboard.press('Escape');
   await page.waitForSelector('.modal', { state: 'detached' });
   assert(page.errors.length === 0, `no page errors: ${page.errors.join('; ')}`);

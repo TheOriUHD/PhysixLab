@@ -9,8 +9,8 @@
 type Listener = (advanced: boolean) => void;
 export type UiMode = 'simple' | 'advanced';
 
-const KEY = 'physicslab:uimode:v1';
-const ASKED_KEY = 'physicslab:uimode:asked';
+const KEY = 'physixlab:uimode:v1';
+const ASKED_KEY = 'physixlab:uimode:asked';
 const listeners = new Set<Listener>();
 const advancedIds = new Set<string>([
   'components',

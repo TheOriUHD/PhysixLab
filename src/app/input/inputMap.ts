@@ -5,6 +5,7 @@
  * visible everywhere at once. Pure TypeScript (no DOM): the key-event plumbing lives in `hub.ts`.
  */
 import { Emitter } from '../../core/events';
+import { isFormat } from '../../model/legacy';
 import { commandRegistry, setShortcutResolver, type CommandDef } from '../registry/commands';
 import { keymap } from '../registry/keymap';
 import { chordId, chordMatches, parseShortcut, shortcutList, type KeyLike } from '../registry/shortcuts';
@@ -249,7 +250,7 @@ export class InputMap extends Emitter<{ change: undefined }> {
 
   exportJson(): string {
     return JSON.stringify(
-      { format: 'physicslab-keybindings', version: 1, preset: this.preset, bindings: this.bindings },
+      { format: 'physixlab-keybindings', version: 1, preset: this.preset, bindings: this.bindings },
       null,
       2,
     );
@@ -264,8 +265,8 @@ export class InputMap extends Emitter<{ change: undefined }> {
       throw new Error('That file is not valid JSON.');
     }
     const d = data as { format?: unknown; bindings?: unknown } | null;
-    if (!d || d.format !== 'physicslab-keybindings' || !d.bindings || typeof d.bindings !== 'object')
-      throw new Error('That is not a PhysicsLab key-bindings file.');
+    if (!d || !isFormat(d.format, 'physixlab-keybindings') || !d.bindings || typeof d.bindings !== 'object')
+      throw new Error('That is not a PhysixLab key-bindings file.');
     const next: Record<string, string[]> = {};
     let applied = 0;
     let skipped = 0;

@@ -20,7 +20,7 @@ const waitTitle = async (page, t) => {
     throw new Error(`waiting for step "${t}", the tour is at "${now}"`, { cause: e });
   }
 };
-const guideState = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('physicslab.guide.v1') ?? '{}'));
+const guideState = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('physixlab.guide.v1') ?? '{}'));
 
 async function startFromHelpMenu(page) {
   await page.locator('.menubar .menu-btn', { hasText: 'Help' }).click();
@@ -40,7 +40,7 @@ const holeOf = (page) =>
 /** A body of the scene that is not currently selected, so clicking it changes the selection. */
 const otherBody = (page) =>
   page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const sel = new Set(a.store.selection);
     const b = a.store.bodies().find((b) => !sel.has(b.id) && a.bodies.get(b.id));
     return b.id;
@@ -51,7 +51,7 @@ test('onboarding tour: every step advances by doing the real thing, and the tour
   await startFromHelpMenu(page);
 
   // Step 1: a centred welcome card with dialog semantics, a counter and a dimmed backdrop.
-  assert((await title(page)) === 'Welcome to PhysicsLab', 'first step');
+  assert((await title(page)) === 'Welcome to PhysixLab', 'first step');
   assert((await counter(page)) === 'Step 1 of 10', `counter ${await counter(page)}`);
   const sem = await page.evaluate(() => {
     const c = document.querySelector('.tour-card');
@@ -63,11 +63,11 @@ test('onboarding tour: every step advances by doing the real thing, and the tour
       dim: getComputedStyle(document.querySelector('.tour-dim')).pointerEvents,
     };
   });
-  assert(sem.role === 'dialog' && sem.labelled === 'Welcome to PhysicsLab', `dialog semantics ${JSON.stringify(sem)}`);
+  assert(sem.role === 'dialog' && sem.labelled === 'Welcome to PhysixLab', `dialog semantics ${JSON.stringify(sem)}`);
   assert(sem.live, 'an aria-live region announces the steps');
   assert(sem.focusOnNext, 'keyboard focus moved to Next');
   assert(sem.dim === 'auto', 'a step that waits for nothing blocks the dimmed area');
-  assert(await page.evaluate(() => window.physicslab.sim.mode === 'edit'), 'edit mode');
+  assert(await page.evaluate(() => window.physixlab.sim.mode === 'edit'), 'edit mode');
 
   // Step 2: spotlight on the shape tiles; pointer events pass through to the app; clicking a tile and then the scene advances.
   await page.keyboard.press('Enter'); // Next is focused: keyboard only
@@ -83,11 +83,11 @@ test('onboarding tour: every step advances by doing the real thing, and the tour
   const dimPE = await page.evaluate(() => getComputedStyle(document.querySelector('.tour-dim')).pointerEvents);
   assert(dimPE === 'none', 'a step that waits lets clicks through');
   await shot(page, 'tour-add-step');
-  const before = await page.evaluate(() => window.physicslab.store.bodies().length);
+  const before = await page.evaluate(() => window.physixlab.store.bodies().length);
   await page.locator('#panel-add .tile').first().click(); // arms placement ...
   await page.mouse.click(700, 400); // ... and a click in the scene places it
   await waitTitle(page, 'Select it');
-  assert((await page.evaluate(() => window.physicslab.store.bodies().length)) === before + 1, 'the shape was added');
+  assert((await page.evaluate(() => window.physixlab.store.bodies().length)) === before + 1, 'the shape was added');
 
   // Step 3: select by clicking an object in the 3D view.
   const id = await otherBody(page);
@@ -104,7 +104,7 @@ test('onboarding tour: every step advances by doing the real thing, and the tour
 
   // Step 6: really grab a body with the mouse.
   const dyn = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     return a.store.bodies().find((b) => b.type === 'dynamic' || b.bodyType === 'dynamic')?.id ?? a.store.bodies()[0].id;
   });
   const g = await screenOf(page, dyn);
@@ -146,7 +146,7 @@ test('tour: Back works, Esc closes and remembers the skip, the first-run offer i
   await page.locator('.tour-next').click();
   await waitTitle(page, 'Add a shape');
   await page.locator('.tour-foot .btn', { hasText: 'Back' }).click();
-  await waitTitle(page, 'Welcome to PhysicsLab');
+  await waitTitle(page, 'Welcome to PhysixLab');
   assert(await page.locator('.tour-foot .btn', { hasText: 'Back' }).isHidden(), 'no Back on the first step');
   // "Skip step" is there on a step that waits, so the user is never stuck.
   await page.locator('.tour-next').click();
@@ -171,7 +171,7 @@ test('tour: a missing target shows a centred card, repositions on resize, and Sk
         { target: '.tbtn.play', title: 'Play button', body: 'Look here.', placement: 'bottom' },
       ],
     });
-    t.startTour('e2e-missing', window.physicslab);
+    t.startTour('e2e-missing', window.physixlab);
   });
   await waitTitle(page, 'Nothing here');
   const mid = await page.evaluate(() => {
@@ -210,14 +210,14 @@ test('tour: a missing target shows a centred card, repositions on resize, and Sk
 
 test('welcome dialog offers the tour; a context hint appears once', async () => {
   const page = await newPage();
-  await page.evaluate(() => window.physicslab.prefs.set({ seenWelcome: false }));
+  await page.evaluate(() => window.physixlab.prefs.set({ seenWelcome: false }));
   await page.evaluate(async () => {
     const d = await import('/src/ui/dialogs.ts');
-    d.showWelcome(window.physicslab);
+    d.showWelcome(window.physixlab);
   });
   await page.locator('.modal .btn', { hasText: 'Take the tour' }).click();
   await page.waitForSelector('.tour-card');
-  assert((await title(page)) === 'Welcome to PhysicsLab', 'the welcome dialog started the tour');
+  assert((await title(page)) === 'Welcome to PhysixLab', 'the welcome dialog started the tour');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.querySelector('.tour-layer'));
 
@@ -225,21 +225,21 @@ test('welcome dialog offers the tour; a context hint appears once', async () => 
   const hp = page;
   // The tip of the day (5 s after load) must not take the hint's place on a slow machine.
   await hp.evaluate(() => {
-    const k = 'physicslab.guide.v1';
+    const k = 'physixlab.guide.v1';
     const g = JSON.parse(localStorage.getItem(k) ?? '{}');
     localStorage.setItem(k, JSON.stringify({ ...g, tipsOn: false }));
   });
   const url = page.url().replace('?nowelcome', '?x=1');
   await hp.goto(url);
-  await hp.waitForFunction(() => !!window.physicslab?.viewport, null, { timeout: 30000 });
+  await hp.waitForFunction(() => !!window.physixlab?.viewport, null, { timeout: 30000 });
   await hp.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.prefs.set({ seenWelcome: true });
     a.store.setSelection([]);
   });
   await hp.waitForTimeout(300);
   await hp.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.setSelection([a.store.bodies()[0].id]);
   });
   await hp.waitForSelector('.tour-hint', { timeout: 6000 });
@@ -271,7 +271,7 @@ test('welcome dialog offers the tour; a context hint appears once', async () => 
   const st1 = await guideState(hp);
   assert(st1.hintsSeen?.includes('first-selection'), 'seen persisted');
   await hp.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.setSelection([]);
     a.store.setSelection([a.store.bodies()[1].id]);
   });

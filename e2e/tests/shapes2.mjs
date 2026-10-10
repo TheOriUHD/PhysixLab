@@ -58,7 +58,7 @@ test('SH-13 · the Add tab groups the shapes by category, with generated thumbna
     `five categories in order: ${groups.join(' | ')}`,
   );
   const total = await page.locator('.shape-tile').count();
-  const registry = await page.evaluate(() => window.physicslab.shapes?.length ?? 0).catch(() => 0);
+  const registry = await page.evaluate(() => window.physixlab.shapes?.length ?? 0).catch(() => 0);
   assert(total >= 38, `all shapes have a tile (${total}${registry ? ` of ${registry}` : ''})`);
   // Each tile starts with its icon; the generated thumbnails replace them one by one without blocking the page.
   await tilesReady(page);
@@ -68,7 +68,7 @@ test('SH-13 · the Add tab groups the shapes by category, with generated thumbna
       count: imgs.length,
       png: imgs.every((i) => /^data:image\/(webp|png)/.test(i.src)),
       distinct: new Set(imgs.map((i) => i.src)).size,
-      stored: Object.keys(localStorage).filter((k) => k.startsWith('physicslab.shapeThumb.')).length,
+      stored: Object.keys(localStorage).filter((k) => k.startsWith('physixlab.shapeThumb.')).length,
       loaded: imgs.every((i) => i.complete && i.naturalWidth >= 64),
     };
   });
@@ -87,13 +87,13 @@ test('SH-13 · the Add tab groups the shapes by category, with generated thumbna
     keys.join() === '1:box,2:sphere,3:cylinder,4:capsule,5:cone,6:wedge,7:prism,8:icosahedron,9:torus',
     `badges follow the registry: ${keys.join()}`,
   );
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   await page.click('.viewport-canvas', { position: { x: 800, y: 500 } });
   for (const k of ['1', '3', '9']) {
     await page.keyboard.press(k); // arms a ghost ...
     await page.keyboard.press('Enter'); // ... Enter places it at the pointer (the view centre when it is off the viewport)
   }
-  const added = await page.evaluate(() => window.physicslab.store.bodies().map((b) => b.shape.type));
+  const added = await page.evaluate(() => window.physixlab.store.bodies().map((b) => b.shape.type));
   assert(added.join() === 'box,cylinder,torus', `1, 3 and 9 add box, cylinder, torus: ${added.join()}`);
 
   // tooltips carry the placement hint; double-clicking a tile adds the shape at the view centre
@@ -101,7 +101,7 @@ test('SH-13 · the Add tab groups the shapes by category, with generated thumbna
   assert(/Drag into the scene/.test(title ?? ''), `tile tooltip: ${title}`);
   await page.locator('.shape-tile[data-shape="gear"]').dblclick();
   assert(
-    (await page.evaluate(() => window.physicslab.store.bodies().at(-1).shape.type)) === 'gear',
+    (await page.evaluate(() => window.physixlab.store.bodies().at(-1).shape.type)) === 'gear',
     'double-clicking the gear tile adds a gear',
   );
 
@@ -113,7 +113,7 @@ test('SH-13 · the Add tab groups the shapes by category, with generated thumbna
   );
   assert((await page.locator('.shape-tile[data-shape="gear"]').count()) === 0, 'its tiles are hidden');
   await page.reload();
-  await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport, null, { timeout: 30000 });
+  await page.waitForFunction(() => !!window.physixlab && window.physixlab.viewport, null, { timeout: 30000 });
   await page.waitForSelector('.shape-tile');
   assert(
     (await page.locator('.shape-group-title', { hasText: 'Mechanical' }).getAttribute('aria-expanded')) === 'false',
@@ -167,14 +167,14 @@ test('SH-13 · search finds shapes by name, category and keyword; Enter adds the
   assert((await search.inputValue()) === '', 'and empties the box');
 
   // Enter adds the best match; the typed digits and letters never trigger shortcuts
-  await page.evaluate(() => window.physicslab.newScene());
+  await page.evaluate(() => window.physixlab.newScene());
   await search.fill('torus');
   await search.press('Enter'); // arms the best match and hands the keyboard to the scene ...
   await page.keyboard.press('Enter'); // ... where Enter places it
-  const bodies = await page.evaluate(() => window.physicslab.store.bodies().map((b) => b.shape.type));
+  const bodies = await page.evaluate(() => window.physixlab.store.bodies().map((b) => b.shape.type));
   assert(bodies.join() === 'torus', `Enter added the torus: ${bodies}`);
   await search.fill('d6');
-  const n = await page.evaluate(() => window.physicslab.store.bodies().length);
+  const n = await page.evaluate(() => window.physixlab.store.bodies().length);
   assert(n === 1, 'typing "d6" added nothing (no shortcut fired in the box)');
   // Escape clears, a second Escape leaves the box
   await search.press('Escape');
@@ -186,11 +186,11 @@ test('SH-13 · search finds shapes by name, category and keyword; Enter adds the
   assert(first === 'box', `↓ focuses the first tile (${first})`);
   await page.keyboard.press('ArrowRight');
   assert((await page.evaluate(() => document.activeElement?.dataset?.shape)) === 'sphere', '→ moves to the next tile');
-  const before = await page.evaluate(() => window.physicslab.store.bodies()[0].position);
+  const before = await page.evaluate(() => window.physixlab.store.bodies()[0].position);
   await page.keyboard.press('ArrowDown');
   const below = await page.evaluate(() => document.activeElement?.dataset?.shape);
   assert(below && below !== 'sphere', `↓ moves to the tile below (${below})`);
-  const after = await page.evaluate(() => window.physicslab.store.bodies()[0].position);
+  const after = await page.evaluate(() => window.physixlab.store.bodies()[0].position);
   assert(before.join() === after.join(), 'the arrow keys did not nudge the selected body');
   await page.keyboard.press('Home');
   assert((await page.evaluate(() => document.activeElement?.dataset?.shape)) === 'box', 'Home goes to the first tile');
@@ -199,7 +199,7 @@ test('SH-13 · search finds shapes by name, category and keyword; Enter adds the
   assert(last === 'd20' || last === 'half-pipe' || !!last, `End goes to the last tile (${last})`);
   await page.keyboard.press('Enter'); // arms the focused tile
   await page.keyboard.press('Enter'); // places it
-  const added = await page.evaluate(() => window.physicslab.store.bodies().at(-1).shape.type);
+  const added = await page.evaluate(() => window.physixlab.store.bodies().at(-1).shape.type);
   assert(added === last, `Enter on a focused tile adds it (${added})`);
   await page.keyboard.press('Home');
   await page.keyboard.press('ArrowUp');
@@ -213,7 +213,7 @@ test('SH-13 · search finds shapes by name, category and keyword; Enter adds the
 test('SH-7..12 · gallery: every new shape renders; dice are textured with their numbers, the tyre is dark', async () => {
   const page = await newPage('', { width: 1600, height: 900 });
   const info = await page.evaluate((types) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     const out = {};
     types.forEach((type, i) => {
@@ -231,7 +231,7 @@ test('SH-7..12 · gallery: every new shape renders; dice are textured with their
   await page.waitForTimeout(1200);
   await shot(page, 'sh2-gallery');
   const surfaces = await page.evaluate((info) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const res = {};
     for (const [type, id] of Object.entries(info)) {
       const piece = a.bodies.get(id).pieces[0];
@@ -258,7 +258,7 @@ test('SH-7..12 · gallery: every new shape renders; dice are textured with their
     ['sh2-row1', { position: [0, 3.6, 2.4], target: [0, 0.5, -2.6] }],
   ];
   for (const [name, view] of looks) {
-    await page.evaluate((v) => window.physicslab.viewport.setView(v), view);
+    await page.evaluate((v) => window.physixlab.viewport.setView(v), view);
     await page.waitForTimeout(700);
     await shot(page, name);
   }
@@ -286,7 +286,7 @@ test('SH-7..13 · inspector: every size field and parameter of the new shapes, w
   const missing = [];
   for (const [type, [sizes, params, quantities]] of Object.entries(SPEC)) {
     await page.evaluate((type) => {
-      const a = window.physicslab;
+      const a = window.physixlab;
       a.newScene();
       const b = a.editor.addShape(type, [0, 1, 0]);
       a.store.setSelection([b.id]);
@@ -301,7 +301,7 @@ test('SH-7..13 · inspector: every size field and parameter of the new shapes, w
 
   // the gear’s Module and Pitch diameter edit the size for the same number of teeth
   const id = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     const b = a.editor.addShape('gear', [0, 1, 0]);
     a.store.setSelection([b.id]);
@@ -313,7 +313,7 @@ test('SH-7..13 · inspector: every size field and parameter of the new shapes, w
     await f.fill(String(value));
     await f.press('Enter');
   };
-  const shape = () => page.evaluate((id) => window.physicslab.store.body(id).shape, id);
+  const shape = () => page.evaluate((id) => window.physixlab.store.body(id).shape, id);
   const before = await shape();
   const teeth = before.params.teeth;
   await set('Module', 0.1);
@@ -347,7 +347,7 @@ test('SH-7..13 · inspector: every size field and parameter of the new shapes, w
 test('SH-13 · live resizing: editing a running body’s shape rebuilds it in place, keeping its motion', async () => {
   const page = await newPage();
   const ids = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     a.viewport.setView({ position: [0, 4, 9], target: [0, 1.2, 0] });
     const out = {};
@@ -362,7 +362,7 @@ test('SH-13 · live resizing: editing a running body’s shape rebuilds it in pl
   await simTime(page, 0.5);
   const before = await pose(page, ids.gear);
   // select the gear and change its teeth and module from the inspector while the simulation runs
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), ids.gear);
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), ids.gear);
   await page.waitForSelector('.panel.right .row:has(.row-label:text-is("Teeth"))');
   const f = page.locator('.panel.right .row:has(.row-label:text-is("Teeth")) .num-input:visible').first();
   await f.fill('36');
@@ -374,9 +374,9 @@ test('SH-13 · live resizing: editing a running body’s shape rebuilds it in pl
   const after = await pose(page, ids.gear);
   assert(after, 'the gear is still in the world after being resized live');
   assert(after.position[1] < before.position[1] + 0.2, 'it kept falling from where it was (no teleport back up)');
-  const mass = await page.evaluate((id) => window.physicslab.sim.client.info.mass[id], ids.gear);
+  const mass = await page.evaluate((id) => window.physixlab.sim.client.info.mass[id], ids.gear);
   const vol = await page.evaluate((id) => {
-    const b = window.physicslab.store.body(id);
+    const b = window.physixlab.store.body(id);
     return { size: b.shape.size, teeth: b.shape.params.teeth, density: b.material.density };
   }, ids.gear);
   assert(mass > 0, `the rebuilt gear has mass (${mass.toFixed(3)} kg for ${JSON.stringify(vol)})`);
@@ -394,21 +394,21 @@ test('SH-13 · scale gizmo: scaling keeps the proportions each new shape require
   const page = await newPage();
   // the real gizmo: select a gear, press R and look at the handles
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     const b = a.editor.addShape('gear', [0, 0.5, 0]);
     a.store.setSelection([b.id]);
     a.viewport.setView({ position: [2.4, 2, 3], target: [0, 0.4, 0] });
   });
   await page.click('.viewport-canvas', { position: { x: 20, y: 20 }, modifiers: [] }).catch(() => {});
-  await page.evaluate(() => window.physicslab.store.setSelection([window.physicslab.store.bodies()[0].id]));
+  await page.evaluate(() => window.physixlab.store.setSelection([window.physixlab.store.bodies()[0].id]));
   await page.keyboard.press('r');
-  const mode = await page.evaluate(() => window.physicslab.gizmo.mode);
+  const mode = await page.evaluate(() => window.physixlab.gizmo.mode);
   assert(mode === 'scale', `R switches the gizmo to scale (${mode})`);
   await page.waitForTimeout(600);
   await shot(page, 'sh2-gizmo-scale-gear');
   const res = await page.evaluate((types) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     const out = {};
     for (const t of types) {
@@ -452,7 +452,7 @@ test('SH-13 · scale gizmo: scaling keeps the proportions each new shape require
 test('SH-10 · physics: dice rolled in the browser worker come to rest flat on a face', async () => {
   const page = await newPage('', { width: 1600, height: 900 });
   const ids = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     a.viewport.setView({ position: [0, 5.2, 6.4], target: [0, 0.3, 0.6] });
     const kinds = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20'];
@@ -476,7 +476,7 @@ test('SH-10 · physics: dice rolled in the browser worker come to rest flat on a
   await simTime(page, 5);
   await shot(page, 'sh2-dice-rolled');
   const report = await page.evaluate(async (ids) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const { dieFlatness, dieValueUp } = await import('/src/model/shapes/diceLayout.ts');
     return ids.map(({ t, id }) => {
       const p = a.sim.poseOf(id);

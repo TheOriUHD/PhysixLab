@@ -252,7 +252,7 @@ function keyboardTab(): HTMLElement {
   const status = h('p', { class: 'kb-status', role: 'status' });
   const exportBtn = button('Export…', () => {
     const blob = new Blob([inputMap.exportJson()], { type: 'application/json' });
-    const a = h('a', { href: URL.createObjectURL(blob), download: 'physicslab-keybindings.json' });
+    const a = h('a', { href: URL.createObjectURL(blob), download: 'physixlab-keybindings.json' });
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   });

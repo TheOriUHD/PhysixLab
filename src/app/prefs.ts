@@ -170,7 +170,7 @@ export const DEFAULT_PREFS: Prefs = {
   softEconomy: false, // -- SF --
 };
 
-const KEY = 'physicslab:prefs:v1';
+const KEY = 'physixlab:prefs:v1';
 
 /** Reactive, persisted UI preferences. */
 export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {

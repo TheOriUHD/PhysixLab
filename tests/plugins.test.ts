@@ -5,7 +5,7 @@ import { MemoryPluginStore } from '../src/plugins/store';
 import gravity from '../src/plugins/examples/gravity-presets.plugin.mjs?raw';
 import domino from '../src/plugins/examples/domino-tools.plugin.mjs?raw';
 
-const wrap = (json: string) => `/* @physicslab-plugin\n${json}\n*/\nplugin.toast('x');`;
+const wrap = (json: string) => `/* @physixlab-plugin\n${json}\n*/\nplugin.toast('x');`;
 const ok = {
   id: 'my-plugin',
   name: 'My plugin',

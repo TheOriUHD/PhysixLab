@@ -2,7 +2,7 @@
 import { isRecord, parseJson, type KeyValueStore } from './storage';
 
 export const THUMB_LIMITS = { entries: 60, totalChars: 450_000, perEntryChars: 14_000 } as const;
-const KEY = 'physicslab:qol:thumbs:v1';
+const KEY = 'physixlab:qol:thumbs:v1';
 
 interface Item {
   url: string;

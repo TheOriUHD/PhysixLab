@@ -1,5 +1,5 @@
 /**
- * The one place that hands a file to the user. Tests (e2e) set `window.__physicslabCaptureDownloads = true` to have
+ * The one place that hands a file to the user. Tests (e2e) set `window.__physixlabCaptureDownloads = true` to have
  * the file kept in `window.__lastDownload` (name, type, size, Blob) instead of being saved.
  */
 
@@ -12,13 +12,13 @@ export interface CapturedDownload {
 
 /** The test hooks live on `window`; this is their shape (declared here instead of using `any`). */
 interface DownloadHooks {
-  __physicslabCaptureDownloads?: boolean;
+  __physixlabCaptureDownloads?: boolean;
   __lastDownload?: CapturedDownload;
 }
 
 export function downloadBlob(name: string, blob: Blob): void {
   const hooks = window as unknown as DownloadHooks;
-  if (hooks.__physicslabCaptureDownloads) {
+  if (hooks.__physixlabCaptureDownloads) {
     hooks.__lastDownload = { name, type: blob.type, size: blob.size, blob };
     return;
   }

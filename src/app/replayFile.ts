@@ -10,11 +10,12 @@
 import { LIMITS } from '../model/limits';
 import { newDocument } from '../model/factory';
 import { parseDocument, sanitizeDocument, serializeDocument } from '../model/serialize';
+import { isFormat } from '../model/legacy';
 import type { Entity, SceneDocument } from '../model/types';
 import type { WorldSnapshot } from '../physics/protocol';
 import type { InputEntry, ReplayPayload } from '../physics/timelineTypes';
 
-export const REPLAY_FORMAT = 'physicslab-replay';
+export const REPLAY_FORMAT = 'physixlab-replay';
 export const REPLAY_VERSION = 1;
 export const REPLAY_EXTENSION = '.plreplay';
 /** Largest replay accepted, in bytes of JSON text. */
@@ -269,11 +270,11 @@ export function parseReplay(text: string): ReplayFile {
   try {
     raw = JSON.parse(text);
   } catch {
-    throw new ReplayFormatError('This is not a PhysicsLab replay file.');
+    throw new ReplayFormatError('This is not a PhysixLab replay file.');
   }
-  if (!isObj(raw) || raw.format !== REPLAY_FORMAT) throw new ReplayFormatError('This is not a PhysicsLab replay file.');
+  if (!isObj(raw) || !isFormat(raw.format, REPLAY_FORMAT)) throw new ReplayFormatError('This is not a PhysixLab replay file.');
   if (typeof raw.version !== 'number' || raw.version > REPLAY_VERSION)
-    throw new ReplayFormatError('This replay was saved by a newer version of PhysicsLab.');
+    throw new ReplayFormatError('This replay was saved by a newer version of PhysixLab.');
   if (!isObj(raw.replay)) throw new ReplayFormatError('The replay has no recording.');
   const scene = parseDocument(JSON.stringify(raw.scene));
   const r = raw.replay;

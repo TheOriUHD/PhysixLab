@@ -12,7 +12,7 @@ const test = (name, fn) => tests.push({ name, fn });
 const screenPoint = async (page, world) => {
   await nextFrame(page);
   return page.evaluate((w) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const v = new a.camera.position.constructor(...w).project(a.camera);
     const r = a.viewport.dom.getBoundingClientRect();
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
@@ -22,10 +22,10 @@ const screenPoint = async (page, world) => {
 const run = (page, id) =>
   page.evaluate(async (id) => {
     const { runCommand } = await import('/src/app/registry/commands.ts');
-    return runCommand(id, window.physicslab, 'palette');
+    return runCommand(id, window.physixlab, 'palette');
   }, id);
 
-const paths = (page) => page.evaluate(() => window.physicslab.store.paths().map((p) => JSON.parse(JSON.stringify(p))));
+const paths = (page) => page.evaluate(() => window.physixlab.store.paths().map((p) => JSON.parse(JSON.stringify(p))));
 
 const GROUND = [
   [-4, 0.05, 1],
@@ -37,14 +37,14 @@ const GROUND = [
 test('path tool: draw with the pointer, insert, delete, close, reverse; the drawing is one undo step', async () => {
   const page = await newPage();
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     a.viewport.setView({ position: [0, 11, 9], target: [0, 0, 0] });
     a.store.setSelection([]);
     a.prefs.set({ snap: false });
   });
   await page.keyboard.press('d');
-  assert((await page.evaluate(() => window.physicslab.prefs.value.tool)) === 'path', 'P selects the path tool');
+  assert((await page.evaluate(() => window.physixlab.prefs.value.tool)) === 'path', 'P selects the path tool');
   assert(
     (await page.locator('.tool[data-tool="path"], [data-tool="path"]').count()) > 0,
     'the toolbox has a path button',
@@ -59,7 +59,7 @@ test('path tool: draw with the pointer, insert, delete, close, reverse; the draw
   await page.mouse.move(s4.x, s4.y, { steps: 4 });
   await nextFrame(page);
   const draft = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const v = a.pathViews.get('__draft_path__');
     return { exists: !!v, points: v?.def.points.length, docPaths: a.store.paths().length };
   });
@@ -82,7 +82,7 @@ test('path tool: draw with the pointer, insert, delete, close, reverse; the draw
     near(ps[0].points[i][2], GROUND[i][2], 0.2, `point ${i} z`);
   }
   assert(
-    (await page.evaluate(() => window.physicslab.pathViews.get('__draft_path__'))) === undefined,
+    (await page.evaluate(() => window.physixlab.pathViews.get('__draft_path__'))) === undefined,
     'the draft is gone',
   );
   await shot(page, 'ed-path-drawn');
@@ -95,14 +95,14 @@ test('path tool: draw with the pointer, insert, delete, close, reverse; the draw
   assert(ps.length === 1 && ps[0].points.length === 4, 'redo restores it');
   const id = ps[0].id;
   assert(
-    JSON.stringify(await page.evaluate(() => window.physicslab.store.selection)) === JSON.stringify([id]),
+    JSON.stringify(await page.evaluate(() => window.physixlab.store.selection)) === JSON.stringify([id]),
     'the new path is selected',
   );
 
   // insert a point by clicking the curve halfway along the first segment
   const mid = await page.evaluate(async (id) => {
     const { pathCurveOf } = await import('/src/model/path.ts');
-    const c = pathCurveOf(window.physicslab.store.path(id));
+    const c = pathCurveOf(window.physixlab.store.path(id));
     return c.positionAt(1 / 6);
   }, id);
   const sm = await screenPoint(page, mid);
@@ -111,7 +111,7 @@ test('path tool: draw with the pointer, insert, delete, close, reverse; the draw
   assert(p.points.length === 5, `clicking the curve inserted a point (${p.points.length})`);
   near(p.points[1][0], mid[0], 0.3, 'inserted point x is where the curve was clicked');
   near(p.points[1][2], mid[2], 0.3, 'inserted point z is where the curve was clicked');
-  const active = await page.evaluate(() => window.physicslab.pathPoint);
+  const active = await page.evaluate(() => window.physixlab.pathPoint);
   assert(active && active.index === 1, `the new point is active for the gizmo: ${JSON.stringify(active)}`);
 
   // Delete removes the active point, not the whole path
@@ -122,7 +122,7 @@ test('path tool: draw with the pointer, insert, delete, close, reverse; the draw
 
   // the minimum is kept: reduce to 2 points, then a further delete is refused
   await page.evaluate((id) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.update(id, { points: a.store.path(id).points.slice(0, 2) }, 'test');
     a.setPathPoint(id, 0);
   }, id);
@@ -131,10 +131,10 @@ test('path tool: draw with the pointer, insert, delete, close, reverse; the draw
 
   // restore four points, then close / reverse with the commands and the key
   await page.evaluate(
-    ({ id, pts }) => window.physicslab.store.update(id, { points: pts.map((q) => [q[0], q[1], q[2]]) }, 'test'),
+    ({ id, pts }) => window.physixlab.store.update(id, { points: pts.map((q) => [q[0], q[1], q[2]]) }, 'test'),
     { id, pts: GROUND },
   );
-  await page.evaluate(() => window.physicslab.setPathPoint(null));
+  await page.evaluate(() => window.physixlab.setPathPoint(null));
   await page.keyboard.press('Shift+C');
   assert((await paths(page))[0].closed === true, 'Shift+C closes the loop');
   await page.keyboard.press('Shift+C');
@@ -150,7 +150,7 @@ test('path tool: draw with the pointer, insert, delete, close, reverse; the draw
   await page.keyboard.press('Control+z');
   assert((await paths(page))[0].points.length === 4, 'subdivide is one undo step');
   assert(
-    (await page.evaluate(() => window.physicslab.errors?.length ?? 0)) === 0 && page.errors.length === 0,
+    (await page.evaluate(() => window.physixlab.errors?.length ?? 0)) === 0 && page.errors.length === 0,
     `no errors: ${page.errors.join(' | ')}`,
   );
 });
@@ -158,7 +158,7 @@ test('path tool: draw with the pointer, insert, delete, close, reverse; the draw
 test('path tool: Escape cancels the draft (any number of points), Backspace removes the last point, double-click finishes', async () => {
   const page = await newPage();
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     a.viewport.setView({ position: [0, 11, 9], target: [0, 0, 0] });
     a.prefs.set({ snap: false });
@@ -169,7 +169,7 @@ test('path tool: Escape cancels the draft (any number of points), Backspace remo
   await page.keyboard.press('Escape');
   assert((await paths(page)).length === 0, 'one point + Escape: no path');
   assert(
-    (await page.evaluate(() => window.physicslab.pathViews.get('__draft_path__'))) === undefined,
+    (await page.evaluate(() => window.physixlab.pathViews.get('__draft_path__'))) === undefined,
     'the draft preview is removed',
   );
 
@@ -194,14 +194,14 @@ test('path tool: Escape cancels the draft (any number of points), Backspace remo
   );
   assert(ps[0].closed === false, 'open path');
   // the camera did not "frame" on the double click (the tool swallows it): view still looks down at the origin
-  const cam = await page.evaluate(() => window.physicslab.camera.position.y);
+  const cam = await page.evaluate(() => window.physixlab.camera.position.y);
   near(cam, 11, 0.5, 'double-click did not move the camera');
 });
 
 test('path inspector: operations section, respace to N points, flatten', async () => {
   const page = await newPage();
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     a.viewport.setView({ position: [0, 11, 9], target: [0, 0, 0] });
     a.editor.addPath([0, 0, 0], {
@@ -223,7 +223,7 @@ test('path inspector: operations section, respace to N points, flatten', async (
   let p = (await paths(page))[0];
   assert(p.points.length === 7, `respaced to 7 points (${p.points.length})`);
   const gaps = await page.evaluate(() => {
-    const pts = window.physicslab.store.paths()[0].points;
+    const pts = window.physixlab.store.paths()[0].points;
     return pts.slice(1).map((q, i) => Math.hypot(q[0] - pts[i][0], q[1] - pts[i][1], q[2] - pts[i][2]));
   });
   const mean = gaps.reduce((s, g) => s + g, 0) / gaps.length;

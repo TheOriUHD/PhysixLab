@@ -7,16 +7,16 @@ import { assert, newPage, screenOf, shot } from '../helpers.mjs';
 export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
-const sel = (page) => page.evaluate(() => [...window.physicslab.store.selection]);
+const sel = (page) => page.evaluate(() => [...window.physixlab.store.selection]);
 const names = (page) =>
-  page.evaluate(() => window.physicslab.store.selection.map((id) => window.physicslab.store.get(id).name).sort());
+  page.evaluate(() => window.physixlab.store.selection.map((id) => window.physixlab.store.get(id).name).sort());
 
 /** Row of bodies along x at y = 0.5, camera looking at them. Returns ids by name. */
 async function setup(page, extra) {
   return page.evaluate(
     (src) => {
       const extra = src ? new Function(`return ${src}`)() : null;
-      const a = window.physicslab;
+      const a = window.physixlab;
       a.newScene();
       a.prefs.set({ followSelection: false }); // the start-up scene follows its selection; the camera must stay put
       const ids = {};
@@ -60,7 +60,7 @@ test('ED-1 lasso: replace, Shift adds, Ctrl subtracts; click picks one; outline 
   const ids = await setup(page);
   await page.click('.viewport-canvas', { position: { x: 700, y: 120 } }); // focus without selecting anything
   await page.keyboard.press('o');
-  assert((await page.evaluate(() => window.physicslab.prefs.value.tool)) === 'lasso', 'O activates the lasso tool');
+  assert((await page.evaluate(() => window.physixlab.prefs.value.tool)) === 'lasso', 'O activates the lasso tool');
   assert(await page.locator('.toolbox [data-tool="lasso"]').count(), 'toolbox has the lasso button');
   const p = {};
   for (const n of ['N0', 'N1', 'N2', 'N3']) p[n] = await screenOf(page, ids[n]);
@@ -98,7 +98,7 @@ test('ED-1 lasso: replace, Shift adds, Ctrl subtracts; click picks one; outline 
   await page.mouse.click(700, 300);
   assert((await sel(page)).length === 0, 'click on empty clears');
   // Escape during a drag cancels and leaves the selection as it was.
-  await page.evaluate((id) => window.physicslab.store.setSelection([id]), ids.N3);
+  await page.evaluate((id) => window.physixlab.store.setSelection([id]), ids.N3);
   await page.mouse.move(p.N0.x - 80, p.N0.y - 90);
   await page.mouse.down();
   await page.mouse.move(p.N1.x + 80, p.N1.y + 90, { steps: 4 });
@@ -112,7 +112,7 @@ test('ED-1 lasso: hidden objects are not selectable, locked ones are', async () 
   const page = await newPage();
   const ids = await setup(page);
   await page.evaluate((ids) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.update(ids.N0, { hidden: true });
     a.store.update(ids.N1, { locked: true });
   }, ids);
@@ -135,7 +135,7 @@ test('ED-1 paint select: brush strokes select what they touch; Shift adds, Ctrl 
   const ids = await setup(page);
   await page.click('.viewport-canvas', { position: { x: 700, y: 120 } });
   await page.keyboard.press('s');
-  assert((await page.evaluate(() => window.physicslab.prefs.value.tool)) === 'paintselect', 'S activates paint select');
+  assert((await page.evaluate(() => window.physixlab.prefs.value.tool)) === 'paintselect', 'S activates paint select');
   const p = {};
   for (const n of ['N0', 'N1', 'N2', 'N3']) p[n] = await screenOf(page, ids[n]);
 
@@ -194,7 +194,7 @@ test('ED-1 select commands: similar (shape/material/size/tag), invert, group chi
     a.editor.addJoint('hinge', { body: ids.N1, point: at(ids.N1) }, { body: ids.N2, point: at(ids.N2) });
   });
   const setSel = (list) =>
-    page.evaluate(({ ids, list }) => window.physicslab.store.setSelection(list.map((n) => ids[n])), { ids, list });
+    page.evaluate(({ ids, list }) => window.physixlab.store.setSelection(list.map((n) => ids[n])), { ids, list });
   await page.click('.viewport-canvas', { position: { x: 700, y: 120 } });
 
   await setSel(['N0']);
@@ -218,7 +218,7 @@ test('ED-1 select commands: similar (shape/material/size/tag), invert, group chi
     `invert: ${await names(page)}`,
   );
   const inv = await page.evaluate((ids) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     return a.store.selection.includes(ids.N0) || a.store.selection.includes(ids.N1);
   }, ids);
   assert(!inv, 'invert removed the originally selected ones');
@@ -241,13 +241,13 @@ test('ED-1 select commands: similar (shape/material/size/tag), invert, group chi
 
   // Group children.
   await page.evaluate((ids) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.setSelection([ids.N2, ids.N3]);
     a.addGroup();
   }, ids);
-  const grp = await page.evaluate(() => window.physicslab.store.selection[0]);
+  const grp = await page.evaluate(() => window.physixlab.store.selection[0]);
   assert(
-    grp && (await page.evaluate((g) => window.physicslab.store.get(g).kind, grp)) === 'group',
+    grp && (await page.evaluate((g) => window.physixlab.store.get(g).kind, grp)) === 'group',
     'group created and selected',
   );
   await palette(page, 'Select group children');

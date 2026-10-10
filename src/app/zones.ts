@@ -1,6 +1,6 @@
 /**
  * The page side of the zones package: turns the worker's stream of `zone` / `bounds` events and the published race
- * state into one typed API (`app.zones`, also on `window.physicslab.zones`) for the HUD, the Zones panel, logic,
+ * state into one typed API (`app.zones`, also on `window.physixlab.zones`) for the HUD, the Zones panel, logic,
  * scripts and the game layer.
  *
  *   zones.on('event', (e) => …)     every zone / bounds event, with the body, racer and zone resolved to names

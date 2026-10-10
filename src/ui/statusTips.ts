@@ -6,8 +6,8 @@ import type { App } from '../app/app';
 import { chooseTip, listStatusTips, type StatusTipDef } from '../app/registry/tips';
 import { h } from './dom';
 
-const KEY = 'physicslab.tips';
-const EVENT = 'physicslab:tips';
+const KEY = 'physixlab.tips';
+const EVENT = 'physixlab:tips';
 
 export function tipsEnabled(): boolean {
   try {

@@ -3,7 +3,7 @@ node_modules
 dist
 e2e/out
 package-lock.json
-physicslab-dist.zip
+physixlab-dist.zip
 
 # Hand-authored in a deliberately dense house style (one rule / one table row per line);
 # Prettier would expand them several times over without improving them.

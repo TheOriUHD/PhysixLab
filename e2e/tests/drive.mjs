@@ -11,13 +11,13 @@ const test = (name, fn) => tests.push({ name, fn });
 const chassisId = (page, re = /^chassis$|chassis$/i) =>
   page.evaluate((src) => {
     const re = new RegExp(src, 'i');
-    const a = window.physicslab;
+    const a = window.physixlab;
     return (a.store.bodies().find((b) => re.test(b.name)) ?? a.store.bodies()[0]).id;
   }, re.source);
 
 /** Wait until the simulation has run `s` more simulated seconds (`simTime` counts from the start of the run). */
 const simFor = async (page, s) => {
-  const t0 = await page.evaluate(() => window.physicslab.sim.client.stats?.simTime ?? 0);
+  const t0 = await page.evaluate(() => window.physixlab.sim.client.stats?.simTime ?? 0);
   await simTime(page, t0 + s);
 };
 const visible = (page, sel) =>
@@ -32,33 +32,33 @@ test('drive: V in the Drivable car goes immersive — chase camera, W accelerate
   const page = await newPage('&scene=car');
   const id = await chassisId(page);
   const before = await page.evaluate(() => ({
-    mode: window.physicslab.cameraRig.mode,
-    gizmo: window.physicslab.prefs.value.gizmo,
-    tool: window.physicslab.prefs.value.tool,
-    snap: window.physicslab.prefs.value.snap,
-    selection: [...window.physicslab.store.selection],
-    sim: window.physicslab.sim.mode,
+    mode: window.physixlab.cameraRig.mode,
+    gizmo: window.physixlab.prefs.value.gizmo,
+    tool: window.physixlab.prefs.value.tool,
+    snap: window.physixlab.prefs.value.snap,
+    selection: [...window.physixlab.store.selection],
+    sim: window.physixlab.sim.mode,
   }));
   assert(before.sim === 'edit', 'the editor is in edit mode');
   assert(await visible(page, '.topbar'), 'the top bar is there');
   assert(await visible(page, '.tbtn.drive'), 'a Drive button sits next to Simulate');
-  await page.evaluate(() => window.physicslab.viewport.dom.focus());
-  const start = (await page.evaluate((id) => window.physicslab.store.body(id).position, id)).slice();
+  await page.evaluate(() => window.physixlab.viewport.dom.focus());
+  const start = (await page.evaluate((id) => window.physixlab.store.body(id).position, id)).slice();
   await page.keyboard.press('KeyV');
-  await page.waitForFunction(() => window.physicslab.immersive.kind === 'drive', null, { timeout: 30000 });
-  assert(await page.evaluate(() => window.physicslab.sim.active), 'the simulation started');
+  await page.waitForFunction(() => window.physixlab.immersive.kind === 'drive', null, { timeout: 30000 });
+  assert(await page.evaluate(() => window.physixlab.sim.active), 'the simulation started');
   assert(await page.evaluate(() => document.body.classList.contains('immersive')), 'immersive class on the page');
   for (const sel of ['.topbar', 'aside.panel.left', 'aside.panel.right', '.toolbox', '.viewbar']) {
     assert(!(await visible(page, sel)), `${sel} is hidden in drive mode`);
   }
   assert(await visible(page, '.drv-hud'), 'the drive HUD is shown');
   assert(await visible(page, '.drv-exit'), 'with an always-visible Exit button');
-  assert((await page.evaluate(() => window.physicslab.cameraRig.mode)) === 'chase', 'the chase camera');
+  assert((await page.evaluate(() => window.physixlab.cameraRig.mode)) === 'chase', 'the chase camera');
   assert(
-    (await page.evaluate(() => window.physicslab.store.selection.length)) === 0,
+    (await page.evaluate(() => window.physixlab.store.selection.length)) === 0,
     'nothing is selected (no outline, no gizmo)',
   );
-  assert((await page.evaluate(() => window.physicslab.contexts.current)) === 'drive', 'the drive context');
+  assert((await page.evaluate(() => window.physixlab.contexts.current)) === 'drive', 'the drive context');
   const legend = await page.locator('.ctl-body').innerText();
   assert(/Drive forward/.test(legend) && /Steer left/.test(legend), `the legend lists the car's controls: ${legend}`);
   assert(/Exit drive mode/.test(legend), 'and how to leave');
@@ -68,7 +68,7 @@ test('drive: V in the Drivable car goes immersive — chase camera, W accelerate
   await simFor(page, 3);
   const mid = await pose(page, id);
   assert(mid.position[0] - start[0] > 2, `W accelerates the car (x ${start[0]} -> ${mid.position[0].toFixed(2)})`);
-  const speed = await page.evaluate(() => window.physicslab.immersive.hud.speed);
+  const speed = await page.evaluate(() => window.physixlab.immersive.hud.speed);
   assert(speed > 5, `the speedometer reads ${speed.toFixed(1)} km/h`);
   assert(/\d/.test(await page.locator('.drv-speed-n').innerText()), 'and shows it');
   await shot(page, 'drive-chase-hud');
@@ -83,10 +83,10 @@ test('drive: V in the Drivable car goes immersive — chase camera, W accelerate
   // editor keys are locked: W above drove, these must change nothing
   for (const k of ['KeyE', 'KeyQ', 'KeyG', 'KeyH', 'KeyL', 'KeyJ', 'KeyF', 'KeyX']) await page.keyboard.press(k);
   const after = await page.evaluate(() => ({
-    gizmo: window.physicslab.prefs.value.gizmo,
-    tool: window.physicslab.prefs.value.tool,
-    snap: window.physicslab.prefs.value.snap,
-    n: window.physicslab.store.selection.length,
+    gizmo: window.physixlab.prefs.value.gizmo,
+    tool: window.physixlab.prefs.value.tool,
+    snap: window.physixlab.prefs.value.snap,
+    n: window.physixlab.store.selection.length,
   }));
   assert(
     after.gizmo === before.gizmo && after.tool === before.tool && after.snap === before.snap,
@@ -100,44 +100,44 @@ test('drive: V in the Drivable car goes immersive — chase camera, W accelerate
   await page.mouse.click(sp.x, sp.y, { button: 'right' });
   await nextFrame(page);
   assert(
-    (await page.evaluate(() => window.physicslab.store.selection.length)) === 0,
+    (await page.evaluate(() => window.physixlab.store.selection.length)) === 0,
     'clicking the car selects nothing',
   );
   assert((await page.locator('.menu').count()) === 0, 'no context menu in drive mode');
   // cameras: C cycles chase / cockpit / orbit
   await page.keyboard.press('KeyC');
-  assert((await page.evaluate(() => window.physicslab.cameraRig.mode)) === 'fp', 'C: cockpit');
+  assert((await page.evaluate(() => window.physixlab.cameraRig.mode)) === 'fp', 'C: cockpit');
   await page.keyboard.press('KeyC');
-  assert((await page.evaluate(() => window.physicslab.cameraRig.mode)) === 'tp', 'C: orbit around the vehicle');
+  assert((await page.evaluate(() => window.physixlab.cameraRig.mode)) === 'tp', 'C: orbit around the vehicle');
   await page.keyboard.press('KeyC');
-  assert((await page.evaluate(() => window.physicslab.cameraRig.mode)) === 'chase', 'C: back to chase');
+  assert((await page.evaluate(() => window.physixlab.cameraRig.mode)) === 'chase', 'C: back to chase');
   // look behind while B is held
   await page.keyboard.down('KeyB');
-  assert(await page.evaluate(() => window.physicslab.cameraRig.lookBack), 'B looks behind');
+  assert(await page.evaluate(() => window.physixlab.cameraRig.lookBack), 'B looks behind');
   await page.keyboard.up('KeyB');
-  assert(!(await page.evaluate(() => window.physicslab.cameraRig.lookBack)), 'and lets go');
+  assert(!(await page.evaluate(() => window.physixlab.cameraRig.lookBack)), 'and lets go');
   // a drag looks around and springs back
   const c = await page.evaluate(() => {
-    const r = window.physicslab.viewport.dom.getBoundingClientRect();
+    const r = window.physixlab.viewport.dom.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 3 };
   });
   await page.mouse.move(c.x, c.y);
   await page.mouse.down();
   for (let i = 1; i <= 8; i++) await page.mouse.move(c.x + i * 30, c.y);
-  const off = await page.evaluate(() => window.physicslab.cameraRig.follow.yawOffset);
+  const off = await page.evaluate(() => window.physixlab.cameraRig.follow.yawOffset);
   assert(Math.abs(off) > 0.3, `dragging looks around (${off.toFixed(2)} rad)`);
   await page.mouse.up();
-  await page.waitForFunction(() => Math.abs(window.physicslab.cameraRig.follow.yawOffset) < 0.05, null, {
+  await page.waitForFunction(() => Math.abs(window.physixlab.cameraRig.follow.yawOffset) < 0.05, null, {
     timeout: 15000,
   });
   // P pauses
   await page.keyboard.press('KeyP');
-  assert((await page.evaluate(() => window.physicslab.sim.mode)) === 'paused', 'P pauses');
+  assert((await page.evaluate(() => window.physixlab.sim.mode)) === 'paused', 'P pauses');
   await page.keyboard.press('KeyP');
-  assert((await page.evaluate(() => window.physicslab.sim.mode)) === 'running', 'P resumes');
+  assert((await page.evaluate(() => window.physixlab.sim.mode)) === 'running', 'P resumes');
   // R when tilted: flip upright where it stands. Roll the whole car over 180 degrees about its forward axis, then press R.
   await page.evaluate((id) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const pc = a.sim.poseOf(id).position;
     const mul = (a, b) => [
       a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
@@ -151,7 +151,7 @@ test('drive: V in the Drivable car goes immersive — chase camera, W accelerate
       a.sim.teleport(bid, [p[0], pc[1] + 1.5 - (p[1] - pc[1]), pc[2] - (p[2] - pc[2])], mul([1, 0, 0, 0], q.rotation));
     }
   }, id);
-  await page.waitForFunction(() => window.physicslab.immersive.hud.tilted, null, { timeout: 30000 });
+  await page.waitForFunction(() => window.physixlab.immersive.hud.tilted, null, { timeout: 30000 });
   await page.waitForFunction(() => /Tilted/.test(document.querySelector('.drv-note')?.innerText ?? ''), null, {
     timeout: 30000,
   });
@@ -159,7 +159,7 @@ test('drive: V in the Drivable car goes immersive — chase camera, W accelerate
   await page.keyboard.press('KeyR');
   await page.waitForFunction(
     (id) => {
-      const q = window.physicslab.sim.poseOf(id).rotation;
+      const q = window.physixlab.sim.poseOf(id).rotation;
       const up = 1 - 2 * (q[0] * q[0] + q[2] * q[2]); // the chassis' up axis . world up
       return up > 0.8;
     },
@@ -171,11 +171,11 @@ test('drive: V in the Drivable car goes immersive — chase camera, W accelerate
     'a flip keeps the car where it stands (it does not go back to the start)',
   );
   // R again, upright now: back to the start pose (the car creeps away from it at once, so look for "far from where it was")
-  await page.waitForFunction(() => !window.physicslab.immersive.hud.tilted, null, { timeout: 30000 });
+  await page.waitForFunction(() => !window.physixlab.immersive.hud.tilted, null, { timeout: 30000 });
   const xBefore = (await pose(page, id)).position[0];
   await page.keyboard.press('KeyR');
   await page
-    .waitForFunction(([id, x0]) => window.physicslab.sim.poseOf(id).position[0] < x0 - 8, [id, xBefore], {
+    .waitForFunction(([id, x0]) => window.physixlab.sim.poseOf(id).position[0] < x0 - 8, [id, xBefore], {
       timeout: 30000,
     })
     .catch(() => {
@@ -183,25 +183,25 @@ test('drive: V in the Drivable car goes immersive — chase camera, W accelerate
     });
   // Esc leaves and restores
   await page.keyboard.press('Escape');
-  await page.waitForFunction(() => window.physicslab.immersive.kind === 'none', null, { timeout: 30000 });
+  await page.waitForFunction(() => window.physixlab.immersive.kind === 'none', null, { timeout: 30000 });
   assert(await visible(page, '.topbar'), 'the top bar is back');
   assert(await visible(page, 'aside.panel.right'), 'the panels are back');
   const back = await page.evaluate(() => ({
-    mode: window.physicslab.cameraRig.mode,
-    sim: window.physicslab.sim.mode,
+    mode: window.physixlab.cameraRig.mode,
+    sim: window.physixlab.sim.mode,
     cls: document.body.classList.contains('immersive'),
-    ctx: window.physicslab.contexts.current,
-    selection: [...window.physicslab.store.selection],
-    ortho: window.physicslab.camera.ortho,
+    ctx: window.physixlab.contexts.current,
+    selection: [...window.physixlab.store.selection],
+    ortho: window.physixlab.camera.ortho,
   }));
   assert(back.mode === before.mode, `camera mode restored (${back.mode})`);
   assert(back.sim === 'edit', `simulation state restored (${back.sim})`);
   assert(!back.cls && back.ctx === 'edit', `back to the edit context (${back.ctx})`);
   assert(JSON.stringify(back.selection) === JSON.stringify(before.selection), 'selection restored');
   // and the editor keys work again
-  await page.evaluate(() => window.physicslab.viewport.dom.focus());
+  await page.evaluate(() => window.physixlab.viewport.dom.focus());
   await page.keyboard.press('KeyE');
-  assert((await page.evaluate(() => window.physicslab.prefs.value.gizmo)) === 'rotate', 'E rotates the gizmo again');
+  assert((await page.evaluate(() => window.physixlab.prefs.value.gizmo)) === 'rotate', 'E rotates the gizmo again');
   assert(page.errors.length === 0, page.errors.join('\n'));
   await page.close();
 });
@@ -209,33 +209,33 @@ test('drive: V in the Drivable car goes immersive — chase camera, W accelerate
 test('drive: Tab leaves too, from a paused simulation with a selection, and the camera comes back where it was', async () => {
   const page = await newPage('&scene=car');
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.prefs.set({ followSelection: false });
     a.viewport.setView({ position: [4, 3, 9], target: [0, 0.6, 0] });
     a.sim.play();
   });
   await page.waitForTimeout(500);
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.sim.pause();
     a.store.setSelection([a.store.bodies()[1].id]);
     a.viewport.dom.focus();
   });
-  const sel = await page.evaluate(() => [...window.physicslab.store.selection]);
-  const cam0 = await page.evaluate(() => window.physicslab.camera.position.toArray());
+  const sel = await page.evaluate(() => [...window.physixlab.store.selection]);
+  const cam0 = await page.evaluate(() => window.physixlab.camera.position.toArray());
   await page.keyboard.press('KeyV');
-  await page.waitForFunction(() => window.physicslab.immersive.kind === 'drive');
-  assert((await page.evaluate(() => window.physicslab.sim.mode)) === 'running', 'drive mode runs the simulation');
+  await page.waitForFunction(() => window.physixlab.immersive.kind === 'drive');
+  assert((await page.evaluate(() => window.physixlab.sim.mode)) === 'running', 'drive mode runs the simulation');
   await page.waitForTimeout(800);
   await page.keyboard.press('Tab');
-  await page.waitForFunction(() => window.physicslab.immersive.kind === 'none');
-  assert((await page.evaluate(() => window.physicslab.sim.mode)) === 'paused', 'the paused state is restored');
+  await page.waitForFunction(() => window.physixlab.immersive.kind === 'none');
+  assert((await page.evaluate(() => window.physixlab.sim.mode)) === 'paused', 'the paused state is restored');
   assert(
-    JSON.stringify(await page.evaluate(() => [...window.physicslab.store.selection])) === JSON.stringify(sel),
+    JSON.stringify(await page.evaluate(() => [...window.physixlab.store.selection])) === JSON.stringify(sel),
     'selection restored',
   );
   await page.waitForFunction(
-    (c0) => window.physicslab.camera.position.distanceTo({ x: c0[0], y: c0[1], z: c0[2] }) < 0.5,
+    (c0) => window.physixlab.camera.position.distanceTo({ x: c0[0], y: c0[1], z: c0[2] }) < 0.5,
     cam0,
     { timeout: 20000 },
   );
@@ -245,11 +245,11 @@ test('drive: Tab leaves too, from a paused simulation with a selection, and the 
 
 test('drive: V where there is nothing to drive says so; the palette has "Drive selected vehicle"', async () => {
   const page = await newPage('&scene=wreck');
-  await page.evaluate(() => window.physicslab.viewport.dom.focus());
+  await page.evaluate(() => window.physixlab.viewport.dom.focus());
   await page.keyboard.press('KeyV');
   await page.waitForSelector('.toast, .toasts > *', { timeout: 30000 });
   assert(
-    (await page.evaluate(() => window.physicslab.immersive.kind)) === 'none',
+    (await page.evaluate(() => window.physixlab.immersive.kind)) === 'none',
     'no immersive mode without a vehicle',
   );
   const txt = await page.locator('.toasts').innerText();
@@ -270,14 +270,14 @@ test('drive: the powertrain car keeps its own keys (R reverse, P parking brake, 
   const page = await newPage('&scene=powertrain-car');
   const id = await chassisId(page);
   await page.evaluate(() => {
-    window.physicslab.prefs.set({ followSelection: false });
-    window.physicslab.viewport.dom.focus();
+    window.physixlab.prefs.set({ followSelection: false });
+    window.physixlab.viewport.dom.focus();
   });
-  const start = (await page.evaluate((id) => window.physicslab.store.body(id).position, id)).slice();
+  const start = (await page.evaluate((id) => window.physixlab.store.body(id).position, id)).slice();
   await page.keyboard.press('KeyV');
-  await page.waitForFunction(() => window.physicslab.immersive.kind === 'drive', null, { timeout: 30000 });
+  await page.waitForFunction(() => window.physixlab.immersive.kind === 'drive', null, { timeout: 30000 });
   const keys = await page.evaluate(() =>
-    Object.fromEntries([...window.physicslab.immersive.driveKeys.entries()].map(([k, v]) => [v, k])),
+    Object.fromEntries([...window.physixlab.immersive.driveKeys.entries()].map(([k, v]) => [v, k])),
   );
   assert(keys.reset === 'Backspace', `reset moved to Backspace (${JSON.stringify(keys)})`);
   assert(keys.pause === 'Enter' && keys.camera === 'KeyX', 'pause and camera moved too');
@@ -288,7 +288,7 @@ test('drive: the powertrain car keeps its own keys (R reverse, P parking brake, 
   await simFor(page, 4);
   const p1 = await pose(page, id);
   assert(p1.position[0] - start[0] > 3, `W drives the powertrain car (x ${start[0]} -> ${p1.position[0].toFixed(2)})`);
-  const hud = await page.evaluate(() => ({ ...window.physicslab.immersive.hud }));
+  const hud = await page.evaluate(() => ({ ...window.physixlab.immersive.hud }));
   assert(hud.rpm !== null && hud.rpm > 1200, `the HUD reads the engine (${hud.rpm} rpm)`);
   assert(hud.gear !== null && hud.gear >= 1, `and the gearbox (gear ${hud.gear})`);
   assert(/rpm/.test(await page.locator('.drv-aux').innerText()), 'both are shown');
@@ -300,10 +300,10 @@ test('drive: the powertrain car keeps its own keys (R reverse, P parking brake, 
   const p2 = await pose(page, id);
   assert(p2.position[0] - start[0] > 2, 'R did not reset the car (it is the reverse gear)');
   // Backspace does (a flip when it has rolled over, the start pose otherwise: either way the key reached the reset)
-  const resets0 = await page.evaluate(() => window.physicslab.immersive.resets);
+  const resets0 = await page.evaluate(() => window.physixlab.immersive.resets);
   await page.keyboard.press('Backspace');
   await page
-    .waitForFunction((n) => window.physicslab.immersive.resets > n, resets0, { timeout: 30000 })
+    .waitForFunction((n) => window.physixlab.immersive.resets > n, resets0, { timeout: 30000 })
     .catch(() => {
       throw new Error('assertion failed: Backspace resets the powertrain car');
     });
@@ -324,18 +324,18 @@ test('drive: a gamepad trigger drives the car in drive mode (analog axes)', asyn
       buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })),
     };
     navigator.getGamepads = () => [window.__pad, null, null, null];
-    window.physicslab.viewport.dom.focus();
+    window.physixlab.viewport.dom.focus();
   });
   const id = await chassisId(page);
-  const start = (await page.evaluate((id) => window.physicslab.store.body(id).position, id)).slice();
+  const start = (await page.evaluate((id) => window.physixlab.store.body(id).position, id)).slice();
   await page.keyboard.press('KeyV');
-  await page.waitForFunction(() => window.physicslab.immersive.kind === 'drive');
+  await page.waitForFunction(() => window.physixlab.immersive.kind === 'drive');
   await page.waitForTimeout(400);
   await page.evaluate(() => {
     window.__pad.buttons[7] = { pressed: true, value: 1 };
   });
   await simFor(page, 3);
-  const axes = await page.evaluate(() => ({ ...window.physicslab.sim.client.axes }));
+  const axes = await page.evaluate(() => ({ ...window.physixlab.sim.client.axes }));
   assert(axes.drive > 0.9, `the drive axis follows the right trigger ${JSON.stringify(axes)}`);
   const p = await pose(page, id);
   assert(
@@ -351,13 +351,13 @@ test('drive: a gamepad trigger drives the car in drive mode (analog axes)', asyn
 test('drive: on a touch screen the virtual sticks stay and drive the car', async () => {
   const page = await newTouchPage('&scene=car');
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.prefs.set({ followSelection: false });
   });
   const id = await chassisId(page);
-  const start = (await page.evaluate((id) => window.physicslab.store.body(id).position, id)).slice();
-  await page.evaluate(() => window.physicslab.immersive.enterDrive());
-  await page.waitForFunction(() => window.physicslab.immersive.kind === 'drive');
+  const start = (await page.evaluate((id) => window.physixlab.store.body(id).position, id)).slice();
+  await page.evaluate(() => window.physixlab.immersive.enterDrive());
+  await page.waitForFunction(() => window.physixlab.immersive.kind === 'drive');
   await page.waitForSelector('.tc-overlay:not([hidden])', { timeout: 30000 });
   assert(await visible(page, '.tc-overlay'), 'the touch controls are visible in drive mode');
   assert(await visible(page, '.drv-exit'), 'with the Exit button');
@@ -379,7 +379,7 @@ test('drive: on a touch screen the virtual sticks stay and drive the car', async
   );
   // the Exit button leaves
   await page.click('.drv-exit');
-  await page.waitForFunction(() => window.physicslab.immersive.kind === 'none');
+  await page.waitForFunction(() => window.physixlab.immersive.kind === 'none');
   assert(page.errors.length === 0, page.errors.join('\n'));
   await page.closeAll();
 });
@@ -387,7 +387,7 @@ test('drive: on a touch screen the virtual sticks stay and drive the car', async
 test('play: the Play button puts you in the running scene — fly camera, grab and throw, no editor — and Esc restores it', async () => {
   const page = await newPage();
   const id = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     const b = a.editor.addShape('sphere', [0, 0.5, 0], { material: { preset: 'rubber', density: 300 } });
     a.viewport.setView({ position: [0, 4, 9], target: [0, 1, 0] });
@@ -397,18 +397,18 @@ test('play: the Play button puts you in the running scene — fly camera, grab a
   });
   assert(await visible(page, '.tbtn.play-mode'), 'a Play button is in the top bar');
   await page.click('.tbtn.play-mode');
-  await page.waitForFunction(() => window.physicslab.immersive.kind === 'play', null, { timeout: 30000 });
-  assert(await page.evaluate(() => window.physicslab.sim.active), 'the scene runs');
+  await page.waitForFunction(() => window.physixlab.immersive.kind === 'play', null, { timeout: 30000 });
+  assert(await page.evaluate(() => window.physixlab.sim.active), 'the scene runs');
   assert(!(await visible(page, '.topbar')) && !(await visible(page, 'aside.panel.right')), 'the chrome is gone');
-  assert((await page.evaluate(() => window.physicslab.cameraRig.mode)) === 'fly', 'a fly camera');
-  assert((await page.evaluate(() => window.physicslab.contexts.current)) === 'play', 'the play context');
-  assert((await page.evaluate(() => window.physicslab.store.selection.length)) === 0, 'nothing selected');
+  assert((await page.evaluate(() => window.physixlab.cameraRig.mode)) === 'fly', 'a fly camera');
+  assert((await page.evaluate(() => window.physixlab.contexts.current)) === 'play', 'the play context');
+  assert((await page.evaluate(() => window.physixlab.store.selection.length)) === 0, 'nothing selected');
   await simFor(page, 0.8);
   // W flies forward (hold it until the camera has moved: frames can take seconds on a loaded machine)
-  const p0 = await page.evaluate(() => window.physicslab.camera.position.toArray());
+  const p0 = await page.evaluate(() => window.physixlab.camera.position.toArray());
   await page.keyboard.down('KeyW');
   await page
-    .waitForFunction((p0) => window.physicslab.camera.position.distanceTo({ x: p0[0], y: p0[1], z: p0[2] }) > 0.8, p0, {
+    .waitForFunction((p0) => window.physixlab.camera.position.distanceTo({ x: p0[0], y: p0[1], z: p0[2] }) > 0.8, p0, {
       timeout: 30000,
     })
     .catch(() => {
@@ -419,7 +419,7 @@ test('play: the Play button puts you in the running scene — fly camera, grab a
   await page.keyboard.press('KeyG');
   await page.keyboard.press('KeyR');
   assert(
-    (await page.evaluate(() => window.physicslab.prefs.value.gizmo)) !== 'scale',
+    (await page.evaluate(() => window.physixlab.prefs.value.gizmo)) !== 'scale',
     'R does not select the scale gizmo',
   );
   // grab the ball with the mouse, lift it, selection stays empty
@@ -428,23 +428,23 @@ test('play: the Play button puts you in the running scene — fly camera, grab a
   await page.mouse.down();
   await page.mouse.move(sp.x, sp.y - 150, { steps: 10 });
   await page
-    .waitForFunction((id) => window.physicslab.sim.poseOf(id).position[1] > 1.2, id, { timeout: 30000 })
+    .waitForFunction((id) => window.physixlab.sim.poseOf(id).position[1] > 1.2, id, { timeout: 30000 })
     .catch(() => {
       throw new Error('assertion failed: the ball was lifted by the grab in play mode');
     });
   assert(
-    (await page.evaluate(() => window.physicslab.contexts.current)) === 'play',
+    (await page.evaluate(() => window.physixlab.contexts.current)) === 'play',
     'still the play context while holding',
   );
   await shot(page, 'play-mode-grab');
   await page.mouse.up();
-  assert((await page.evaluate(() => window.physicslab.store.selection.length)) === 0, 'grabbing selected nothing');
+  assert((await page.evaluate(() => window.physixlab.store.selection.length)) === 0, 'grabbing selected nothing');
   await page.keyboard.press('Escape');
-  await page.waitForFunction(() => window.physicslab.immersive.kind === 'none');
+  await page.waitForFunction(() => window.physixlab.immersive.kind === 'none');
   assert(await visible(page, '.topbar'), 'the editor is back');
-  assert((await page.evaluate(() => window.physicslab.sim.mode)) === 'edit', 'in edit mode again');
+  assert((await page.evaluate(() => window.physixlab.sim.mode)) === 'edit', 'in edit mode again');
   assert(
-    JSON.stringify(await page.evaluate(() => [...window.physicslab.store.selection])) === JSON.stringify([id]),
+    JSON.stringify(await page.evaluate(() => [...window.physixlab.store.selection])) === JSON.stringify([id]),
     'the selection is restored',
   );
   assert(page.errors.length === 0, page.errors.join('\n'));

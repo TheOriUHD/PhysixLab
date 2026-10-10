@@ -19,6 +19,6 @@ export function buildIframeSnippet(o: SnippetOptions): string {
   const h = clampPx(o.height, 400);
   return (
     `<iframe src="${escapeAttr(o.url)}" width="${w}" height="${h}" style="border:0;max-width:100%" ` +
-    `title="${escapeAttr(o.title ?? 'PhysicsLab simulation')}" loading="lazy" allow="fullscreen" allowfullscreen></iframe>`
+    `title="${escapeAttr(o.title ?? 'PhysixLab simulation')}" loading="lazy" allow="fullscreen" allowfullscreen></iframe>`
   );
 }

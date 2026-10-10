@@ -8,7 +8,7 @@ import type { App } from '../app';
 import { Symmetry } from './symmetry';
 import type { Axis } from '../../model/edit/mirror';
 
-const KEY = 'physicslab:ed:symmetryPlane';
+const KEY = 'physixlab:ed:symmetryPlane';
 const hosts = new WeakMap<App, Symmetry>();
 
 function loadPlane(): { axis: Axis; offset: number } {

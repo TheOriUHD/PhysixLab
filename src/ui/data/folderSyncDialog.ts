@@ -22,7 +22,7 @@ export function showFolderSync(app: App): void {
       h(
         'p',
         { class: 'hint-text' },
-        'Scenes are saved into a folder as .physicslab.json files. Choose a folder your Dropbox, Google Drive, iCloud or OneDrive app syncs and your scenes follow you between computers. PhysicsLab has no server and no accounts.',
+        'Scenes are saved into a folder as .physixlab.json files. Choose a folder your Dropbox, Google Drive, iCloud or OneDrive app syncs and your scenes follow you between computers. PhysixLab has no server and no accounts.',
       ),
     );
     if (svc.status === 'unsupported') {
@@ -95,7 +95,7 @@ export function showFolderSync(app: App): void {
               if (
                 await confirmDialog(
                   'Disconnect the folder?',
-                  'Files stay where they are; PhysicsLab just stops using the folder.',
+                  'Files stay where they are; PhysixLab just stops using the folder.',
                   'Disconnect',
                 )
               )
@@ -123,7 +123,7 @@ export function showFolderSync(app: App): void {
         return h(
           'div',
           { class: 'storage-row' },
-          h('div', null, h('b', null, f.name.replace(/\.physicslab\.json$/, ''))),
+          h('div', null, h('b', null, f.name.replace(/\.(physixlab|physicslab)\.json$/, ''))),
           h('div', { class: 'storage-size' }, new Date(f.lastModified).toLocaleString()),
           open,
         );

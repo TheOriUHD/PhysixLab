@@ -42,7 +42,7 @@ const MIME = {
 let built; // { dirA, dirB, version, versionB, count }
 function buildOnce() {
   if (built) return built;
-  const base = mkdtempSync(join(tmpdir(), 'physicslab-pwa-'));
+  const base = mkdtempSync(join(tmpdir(), 'physixlab-pwa-'));
   const dirA = join(base, 'a');
   const vite = join(root, 'node_modules', 'vite', 'bin', 'vite.js');
   const r = spawnSync(process.execPath, [vite, 'build', '--outDir', dirA, '--emptyOutDir'], {
@@ -97,7 +97,7 @@ async function openApp(server, query = '?nowelcome') {
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   await page.goto(server.url + query);
-  await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport, null, { timeout: 30000 });
+  await page.waitForFunction(() => !!window.physixlab && window.physixlab.viewport, null, { timeout: 30000 });
   return { ctx, page, errors };
 }
 
@@ -131,7 +131,7 @@ test('pwa: manifest and icons are served and valid', async () => {
       }
       return { man, sizes, theme: document.querySelector('meta[name=theme-color]')?.content };
     });
-    assert(m.man.display === 'standalone' && m.man.name === 'PhysicsLab', 'standalone PhysicsLab manifest');
+    assert(m.man.display === 'standalone' && m.man.name === 'PhysixLab', 'standalone PhysixLab manifest');
     assert(m.man.start_url === './' && m.man.scope === './', 'relative start_url/scope (sub-path deployable)');
     assert(
       m.man.icons.some((i) => i.purpose === 'maskable'),
@@ -142,7 +142,7 @@ test('pwa: manifest and icons are served and valid', async () => {
     assert(m.sizes['icons/icon-maskable-512.png']?.join('x') === '512x512', 'maskable icon decodes');
     assert(m.theme === m.man.theme_color, 'theme-color meta matches the manifest');
     assert(
-      m.man.file_handlers?.[0]?.accept?.['application/json']?.includes('.physicslab.json'),
+      m.man.file_handlers?.[0]?.accept?.['application/json']?.includes('.physixlab.json'),
       'file handler declared',
     );
     await ctx.close();
@@ -177,8 +177,8 @@ test('pwa: installs, precaches everything and starts + simulates offline', async
     server.down = true;
     await ctx.setOffline(true);
     await page.reload();
-    await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport, null, { timeout: 30000 });
-    const bodies = await page.evaluate(() => window.physicslab.store.bodies().length);
+    await page.waitForFunction(() => !!window.physixlab && window.physixlab.viewport, null, { timeout: 30000 });
+    const bodies = await page.evaluate(() => window.physixlab.store.bodies().length);
     assert(bodies > 0, 'the offline app loaded a scene');
     await page.keyboard.press('Space'); // simulate: needs the worker + wasm, both from the cache
     await simTime(page, 0.3);
@@ -209,7 +209,7 @@ test('pwa: update-available banner, never auto-reloads, Reload activates the new
     assert(keys.includes(`pl-v${b.version}`), 'old cache still present while the update waits');
 
     await page.locator('.pwa-update [data-pwa=reload]').click();
-    await page.waitForFunction(() => window.__beforeUpdate === undefined && !!window.physicslab?.viewport, null, {
+    await page.waitForFunction(() => window.__beforeUpdate === undefined && !!window.physixlab?.viewport, null, {
       timeout: 30000,
     });
     await page.waitForFunction(
@@ -227,23 +227,23 @@ test('pwa: update-available banner, never auto-reloads, Reload activates the new
   }
 });
 
-test('pwa: a shared .physicslab.json (Web Share Target POST) is imported on open', async () => {
+test('pwa: a shared .physixlab.json (Web Share Target POST) is imported on open', async () => {
   const b = buildOnce();
   const server = await serve(b.dirA);
   try {
     const { ctx, page } = await openApp(server);
     await waitOfflineReady(page, b.version, b.count);
     const status = await page.evaluate(async () => {
-      const doc = window.physicslab.store.toDocument();
+      const doc = window.physixlab.store.toDocument();
       doc.name = 'Shared via PWA';
       const fd = new FormData();
-      fd.append('scene', new File([JSON.stringify(doc)], 'shared.physicslab.json', { type: 'application/json' }));
+      fd.append('scene', new File([JSON.stringify(doc)], 'shared.physixlab.json', { type: 'application/json' }));
       const res = await fetch('share-target', { method: 'POST', body: fd, redirect: 'manual' });
       return { type: res.type };
     });
     assert(status.type === 'opaqueredirect', `the worker answers the share POST with a redirect (${status.type})`);
     await page.goto(`${server.url}?shared=1&nowelcome`);
-    await page.waitForFunction(() => window.physicslab?.store?.name === 'Shared via PWA', null, { timeout: 30000 });
+    await page.waitForFunction(() => window.physixlab?.store?.name === 'Shared via PWA', null, { timeout: 30000 });
     assert(!page.url().includes('shared='), 'the ?shared flag is removed from the address bar');
     await ctx.close();
   } finally {
@@ -262,7 +262,7 @@ test('pwa: works when deployed under a sub-path (GitHub Pages style)', async () 
     server.down = true;
     await ctx.setOffline(true);
     await page.reload();
-    await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport, null, { timeout: 30000 });
+    await page.waitForFunction(() => !!window.physixlab && window.physixlab.viewport, null, { timeout: 30000 });
     await page.keyboard.press('Space');
     await simTime(page, 0.3);
     assert(errors.length === 0, `no page errors: ${errors.join(' | ')}`);

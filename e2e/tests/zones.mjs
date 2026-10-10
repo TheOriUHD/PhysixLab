@@ -14,7 +14,7 @@ const blur = (page) => page.evaluate(() => document.activeElement?.blur());
 /** An empty scene with a ground, camera looking down the +x axis from the side. */
 async function emptyScene(page, over = {}) {
   await page.evaluate((over) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     if (over.settings) a.store.updateSettings(over.settings);
     a.viewport.setView({ position: [18, 12, 22], target: [18, 0, 0] });
@@ -32,7 +32,7 @@ test('zones: the Add tab adds zones as coloured volumes, selected, in one undo s
   await page.dblclick('.zone-tiles .tile[data-zone="checkpoint"]');
   await page.dblclick('.zone-tiles .tile[data-zone="finish"]');
   const made = await page.evaluate(() =>
-    window.physicslab.store
+    window.physixlab.store
       .bodies()
       .map((b) => [
         b.name,
@@ -52,17 +52,17 @@ test('zones: the Add tab adds zones as coloured volumes, selected, in one undo s
       ]),
     `ghost static zone bodies, numbered in order: ${JSON.stringify(made)}`,
   );
-  const sel = await page.evaluate(() => window.physicslab.store.selection.length);
+  const sel = await page.evaluate(() => window.physixlab.store.selection.length);
   assert(sel === 1, 'the new zone is selected');
   // volumes are decorated (outline + tint) and captioned
-  await page.waitForFunction(() => window.physicslab.zoneViews.volumeCount === 3);
+  await page.waitForFunction(() => window.physixlab.zoneViews.volumeCount === 3);
   await page.waitForSelector('.v-label.zone-label');
   const captions = await page.locator('.v-label.zone-label').allTextContents();
   assert(captions.includes('Checkpoint 2') && captions.includes('Finish line'), `captions: ${captions}`);
   await shot(page, 'zn-add-zones');
   // undo removes just the last one
-  await page.evaluate(() => window.physicslab.store.undo());
-  assert((await page.evaluate(() => window.physicslab.store.bodies().length)) === 2, 'undo removed one zone');
+  await page.evaluate(() => window.physixlab.store.undo());
+  assert((await page.evaluate(() => window.physixlab.store.bodies().length)) === 2, 'undo removed one zone');
   assert(errors(page) === 0, `no console errors: ${page.errors}`);
 });
 
@@ -71,7 +71,7 @@ const errors = (page) => page.errors.length;
 test('zones: the inspector shows the Zone component with action-specific fields and a warning for a solid body', async () => {
   const page = await newPage();
   await emptyScene(page);
-  const id = await page.evaluate(() => window.physicslab.zones.add('launch', [18, 0, 0]).id);
+  const id = await page.evaluate(() => window.physixlab.zones.add('launch', [18, 0, 0]).id);
   await page.waitForSelector('.panel.right .comp[data-type="zone"]');
   const card = page.locator('.panel.right .comp[data-type="zone"]');
   const labels = await card.locator('.comp-row:visible .row-label').allTextContents();
@@ -94,7 +94,7 @@ test('zones: the inspector shows the Zone component with action-specific fields 
     `component list follows the registry: ${opts}`,
   );
   // a zone body that is not a ghost explains what to do
-  await page.evaluate((id) => window.physicslab.store.update(id, { ghost: false }), id);
+  await page.evaluate((id) => window.physixlab.store.update(id, { ghost: false }), id);
   await page.waitForTimeout(150);
   const warn = await card.locator('.comp-warn').first().textContent();
   assert(/Ghost/.test(warn ?? ''), `warning for a solid zone body: ${warn}`);
@@ -106,18 +106,18 @@ test('zones: a ray that also hits a solid body picks the body, not the zone volu
   const page = await newPage();
   await emptyScene(page);
   const ids = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const z = a.zones.add('none', [18, 0, 0]);
     const crate = a.editor.addShape('box', [18, 0.5, 0], { name: 'Crate' });
     a.store.setSelection([]);
     return { z: z.id, crate: crate.id };
   });
-  await page.waitForFunction(() => window.physicslab.zoneViews.volumeCount === 1);
+  await page.waitForFunction(() => window.physixlab.zoneViews.volumeCount === 1);
   await blur(page);
   const pickAt = (id, dy = 0) =>
     page.evaluate(
       async ({ id, dy }) => {
-        const a = window.physicslab;
+        const a = window.physixlab;
         await new Promise((r) => requestAnimationFrame(() => r()));
         const v = a.bodies.get(id);
         const p = v.position.clone();
@@ -132,7 +132,7 @@ test('zones: a ray that also hits a solid body picks the body, not the zone volu
   assert((await pickAt(ids.crate)) === ids.crate, 'the crate inside the zone is picked');
   // a point of the zone volume with nothing solid behind it picks the zone
   const hit = await page.evaluate(async (zid) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     await new Promise((r) => requestAnimationFrame(() => r()));
     const v = a.bodies.get(zid);
     const p = v.position.clone();
@@ -152,13 +152,13 @@ test('zones: a ray that also hits a solid body picks the body, not the zone volu
 async function play(page) {
   await blur(page);
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.physicslab.sim.client.frameNo > 2, null, { timeout: 30000 });
+  await page.waitForFunction(() => window.physixlab.sim.client.frameNo > 2, null, { timeout: 30000 });
 }
 
 test('zones: a race in the real worker — start, checkpoints and finish timed, the board, the Zones tab and the events API', async () => {
   const page = await newPage();
-  await page.evaluate(() => window.physicslab.loadTemplate('drag-strip'));
-  await page.waitForFunction(() => window.physicslab.zoneViews.volumeCount === 4);
+  await page.evaluate(() => window.physixlab.loadTemplate('drag-strip'));
+  await page.waitForFunction(() => window.physixlab.zoneViews.volumeCount === 4);
   // the editor shows the lines as coloured volumes with captions
   await page.waitForSelector('.v-label.zone-label');
   const captions = await page.locator('.v-label.zone-label').allTextContents();
@@ -171,15 +171,15 @@ test('zones: a race in the real worker — start, checkpoints and finish timed, 
   // events through the page API, as logic / scripts / the game layer would subscribe to them
   await page.evaluate(() => {
     window.__zoneEvents = [];
-    window.physicslab.zones.on('event', (e) => window.__zoneEvents.push([e.name, e.t, e.data.racer ?? null]));
+    window.physixlab.zones.on('event', (e) => window.__zoneEvents.push([e.name, e.t, e.data.racer ?? null]));
   });
   await play(page);
   await page.keyboard.down('w');
   // mid-race: the board is up
   await page.waitForFunction(
     () =>
-      (window.physicslab.zones.state?.races[0]?.racers[0]?.passed ?? 0) >= 1 ||
-      window.physicslab.zones.counts.checkpoint >= 1,
+      (window.physixlab.zones.state?.races[0]?.racers[0]?.passed ?? 0) >= 1 ||
+      window.physixlab.zones.counts.checkpoint >= 1,
     null,
     {
       timeout: 60000,
@@ -189,15 +189,15 @@ test('zones: a race in the real worker — start, checkpoints and finish timed, 
   const board = (await page.locator('.zone-hud .zh-race').textContent()) ?? '';
   assert(/drag/.test(board) && /Car/.test(board) && /Lap 1\/1/.test(board), `race board: ${board}`);
   await shot(page, 'zn-race-board');
-  await page.waitForFunction(() => window.physicslab.zones.counts.finish >= 1, null, { timeout: 90000 });
+  await page.waitForFunction(() => window.physixlab.zones.counts.finish >= 1, null, { timeout: 90000 });
   await page.keyboard.up('w');
 
   const done = await page.evaluate(() => ({
     events: window.__zoneEvents.map((e) => e[0]).filter((n) => ['start', 'checkpoint', 'lap', 'finish'].includes(n)),
     racers: [...new Set(window.__zoneEvents.filter((e) => e[2]).map((e) => e[2]))],
-    group: window.physicslab.store.all().find((e) => e.kind === 'group').id,
-    race: window.physicslab.zones.state.races[0],
-    log: window.physicslab.zones.log.map((l) => l.text),
+    group: window.physixlab.store.all().find((e) => e.kind === 'group').id,
+    race: window.physixlab.zones.state.races[0],
+    log: window.physixlab.zones.log.map((l) => l.text),
   }));
   assert(
     JSON.stringify(done.events) === JSON.stringify(['start', 'checkpoint', 'checkpoint', 'lap', 'finish']),
@@ -228,20 +228,20 @@ test('zones: a race in the real worker — start, checkpoints and finish timed, 
 
 test('zones: the playground — launch, coin, sound, teleport, trap and respawn, emitter: everything happens in the worker and is drawn', async () => {
   const page = await newPage();
-  await page.evaluate(() => window.physicslab.loadTemplate('zones-playground'));
-  await page.waitForFunction(() => window.physicslab.zoneViews.volumeCount >= 8);
+  await page.evaluate(() => window.physixlab.loadTemplate('zones-playground'));
+  await page.waitForFunction(() => window.physixlab.zoneViews.volumeCount >= 8);
   await shot(page, 'zn-playground-edit');
   await play(page);
   await page.waitForFunction(
     () => {
-      const c = window.physicslab.zones.counts;
+      const c = window.physixlab.zones.counts;
       return c.launch && c.teleport && c.kill && c.respawn && c.spawn >= 3 && c.score && c.sound;
     },
     null,
     { timeout: 120000 },
   );
   const r = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const zoneIds = a.store
       .bodies()
       .filter((b) => b.components.some((c) => c.type === 'zone'))
@@ -270,11 +270,11 @@ test('zones: the playground — launch, coin, sound, teleport, trap and respawn,
   await page.waitForSelector('.zone-feed .zf-line');
   await shot(page, 'zn-playground-run');
   // Reset: the simulation-only balls disappear and the volumes come back
-  await page.evaluate(() => window.physicslab.sim.reset());
-  await page.waitForFunction(() => window.physicslab.sim.ephemeral.size === 0);
-  await page.waitForFunction(() => window.physicslab.store.bodies().every((b) => window.physicslab.bodies.get(b.id)));
+  await page.evaluate(() => window.physixlab.sim.reset());
+  await page.waitForFunction(() => window.physixlab.sim.ephemeral.size === 0);
+  await page.waitForFunction(() => window.physixlab.store.bodies().every((b) => window.physixlab.bodies.get(b.id)));
   const back = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     return {
       views: a.bodies.views.size,
       docBodies: a.store.bodies().length,
@@ -292,7 +292,7 @@ test('zones: a zone with “show while running” stays visible; muting zone sou
   const page = await newPage();
   await emptyScene(page);
   const ids = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.updateSettings({ gravity: [0, 0, 0] });
     const sound = a.zones.add('sound', [18, 0, 0]);
     a.store.update(sound.id, {
@@ -302,20 +302,20 @@ test('zones: a zone with “show while running” stays visible; muting zone sou
     a.editor.addShape('sphere', [18, 1, 0], { name: 'Ball' });
     return { sound: sound.id, quiet: quiet.id };
   });
-  await page.waitForFunction(() => window.physicslab.zoneViews.volumeCount === 2);
+  await page.waitForFunction(() => window.physixlab.zoneViews.volumeCount === 2);
   await page.click('.dock-head .tab:has-text("Zones")');
   const mute = page.locator('.tab-toolbar .icon-btn').first(); // the speaker (its title changes with its state)
   await mute.click();
   assert((await mute.getAttribute('aria-pressed')) === 'true', 'the mute switch is on');
   await play(page);
-  await page.waitForFunction(() => window.physicslab.zones.sounds.length >= 1, null, { timeout: 30000 });
+  await page.waitForFunction(() => window.physixlab.zones.sounds.length >= 1, null, { timeout: 30000 });
   const state = await page.evaluate((ids) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     return {
       shown: a.bodies.get(ids.sound).mesh.visible,
       hidden: a.bodies.get(ids.quiet).mesh.visible,
       sound: a.zones.sounds[0].sound,
-      remembered: localStorage.getItem('physicslab.zones.muted'),
+      remembered: localStorage.getItem('physixlab.zones.muted'),
     };
   }, ids);
   assert(state.shown === true && state.hidden === false, `showInRun is honoured: ${JSON.stringify(state)}`);
@@ -330,7 +330,7 @@ test('zones: the World bounds section — enable, fit, per-side behaviour, respa
     settings: { ground: { enabled: false, friction: 0.8, restitution: 0.1, halfSize: 60, color: '#2b3038' } },
   });
   const ballId = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.editor.addShape('box', [20, 1, 0], { name: 'Platform', bodyType: 'static' });
     const b = a.editor.addShape('sphere', [22, 3, 0], { name: 'Marble' });
     a.store.setSelection([]);
@@ -342,9 +342,9 @@ test('zones: the World bounds section — enable, fit, per-side behaviour, respa
   await head.click();
   const section = page.locator('.panel.right section:has(> .section-head:has-text("World bounds"))');
   await section.locator('.switch').first().click();
-  assert(await page.evaluate(() => window.physicslab.store.settings.bounds.enabled), 'enabled from the switch');
+  assert(await page.evaluate(() => window.physixlab.store.settings.bounds.enabled), 'enabled from the switch');
   await section.locator('button:has-text("Fit to scene")').click();
-  const fitted = await page.evaluate(() => window.physicslab.store.settings.bounds);
+  const fitted = await page.evaluate(() => window.physixlab.store.settings.bounds);
   assert(
     fitted.min[0] < 8 && fitted.max[0] > 32 && fitted.min[1] <= -10,
     `the box surrounds the scene: ${JSON.stringify([fitted.min, fitted.max])}`,
@@ -376,7 +376,7 @@ test('zones: the World bounds section — enable, fit, per-side behaviour, respa
   const penalty = section.locator('.row:has(.row-label:text-is("Time penalty")) .num-input');
   await penalty.fill('3');
   await penalty.press('Enter');
-  const b = await page.evaluate(() => window.physicslab.store.settings.bounds);
+  const b = await page.evaluate(() => window.physixlab.store.settings.bounds);
   assert(
     b.policy === 'respawn' &&
       b.edges.ny === 'water' &&
@@ -387,24 +387,24 @@ test('zones: the World bounds section — enable, fit, per-side behaviour, respa
   );
   // the box is drawn while the bounds are on
   const drawn = await page.evaluate(() =>
-    window.physicslab.viewport.helpers.children.some(
+    window.physixlab.viewport.helpers.children.some(
       (c) => c.name === 'world-bounds' && c.visible && c.children.length > 3,
     ),
   );
   assert(drawn, 'the bounds box is drawn');
   await shot(page, 'zn-bounds-section');
   // undo: each edit was one step
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   assert(
-    (await page.evaluate(() => window.physicslab.store.settings.bounds.respawn.penaltySeconds)) === 0,
+    (await page.evaluate(() => window.physixlab.store.settings.bounds.respawn.penaltySeconds)) === 0,
     'undo takes back the last edit',
   );
-  await page.evaluate(() => window.physicslab.store.redo());
+  await page.evaluate(() => window.physixlab.store.redo());
 
   // a marble beside the platform falls out of the bottom: lost as drowned and sent back to its start
   await play(page);
-  await page.waitForFunction(() => window.physicslab.zones.counts.respawn >= 1, null, { timeout: 60000 });
-  const log = await page.evaluate(() => window.physicslab.zones.log.map((l) => [l.source, l.name, l.text]));
+  await page.waitForFunction(() => window.physixlab.zones.counts.respawn >= 1, null, { timeout: 60000 });
+  const log = await page.evaluate(() => window.physixlab.zones.log.map((l) => [l.source, l.name, l.text]));
   assert(
     log.some((l) => l[0] === 'bounds' && l[1] === 'kill' && /drowned/.test(l[2])),
     `reported as drowned: ${JSON.stringify(log)}`,
@@ -413,7 +413,7 @@ test('zones: the World bounds section — enable, fit, per-side behaviour, respa
     log.some((l) => l[0] === 'bounds' && l[1] === 'respawn' && /start/.test(l[2])),
     'and respawned at the start',
   );
-  const p = await page.evaluate((id) => window.physicslab.sim.poseOf(id).position, ballId);
+  const p = await page.evaluate((id) => window.physixlab.sim.poseOf(id).position, ballId);
   assert(p[1] > -5 || true, `marble position: ${p}`);
   await shot(page, 'zn-bounds-run');
   assert(errors(page) === 0, `no console errors: ${page.errors}`);
@@ -429,7 +429,7 @@ test('zones: the command palette adds zones and race gates; the Zones tab explai
   const first = (await page.locator('.palette [role="option"]').first().textContent()) ?? '';
   assert(/Checkpoint/.test(first), `the palette offers it: ${first}`);
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => window.physicslab.store.bodies().length === 1);
+  await page.waitForFunction(() => window.physixlab.store.bodies().length === 1);
   await page.keyboard.press('Control+k');
   await page.keyboard.type('race: start');
   await page.waitForTimeout(250);
@@ -438,11 +438,11 @@ test('zones: the command palette adds zones and race gates; the Zones tab explai
     'the race command is found',
   );
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => window.physicslab.store.bodies().length === 4);
-  const names = await page.evaluate(() => window.physicslab.store.bodies().map((b) => b.name));
+  await page.waitForFunction(() => window.physixlab.store.bodies().length === 4);
+  const names = await page.evaluate(() => window.physixlab.store.bodies().map((b) => b.name));
   assert(names.includes('Start / finish line') || names.includes('Finish line'), `race lines: ${names}`);
   const idx = await page.evaluate(() =>
-    window.physicslab.store
+    window.physixlab.store
       .bodies()
       .filter((b) => b.components[0].params.action === 'checkpoint')
       .map((b) => b.components[0].params.index)
@@ -451,8 +451,8 @@ test('zones: the command palette adds zones and race gates; the Zones tab explai
   );
   assert(idx === '1,2,3', `checkpoints continue the numbering: ${idx}`);
   const afterUndo = await page.evaluate(() => {
-    window.physicslab.store.undo();
-    return window.physicslab.store.bodies().length;
+    window.physixlab.store.undo();
+    return window.physixlab.store.bodies().length;
   });
   assert(afterUndo === 1, `the race command is one undo step: ${afterUndo}`);
   await page.click('.dock-head .tab:has-text("Zones")');

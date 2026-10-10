@@ -9,7 +9,7 @@ const frames = async (page, n = 3) => {
 };
 const setWeather = (page, patch) =>
   page.evaluate((patch) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const cur = a.store.settings.weather ?? {
       kind: 'none',
       intensity: 0.5,
@@ -20,8 +20,8 @@ const setWeather = (page, patch) =>
     };
     a.store.updateSettings({ weather: { ...cur, ...patch } }, 'Weather');
   }, patch);
-const stats = (page) => page.evaluate(() => ({ ...window.physicslab.viewport.weather.stats }));
-const groundRoughness = (page) => page.evaluate(() => window.physicslab.viewport.slab.material.roughness);
+const stats = (page) => page.evaluate(() => ({ ...window.physixlab.viewport.weather.stats }));
+const groundRoughness = (page) => page.evaluate(() => window.physixlab.viewport.slab.material.roughness);
 
 test('weather: rain is one instanced draw call, capped by the quality tier, and wets the ground', async () => {
   const page = await newPage('&scene=pit&quality=low');
@@ -47,7 +47,7 @@ test('weather: rain is one instanced draw call, capped by the quality tier, and 
   await frames(page, 2);
   const rough1 = await groundRoughness(page);
   assert(rough1 < rough0 - 0.3, `rain lowers the ground roughness: ${rough0} -> ${rough1}`);
-  const stored = await page.evaluate(() => window.physicslab.store.toDocument().settings.weather?.kind);
+  const stored = await page.evaluate(() => window.physixlab.store.toDocument().settings.weather?.kind);
   assert(stored === 'rain', 'weather is in the document');
   await shot(page, 'vz23-rain-low');
   await setWeather(page, { kind: 'none' });
@@ -86,9 +86,9 @@ test('weather: lightning flashes the overlay; the scene wind also reaches the ef
   const page = await newPage('&scene=pit&quality=low');
   await setWeather(page, { kind: 'rain', intensity: 0.8, lightning: true, windSpeed: 10, windDir: 90 });
   await frames(page, 3);
-  const wind = await page.evaluate(() => [...window.physicslab.fx.env.wind]);
+  const wind = await page.evaluate(() => [...window.physixlab.fx.env.wind]);
   assert(Math.abs(wind[0] - 10) < 1e-6 && Math.abs(wind[2]) < 1e-6, `effects wind follows the scene wind: ${wind}`);
-  await page.evaluate(() => window.physicslab.viewport.weather.triggerLightning());
+  await page.evaluate(() => window.physixlab.viewport.weather.triggerLightning());
   await frames(page, 1);
   const flash = await page.evaluate(() => {
     const el = document.querySelector('[data-role="weather-flash"]');
@@ -114,11 +114,11 @@ test('weather: palette command sets it, the edit is undoable', async () => {
   await page.waitForSelector('.palette .palette-item');
   await page.keyboard.press('Enter');
   await frames(page, 2);
-  const kind = await page.evaluate(() => window.physicslab.store.settings.weather?.kind ?? 'none');
+  const kind = await page.evaluate(() => window.physixlab.store.settings.weather?.kind ?? 'none');
   assert(kind === 'snow', `palette command sets snow: ${kind}`);
   assert((await stats(page)).kind === 'snow', 'renderer follows');
-  await page.evaluate(() => window.physicslab.store.undo());
-  const back = await page.evaluate(() => window.physicslab.store.settings.weather?.kind ?? 'none');
+  await page.evaluate(() => window.physixlab.store.undo());
+  const back = await page.evaluate(() => window.physixlab.store.settings.weather?.kind ?? 'none');
   assert(back === 'none', `undo reverts the weather change: ${back}`);
   assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
 });

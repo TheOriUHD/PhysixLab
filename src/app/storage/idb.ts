@@ -1,6 +1,6 @@
 import { COLLECTIONS, StorageError, type Collection, type StorageBackend, type StoredItem } from './types';
 
-const DB_NAME = 'physicslab';
+const DB_NAME = 'physixlab';
 const DB_VERSION = 1;
 
 function wrap(e: unknown, what: string): StorageError {

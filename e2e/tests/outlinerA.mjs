@@ -8,15 +8,15 @@ import { assert, newPage, shot } from '../helpers.mjs';
 export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
-const names = (page) => page.evaluate(() => window.physicslab.store.all().map((e) => e.name));
+const names = (page) => page.evaluate(() => window.physixlab.store.all().map((e) => e.name));
 const sel = (page) =>
-  page.evaluate(() => window.physicslab.store.selection.map((id) => window.physicslab.store.get(id).name).sort());
+  page.evaluate(() => window.physixlab.store.selection.map((id) => window.physixlab.store.get(id).name).sort());
 const row = (page, name) => page.locator(`.o-item:has(.o-name:text-is("${name}"))`);
 
 test('outliner A: select ranges, rename, drag with drop indicators, eye / lock / solo, thumbnails', async () => {
   const page = await newPage();
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     for (const [n, x] of [
       ['Aaa', -3],
@@ -82,7 +82,7 @@ test('outliner A: select ranges, rename, drag with drop indicators, eye / lock /
   await page.mouse.up();
   const parentOf = (n) =>
     page.evaluate((n) => {
-      const s = window.physicslab.store;
+      const s = window.physixlab.store;
       const e = s.all().find((x) => x.name === n);
       return e.parent ? s.get(e.parent).kind : null;
     }, n);
@@ -93,7 +93,7 @@ test('outliner A: select ranges, rename, drag with drop indicators, eye / lock /
   await row(page, 'Ball').locator('[data-act=lock]').click();
   const ball = () =>
     page.evaluate(() => {
-      const b = window.physicslab.store.bodies().find((x) => x.name === 'Ball');
+      const b = window.physixlab.store.bodies().find((x) => x.name === 'Ball');
       return { hidden: b.hidden, locked: b.locked };
     });
   assert(JSON.stringify(await ball()) === '{"hidden":true,"locked":true}', 'eye and lock buttons toggle the flags');
@@ -102,11 +102,11 @@ test('outliner A: select ranges, rename, drag with drop indicators, eye / lock /
   await row(page, 'Ccc').count();
   await row(page, 'Renamed').hover();
   await row(page, 'Renamed').locator('[data-act=solo]').click();
-  const hiddenNow = await page.evaluate(() => window.physicslab.store.all().filter((e) => e.hidden).length);
+  const hiddenNow = await page.evaluate(() => window.physixlab.store.all().filter((e) => e.hidden).length);
   assert(hiddenNow === 5, `solo hides everything unrelated (${hiddenNow})`);
   await row(page, 'Renamed').locator('[data-act=solo]').click();
   assert(
-    (await page.evaluate(() => window.physicslab.store.all().filter((e) => e.hidden || e.solo || e.soloHid).length)) ===
+    (await page.evaluate(() => window.physixlab.store.all().filter((e) => e.hidden || e.solo || e.soloHid).length)) ===
       0,
     'un-solo restores everything',
   );
@@ -121,7 +121,7 @@ test('outliner A: select ranges, rename, drag with drop indicators, eye / lock /
 test('outliner A: tags, colour tags, filters, selection sets', async () => {
   const page = await newPage();
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     a.editor.addShape('box', [-2, 0.5, 0], { name: 'Wheel L' });
     a.editor.addShape('box', [2, 0.5, 0], { name: 'Wheel R' });
@@ -137,7 +137,7 @@ test('outliner A: tags, colour tags, filters, selection sets', async () => {
   await page.locator('.modal input').fill('wheel');
   await page.keyboard.press('Enter');
   assert(
-    (await page.evaluate(() => window.physicslab.store.bodies().filter((b) => b.tags.includes('wheel')).length)) === 2,
+    (await page.evaluate(() => window.physixlab.store.bodies().filter((b) => b.tags.includes('wheel')).length)) === 2,
     'tag added to both selected bodies',
   );
   await row(page, 'Wheel R').click({ button: 'right' });
@@ -178,7 +178,7 @@ test('outliner A: tags, colour tags, filters, selection sets', async () => {
   assert((await sel(page)).join() === 'Ball,Wheel L', 'recalling a set selects its members');
   const round = await page.evaluate(async () => {
     const m = await import('/src/model/serialize.ts');
-    const a = window.physicslab;
+    const a = window.physixlab;
     return m
       .parseDocument(m.serializeDocument(a.store.toDocument()))
       .settings.selectionSets.map((s) => `${s.name}:${s.ids.length}`);
@@ -194,7 +194,7 @@ test('outliner A: a scene of thousands of objects only mounts the visible rows',
   const page = await newPage();
   await page.evaluate(async () => {
     const { createBody } = await import('/src/model/factory.ts');
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     const list = [];
     for (let i = 0; i < 4000; i++)
@@ -220,7 +220,7 @@ test('outliner A: a scene of thousands of objects only mounts the visible rows',
   await page.locator('.o-item:has(.o-name:text-is("Obj 3999"))').waitFor({ timeout: 5000 });
   // selecting an object far away scrolls it into view
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.setSelection([a.store.bodies().find((b) => b.name === 'Obj 0010').id]);
   });
   await page.locator('.o-item.sel:has(.o-name:text-is("Obj 0010"))').waitFor({ timeout: 5000 });

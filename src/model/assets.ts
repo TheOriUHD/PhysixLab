@@ -168,7 +168,7 @@ export function addAssetTo(
   if (Object.keys(assets).length >= LIMITS.maxAssets) {
     throw new SceneFormatError(
       'limit',
-      `This scene already has ${LIMITS.maxAssets} assets, the most PhysicsLab keeps. Remove one first.`,
+      `This scene already has ${LIMITS.maxAssets} assets, the most PhysixLab keeps. Remove one first.`,
     );
   }
   const total = totalAssetBytes(assets) + built.bytes;

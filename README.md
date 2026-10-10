@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/media/banner.svg" alt="PhysicsLab — an advanced 3D physics sandbox that runs entirely in your browser" width="100%">
+<img src="docs/media/banner.svg" alt="PhysixLab — an advanced 3D physics sandbox that runs entirely in your browser" width="100%">
 
 <br>
 
@@ -10,14 +10,14 @@
 [![Rapier](https://img.shields.io/badge/Rapier-WebAssembly-dea584?style=flat-square&logo=webassembly&logoColor=white&labelColor=0b0e14)](https://rapier.rs)
 [![Vite](https://img.shields.io/badge/Vite-8-646cff?style=flat-square&logo=vite&logoColor=white&labelColor=0b0e14)](https://vite.dev)
 [![Tests](https://img.shields.io/badge/tests-3200%2B%20unit%20%C2%B7%20300%2B%20browser-34d399?style=flat-square&labelColor=0b0e14)](#-testing)
-[![CI](https://img.shields.io/github/actions/workflow/status/TheOriUHD/PhysicsSandbox/ci.yml?branch=main&style=flat-square&label=CI&labelColor=0b0e14)](https://github.com/TheOriUHD/PhysicsSandbox/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/TheOriUHD/PhysixLab/ci.yml?branch=main&style=flat-square&label=CI&labelColor=0b0e14)](https://github.com/TheOriUHD/PhysixLab/actions)
 [![Offline PWA](https://img.shields.io/badge/PWA-works%20offline-38bdf8?style=flat-square&labelColor=0b0e14)](#-run-it)
 [![No backend](https://img.shields.io/badge/backend-none-8b9bb4?style=flat-square&labelColor=0b0e14)](#-run-it)
 
-[![Stars](https://img.shields.io/github/stars/TheOriUHD/PhysicsSandbox?style=flat-square&logo=github&labelColor=0b0e14&color=5eead4)](https://github.com/TheOriUHD/PhysicsSandbox/stargazers)
-[![Forks](https://img.shields.io/github/forks/TheOriUHD/PhysicsSandbox?style=flat-square&logo=github&labelColor=0b0e14&color=38bdf8)](https://github.com/TheOriUHD/PhysicsSandbox/network/members)
-[![Issues](https://img.shields.io/github/issues/TheOriUHD/PhysicsSandbox?style=flat-square&labelColor=0b0e14&color=a78bfa)](https://github.com/TheOriUHD/PhysicsSandbox/issues)
-[![Last commit](https://img.shields.io/github/last-commit/TheOriUHD/PhysicsSandbox?style=flat-square&labelColor=0b0e14&color=f59e0b)](https://github.com/TheOriUHD/PhysicsSandbox/commits)
+[![Stars](https://img.shields.io/github/stars/TheOriUHD/PhysixLab?style=flat-square&logo=github&labelColor=0b0e14&color=5eead4)](https://github.com/TheOriUHD/PhysixLab/stargazers)
+[![Forks](https://img.shields.io/github/forks/TheOriUHD/PhysixLab?style=flat-square&logo=github&labelColor=0b0e14&color=38bdf8)](https://github.com/TheOriUHD/PhysixLab/network/members)
+[![Issues](https://img.shields.io/github/issues/TheOriUHD/PhysixLab?style=flat-square&labelColor=0b0e14&color=a78bfa)](https://github.com/TheOriUHD/PhysixLab/issues)
+[![Last commit](https://img.shields.io/github/last-commit/TheOriUHD/PhysixLab?style=flat-square&labelColor=0b0e14&color=f59e0b)](https://github.com/TheOriUHD/PhysixLab/commits)
 
 **[Run it](#-run-it)** &nbsp;·&nbsp; **[Features](#-features)** &nbsp;·&nbsp; **[Controls](#-controls)** &nbsp;·&nbsp; **[Architecture](#-architecture)** &nbsp;·&nbsp; **[Docs](#-documentation)** &nbsp;·&nbsp; **[Roadmap](#-roadmap)**
 
@@ -31,9 +31,9 @@
 
 <br>
 
-## ✨ What is PhysicsLab?
+## ✨ What is PhysixLab?
 
-PhysicsLab is a **build-it-and-watch-it-work 3D physics sandbox** that runs entirely in the browser — no server, no install, no account. Place shapes, connect them with joints, motors and springs, press **Simulate**, and then grab things, change gravity mid-run, rewind time, plot energy, or climb into the car and drive it.
+PhysixLab is a **build-it-and-watch-it-work 3D physics sandbox** that runs entirely in the browser — no server, no install, no account. Place shapes, connect them with joints, motors and springs, press **Simulate**, and then grab things, change gravity mid-run, rewind time, plot energy, or climb into the car and drive it.
 
 It is built to be *physically honest*: [Rapier](https://rapier.rs) (Rust → WebAssembly) runs in a dedicated Web Worker with a fixed timestep, continuous collision detection and sleeping; mass comes from **density × volume** with real material densities; and the test-suite checks the engine against analytic results (free fall, pendulum and spring periods, Atwood machines, gear ratios, energy conservation…).
 
@@ -67,7 +67,7 @@ It is built to be *physically honest*: [Rapier](https://rapier.rs) (Rust → Web
 <br><b>Soft bodies</b><br><sub>Particle-based cloth, jelly, cables and balloons — drag them with the mouse, pin them, tear them, cut them.</sub>
 </td>
 <td width="50%" valign="top">
-<img src="docs/media/editor.png" alt="The PhysicsLab editor: palette, viewport, inspector and bottom dock" width="100%">
+<img src="docs/media/editor.png" alt="The PhysixLab editor: palette, viewport, inspector and bottom dock" width="100%">
 <br><b>A proper editor</b><br><sub>Dockable panels, command palette (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd>), outliner, inspector with units, charts and timeline.</sub>
 </td>
 </tr>
@@ -80,8 +80,8 @@ It is built to be *physically honest*: [Rapier](https://rapier.rs) (Rust → Web
 ## 🚀 Run it
 
 ```bash
-git clone https://github.com/TheOriUHD/PhysicsSandbox.git
-cd PhysicsSandbox
+git clone https://github.com/TheOriUHD/PhysixLab.git
+cd PhysixLab
 npm install
 npm run dev        # → http://localhost:5173
 ```
@@ -91,7 +91,7 @@ npm run build      # type-check + production build into dist/
 npm run preview    # serve the production build
 ```
 
-PhysicsLab is a **fully static site** — `npm run build` produces `dist/`, which any static host can serve. It is also an installable **offline PWA**.
+PhysixLab is a **fully static site** — `npm run build` produces `dist/`, which any static host can serve. It is also an installable **offline PWA**.
 
 <details>
 <summary><b>Hosting options</b></summary>
@@ -125,7 +125,7 @@ PhysicsLab is a **fully static site** — `npm run build` produces `dist/`, whic
 <summary><b>⚙️ Mechanisms</b></summary>
 
 - **16 joint types**: weld, hinge, slider, ball, spring, rope, **cone-twist, 6-DOF, pulley, rack & pinion, gear pair, belt/chain drive, universal (cardan), screw, winch, soft weld** — with limits, motors (velocity / position, force-capped, key- and axis-bound) and spring-dampers.
-- **Breakable joints**: the engine exposes no constraint impulses for rigid joints, so PhysicsLab estimates the load through the joint with a Newton–Euler momentum balance (exact for tree-like assemblies) — validated against statics in the tests. Joints can be given break thresholds, show a stress colour, and fatigue.
+- **Breakable joints**: the engine exposes no constraint impulses for rigid joints, so PhysixLab estimates the load through the joint with a Newton–Euler momentum balance (exact for tree-like assemblies) — validated against statics in the tests. Joints can be given break thresholds, show a stress colour, and fatigue.
 - **Powered parts** as components: engine with an editable torque curve, electric motor, servo, stepper, linear actuator, hydraulic cylinder, clutch, **gearbox, differential**, brakes, thrusters/rockets with fuel mass, jets and propellers/rotors.
 - **Zones & race timing**: sensor volumes with 15 actions — checkpoints, finish lines (laps, splits), kill & respawn, teleporters, launch pads, gravity override, force fields, spawners, scoring, world bounds.
 - Collision layers with a matrix editor, one-way platforms, quadratic drag, mass/COM overrides.
@@ -177,7 +177,7 @@ PhysicsLab is a **fully static site** — `npm run build` produces `dist/`, whic
 - **Share** a scene as a compact link (the whole scene is compressed into the URL — no server), export JSON / glTF / OBJ / STL / PNG (up to 4K), or record **WebM / MP4 / GIF** and turntables.
 - Local-first persistence with **restore points** and **crash recovery**, optional folder sync (File System Access API).
 - **Peer-to-peer collaboration** over WebRTC (copy/paste signalling, or two tabs on one device).
-- A typed **public API** (`window.physicslab`), a sandboxed **plugin** system (plugins add commands, panels and example scenes), **scripted scenes**, and a **headless CLI** for batch runs and parameter sweeps — see [docs/API.md](docs/API.md), [docs/PLUGINS.md](docs/PLUGINS.md), [docs/CLI.md](docs/CLI.md).
+- A typed **public API** (`window.physixlab`), a sandboxed **plugin** system (plugins add commands, panels and example scenes), **scripted scenes**, and a **headless CLI** for batch runs and parameter sweeps — see [docs/API.md](docs/API.md), [docs/PLUGINS.md](docs/PLUGINS.md), [docs/CLI.md](docs/CLI.md).
 - Installable offline **PWA**; code-split bundles so the heavy features load on demand.
 
 </details>
@@ -272,7 +272,7 @@ The physics tests compare the engine to analytic results — free fall, momentum
 | | |
 |---|---|
 | [Architecture](docs/ARCHITECTURE.md) | How the pieces fit: document, worker protocol, registries, components |
-| [Extending PhysicsLab](docs/EXTENDING.md) | Add a shape / component / command / tool / panel / template / map — with tested examples |
+| [Extending PhysixLab](docs/EXTENDING.md) | Add a shape / component / command / tool / panel / template / map — with tested examples |
 | [Public API](docs/API.md) · [Plugins](docs/PLUGINS.md) · [Scripting](docs/SCRIPTING.md) · [CLI](docs/CLI.md) | Automate and extend |
 | [Embedding](docs/EMBED.md) · [Collaboration](docs/COLLAB.md) · [Desktop](docs/DESKTOP.md) | Share and ship |
 | [Performance](docs/PERFORMANCE.md) · [Limitations](docs/LIMITATIONS.md) | Numbers and honest caveats |
@@ -282,7 +282,7 @@ The physics tests compare the engine to analytic results — free fall, momentum
 
 ## 🗺 Roadmap
 
-PhysicsLab is under active development. Done and shipping today: everything listed under **Features**. Next up (tracked in [`docs/features`](docs/features)):
+PhysixLab is under active development. Done and shipping today: everything listed under **Features**. Next up (tracked in [`docs/features`](docs/features)):
 
 - **Models & terrain** — GLB/OBJ/STL import with convex decomposition, compound-collider tools, extrude/revolve/boolean builders, heightfield terrain with sculpting
 - **Logic & scripting** — sensors, a node-graph logic editor, sandboxed in-scene scripts, movers/conveyors/spawners

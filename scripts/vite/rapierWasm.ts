@@ -22,7 +22,7 @@ export function rapierWasm(): Plugin {
   const dist = path.dirname(pkgMain);
   const wasmFile = path.join(dist, 'rapier_wasm3d_bg.wasm').replace(/\\/g, '/');
   return {
-    name: 'physicslab:rapier-wasm-asset',
+    name: 'physixlab:rapier-wasm-asset',
     enforce: 'pre',
     transform(code, id) {
       const file = id.split('?')[0].replace(/\\/g, '/');

@@ -232,11 +232,11 @@ describe('error log and gate', () => {
 describe('reset preferences', () => {
   it('removes layout and preference keys but never scene data', () => {
     const data = new Map([
-      ['physicslab:prefs:v1', '{}'],
-      ['physicslab:layout:v1', '{}'],
-      ['physicslab.cheat.unbound', '1'],
-      ['physicslab:autosave:v1', 'scene'],
-      ['physicslab:library:v1', 'scenes'],
+      ['physixlab:prefs:v1', '{}'],
+      ['physixlab:layout:v1', '{}'],
+      ['physixlab.cheat.unbound', '1'],
+      ['physixlab:autosave:v1', 'scene'],
+      ['physixlab:library:v1', 'scenes'],
       ['other:thing', 'x'],
     ]);
     const store = {
@@ -247,13 +247,13 @@ describe('reset preferences', () => {
       removeItem: (k: string) => void data.delete(k),
     };
     const removed = resetPreferences(store);
-    expect(removed.sort()).toEqual(['physicslab.cheat.unbound', 'physicslab:layout:v1', 'physicslab:prefs:v1']);
-    expect([...data.keys()].sort()).toEqual(['other:thing', 'physicslab:autosave:v1', 'physicslab:library:v1']);
+    expect(removed.sort()).toEqual(['physixlab.cheat.unbound', 'physixlab:layout:v1', 'physixlab:prefs:v1']);
+    expect([...data.keys()].sort()).toEqual(['other:thing', 'physixlab:autosave:v1', 'physixlab:library:v1']);
   });
 });
 
 const report = (over: Partial<ReportInput> = {}): ReportInput => ({
-  app: { name: 'PhysicsLab', version: '1.2.3', mode: 'production' },
+  app: { name: 'PhysixLab', version: '1.2.3', mode: 'production' },
   time: '2026-01-01T00:00:00.000Z',
   userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   platform: 'Linux x86_64',

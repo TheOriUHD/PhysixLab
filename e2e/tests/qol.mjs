@@ -16,7 +16,7 @@ const until = (page, fn, arg, timeout = 30000) => page.waitForFunction(fn, arg, 
 const showTab = async (page, region, id) => {
   await page.evaluate(
     ({ region, id }) =>
-      window.physicslab.prefs.set(
+      window.physixlab.prefs.set(
         region === 'left' ? { leftTab: id, showLeft: true } : { rightTab: id, showRight: true },
       ),
     { region, id },
@@ -36,14 +36,14 @@ const makeSceneText = (page, name) =>
     return serializeDocument(b.done());
   }, name);
 
-const sceneName = (page) => page.evaluate(() => window.physicslab.store.name);
-const bodyCount = (page) => page.evaluate(() => window.physicslab.store.bodies().length);
+const sceneName = (page) => page.evaluate(() => window.physixlab.store.name);
+const bodyCount = (page) => page.evaluate(() => window.physixlab.store.bodies().length);
 
 /** PNG width / height from its IHDR chunk, read in the page from a Blob. */
 const pngSize = (page) =>
   page.evaluate(async () => {
     const { getPresenter } = await import('/src/ui/present/presenter.ts');
-    const r = getPresenter(window.physicslab).lastCapture;
+    const r = getPresenter(window.physixlab).lastCapture;
     const buf = new DataView(await r.blob.arrayBuffer());
     const sig = [0x89, 0x50, 0x4e, 0x47].every((b, i) => buf.getUint8(i) === b);
     return { sig, w: buf.getUint32(16), h: buf.getUint32(20), type: r.blob.type, bytes: r.blob.size };
@@ -116,13 +116,13 @@ test('qol: presentation mode hides every piece of chrome and Esc restores it', a
   );
   assert(hintAtOnce, 'the exit hint is shown on entering');
   assert(
-    (await page.evaluate(() => window.physicslab.joints.visible)) === false,
+    (await page.evaluate(() => window.physixlab.joints.visible)) === false,
     'joint markers are hidden while presenting',
   );
   await shot(page, 'qol-presenting-1600x900');
   // the canvas itself follows the new size (drawing buffer matches the window)
   const canvas = await page.evaluate(() => {
-    const c = window.physicslab.viewport.dom;
+    const c = window.physixlab.viewport.dom;
     return { w: c.clientWidth, h: c.clientHeight };
   });
   assert(canvas.w === on.win.w && canvas.h === on.win.h, `canvas resized to the window: ${JSON.stringify(canvas)}`);
@@ -141,7 +141,7 @@ test('qol: presentation mode hides every piece of chrome and Esc restores it', a
   assert(off.viewport.w === before.viewport.w && off.viewport.h === before.viewport.h, 'viewport size restored');
   assert(!off.hint, 'hint removed');
   assert(
-    (await page.evaluate(() => window.physicslab.joints.visible)) === true,
+    (await page.evaluate(() => window.physixlab.joints.visible)) === true,
     'joint markers are back after presenting',
   );
 
@@ -163,17 +163,17 @@ test('qol: captures are real PNGs at 1x, 2x and 4x with the interface and select
   await until(
     page,
     () =>
-      window.physicslab.viewport.cssSize.width === innerWidth &&
-      window.physicslab.viewport.cssSize.height === innerHeight,
+      window.physixlab.viewport.cssSize.width === innerWidth &&
+      window.physixlab.viewport.cssSize.height === innerHeight,
   );
   await page.waitForTimeout(1500);
-  const css = await page.evaluate(() => window.physicslab.viewport.cssSize);
+  const css = await page.evaluate(() => window.physixlab.viewport.cssSize);
   assert(css.width === 800 && css.height === 500, `the viewport is the window: ${JSON.stringify(css)}`);
   const caps = {};
   for (const scale of [1, 2, 4]) {
     await page.evaluate(async (scale) => {
       const { getPresenter } = await import('/src/ui/present/presenter.ts');
-      await getPresenter(window.physicslab).capture(scale);
+      await getPresenter(window.physixlab).capture(scale);
     }, scale);
     caps[scale] = await pngSize(page);
     assert(caps[scale].sig, `${scale}x is a PNG`);
@@ -186,7 +186,7 @@ test('qol: captures are real PNGs at 1x, 2x and 4x with the interface and select
   assert(caps[4].bytes > caps[1].bytes, 'a 4x image carries more data than a 1x image');
   // the live viewport is back to its normal pixel ratio and size after capturing
   const after = await page.evaluate(() => {
-    const vp = window.physicslab.viewport;
+    const vp = window.physixlab.viewport;
     return { ratio: vp.renderer.getPixelRatio(), w: vp.dom.width, h: vp.dom.height, css: vp.cssSize };
   });
   assert(after.w === Math.round(after.css.width * after.ratio), `canvas buffer restored: ${JSON.stringify(after)}`);
@@ -195,7 +195,7 @@ test('qol: captures are real PNGs at 1x, 2x and 4x with the interface and select
   // the picture is the scene, not a blank frame: decode it and look at the colours
   const stats = await page.evaluate(async () => {
     const { getPresenter } = await import('/src/ui/present/presenter.ts');
-    const r = await getPresenter(window.physicslab).capture(1);
+    const r = await getPresenter(window.physixlab).capture(1);
     const bmp = await createImageBitmap(r.blob);
     const c = new OffscreenCanvas(bmp.width, bmp.height);
     const ctx = c.getContext('2d');
@@ -219,18 +219,18 @@ test('qol: the caption is drawn into captures and the panel controls the real ca
   // camera presets move the real camera to the preset side of the subject
   const subject = await page.evaluate(async () => {
     const { getPresenter } = await import('/src/ui/present/presenter.ts');
-    return getPresenter(window.physicslab).subjectBounds();
+    return getPresenter(window.physixlab).subjectBounds();
   });
   await page.click('[data-camera="right"]');
-  await until(page, (c) => window.physicslab.camera.position.x > c.center[0] + 2, subject, 30000);
+  await until(page, (c) => window.physixlab.camera.position.x > c.center[0] + 2, subject, 30000);
   await page.click('[data-camera="top"]');
-  await until(page, (c) => window.physicslab.camera.position.y > c.center[1] + c.radius, subject, 30000);
+  await until(page, (c) => window.physixlab.camera.position.y > c.center[1] + c.radius, subject, 30000);
   await page.click('[data-camera="back"]');
-  await until(page, (c) => window.physicslab.camera.position.z < c.center[2] - 2, subject, 30000);
+  await until(page, (c) => window.physixlab.camera.position.z < c.center[2] - 2, subject, 30000);
 
   // lighting presets are the scene's environment (VZ): the document changes, the sun and the sky follow, Undo works
   const base = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     return {
       sky: a.store.settings.environment.sky,
       sun: a.viewport.sun.color.getHexString(),
@@ -241,7 +241,7 @@ test('qol: the caption is drawn into captures and the panel controls the real ca
   await page.selectOption('[data-qol="light-select"]', 'sunset');
   await page.waitForTimeout(700);
   const sunset = await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     return {
       sky: a.store.settings.environment.sky,
       az: a.store.settings.environment.sun.azimuth,
@@ -253,16 +253,16 @@ test('qol: the caption is drawn into captures and the panel controls the real ca
   assert(sunset.sunY < base.sunY, `the sun is lower at sunset (${base.sunY} -> ${sunset.sunY})`);
   await page.waitForTimeout(600);
   await shot(page, 'qol-light-sunset-1600x900');
-  await page.evaluate(() => window.physicslab.store.undo());
-  const undone = await page.evaluate(() => window.physicslab.store.settings.environment.sky);
+  await page.evaluate(() => window.physixlab.store.undo());
+  const undone = await page.evaluate(() => window.physixlab.store.settings.environment.sky);
   assert(undone === base.sky, `Undo restores the environment (${undone})`);
   await page.waitForFunction((sky) => document.querySelector('[data-qol="light-select"]').value === sky, base.sky);
 
   // depth of field: the real pass, set through the graphics options
   await page.selectOption('[data-qol="dof-select"]', 'macro');
   const dof = await page.evaluate(() => ({
-    pref: window.physicslab.prefs.value.graphics.dof,
-    resolved: window.physicslab.viewport.resolvedGraphics.dof,
+    pref: window.physixlab.prefs.value.graphics.dof,
+    resolved: window.physixlab.viewport.resolvedGraphics.dof,
   }));
   assert(
     dof.pref.on === true && dof.pref.aperture > 0.8 && dof.resolved && dof.resolved.on,
@@ -272,7 +272,7 @@ test('qol: the caption is drawn into captures and the panel controls the real ca
   await shot(page, 'qol-dof-macro-1600x900');
   const blur = await page.evaluate(async () => {
     const { getPresenter } = await import('/src/ui/present/presenter.ts');
-    const p = getPresenter(window.physicslab);
+    const p = getPresenter(window.physixlab);
     const sharp = async (preset) => {
       p.setDof(preset);
       const r = await p.capture(1);
@@ -301,7 +301,7 @@ test('qol: the caption is drawn into captures and the panel controls the real ca
 
   // lens preset
   await page.click('[data-lens="tele"]');
-  const fov = await page.evaluate(() => window.physicslab.camera.fov);
+  const fov = await page.evaluate(() => window.physixlab.camera.fov);
   assert(fov < 20, `135 mm lens narrows the field of view (${fov})`);
   await page.click('[data-lens="standard"]');
 
@@ -310,7 +310,7 @@ test('qol: the caption is drawn into captures and the panel controls the real ca
   await page.fill('.qol-present .qol-inputs input[placeholder="Subtitle"]', 'Energy is conserved');
   const without = await page.evaluate(async () => {
     const { getPresenter } = await import('/src/ui/present/presenter.ts');
-    const p = getPresenter(window.physicslab);
+    const p = getPresenter(window.physixlab);
     p.set({ captionOn: false });
     const a = await p.capture(1);
     p.set({ captionOn: true, captionPos: 'center', captionSize: 60 });
@@ -362,7 +362,7 @@ test('qol: the turntable turns the camera about the target at the set speed', as
   const page = await newPage('&scene=car');
   const r = await page.evaluate(async () => {
     const { getPresenter } = await import('/src/ui/present/presenter.ts');
-    const app = window.physicslab;
+    const app = window.physixlab;
     const p = getPresenter(app);
     p.set({ turntableSpeed: 45 });
     const angle = () => {
@@ -427,7 +427,7 @@ test('qol: favourites are starred in the Scenes tab, listed first and remembered
   await shot(page, 'qol-favourites-1600x900');
   // remembered across a reload
   await page.reload();
-  await until(page, () => !!window.physicslab?.viewport);
+  await until(page, () => !!window.physixlab?.viewport);
   await showTab(page, 'left', 'scenes');
   await page.waitForSelector('.panel.left .group-title:visible:has-text("Favourites")');
   // prefabs, maps and shapes have stars too
@@ -446,7 +446,7 @@ test('qol: favourites are starred in the Scenes tab, listed first and remembered
   await page.click('.tile:first-child .fav-star');
   await page.waitForSelector('[data-favourites="shape"]');
   await shot(page, 'qol-favourite-shape-1600x900');
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('physicslab:qol:favourites:v1')));
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('physixlab:qol:favourites:v1')));
   assert(
     stored.template.includes('car') &&
       stored.map.length === 1 &&
@@ -470,7 +470,7 @@ test('qol: recent scenes, thumbnails and Open recent in the File menu follow loa
   const loaded = [];
   for (const id of names.slice(0, 2)) {
     await page.click(`.panel.left [data-template="${id}"]`);
-    loaded.push(await page.evaluate(() => window.physicslab.store.name));
+    loaded.push(await page.evaluate(() => window.physixlab.store.name));
     await page.waitForTimeout(300);
   }
   // recent list: newest first, with thumbnails once the camera has settled
@@ -506,14 +506,14 @@ test('qol: recent scenes, thumbnails and Open recent in the File menu follow loa
   await shot(page, 'qol-open-recent-menu-1600x900');
   // opening the older one brings it back (the scene has unsaved edits? no edits were made, so no confirmation)
   await page.click(`.menu .menu-item:has-text("${loaded[0]}")`);
-  await until(page, (n) => window.physicslab.store.name === n, loaded[0]);
+  await until(page, (n) => window.physixlab.store.name === n, loaded[0]);
   const order = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem('physicslab:qol:recents:v1')).map((e) => e.key),
+    JSON.parse(localStorage.getItem('physixlab:qol:recents:v1')).map((e) => e.key),
   );
   assert(order[0] === `template:${names[0]}`, `reopened scene moves to the top: ${order}`);
   // the cache holds a real image for it
   const thumb = await page.evaluate(
-    (id) => JSON.parse(localStorage.getItem('physicslab:qol:thumbs:v1'))[`template:${id}`]?.url ?? '',
+    (id) => JSON.parse(localStorage.getItem('physixlab:qol:thumbs:v1'))[`template:${id}`]?.url ?? '',
     names[0],
   );
   assert(
@@ -527,7 +527,7 @@ test('qol: recent scenes, thumbnails and Open recent in the File menu follow loa
 test('qol: a scene file dropped on the window opens; other kinds are refused with an honest message', async () => {
   const page = await newPage('&scene=car');
   const text = await makeSceneText(page, 'Dropped scene');
-  const first = await dropFiles(page, [{ name: 'x.physicslab.json', text, type: 'application/json' }], {
+  const first = await dropFiles(page, [{ name: 'x.physixlab.json', text, type: 'application/json' }], {
     drop: false,
     hold: true,
   });
@@ -546,10 +546,10 @@ test('qol: a scene file dropped on the window opens; other kinds are refused wit
     !(await page.evaluate(() => document.querySelector('.qol-drop').classList.contains('show'))),
     'overlay hides when the drag leaves',
   );
-  await dropFiles(page, [{ name: 'x.physicslab.json', text, type: 'application/json' }]);
-  await until(page, () => window.physicslab.store.name === 'Dropped scene', null, 8000);
+  await dropFiles(page, [{ name: 'x.physixlab.json', text, type: 'application/json' }]);
+  await until(page, () => window.physixlab.store.name === 'Dropped scene', null, 8000);
   assert((await bodyCount(page)) === 2, 'the dropped scene replaced the car');
-  const rec = await page.evaluate(() => JSON.parse(localStorage.getItem('physicslab:qol:recents:v1'))[0]);
+  const rec = await page.evaluate(() => JSON.parse(localStorage.getItem('physixlab:qol:recents:v1'))[0]);
   assert(
     rec.key === 'file:Dropped scene' && rec.hasData,
     `the drop is a recent scene that can be reopened: ${JSON.stringify(rec)}`,
@@ -570,7 +570,7 @@ test('qol: a scene file dropped on the window opens; other kinds are refused wit
   );
   // a replay (json that is not a scene) and a mesh
   await dropFiles(page, [
-    { name: 'run.json', text: '{"format":"physicslab-replay","frames":[]}', type: 'application/json' },
+    { name: 'run.json', text: '{"format":"physixlab-replay","frames":[]}', type: 'application/json' },
   ]);
   await until(page, () =>
     [...document.querySelectorAll('.toast')].some((t) => /Replays aren't supported yet/.test(t.textContent)),
@@ -581,19 +581,19 @@ test('qol: a scene file dropped on the window opens; other kinds are refused wit
   );
   await dropFiles(page, [{ name: 'notes.json', text: '{"hello":1}', type: 'application/json' }]);
   await until(page, () =>
-    [...document.querySelectorAll('.toast')].some((t) => /not a PhysicsLab scene/.test(t.textContent)),
+    [...document.querySelectorAll('.toast')].some((t) => /not a PhysixLab scene/.test(t.textContent)),
   );
   assert((await sceneName(page)) === 'Dropped scene' && (await bodyCount(page)) === 2, 'refused drops changed nothing');
   await shot(page, 'qol-drop-refused-1600x900');
 
   // a damaged scene file reports the loader's own error
-  await dropFiles(page, [{ name: 'broken.physicslab.json', text: '{oops', type: 'application/json' }]);
+  await dropFiles(page, [{ name: 'broken.physixlab.json', text: '{oops', type: 'application/json' }]);
   await until(page, () => [...document.querySelectorAll('.toast')].some((t) => /not valid JSON/.test(t.textContent)));
 
   // dragging a shape tile (not a file) must not raise the overlay
   const shapeDrag = await page.evaluate(() => {
     const dt = new DataTransfer();
-    dt.setData('text/x-physicslab-shape', 'box');
+    dt.setData('text/x-physixlab-shape', 'box');
     window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true }));
     return document.querySelector('.qol-drop').classList.contains('show');
   });
@@ -609,12 +609,12 @@ test('qol: pasting a scene from the clipboard is offered, and entity copy / past
   // entity copy / paste with a clipboard that holds no scene
   const before = await bodyCount(page);
   await page.evaluate(() => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.store.setSelection([a.store.bodies()[0].id]);
   });
   await page.keyboard.press('Control+C');
   await page.keyboard.press('Control+V');
-  await until(page, (n) => window.physicslab.store.bodies().length > n, before, 20000);
+  await until(page, (n) => window.physixlab.store.bodies().length > n, before, 20000);
   assert((await sceneName(page)) !== 'Pasted scene', 'entity paste did not open a scene');
 
   // a paste event whose text is a scene -> confirm dialog -> opens it
@@ -628,9 +628,9 @@ test('qol: pasting a scene from the clipboard is offered, and entity copy / past
   assert(/Pasted scene/.test(dialog) && /2 objects/.test(dialog), `the dialog names the scene: ${dialog}`);
   await shot(page, 'qol-paste-dialog-1600x900');
   await page.click('.modal .btn.primary');
-  await until(page, () => window.physicslab.store.name === 'Pasted scene', null, 8000);
+  await until(page, () => window.physixlab.store.name === 'Pasted scene', null, 8000);
   assert((await bodyCount(page)) === 2, 'the pasted scene is loaded');
-  const rec = await page.evaluate(() => JSON.parse(localStorage.getItem('physicslab:qol:recents:v1'))[0]);
+  const rec = await page.evaluate(() => JSON.parse(localStorage.getItem('physixlab:qol:recents:v1'))[0]);
   assert(rec.key === 'paste:Pasted scene', `listed as recent: ${rec.key}`);
 
   // plain text on the clipboard is left alone; a text field keeps its own paste
@@ -672,7 +672,7 @@ test('qol: pasting a scene from the clipboard is offered, and entity copy / past
   await page.click('.menu .menu-item:has-text("Paste scene from clipboard")');
   await page.waitForSelector('.modal');
   await page.click('.modal .btn.primary');
-  await until(page, () => window.physicslab.store.name === 'Clipboard keyboard', null, 8000);
+  await until(page, () => window.physixlab.store.name === 'Clipboard keyboard', null, 8000);
   noErrors(page);
   await page.close();
 });

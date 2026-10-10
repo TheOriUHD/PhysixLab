@@ -4,7 +4,7 @@ import { isRecord, parseJson, type KeyValueStore } from './storage';
 export type FavKind = 'template' | 'prefab' | 'map' | 'shape';
 export const FAV_KINDS: readonly FavKind[] = ['template', 'prefab', 'map', 'shape'];
 export const FAV_LIMIT = 200;
-const KEY = 'physicslab:qol:favourites:v1';
+const KEY = 'physixlab:qol:favourites:v1';
 const ID = /^[A-Za-z0-9][\w.:/-]{0,119}$/; // content ids (plugins may use : and /)
 
 export class FavouritesStore {

@@ -14,7 +14,7 @@ import { DEFAULT_COMPONENTS, DEFAULT_ENTITIES, DEFAULT_SETTINGS } from './defaul
 /** First byte of a v2 payload (before the deflated stream). */
 export const COMPACT_VERSION = 2;
 const DELETED = '\u0001del';
-const DOC_FORMAT = 'physicslab-scene';
+const DOC_FORMAT = 'physixlab-scene';
 
 type Obj = { [k: string]: Json };
 const str = (v: Json | undefined): string => (typeof v === 'string' ? v : '');

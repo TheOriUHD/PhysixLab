@@ -11,7 +11,7 @@ const test = (name, fn) => tests.push({ name, fn });
 const screenPoint = async (page, world) => {
   await nextFrame(page);
   return page.evaluate((w) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     const v = new a.camera.position.constructor(...w).project(a.camera);
     const r = a.viewport.dom.getBoundingClientRect();
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
@@ -26,7 +26,7 @@ const click = async (page, world) => {
 
 const setup = (page, build) =>
   page.evaluate((src) => {
-    const a = window.physicslab;
+    const a = window.physixlab;
     a.newScene();
     a.viewport.setView({ position: [0, 3.5, 10], target: [0, 3, 0] });
     a.store.setSelection([]);
@@ -50,7 +50,7 @@ test('soft attach: a cable pinned at the top hangs a box fastened with two real 
     a.store.setSelection([]);
     return { cable: cable.id, box: box.id };
   });
-  await page.evaluate(() => window.physicslab.setTool('softattach'));
+  await page.evaluate(() => window.physixlab.setTool('softattach'));
   await page.waitForTimeout(100);
   const hint = await page.evaluate(() => document.body.innerText);
   assert(/click the point of the cloth/i.test(hint), 'the first-step hint is shown');
@@ -59,22 +59,22 @@ test('soft attach: a cable pinned at the top hangs a box fastened with two real 
   assert(/rigid body/i.test(hint2), 'the second-step hint is shown');
   await shot(page, 'sf-attach-pending');
   await click(page, [0, 2.2, 0]); // the box
-  const att = await page.evaluate((id) => window.physicslab.store.soft(id).attachments, ids.cable);
+  const att = await page.evaluate((id) => window.physixlab.store.soft(id).attachments, ids.cable);
   assert(
     att.length === 1 && att[0].body === ids.box && att[0].kind === 'region',
     `one attachment (${JSON.stringify(att)})`,
   );
   assert(att[0].offset[1] > 0.2 && att[0].offset[1] < 0.6, `offset is body-local above the box (${att[0].offset})`);
-  const tool = await page.evaluate(() => window.physicslab.prefs.value.tool);
+  const tool = await page.evaluate(() => window.physixlab.prefs.value.tool);
   assert(tool === 'select', 'the tool returns to select');
   // one undo step
-  await page.evaluate(() => window.physicslab.store.undo());
-  const none = await page.evaluate((id) => window.physicslab.store.soft(id).attachments.length, ids.cable);
+  await page.evaluate(() => window.physixlab.store.undo());
+  const none = await page.evaluate((id) => window.physixlab.store.soft(id).attachments.length, ids.cable);
   assert(none === 0, 'a single undo removes the attachment');
-  await page.evaluate(() => window.physicslab.store.redo());
-  await page.evaluate(() => window.physicslab.sim.play());
+  await page.evaluate(() => window.physixlab.store.redo());
+  await page.evaluate(() => window.physixlab.sim.play());
   await simTime(page, 2);
-  const y = await page.evaluate((id) => window.physicslab.sim.poseOf(id).position[1], ids.box);
+  const y = await page.evaluate((id) => window.physixlab.sim.poseOf(id).position[1], ids.box);
   assert(y > 1.8, `the box hangs from the cable instead of falling to the ground (y = ${y})`);
   await shot(page, 'sf-attach-hanging');
   await page.close();
@@ -92,14 +92,14 @@ test('soft cut: dragging the cut tool across a hanging cloth tears it into piece
     a.store.setSelection([]);
     return cloth.id;
   });
-  await page.evaluate(() => window.physicslab.setTool('softcut'));
+  await page.evaluate(() => window.physixlab.setTool('softcut'));
   // not simulating: an honest hint, and a drag does nothing
   const idleHint = await page.evaluate(() => document.body.innerText);
   assert(/Press\s+Space to start the simulation, then drag across the cloth to cut it/i.test(idleHint), 'idle hint');
-  await page.evaluate(() => window.physicslab.sim.play());
+  await page.evaluate(() => window.physixlab.sim.play());
   await simTime(page, 0.6);
   const count = () =>
-    page.evaluate((id) => window.physicslab.sim.client.softLayout.find((l) => l.id === id)?.count ?? 0, id);
+    page.evaluate((id) => window.physixlab.sim.client.softLayout.find((l) => l.id === id)?.count ?? 0, id);
   const before = await count();
   assert(before > 0, 'cloth particles are live');
   const a = await screenPoint(page, [-1.8, 3.2, 0]);
@@ -113,7 +113,7 @@ test('soft cut: dragging the cut tool across a hanging cloth tears it into piece
   await page.mouse.move(b.x, b.y, { steps: 4 });
   await page.mouse.up();
   await page.waitForFunction(
-    ([id, n]) => (window.physicslab.sim.client.softLayout.find((l) => l.id === id)?.count ?? 0) > n,
+    ([id, n]) => (window.physixlab.sim.client.softLayout.find((l) => l.id === id)?.count ?? 0) > n,
     [id, before],
     { timeout: 20000 },
   );
@@ -136,10 +136,10 @@ test('soft rope: two clicks (box, ground) add the links and joints as one undo s
     return { box: box.id };
   });
   const n0 = await page.evaluate(() => [
-    window.physicslab.store.bodies().length,
-    window.physicslab.store.joints().length,
+    window.physixlab.store.bodies().length,
+    window.physixlab.store.joints().length,
   ]);
-  await page.evaluate(() => window.physicslab.setTool('softrope'));
+  await page.evaluate(() => window.physixlab.setTool('softrope'));
   await click(page, [0, 3, 0.5]); // the front face of the box (z = 0.5)
   await shot(page, 'sf-rope-pending');
   await page.mouse.move(700, 800);
@@ -147,22 +147,22 @@ test('soft rope: two clicks (box, ground) add the links and joints as one undo s
   await page.mouse.click(g.x, g.y);
   await page.waitForTimeout(200);
   const n1 = await page.evaluate(() => [
-    window.physicslab.store.bodies().length,
-    window.physicslab.store.joints().length,
+    window.physixlab.store.bodies().length,
+    window.physixlab.store.joints().length,
   ]);
   const links = n1[0] - n0[0];
   assert(links >= 4 && links <= 40, `rope links were added (${links})`);
   assert(n1[1] - n0[1] === links + 1, `links-1 joints plus the two ends (${n1[1] - n0[1]} for ${links} links)`);
   const first = await page.evaluate(
-    (box) => window.physicslab.store.joints().filter((j) => j.bodyA === box || j.bodyB === box).length,
+    (box) => window.physixlab.store.joints().filter((j) => j.bodyA === box || j.bodyB === box).length,
     box,
   );
   assert(first === 1, 'one rope end is fastened to the box');
   await shot(page, 'sf-rope-made');
-  await page.evaluate(() => window.physicslab.store.undo());
+  await page.evaluate(() => window.physixlab.store.undo());
   const n2 = await page.evaluate(() => [
-    window.physicslab.store.bodies().length,
-    window.physicslab.store.joints().length,
+    window.physixlab.store.bodies().length,
+    window.physixlab.store.joints().length,
   ]);
   assert(n2[0] === n0[0] && n2[1] === n0[1], 'a single undo removes the whole rope');
   await page.close();
