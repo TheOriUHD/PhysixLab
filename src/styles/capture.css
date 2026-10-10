@@ -1,0 +1,25 @@
+/* DT-2: Record dialog and recording indicator */
+.cap-form { display: flex; flex-direction: column; gap: 4px; }
+.cap-form .row { grid-template-columns: 96px minmax(0, 1fr); }
+.cap-formats { width: 100%; }
+.cap-formats .seg-btn { flex: 1; justify-content: center; }
+.cap-formats .seg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.cap-dur { display: flex; align-items: center; gap: 6px; width: 100%; }
+.cap-dur .cap-duration { width: 90px; }
+.cap-switches { display: grid; gap: 6px; padding: 8px 0; }
+.cap-switch.disabled { opacity: 0.45; pointer-events: none; }
+.cap-errors:empty { display: none; }
+.cap-errors { color: var(--danger); font-size: 12px; line-height: 1.45; padding: 6px 8px; border: 1px solid var(--danger); border-radius: var(--radius-s); background: rgba(255, 93, 115, 0.08); }
+.cap-info { font-size: 12px; margin-top: 4px; }
+.cap-hint { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+
+.capture-indicator { position: fixed; z-index: 110; top: 54px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 6px 8px 8px 12px; border-radius: 999px; background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--danger); box-shadow: var(--shadow); font-size: 12.5px; overflow: hidden; }
+.capture-indicator .cap-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); animation: cap-pulse 1s ease-in-out infinite; flex: none; }
+.capture-indicator.encoding .cap-dot { background: var(--warn); }
+.capture-indicator .cap-rec { font: 600 11px var(--mono); letter-spacing: 0.08em; color: var(--danger); }
+.capture-indicator .cap-label { font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+.capture-indicator .btn { padding: 3px 10px; font-size: 12px; }
+.capture-indicator .cap-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--border); }
+.capture-indicator .cap-bar-fill { height: 100%; width: 0; background: var(--danger); transition: width 0.12s linear; }
+@keyframes cap-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .capture-indicator .cap-dot { animation: none; } }

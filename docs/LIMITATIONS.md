@@ -244,3 +244,11 @@ The Rapier WebAssembly binary alone is about 1.15 MB gzip (served as a separate 
 * **Not representable**: area lights, paths, joints, render-only skins and texture maps are not written. OBJ has no hierarchy or lights; STL is geometry only (one merged solid, optionally in millimetres and Z-up).
 * **Screenshots are not anti-aliased above 2560 px** (the viewport renderer has no MSAA; smaller images are rendered at 2x and averaged). Transparent PNGs recover alpha by rendering twice (over black and white), so the ground shadow is kept but selection outlines and ambient occlusion are not drawn. Maximum size is 3840 px per side and the graphics card's texture limit.
 
+
+## Video, GIF and turntable capture (DT-2)
+
+* **Video is real-time.** WebM/MP4 come from `MediaRecorder`, which stamps frames with the wall clock. Deterministic mode makes the *pictures* reproducible (fixed physics steps per frame, scripted camera) and holds each frame for its nominal duration, but a machine too slow to render a frame within 1/fps stretches the video. The GIF path has exact frame delays and is the one whose whole output is independent of machine speed.
+* **Codecs depend on the browser.** The Record dialog offers only containers for which `MediaRecorder.isTypeSupported` says yes (Chromium: WebM, recent versions MP4/H.264; Firefox: WebM only; Safari: MP4). Where none is available the dialog says so and GIF still works. We ship no video encoder.
+* **GIF limits.** At most 960 px wide, 30 fps, 30 s and 600 frames; 256 colours per frame (median-cut, no dithering), so gradients band. A real-time GIF buffers its frames as RGBA (capped at 256 MB); deterministic GIFs are encoded frame by frame.
+* **Deterministic capture covers the physics and the camera, not every effect.** Particle effects, motion trails and sound use the wall-clock frame time of the render loop, so a scene with active effects can differ slightly between two captures; the physics state at every frame is identical. Tab visibility matters: a hidden tab stops `requestAnimationFrame`, and the capture then stops with an explanation.
+* Deterministic capture with *Restart simulation* rebuilds the simulation from the scene, so the state a paused run had reached is not preserved (the simulation returns to running/edit as before the capture, but not to the same moment).

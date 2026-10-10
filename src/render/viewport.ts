@@ -192,6 +192,8 @@ export class Viewport {
   private thumbRequests: { w: number; h: number; done: (url: string | null) => void }[] = [];
   /** Called every frame before rendering with the frame delta in seconds. */
   onFrame: ((dt: number) => void) | null = null;
+  // -- DT-2: called right after a frame was rendered, while the canvas still holds it (capture reads pixels here) --
+  afterRender: ((canvas: HTMLCanvasElement) => void) | null = null;
   needsRender = true;
 
   constructor(readonly container: HTMLElement) {
@@ -690,12 +692,7 @@ export class Viewport {
     profiler.mark(RENDER); // -- UI-B: frame timing --
     profiler.end(); // -- UI-B: frame timing --
     if (this.thumbRequests.length) this.flushThumbnails();
-    // -- DT-11: one-shot hook right after the frame was drawn (the canvas has no preserved drawing buffer) --
-    const after = this.afterRender;
-    if (after) {
-      this.afterRender = null;
-      after();
-    }
+    this.afterRender?.(this.dom); // -- DT-2 --
   }
 
   /** A small JPEG data URL of the next rendered frame (cropped to w:h), or null when it cannot be made. */
@@ -787,9 +784,6 @@ export class Viewport {
     const step = visible > 160 ? 10 : visible > 16 ? 1 : visible > 1.6 ? 0.1 : 0.01;
     this.viewGrid.set(this.viewPlane, this.controls.target, visible * 2.2, step);
   }
-
-  /** One-shot callback run right after the next frame is rendered, while the canvas still holds it (screenshots). */
-  afterRender: (() => void) | null = null;
 
   dispose(): void {
     this.viewGrid.dispose();

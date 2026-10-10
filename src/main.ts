@@ -22,6 +22,7 @@ import './styles/joints.css';
 import './styles/jointtool.css';
 import './styles/sf-inspector.css'; // -- SF --
 import './styles/data.css'; // -- DT --
+import './styles/capture.css'; // -- DT-2 --
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { initDataPlatform } from './app/data/platform'; // -- DT
