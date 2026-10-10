@@ -21,7 +21,7 @@ Depends on: foundation (light entity kind, environment settings, asset store). G
 - [ ] VZ-23 — Weather: rain, snow, falling leaves/dust with wind interaction (particles driven by scene wind), puddle-wet look (roughness reduction), lightning flash; intensity slider; all GPU-instanced and capped
 
 ## Scene performance
-- [ ] VZ-30 — Instanced rendering: identical shape+material bodies (≥ 8) share an `InstancedMesh` with per-instance colour; selection/hover/outline/picking still work per instance; benchmark shows ≥ 3× fewer draw calls on the 300-ball pit
+- [x] VZ-30 — Instanced rendering: identical shape+material bodies (≥ 8) share an `InstancedMesh` with per-instance colour; selection/hover/outline/picking still work per instance; benchmark shows ≥ 3× fewer draw calls on the 300-ball pit (e2e/tests/vz-instancing.mjs: 668 → 32 draw calls over two frames; picking/hover/selection per instance; src/render/instancing.ts, bodyViews.ts. Selected/hovered bodies are promoted to their own mesh so the outline pass and emissive highlight work; `?instancing=0` is the baseline switch)
 - [ ] VZ-31 — Level of detail for complex geometry (imported meshes, spheres/cylinders segment counts by screen size), frustum culling verified, hidden-entity skipping
 - [ ] VZ-32 — Shadow system upgrades: cascaded/camera-following with stable texel snapping, configurable resolution, contact-hardening look at tier High+
 

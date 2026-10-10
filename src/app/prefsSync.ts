@@ -8,7 +8,9 @@ export class PrefsSync {
   applyAll(): void {
     const { app } = this;
     const p = app.prefs.value;
-    app.viewport.setQuality(p.quality);
+    // -- VZ-B: `?quality=low|medium|high` overrides the stored tier for this session (fast headless tests) --
+    const urlQ = new URLSearchParams(location.search).get('quality');
+    app.viewport.setQuality(urlQ === 'low' || urlQ === 'medium' || urlQ === 'high' ? urlQ : p.quality);
     app.bodies.mode = p.colorMode;
     app.joints.visible = p.showJoints;
     app.overlays.options = { ...p.overlays };

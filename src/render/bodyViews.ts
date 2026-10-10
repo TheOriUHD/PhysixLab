@@ -11,6 +11,7 @@ import { shapeGeometry, shapeGeometryKey, shapeVisualScale } from '../model/shap
 import type { BodyEntity, ColliderPart, MaterialSpec, ShapeSpec } from '../model/types';
 import { B, BODY_STRIDE } from '../physics/protocol';
 import { GEOMETRY_KIT } from './geometryKit';
+import { DISSOLVE_BELOW, InstancePool, MIN_POOL, type PoolMember } from './instancing';
 
 export type ColorMode = 'material' | 'type' | 'speed' | 'energy' | 'force' | 'sleep';
 
@@ -71,7 +72,7 @@ interface Piece {
   baseColor: string;
 }
 
-export class BodyView {
+export class BodyView implements PoolMember {
   /**
    * Carries the pose: the body's own Mesh, or a Group of part meshes for a compound body. Anything that
    * moves, hides or measures a body uses this; picking and tinting use `pieces`.
@@ -84,6 +85,20 @@ export class BodyView {
   /** Last pose written, so overlays can read it without touching the matrix. */
   readonly position = new Vector3();
   state = 0;
+  // -- VZ-B: instancing state (see render/instancing.ts) --
+  /** Visual scale of the simple shape (the pool composes it into the instance matrix). */
+  scale: [number, number, number] = [1, 1, 1];
+  /** Pool this body is drawn through, or null when it has its own mesh. */
+  pool: InstancePool | null = null;
+  slot = -1;
+  /** Key of bodies that may share one InstancedMesh; null = never pooled (compound, instancing off). */
+  instKey: string | null = null;
+  /** Highlighted (selected / hovered): drawn through its own mesh even though a pool exists. */
+  promoted = false;
+  poolVisible = true;
+  get id(): string {
+    return this.def.id;
+  }
 
   constructor(
     def: BodyEntity,
@@ -143,6 +158,7 @@ export class BodyView {
     }
     const s = shapeVisualScale(def.shape);
     piece.mesh.scale.set(s[0], s[1], s[2]);
+    this.scale = [s[0], s[1], s[2]];
   }
 
   applyMaterial(def: BodyEntity): void {
@@ -199,6 +215,12 @@ export class BodyViews {
   readonly views = new Map<string, BodyView>();
   private cache = new GeometryCache();
   private tmpColor = new Color();
+  // -- VZ-B: instanced rendering --
+  private pools = new Map<string, InstancePool>();
+  private poolGeo = new Map<string, string>();
+  private candidates = new Map<string, Set<BodyView>>();
+  private colorCache = new Map<string, Color>();
+  private instancingOn = true;
   mode: ColorMode = 'material';
   hoverId: string | null = null;
   /** Auto-ranging scale for the analytic colour modes. */
@@ -215,19 +237,132 @@ export class BodyViews {
     const v = new BodyView(def, this.cache);
     this.views.set(def.id, v);
     this.group.add(v.mesh);
+    this.register(v);
     return v;
   }
 
   remove(id: string): void {
     const v = this.views.get(id);
     if (!v) return;
+    this.unregister(v);
     this.group.remove(v.mesh);
     v.dispose();
     this.views.delete(id);
   }
 
+  // -- VZ-B: instanced rendering (VZ-30) --
+
+  get instancing(): boolean {
+    return this.instancingOn;
+  }
+
+  /** Draw identical bodies through shared InstancedMeshes (default) or one mesh each. */
+  setInstancing(on: boolean): void {
+    if (on === this.instancingOn) return;
+    this.instancingOn = on;
+    for (const v of this.views.values()) {
+      this.unregister(v);
+      this.register(v);
+    }
+  }
+
+  /** Number of InstancedMesh draw groups currently in use, and the bodies they carry. */
+  poolStats(): { pools: number; instances: number } {
+    let instances = 0;
+    for (const p of this.pools.values()) instances += p.size;
+    return { pools: this.pools.size, instances };
+  }
+
+  private instKeyOf(v: BodyView): string | null {
+    if (!this.instancingOn || v.compound) return null;
+    const { color: _color, ...rest } = v.def.material;
+    void _color;
+    return `${this.cache.key(v.def.shape)}|${v.def.ghost ? 1 : 0}|${JSON.stringify(rest)}`;
+  }
+
+  private register(v: BodyView): void {
+    const key = this.instKeyOf(v);
+    v.instKey = key;
+    if (key === null) return;
+    let set = this.candidates.get(key);
+    if (!set) this.candidates.set(key, (set = new Set()));
+    set.add(v);
+    let pool = this.pools.get(key);
+    if (!pool && set.size >= MIN_POOL) {
+      const leader = set.values().next().value as BodyView;
+      const { key: geoKey, geo } = this.cache.acquire(leader.def.shape);
+      const mat = leader.pieces[0].material.clone();
+      mat.color.setRGB(1, 1, 1);
+      mat.emissive.setRGB(0, 0, 0);
+      pool = new InstancePool(key, geo, mat, this.group);
+      this.pools.set(key, pool);
+      this.poolGeo.set(key, geoKey);
+      for (const m of set) this.attach(m, pool);
+    } else if (pool) this.attach(v, pool);
+  }
+
+  private attach(v: BodyView, pool: InstancePool): void {
+    v.pool = pool;
+    pool.add(v);
+  }
+
+  private unregister(v: BodyView): void {
+    const key = v.instKey;
+    if (key === null) return;
+    v.pool?.remove(v);
+    v.pool = null;
+    v.instKey = null;
+    v.mesh.visible = !v.def.hidden && v.state !== 2;
+    const set = this.candidates.get(key);
+    if (!set) return;
+    set.delete(v);
+    const pool = this.pools.get(key);
+    if (set.size === 0) this.candidates.delete(key);
+    if (pool && set.size < DISSOLVE_BELOW) {
+      for (const m of set) {
+        pool.remove(m);
+        m.pool = null;
+        m.mesh.visible = !m.def.hidden && m.state !== 2;
+      }
+      pool.dispose();
+      this.pools.delete(key);
+      this.cache.release(this.poolGeo.get(key)!);
+      this.poolGeo.delete(key);
+    }
+  }
+
+  /** True when the body is drawn at all (not hidden, not fallen out of the world). */
+  private shown(v: BodyView): boolean {
+    return !v.def.hidden && v.state !== 2;
+  }
+
+  /**
+   * Per frame, after poses and colours: push poses into the instance buffers and settle which of a pooled body's two
+   * representations (instance slot / own mesh) is drawn.
+   */
+  flush(): void {
+    for (const v of this.views.values()) {
+      if (!v.pool) continue;
+      const shown = this.shown(v);
+      v.poolVisible = shown && !v.promoted;
+      v.mesh.visible = shown && v.promoted;
+    }
+    for (const p of this.pools.values()) p.flush();
+  }
+
+  private colorOf(css: string): Color {
+    let c = this.colorCache.get(css);
+    if (!c) this.colorCache.set(css, (c = new Color(css)));
+    return c;
+  }
+
   clear(): void {
     for (const id of [...this.views.keys()]) this.remove(id);
+    for (const p of this.pools.values()) p.dispose();
+    this.pools.clear();
+    this.candidates.clear();
+    for (const k of this.poolGeo.values()) this.cache.release(k);
+    this.poolGeo.clear();
   }
 
   /**
@@ -254,16 +389,20 @@ export class BodyViews {
       return true;
     }
     v.def = def;
+    const regroup = old.shape !== def.shape || old.material !== def.material || old.ghost !== def.ghost;
+    if (regroup) this.unregister(v);
     if (old.shape !== def.shape) v.applyShape(def);
     if (old.material !== def.material || old.hidden !== def.hidden || old.ghost !== def.ghost) v.applyMaterial(def);
+    if (regroup) this.register(v);
     return false;
   }
 
   /** Every mesh a click can hit (all parts of compound bodies), skipping hidden and fallen bodies. */
   pickables(): Mesh[] {
     const out: Mesh[] = [];
+    for (const p of this.pools.values()) out.push(p.mesh);
     for (const v of this.views.values()) {
-      if (!v.mesh.visible || v.state === 2) continue;
+      if (!this.shown(v) || (v.pool && !v.promoted)) continue;
       for (const p of v.pieces) out.push(p.mesh);
     }
     return out;
@@ -314,6 +453,7 @@ export class BodyViews {
     for (const v of this.views.values()) {
       const d = v.def;
       const sel = selected.has(d.id);
+      if (v.pool) v.promoted = sel || d.id === this.hoverId;
       // Colour the whole body for the analytic modes; in 'material' mode each part keeps its own colour.
       let flat: string | null = null;
       const heat = this.tmpColor;
@@ -342,6 +482,10 @@ export class BodyViews {
           heatColor(f / this.scaleMax.force, heat);
           useHeat = true;
         }
+      }
+      if (v.pool && !v.promoted) {
+        v.pool.setColor(v, useHeat ? heat : this.colorOf(flat ?? v.pieces[0].baseColor));
+        continue;
       }
       for (const piece of v.pieces) {
         if (useHeat) piece.material.color.copy(heat);

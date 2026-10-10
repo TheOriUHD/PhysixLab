@@ -45,12 +45,15 @@ export class FrameLoop {
     app.viewSync.syncSoftLayout(client);
     for (const id of app.softs.views.keys()) app.softs.tint(id, app.store.selection.includes(id));
 
+    if (app.bodies.hoverId !== app.hoverId) this.colorsDirty = true; // -- VZ-B: hover highlight (and promotion) follows the pointer --
     app.bodies.hoverId = app.hoverId;
     if (live || this.colorsDirty || app.bodies.mode !== 'material') {
       const sel = new Set(app.store.selection);
       app.bodies.applyColors(live ? client.poses : null, (id) => client.bodyIndex.get(id), sel);
       this.colorsDirty = false;
     }
+
+    app.bodies.flush(); // -- VZ-B: instance buffers (VZ-30) --
 
     const broken = client.broken;
     app.joints.updateFrame(app.camera, live ? client.joints : null, (id) => client.jointIndex.get(id), broken);
