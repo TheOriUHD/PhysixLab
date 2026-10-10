@@ -9,6 +9,10 @@ An advanced 3D physics sandbox that runs entirely in your browser. Build mechani
 * **Real mechanisms.** Six joint types — weld, hinge, slider, ball, spring-damper, rope — with limits, **motors** (velocity or position mode, force-capped, bindable to keyboard keys) and **springs with break force**. The bundled car is built from nothing but these: independent spring-damper suspension (slider + position motor), steered front wheels (hinge + keyed position motor), rear-wheel drive (keyed velocity motors).
 * **Soft bodies.** Jelly lattices, balloons, cloth (pin an edge, two corners or four corners) and cables, from the engine's particle/constraint soft-body solver — deformable, drag-able with the mouse, and **tearable**: give a cloth a tear strain and a wrecking ball rips it, the torn pieces simulate on independently.
 * **A lab, not just a viewport.** Live energy chart (kinetic, rotational, gravitational, spring, total), per-object plots (speed, height, joint angle, spring force…), velocity / net-force / contact / centre-of-mass overlays, motion trails, a ruler, colour-by-speed / energy / force / sleep state, adjustable time scale (0.1×–4×), single-stepping, adjustable gravity (Moon, Mars, Jupiter, zero-g, any vector), air drag, solver quality.
+<!-- FX: effects -->
+* **Effects that follow the physics.** Pooled, GPU-instanced particles with procedurally generated soft sprites: sparks, dust, wood chips, glass shards and rubber scuffs from real contact impulses (material-dependent, scaled by the impact energy), tyre smoke and persistent skid marks from wheels whose slip is estimated from the contact-point velocity, fireball / shock-ring / smoke / light-flash explosions for the Blast tool and hard projectile hits, debris chips with an optional capped, auto-cleaned physical-debris mode. Quality tiers, a master switch and per-effect switches live in the *Effects* panel; the effects are deterministic for the scene seed and freeze with the simulation.
+<!-- FX: sound -->
+* **Sound that follows the physics, with no sample files.** Everything is synthesised with WebAudio: collisions ring in the material's own voice (metal clangs with inharmonic partials, wood knocks, glass chimes and shatters, stone clacks, rubber thuds), scaled by the real impact energy, lower for bigger bodies; rolling bodies rumble and sliding ones scrape by speed and load; motorised joints and engines whine, rev and strain with their rpm and load; wind rushes past a camera following a fast body; explosions, shots, spawns, snapping joints and trampolines have their own sounds. Positioned relative to the camera, voice-limited, pitched down in slow motion, with master and per-category volumes and a mute (`Shift+M`, or the speaker in the top bar). Sound starts with your first click (browsers require it) and is off the moment you switch it off.
 * **Safe to experiment.** Every edit is undoable. *Reset* always returns to the layout you built. Your scene is autosaved; scenes can be saved to a library, exported/imported as JSON, or shared as a link (the whole scene is compressed into the URL — no server involved).
 
 ## Run it
@@ -39,6 +43,7 @@ Requires a modern desktop browser with WebGL 2 and WebAssembly (Chrome, Edge, Fi
 | **Simulate** | `Space` start/pause · `.` step · `Shift+Space` stop & return to the editable layout |
 | **Interact** | while running, drag a body to throw it · `B` blast · `T` fire projectiles |
 | **Measure** | `M`, click two points |
+| **Sound** | `Shift+M` mute / unmute (the speaker in the top bar) · volumes and test sounds in the *Effects* panel |
 | **Camera** | right-drag orbit · middle-drag pan · scroll zoom · `F` frame selection · `Home` frame all · `C` follow selection |
 | **Undo** | `Ctrl+Z` / `Ctrl+Shift+Z` |
 | **Search** | `Ctrl+K` (`⌘K`) opens the command palette: every command, setting, example scene, saved scene, prefab and map in one fuzzy search box |
@@ -64,7 +69,8 @@ Any hinge or slider motor can be bound to keys: select the joint → *Motor* →
 
 * `src/model` — the scene **document**: plain JSON entities (bodies, joints, soft bodies, groups, lights, paths), materials, the shape and component registries, the content library (`model/content`: example scenes, prefabs, maps), an immutable store with structural-sharing undo history, validation / migration on load.
 * `src/physics` — `PhysicsWorld` (pure TS around Rapier; runs identically in the worker and in Node tests), the worker entry, the message protocol and the main-thread `SimClient`.
-* `src/render` — three.js viewport (PBR + shadows + environment, optional GTAO, outline pass), body / joint views, diagnostic overlays, gizmo wrapper, picking.
+* `src/render` — three.js viewport (PBR + shadows + environment, optional GTAO, outline pass), body / joint views, diagnostic overlays, gizmo wrapper, picking. `render/fx` is the particle / impact / skid-mark / explosion system (`app.fx.emit(type, position, options)`).
+* `src/audio` — the sound system: procedural synthesis, material / impact / event sounds, the WebAudio engine (`app.audio.playEvent(id, position)`); `src/app/audio` connects it to the simulation.
 * `src/app` — `App` (wiring), `SimController` (edit / running / paused state machine and live-edit sync), `Editor` (commands), input handling, persistence, and `registry/`: the command, tool, panel, inspector-section and menu registries everything in the UI is generated from.
 * `src/ui` — panels, inspector, outliner, telemetry charts, menus, dialogs, the command palette (`ui/palette`).
 

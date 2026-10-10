@@ -3,6 +3,7 @@ import type { Vector3 } from 'three';
 import { qfromEuler } from '../core/math';
 import { createBody } from '../model/factory';
 import type { App } from './app';
+import { PROJECTILE_TAG } from './fx/bodyFx';
 
 export class Projectiles {
   constructor(private app: App) {}
@@ -23,8 +24,10 @@ export class Projectiles {
       velocity: [dir.x * p.shootSpeed, dir.y * p.shootSpeed, dir.z * p.shootSpeed],
       ccd: true,
       rotation: qfromEuler([0, 0, 0]),
+      tags: [PROJECTILE_TAG], // ── FX: the effects give a hard projectile hit a small blast ──
     });
     app.sim.spawn(b);
+    app.audioDirector.launch(b.position, p.shootSpeed, r * 2); // ── FX: the report of the shot ──
   }
 
   blast(at: Vector3): void {
@@ -35,7 +38,9 @@ export class Projectiles {
     }
     const p = app.prefs.value;
     app.sim.client.op({ op: 'explode', center: [at.x, at.y, at.z], strength: p.blastStrength, radius: 7 });
-    app.effects.shockwave(at, 7);
+    // ── FX: a particle explosion; the wireframe shock wave remains when effects are off ──
+    if (!app.fxDirector.blast(at, 7, p.blastStrength)) app.effects.shockwave(at, 7);
+    app.audioDirector.explosion([at.x, at.y, at.z], 7, p.blastStrength); // ── FX: the sound is independent of the visual switch ──
   }
 
   /** Index (within the entity's particle block) of the soft particle closest to a world point. */

@@ -22,6 +22,8 @@ imports are rewritten for the folder the example says it belongs in. If you chan
 | an **inspector section** | `registerInspectorSection` | `src/ui/extensions/<name>.ts` | no |
 | a **menu** or **menu entry** | `registerMenu`, `registerMenuEntry` | `src/ui/extensions/<name>.ts` | no |
 | a **template**, **prefab** or **map** | `registerTemplate`, `registerPrefab`, `registerMap` | `src/model/content/<name>.ts` | no |
+| a **particle effect** (sparks, smoke, confetti …) | `registerParticleType`, then `app.fx.emit` | `src/ui/extensions/<name>.ts` | no |
+| a **sound** or a **material's sound** | `registerSoundEvent`, `registerSoundMaterial`, then `app.audio.playEvent` | `src/ui/extensions/<name>.ts` | no |
 | a **joint type** | *(a closed union for now)* | seven places, listed below | yes — see the checklist |
 
 Why two folders for the same kind of thing? **Content** (`src/model/content/`) is pure data built from the public
@@ -432,6 +434,164 @@ registerMap({
 });
 ```
 
+## How to add a particle effect
+
+The visual-effects system (`src/render/fx/`, reachable as `app.fx`) is one pooled, GPU-instanced particle system that
+every package shares. A **particle type** is data — a sprite from the procedural atlas (`soft`, `glow`, `spark`,
+`smoke1`–`smoke3`, `chip`, `shard`, `shard2`, `ring`, `ringSoft`, `flame`, `star`, `crumb`, `dust`, `streak`), a lifetime,
+a size and an opacity and a colour *over life*, a speed range and cone, gravity (a multiplier of the scene's gravity
+vector: negative rises), drag, wind, an optional floor bounce — registered with `registerParticleType`. After that
+`app.fx.emit('my.type', position, options)` creates particles: `options` can set the count, size scale, speed, life,
+direction and spread, a colour tint, the emitter's velocity to inherit, and a `pattern` (`cone`, `sphere`, `disc`).
+Counts follow the quality tier and the intensity setting and respect the particle budget; every `emit` draws from a
+random stream seeded by the scene seed, so a scene plays out identically for the same seed. Effects freeze while the
+simulation is paused and slow down with the time scale — a package passes nothing for that, `app.fx` is advanced by the
+frame loop.
+
+<!-- example: confetti-effect.ts -->
+```ts
+// File: src/ui/extensions/confetti.ts   (files in src/ui/extensions are loaded at start-up, nothing to edit)
+import { registerCommand } from '../../app/registry';
+import { registerParticleType } from '../../render/fx';
+
+// A particle type is data: sprite, lifetime, size / opacity / colour over life, speed, gravity, drag, wind, floor bounce.
+registerParticleType({
+  id: 'demo.confetti',
+  label: 'Confetti',
+  blend: 'normal',
+  sprites: ['chip', 'shard2'],
+  life: [1.6, 2.6],
+  size: [0.04, 0.09],
+  sizeOverLife: [
+    [0, 1],
+    [0.85, 1],
+    [1, 0],
+  ],
+  alphaOverLife: [
+    [0, 1],
+    [0.8, 1],
+    [1, 0],
+  ],
+  colorOverLife: [
+    [0, '#ff5964'],
+    [0.5, '#ffd23f'],
+    [1, '#35a7ff'],
+  ],
+  speed: [3, 9],
+  spread: 0.9, // half-angle of the emission cone, radians
+  gravity: 0.6, // × the scene's gravity
+  drag: 1.2,
+  wind: 0.8, // how strongly the wind carries it (0 … 1)
+  spin: [4, 16],
+  orient: 'billboard',
+  bounce: 0.3, // restitution on the ground; it then lies there until it fades
+  settle: true,
+  count: 60,
+  radius: 0.1,
+});
+
+registerCommand({
+  id: 'demo.confetti',
+  label: 'Confetti at the view centre',
+  category: 'View',
+  icon: 'sparkle',
+  keywords: ['party', 'particles', 'effect'],
+  // `app.fx.emit(type, position, options)` is the whole API: count, scale, speed, direction, spread, colour tint …
+  run: ({ app }) => {
+    const t = app.viewport.controls.target;
+    app.fx.emit('demo.confetti', [t.x, 0.2, t.z], { count: 80 });
+  },
+});
+```
+
+Three more entry points, all in `src/render/fx`:
+
+- `app.fx.explosion(position, { radius, energy })` — fireball, shock ring, embers, debris, smoke and a light flash (what
+  the Blast tool uses; `app.fxDirector.blast(point, radius, strength)` also tells you whether effects are on).
+- `app.fx.impact({ position, normal, speed, impulse, a, b, … })` — the material-dependent effects of one collision;
+  `surfaceFor(presetId, colorHex)` builds the two surfaces, `impactBursts` is the recipe. A package that adds a
+  **material** teaches the effects how it behaves with `registerFxSurface(presetId, { cls, hardness, brittle, dust,
+  spark, chip, skid })` (hardness decides who sparks against / chips whom; `chip` is a particle type id; `skid` is the
+  mark it leaves when it slides). A material nobody described is classified from its density, restitution, friction,
+  metalness and opacity.
+- `app.fx.setEnvironment({ wind, windAt, gravity, floorY })` — the wind particles feel (a constant, or a field sampled at
+  each particle's position, which is what a wind zone should provide).
+
+Contact events are shared through `app.contacts.acquire(owner, needs, handler)` (`src/app/contactFeed.ts`): the feed
+switches the worker's contact events on for as long as anybody holds it and hands every consumer the events, so two
+packages never fight over the configuration (the worker serves the most eager consumer; the feed hands each of the
+others only what its own `minImpulse` / `pairInterval` allow, so switching the sound on never changes the effects). The **Effects panel** is a list of sections too:
+`registerFxPanelSection({ id, order, build })` (`src/ui/fxPanel.ts`) adds one — an audio or camera-shake package puts
+its settings there.
+
+## How to add a sound
+
+All sound is synthesised — there are no sample files — by the audio engine (`src/audio/`, reachable as `app.audio`). A
+**sound event** is a recipe: *modes* (decaying sinusoids: frequency in Hz, loudness, seconds to fall 60 dB, optionally a
+pitch glide or vibrato), *noise layers* (white / pink / brown noise through a low-, high- or band-pass filter that can
+sweep, with an envelope) and *grains* (a spray of tiny modes: glass shattering, gravel). `registerSoundEvent` takes the
+recipe, a `category` (which of the five volume sliders and voice budgets it belongs to: `impacts`, `rolling`, `engines`,
+`ambience`, `ui`), whether it is `spatial`, a quantised `key` (equal keys share one rendered buffer, so keep the number of
+distinct keys small) and a `gain`. After that `app.audio.playEvent(id, position, params)` plays it: the engine renders the
+buffer on first use (a few milliseconds, spread over frames), pans and attenuates it by where `position` is relative to
+the camera, bends its pitch with the simulation's time scale, and admits it to the voice pool — a louder newcomer steals
+the quietest voice of its category, a quieter one is turned away.
+
+A **material** teaches collisions how it rings: `registerSoundMaterial(presetId, profile)` gives the modes of a struck
+object of that material (frequency ratios and loudness), how long the fundamental rings, how brittle and how hard it is;
+a preset nobody described is classified from its density, restitution, friction, metalness and opacity. Bigger bodies
+pitch lower, harder and faster hits are louder and brighter — none of that is the package's job.
+
+<!-- example: tuning-fork-sound.ts -->
+```ts
+// File: src/ui/extensions/tuning-fork.ts   (files in src/ui/extensions are loaded at start-up, nothing to edit)
+import { registerCommand } from '../../app/registry';
+import { registerSoundEvent, registerSoundMaterial, soundProfileFor } from '../../audio';
+
+// A sound is a recipe, not a sample: ringing modes (frequency Hz, loudness, seconds to fall 60 dB), noise layers and
+// grains. The engine renders each distinct `key` once into a buffer and plays it with a gain, a pan and a pitch.
+registerSoundEvent({
+  id: 'demo.tuningFork',
+  label: 'Tuning fork',
+  category: 'impacts', // which volume slider and voice budget it belongs to
+  spatial: true, // positioned relative to the camera (false: heard at the same level everywhere, like the interface)
+  key: (p) => `demo|fork|l${Math.round((p.level ?? 0.5) * 4)}`, // equal keys share one rendered buffer
+  gain: (p) => 0.05 + 0.2 * (p.level ?? 0.5),
+  recipe: (p) => ({
+    duration: 2.6,
+    modes: [
+      { freq: 440, gain: 1, t60: 2.2 }, // the fundamental rings for seconds…
+      { freq: 440 * 6.27, gain: 0.1 + 0.2 * (p.level ?? 0.5), t60: 0.12 }, // …the strike's overtone dies at once
+    ],
+    noise: [{ color: 'white', gain: 0.15, t60: 0.01, filter: { type: 'highpass', freq: 3000 } }], // the tick of the blow
+  }),
+});
+
+// A material is a profile too: how an object of it rings when struck (mode ratios and loudness, ring time, brightness).
+registerSoundMaterial('titanium', { ...soundProfileFor('steel'), pitch: 1100, ring: 2.2, hardness: 0.9 });
+
+registerCommand({
+  id: 'demo.tuningFork',
+  label: 'Strike a tuning fork',
+  category: 'Sound',
+  icon: 'speaker',
+  keywords: ['sound', 'audio', 'note', 'a440'],
+  // `app.audio.playEvent(id, position, params)` is the whole API: a position (null = not positioned), `size`, `level`, …
+  run: ({ app }) => {
+    const t = app.viewport.controls.target;
+    app.audio.playEvent('demo.tuningFork', [t.x, t.y, t.z], { level: 0.7 });
+  },
+});
+```
+
+Where sounds come from in the app, so a package knows what already exists: contact events (`app.contacts`, shared with
+the particle effects) become impact sounds; the ground contact and slip of every body become rolling and sliding noise;
+every motorised hinge or slider, and every component whose published state (`ComponentDef.state`) has a speed in rpm,
+°/s or rad/s — or, for jets and thrusters, a throttle percentage — becomes an engine voice; the body the camera follows
+makes wind; a **component can ask for a sound** with `ctx.emit('sound', { id: 'explosion', params: { size: 5 } })` (and
+`ignite` and `bounce` events play the launch and trampoline sounds). The mute key is `Shift+M` (`M` is the Measure
+tool). The **Effects panel** carries the sound settings, as sections registered with `registerFxPanelSection`.
+
 ## How to add a joint type
 
 Joint types are the one extension point that is still a closed union (`JointType`), so adding one means touching
@@ -488,6 +648,8 @@ union to extend, and the inspector, undo, saving and the worker integration come
 | menus | `src/app/registry` | `registerMenu`, `registerMenuEntry`, `unregisterMenu`, `unregisterMenuEntry`, `resolveMenu` |
 | shortcut help | `src/app/registry` | `registerHelp` (gestures), `helpSections` (generated) |
 | templates / prefabs / maps | `src/model/content` | `register…`, `unregister…`, `get…`, `list…`, `onContentChange` |
+| particle types / fx surfaces | `src/render/fx` | `registerParticleType`, `particleTypes`, `registerFxSurface`, `surfaceFor`; `app.fx.emit` |
+| sound events / materials | `src/audio` | `registerSoundEvent`, `soundEvent`, `registerSoundMaterial`, `soundProfileFor`; `app.audio.playEvent` |
 | shapes | `src/model/shapeRegistry` | `registerShape`, `getShape`, `listShapes`, `shapeDef` … |
 | components | `src/model/componentRegistry` + `src/physics/components` | `registerComponent`, `registerRuntime`, `componentDef`, `listComponents` |
 
