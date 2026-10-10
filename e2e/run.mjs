@@ -6,6 +6,7 @@
  *   E2E_PORT=5231 npm run test:e2e            # ... on another port (default 5199), e.g. for parallel runs
  *   E2E_URL=http://host:port npm run test:e2e # use an already running server instead
  *   E2E_FILTER=joint npm run test:e2e         # only tests whose name contains "joint" (case-insensitive)
+ *   E2E_FILES=api,data,pwa npm run test:e2e   # only these files from e2e/tests (core.mjs always runs first)
  *   E2E_SHOTS=1 npm run test:e2e              # also write screenshots to e2e/out
  *
  * Tests live in e2e/tests/*.mjs. Each file exports `tests`, an array of `{ name, fn }` (see
@@ -24,6 +25,7 @@ const testsDir = join(root, 'e2e', 'tests');
 async function discover() {
   const files = readdirSync(testsDir)
     .filter((f) => f.endsWith('.mjs'))
+    .filter((f) => !process.env.E2E_FILES || f === 'core.mjs' || process.env.E2E_FILES.split(',').includes(f.replace(/\.mjs$/, '')))
     .sort((a, b) => (a === 'core.mjs' ? -1 : b === 'core.mjs' ? 1 : a.localeCompare(b)));
   const all = [];
   const seen = new Map();
