@@ -120,9 +120,19 @@ export function commandChecked(def: CommandDef, app: App): boolean | undefined {
   return def.checked ? def.checked(app) : undefined;
 }
 
+// -- CM-A: shortcuts can be rebound (src/app/input/inputMap.ts installs the resolver) --
+let shortcutResolver: ((def: CommandDef) => readonly string[]) | null = null;
+export function setShortcutResolver(fn: ((def: CommandDef) => readonly string[]) | null): void {
+  shortcutResolver = fn;
+}
+/** The shortcuts a command has right now (the user's rebinding if any, else the registered default). */
+export function shortcutsOf(def: CommandDef): readonly string[] {
+  return shortcutResolver ? shortcutResolver(def) : shortcutList(def.shortcut);
+}
+
 /** The shortcut to display (the first one), or undefined. */
 export function primaryShortcut(def: CommandDef): string | undefined {
-  return shortcutList(def.shortcut)[0];
+  return shortcutsOf(def)[0];
 }
 
 /** "Undo (Ctrl+Z)": a tooltip with the command's current shortcut for this platform (just `text` without one). */

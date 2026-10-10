@@ -20,9 +20,20 @@ import {
   type Quat,
   type Vec3,
 } from '../../core/math';
+import { hasIndependentAnchors } from '../../model/jointParams';
 import type { JointEntity } from '../../model/types';
+import { initCoupling } from './couplings';
 import type { JointRec, WorldState } from './state';
 import { pos, QI, rot, rq, rv, X_AXIS, ZERO } from './util';
+
+// -- JT-A: engine axis-mask bits and the types whose engine joint takes explicit local frames --
+const AXES = { LinX: 1, LinY: 2, LinZ: 4, AngX: 8, AngY: 16, AngZ: 32 };
+const HAS_FRAME = new Set(['hinge', 'slider', 'sixdof', 'universal', 'screw']);
+function sixDofLockMask(def: JointEntity): number {
+  let m = 0;
+  for (let i = 0; i < 6; i++) if (def.params.dof[i].mode === 'locked') m |= 1 << i;
+  return m;
+}
 
 export function addJoint(s: WorldState, def: JointEntity): JointRec | null {
   const A = def.bodyA ? (s.bodies.get(def.bodyA) ?? null) : null;
@@ -32,7 +43,7 @@ export function addJoint(s: WorldState, def: JointEntity): JointRec | null {
   const qB = B ? rot(B.rb) : QI;
   const pA = A ? pos(A.rb) : ZERO;
   const pB = B ? pos(B.rb) : ZERO;
-  const rigid = def.type !== 'spring' && def.type !== 'rope';
+  const rigid = !hasIndependentAnchors(def.type); // -- JT-A: replaces the spring / rope test --
 
   const aA: Vec3 = def.anchorA;
   let aB: Vec3;
@@ -47,7 +58,7 @@ export function addJoint(s: WorldState, def: JointEntity): JointRec | null {
   const qAxis = qfromUnitVectors(X_AXIS, axisWorld);
   let frameA = qmul(qconj(qA), qAxis);
   let frameB = qmul(qconj(qB), qAxis);
-  if (def.type === 'fixed') {
+  if (def.type === 'fixed' || def.type === 'softweld') {
     frameA = qconj(qA);
     frameB = qconj(qB);
   }
@@ -72,9 +83,31 @@ export function addJoint(s: WorldState, def: JointEntity): JointRec | null {
     case 'rope':
       jd = RAPIER.JointData.rope(def.ropeLength, rv(aA), rv(aB));
       break;
+    // -- JT-A: engine joint (if any) + coupling rows in couplings.ts --
+    case 'conetwist':
+      jd = RAPIER.JointData.spherical(rv(aA), rv(aB));
+      break;
+    case 'sixdof':
+      jd = RAPIER.JointData.generic(rv(aA), rv(aB), rv(X_AXIS), sixDofLockMask(def));
+      break;
+    case 'universal':
+      jd = RAPIER.JointData.generic(rv(aA), rv(aB), rv(X_AXIS), AXES.LinX | AXES.LinY | AXES.LinZ | AXES.AngX);
+      break;
+    case 'screw':
+      jd = RAPIER.JointData.generic(rv(aA), rv(aB), rv(X_AXIS), AXES.LinY | AXES.LinZ | AXES.AngY | AXES.AngZ);
+      break;
+    case 'softweld':
+    case 'pulley':
+    case 'rack':
+    case 'gear':
+    case 'belt':
+    case 'winch':
+      // No engine constraint: an inert rope carries the "connected bodies collide" flag; couplings.ts does the work.
+      jd = RAPIER.JointData.rope(1e6, rv(aA), rv(aB));
+      break;
   }
   const joint = s.world.createImpulseJoint(jd, A ? A.rb : s.worldBody, B ? B.rb : s.worldBody, true);
-  if (def.type === 'hinge' || def.type === 'slider') {
+  if (HAS_FRAME.has(def.type)) {
     joint.setLocalFrame1(rv(aA), rq(frameA));
     joint.setLocalFrame2(rv(aB), rq(frameB));
   }
@@ -98,7 +131,9 @@ export function addJoint(s: WorldState, def: JointEntity): JointRec | null {
     force: 0,
     motorTarget: 0,
     cache: [NaN, NaN, NaN],
+    rt: [],
   };
+  initCoupling(s, rec);
   configureUnitJoint(s, rec, true);
   s.joints.set(def.id, rec);
   s.jointOrder.push(rec);
@@ -128,11 +163,16 @@ function configureUnitJoint(s: WorldState, rec: JointRec, initial: boolean): voi
   if (!joint || (def.type !== 'hinge' && def.type !== 'slider')) return;
   const u = joint as RAPIER.UnitImpulseJoint;
   if (initial) {
-    if (def.limit.enabled) u.setLimits(Math.min(def.limit.min, def.limit.max), Math.max(def.limit.min, def.limit.max));
+    // -- JT-A: limits and the position target are relative to the joint's zero; the build pose is `refOffset` from it --
+    const off = def.params.refOffset;
+    if (def.limit.enabled)
+      u.setLimits(Math.min(def.limit.min, def.limit.max) - off, Math.max(def.limit.min, def.limit.max) - off);
     u.configureMotorModel(RAPIER.MotorModel.ForceBased);
     u.setMotorMaxForce(def.motor.mode === 'off' ? 0 : def.motor.maxForce);
     rec.motorTarget =
-      def.motor.mode === 'position' && !(def.motor.keyPos || def.motor.keyNeg) ? def.motor.targetPosition : 0;
+      def.motor.mode === 'position' && !(def.motor.keyPos || def.motor.keyNeg || def.motor.axis)
+        ? def.motor.targetPosition - off
+        : 0;
   }
   driveMotor(s, rec, 0);
 }
@@ -151,8 +191,13 @@ export function driveMotor(s: WorldState, rec: JointRec, dt: number): void {
     }
     return;
   }
-  const hasKeys = !!(m.keyPos || m.keyNeg);
-  const input = hasKeys ? (s.keys.has(m.keyPos) && m.keyPos ? 1 : 0) - (s.keys.has(m.keyNeg) && m.keyNeg ? 1 : 0) : 1;
+  // -- CM-A: an analog axis adds to the key input (clamped to ±1) --
+  const hasKeys = !!(m.keyPos || m.keyNeg || m.axis);
+  let input = 1;
+  if (hasKeys) {
+    input = (s.keys.has(m.keyPos) && m.keyPos ? 1 : 0) - (s.keys.has(m.keyNeg) && m.keyNeg ? 1 : 0);
+    if (m.axis) input = clamp(input + (s.axes[m.axis] ?? 0), -1, 1);
+  }
   if (m.mode === 'velocity') {
     const target = m.targetVelocity * input;
     const gain = hasKeys && input === 0 && !m.brake ? 0 : m.damping;
@@ -162,9 +207,10 @@ export function driveMotor(s: WorldState, rec: JointRec, dt: number): void {
       rec.cache = [1, target, gain];
     }
   } else {
-    let target = m.targetPosition;
+    const off = def.params.refOffset;
+    let target = m.targetPosition - off;
     if (hasKeys) {
-      const desired = m.targetPosition * input;
+      const desired = m.targetPosition * input - off;
       const step = m.slewRate * dt;
       rec.motorTarget += clamp(desired - rec.motorTarget, -step, step);
       target = rec.motorTarget;
@@ -202,12 +248,14 @@ export function measureSpring(s: WorldState, j: JointRec): void {
   if (sp.breakForce > 0 && Math.abs(force) > sp.breakForce) breakJoint(s, j, Math.abs(force));
 }
 
-function breakJoint(s: WorldState, j: JointRec, force: number): void {
+export function breakJoint(s: WorldState, j: JointRec, force: number, torque?: number): void {
   if (j.joint && j.joint.isValid()) s.world.removeImpulseJoint(j.joint, true);
   j.joint = null;
   j.broken = true;
   j.force = 0;
-  s.events.push({ kind: 'jointBroken', id: j.id, force });
+  s.events.push(
+    torque === undefined ? { kind: 'jointBroken', id: j.id, force } : { kind: 'jointBroken', id: j.id, force, torque },
+  );
 }
 
 /** Measure a joint's current value (angle / position / length) and speed from the body poses. */
@@ -223,14 +271,14 @@ export function measureJoint(j: JointRec): void {
     if (d < -Math.PI) d += 2 * Math.PI;
     j.angle += d;
     j.lastTwist = tw;
-    j.value = j.angle;
+    j.value = j.angle + j.def.params.refOffset;
     const ax = qrot(qmul(qa, j.frameA), X_AXIS);
     const wa = j.A ? j.A.rb.angvel() : { x: 0, y: 0, z: 0 };
     const wb = j.B ? j.B.rb.angvel() : { x: 0, y: 0, z: 0 };
     j.speed = vdot([wb.x - wa.x, wb.y - wa.y, wb.z - wa.z], ax);
   } else if (t === 'slider') {
     const ax = qrot(qmul(qa, j.frameA), X_AXIS);
-    j.value = vdot(vsub(pb, pa), ax);
+    j.value = vdot(vsub(pb, pa), ax) + j.def.params.refOffset;
     const va = j.A ? j.A.rb.velocityAtPoint(rv(pa)) : { x: 0, y: 0, z: 0 };
     const vb = j.B ? j.B.rb.velocityAtPoint(rv(pb)) : { x: 0, y: 0, z: 0 };
     j.speed = vdot([vb.x - va.x, vb.y - va.y, vb.z - va.z], ax);

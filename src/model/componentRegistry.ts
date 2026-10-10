@@ -80,6 +80,9 @@ export interface TextField extends FieldBase {
   default: string;
   maxLength?: number;
   placeholder?: string;
+  // -- CP: what the text names. 'axis' = an analog input axis (listed in the Controls panel and driven by its
+  // slider); 'shaft' = a drive-train shaft (the editor offers the names other components in the scene use).
+  role?: 'axis' | 'shaft';
 }
 /** The id of another entity: `filter` says which kinds the picker offers. '' = none. */
 export interface EntityField extends FieldBase {

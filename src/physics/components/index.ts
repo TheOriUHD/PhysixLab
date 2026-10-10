@@ -5,8 +5,11 @@
 import { constantForce } from './constantForce';
 import { registerRuntime, runtimeOf } from './registry';
 import { sineMover } from './sineMover';
+import { zone } from './zone'; // -- ZN
+import { POWERED_RUNTIMES } from './poweredIndex'; // -- CP
 
-for (const rt of [constantForce, sineMover]) if (!runtimeOf(rt.type)) registerRuntime(rt);
+for (const rt of [constantForce, sineMover, ...POWERED_RUNTIMES]) if (!runtimeOf(rt.type)) registerRuntime(rt); // -- CP
+if (!runtimeOf(zone.type)) registerRuntime(zone); // -- ZN
 
 export { registerRuntime, runtimeOf, type ComponentRuntime } from './registry';
 export type { BodyHandle, ComponentContext, ContactPoint, JointHandle } from './context';

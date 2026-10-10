@@ -71,4 +71,65 @@ export const JOINT_ITEMS: readonly JointItem[] = [
   },
   { type: 'spring', label: JOINT_TYPE_LABELS.spring, icon: 'spring', blurb: 'Spring-damper between two points' },
   { type: 'rope', label: JOINT_TYPE_LABELS.rope, icon: 'rope', blurb: 'Maximum-distance constraint — ropes, tethers' },
+  // -- JT-A: new joint types --
+  {
+    type: 'conetwist',
+    label: JOINT_TYPE_LABELS.conetwist,
+    icon: 'conetwist',
+    blurb: 'Ball joint with a swing cone and twist limits — shoulders, hips, ragdolls',
+  },
+  {
+    type: 'sixdof',
+    label: JOINT_TYPE_LABELS.sixdof,
+    icon: 'sixdof',
+    blurb: 'Free, limited or locked on each of the six axes, with springs and motors',
+  },
+  {
+    type: 'universal',
+    label: JOINT_TYPE_LABELS.universal,
+    icon: 'universal',
+    blurb: 'Two crossed hinge axes, no twist — drive shafts, camera gimbals',
+  },
+  {
+    type: 'softweld',
+    label: JOINT_TYPE_LABELS.softweld,
+    icon: 'softweld',
+    blurb: 'A weld that flexes: linear and angular stiffness and damping',
+  },
+  {
+    type: 'pulley',
+    label: JOINT_TYPE_LABELS.pulley,
+    icon: 'pulley',
+    blurb: 'Rope over two fixed points with a ratio — Atwood machines, block and tackle',
+  },
+  {
+    type: 'gear',
+    label: JOINT_TYPE_LABELS.gear,
+    icon: 'gear',
+    blurb: 'Couples two rotating bodies by a ratio, reversing or not — gear trains',
+  },
+  {
+    type: 'rack',
+    label: JOINT_TYPE_LABELS.rack,
+    icon: 'rack',
+    blurb: 'Couples a pinion’s rotation to a rack’s sliding by the pitch radius',
+  },
+  {
+    type: 'belt',
+    label: JOINT_TYPE_LABELS.belt,
+    icon: 'belt',
+    blurb: 'Belt or chain drive between two pulleys, ratio from their radii, optional slip limit',
+  },
+  {
+    type: 'screw',
+    label: JOINT_TYPE_LABELS.screw,
+    icon: 'screw',
+    blurb: 'Rotation about an axis advances along it by the pitch — lead screws, jacks',
+  },
+  {
+    type: 'winch',
+    label: JOINT_TYPE_LABELS.winch,
+    icon: 'winch',
+    blurb: 'Motorised rope length with a load rating — cranes, hoists',
+  },
 ];

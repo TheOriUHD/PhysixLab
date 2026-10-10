@@ -50,8 +50,12 @@ in the page, in the worker and in the Node unit tests.
 | `src/model/` | the document: types, factory, `SceneStore`, serialisation + sanitising, migrations, limits, asset store, shape / component registries, `builder.ts` (the DSL the content is written in), `mapKit.ts` |
 | `src/model/shapes/`, `components/`, `sanitize/`, `assets/` | one file per built-in shape / component definition; the per-kind sanitisers; the asset codec |
 | `src/model/content/` | **content registries** and the built-in templates, prefabs and maps; auto-collected (§5) |
-| `src/physics/` | the worker, the client, the protocol; `world/` is the simulation (§7), `components/` the component runtimes |
+| `src/physics/` | the worker, the client, the protocol; `world/` is the simulation (§7), `components/` the component runtimes, `zones/` the zone system (§6a) |
 | `src/render/` | three.js: viewport, body / soft / joint / light / path / group views, overlays, gizmo, picking |
+| `src/render/fx/` | the effects system (§8a): particle types, pooled simulation, instanced renderer, impact surfaces, ground-contact slip, skid marks, explosions |
+| `src/app/fx/` | the glue to the app: `FxDirector`, effects clock, per-body facts, contact queue, physical debris |
+| `src/audio/` | the sound system (§8b): procedural synthesis, material / impact / event sounds, spatialisation, voice pool, the WebAudio engine and loop voices; pure where it can be |
+| `src/app/audio/` | the glue to the app: `AudioDirector`, per-body sound facts, engine / motor sources, the keyed loop set, the interface-sound gate |
 | `src/app/` | orchestration: `App`, `SimController`, `Editor`, `InputController`, persistence, prefs, scene commands |
 | `src/app/registry/` | **the UI registries** (§6): commands, tools, panels, inspector sections, menus, help, keymap, shortcuts |
 | `src/app/builtin/` | the built-in commands and tools that need no DOM, registered through those registries |
@@ -201,6 +205,35 @@ setJson` (published to the page), `ctx.time / dt / step`. Forces are applied as 
 never fight the engine's persistent force accumulators. The two reference components, `constantForce` and `sineMover`, are
 verified against analytic results (`tests/components.test.ts`).
 
+## 6a. Zones, races and world bounds (`model/zones.ts`, `physics/zones/`, `physics/world/bounds.ts`)
+
+A **zone** is a body whose colliders are sensors (a *ghost*, static or kinematic) carrying a `zone` component; the body's
+shape is the volume. The engine's `sensor` enter / exit events reach the zone through the component event mechanism; the
+runtime (`physics/components/zone.ts`) keeps the set of bodies inside (one count per overlapping collider pair), applies
+the filter (kind of body, tags, layers) and raises `enter` / `exit` / `stay` events. A unit that enters — a body, or its
+whole group — is queued and acted on at the end of the same fixed step (`physics/zones/actions.ts`, never from inside the
+engine's event drain): race lines, kill / respawn, respawn points, teleport, launch, spawn, sound, score / label, enable
+/ disable, custom event; gravity overrides and force fields act every step on the bodies inside.
+
+* **`ZoneSystem`** (`physics/zones/system.ts`, one per world, owned by the component host) is what the zones share: the
+  registry of running zones, the **race book** (`race.ts`: pure ordered-checkpoint / lap / split / best-lap / penalty
+  rules), the score, respawn points, delayed respawns, teleport immunity, spawn lifetimes and rigid moves of a unit. It is
+  saved in snapshots (`@zones`) and **publishes its state as JSON** (`ZONES_STATE_ID`; races with every racer's lap, splits
+  and times, the score and the last message), so time travel restores the standings and the page never reduces events to
+  know them.
+* **World bounds** (`SceneSettings.bounds`, `physics/world/bounds.ts`): each face of a box is `open`, `kill`, `soft` or
+  `water`. Soft faces are spring walls applied as impulses before the step; kill / water faces lose a body whose centre
+  passed them after it, through `ZoneSystem.lose` — the same loss / respawn machinery as the kill zone (remove, or respawn
+  at the start / last checkpoint after a delay, with time and score penalties and a limit).
+* **Events** are protocol-v2 `component` events with `type: 'zone'` (or `'bounds'`); names and payloads are typed in
+  `model/zones.ts`. `App.zones` (`app/zones.ts`) turns the stream into an API for the HUD, the Zones tab, logic, scripts and the
+  game layer, adopts the bodies a spawner creates as simulation-only bodies, and plays the synthesised sounds.
+* **Page side:** `render/zoneViews.ts` draws zone bodies as translucent coloured volumes with outlines and captions (picked
+  last, so objects inside a zone stay clickable) and the bounds box; `ui/zonesPanel.ts` (bottom dock), `ui/zoneHud.ts` (race
+  board, score, feed), `ui/boundsSection.ts` (World tab) and `ui/zoneTiles.ts` (Add tab). `model/zonePresets.ts` builds a
+  correctly set-up zone (and its helper bodies) for every action; the Add tab, the commands (`ui/extensions/zones.ts`), the
+  prefabs and the example scenes (`model/content/zn-zones.ts`) all use it.
+
 ## 7. Simulation (`physics/`)
 
 * **`PhysicsWorld`** is pure TypeScript around Rapier: it builds a world from a document, applies live edits, advances time
@@ -254,7 +287,21 @@ verified against analytic results (`tests/components.test.ts`).
   become particle operations; each frame returns *all particle positions* in one transferred buffer, and topology is sent only
   when it changes (after a tear the engine splits the body into pieces, which the worker merges back into the owning
   entity's block). Grabbing applies a spring to the nearest particle. Soft bodies interact with rigid bodies and the
-  ground through the contact solver; they cannot be attached to joints yet.
+  ground through the contact solver.
+  *Package SF* adds, all in `physics/world/`: `softBuild.ts` (engine descriptions for every recipe incl. the volumetric
+  `mesh` — closed surface from `model/softMesh.ts` + `core/hull.ts` — and the `tyre` torus; material = Hz + damping +
+  Poisson + permanent set + surface friction), `softAttach.ts` (document `SoftAttachment`s → `attachParticle`: region or
+  tyre-rim particle sets are shifted so the region centre meets the stored body-local offset, then fastened; resolved
+  lazily every step so late or rebuilt bodies work; released on a broken linked joint or a removed body), `softCut.ts`
+  (`cutSoft`: the engine cuts along the triangle viewer-position + two far points; `tearSoft` severs the edges around a
+  point). `soft.ts` runs `softPrestep` before every step (attachment upkeep, the volume-factor decay of a punctured
+  balloon / tyre) and reports volumetric meshes through their skin (render and collision) instead of the lattice
+  boundary. `energy.ts` adds the edge-spring energy ½kx² to `EnergyStats.elastic`. A world snapshot carries each soft
+  body's runtime state next to the engine bytes (`WorldSnapshot.softs[]`: `volumeFactor`, released attachments,
+  fastened particle sets), which is what makes soft bodies work with time travel. Pure model helpers:
+  `model/softMaterial.ts` (the documented Hz → Young's-modulus mapping), `model/softBudget.ts` (particle counts, budget
+  tiers, resolution suggestion, stability warnings with one-click fixes), `model/ropeGen.ts` (rope / chain generator
+  with the mass-ratio guard).
 
 ## 8. Rendering (`render/`)
 
@@ -271,6 +318,50 @@ verified against analytic results (`tests/components.test.ts`).
   with the store.
 * `Overlays` (velocity / force arrows, contact points, centres of mass, trails), `Gizmo` (three's `TransformControls` with a
   pivot object so many bodies move together, one is resized, or a joint anchor / axis is edited), `Picker`.
+
+### 8a. Effects (`render/fx/`, `app/fx/`)
+
+`app.fx` (class `Fx`) is one particle system every package shares: `fx.emit(type, position, options)`, `fx.explosion`,
+`fx.impact`, `fx.skid`. **Particle types** are registry entries (`registerParticleType`): sprite, lifetime, size /
+opacity / colour over life, speed cone, gravity multiplier, drag, wind, floor bounce — compiled into 32-entry look-up
+tables and a row of scalars. The **pool** (`particlePool.ts`) is a fixed structure-of-arrays simulation (swap-remove on
+death, a rotating cursor overwrites when full, soft cap = the quality tier's budget); it integrates the scene's gravity
+vector, drag, wind (a constant or a field), a lateral wobble, spin and the floor, and fills four instance arrays that
+`particleRenderer.ts` uploads as two instanced draw calls (alpha-blended, sorted back to front by a packed float64 key;
+additive). Sprites are generated from maths (`sprites.ts`, a 256 px atlas with a short mip chain; the two ring sprites
+are analytic in the shader). Each `emit` draws from a stream seeded by the scene seed and the call number, so the same
+seed gives the same particles and a culled call cannot shift another effect (`emitter.ts`). Time is *simulation* time
+(`app/fx/fxClock.ts`): paused = frozen, slow motion = slow particles, a single step advances by the step.
+
+`FxDirector` (`app/fx/`) is the only code that knows the app. It subscribes to the **contact feed** (`app/contactFeed.ts`:
+the worker's protocol-v2 contact events, switched on only while somebody holds the feed), keeps the frame's strongest
+`burstsPerFrame` (`ContactQueue`), and for each calls `surfaces.ts`: **impact energy** `½·J·v` → a 0…1 level, plus the
+material pair's profile (hardness, brittleness, dust, spark, chips) → a list of bursts (sparks, dust, chips, shards,
+scuffs, debris). Each frame it scans the simulation's bodies for **ground contact and slip** (`slip.ts`: lowest point of
+the shape, `v_c = v + ω × r`) and turns that into tyre smoke, dust trails, grinding sparks and **skid marks**
+(`trails.ts`, `skidBuffer.ts`: a ring buffer of strip segments, drawn by one mesh that fades them by age in the shader).
+Settings are `Prefs.fx` (validated on load); the Effects panel (`ui/fxPanel.ts`) is a registry of sections.
+
+### 8b. Sound (`audio/`, `app/audio/`)
+
+`app.audio` (class `AudioEngine`) is the one audio engine every package shares; `app.audioDirector` feeds it from the
+simulation. **Nothing is sampled**: a sound is a *recipe* (decaying sinusoidal modes, filtered noise layers, grains —
+`dsp.ts`) rendered to samples by pure code and cached as an `AudioBuffer` under a quantised key; sustained sounds are small
+live node graphs (`loops.ts`) whose parameters are moved from pure mappings. The engine is a graph
+`voices → spatial chain (pan, distance gain, air low-pass) → category bus → master → limiter → destination`, with an
+analyser tapped off the limiter for the measured output level. It is created lazily, inside the first user gesture, and
+suspended when muted, off or hidden (`engine.ts`); a `VoicePool` enforces the per-category and total voice budgets (a louder
+newcomer steals the quietest voice, a quieter one is rejected).
+
+The director subscribes to the **contact feed** (`app.contacts`, shared with the effects) and turns each strongest-first
+contact into voices (`impact.ts`: energy `½·J·v` → loudness and timbre, the two materials' modes, sizes → pitch, masses →
+who rings, a soft partner damps, the ground thumps, brittle hits break); scans the bodies each 30 Hz tick for **ground
+contact and slip** (`render/fx/slip.ts`) → rolling rumble and sliding scrape (`rolling.ts`); finds **motor sources** in the
+document (`motorSources.ts`: motorised hinges / sliders, and components whose published state has a speed) → engine voices
+(`motor.ts`); follows the camera's body for **wind** (`ambience.ts`); and plays event sounds (`events.ts`: explosion, spawn,
+break, joint snap, trampoline, launch, the interface sounds) for the Blast and Fire tools, spawned bodies, broken joints
+and component events. Everything that can be decided without the app is a pure function with a Node test that measures the
+rendered waveform; the browser tests render the very same graphs offline and measure those (`offline.ts`).
 
 ## 9. Orchestration (`app/`)
 

@@ -26,6 +26,7 @@ export class FrameLoop {
       this.fpsFrames = 0;
     }
 
+    app.input.update(dt); // -- CM-A --
     app.sim.tick();
     const client = app.sim.client;
     const live = client.active && client.frameNo > 0;
@@ -45,6 +46,7 @@ export class FrameLoop {
     app.viewSync.syncSoftLayout(client);
     for (const id of app.softs.views.keys()) app.softs.tint(id, app.store.selection.includes(id));
 
+    if (app.bodies.hoverId !== app.hoverId) this.colorsDirty = true; // -- VZ-B: hover highlight (and promotion) follows the pointer --
     app.bodies.hoverId = app.hoverId;
     if (live || this.colorsDirty || app.bodies.mode !== 'material') {
       const sel = new Set(app.store.selection);
@@ -52,6 +54,11 @@ export class FrameLoop {
       this.colorsDirty = false;
     }
 
+    app.bodies.updateSkins(dt, app.sim.keys, app.sim.active);
+    app.bodies.flush(); // -- VZ-B: instance buffers (VZ-30) --
+
+    // -- JT-B: joint load estimates run while the stress overlay is on or a joint inspector is showing them --
+    client.watchLoads(app.prefs.value.overlays.stress || performance.now() - app.loadWatchStamp < 800);
     const broken = client.broken;
     app.joints.updateFrame(app.camera, live ? client.joints : null, (id) => client.jointIndex.get(id), broken);
 
@@ -71,7 +78,10 @@ export class FrameLoop {
     );
 
     app.effects.update(dt);
+    app.componentFx.update(dt); // -- CP
     app.cameraControl.updateFollow(dt);
+    app.fxDirector.update(dt); // ── FX: particles, trails, skid marks ──
+    app.audioDirector.update(dt); // ── FX: impact, rolling, engine and wind sound ──
     app.measureTool.updateLabel();
     const rect = app.viewport.dom.getBoundingClientRect();
     app.viewSync.frameAux(rect.width, rect.height);

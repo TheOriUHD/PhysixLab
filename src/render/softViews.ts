@@ -21,11 +21,20 @@ import {
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { softSurface, torusSurface, TYRE_ACROSS, tyreGeometry } from '../model/softMesh';
 import type { SoftEntity } from '../model/types';
 import type { SimClient } from '../physics/client';
 
 const unitBox = new BoxGeometry(1, 1, 1);
 const unitSphere = new SphereGeometry(0.5, 40, 28);
+
+function trimeshGeometry(vertices: Float32Array, indices: Uint32Array): BufferGeometry {
+  const g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(vertices.slice(), 3));
+  g.setIndex(new BufferAttribute(indices.slice(), 1));
+  g.computeVertexNormals();
+  return g;
+}
 
 class SoftView {
   readonly root = new Group();
@@ -41,7 +50,7 @@ class SoftView {
     res: { w: number; h: number },
   ) {
     this.material =
-      def.type === 'jelly' || def.type === 'balloon'
+      def.type === 'jelly' || def.type === 'balloon' || def.type === 'mesh'
         ? new MeshPhysicalMaterial({ clearcoat: 0.8, clearcoatRoughness: 0.25, side: DoubleSide })
         : new MeshStandardMaterial({ side: DoubleSide });
     this.lineMaterial =
@@ -71,6 +80,22 @@ class SoftView {
         m.castShadow = m.receiveShadow = true;
         return m;
       }
+      case 'mesh': {
+        // Unit-size surface of the source shape, scaled to the entity size in `apply`.
+        const surf = softSurface({ ...d.shape, size: [1, 1, 1] }) ?? softSurface({ type: 'box', size: [1, 1, 1] })!;
+        this.proxyGeo = trimeshGeometry(surf.vertices, surf.indices);
+        const m = new Mesh(this.proxyGeo, this.material);
+        m.castShadow = m.receiveShadow = true;
+        return m;
+      }
+      case 'tyre': {
+        const g = tyreGeometry(d.size);
+        const surf = torusSurface(g.major, g.radial, g.axial, Math.max(12, d.resolution), TYRE_ACROSS);
+        this.proxyGeo = trimeshGeometry(surf.vertices, surf.indices);
+        const m = new Mesh(this.proxyGeo, this.material);
+        m.castShadow = m.receiveShadow = true;
+        return m;
+      }
       case 'cable': {
         const g = new LineSegmentsGeometry();
         g.setPositions([-0.5, 0, 0, 0.5, 0, 0]);
@@ -89,8 +114,11 @@ class SoftView {
     const [x, y, z] = def.size;
     switch (def.type) {
       case 'jelly':
+      case 'mesh':
         this.proxy.scale.set(x, y, z);
         break;
+      case 'tyre':
+        break; // built at its real size
       case 'balloon':
         this.proxy.scale.setScalar(x);
         break;
@@ -213,7 +241,13 @@ export class SoftViews {
 
   update(def: SoftEntity): void {
     const v = this.views.get(def.id);
-    const structural = !v || v.def.type !== def.type || v.def.resolution !== def.resolution;
+    const structural =
+      !v ||
+      v.def.type !== def.type ||
+      v.def.resolution !== def.resolution ||
+      // -- SF: the proxy geometry of a mesh / tyre depends on its source shape and real size --
+      (def.type === 'mesh' && v.def.shape.type !== def.shape.type) ||
+      (def.type === 'tyre' && v.def.size.some((x, i) => x !== def.size[i]));
     if (structural) {
       this.add(def);
       return;

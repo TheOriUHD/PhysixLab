@@ -10,6 +10,8 @@ import { BUILTIN_INSPECTOR_SECTIONS } from '../inspector/sections';
 import { uiCommands } from './commands';
 import { registerBuiltinMenus } from './menus';
 import { registerBuiltinPanels } from './panels';
+// -- UI-A: layout commands and menu --
+import { layoutCommands, registerLayoutMenu } from '../dock/layoutCommands';
 
 let done = false;
 
@@ -20,6 +22,9 @@ export function registerUiBuiltins(): void {
   registerBuiltinMenus();
   for (const s of BUILTIN_INSPECTOR_SECTIONS) registerInspectorSection(s);
   registerBuiltinPanels();
+  // -- UI-A: layout presets, save / reset, maximise --
+  for (const c of layoutCommands()) registerCommand(c);
+  registerLayoutMenu();
 }
 
 /** All built-in commands, tools, help, menus, panels and inspector sections. */

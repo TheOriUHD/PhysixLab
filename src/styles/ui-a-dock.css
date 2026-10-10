@@ -1,0 +1,71 @@
+/* UI-A dock: groups, tab strips, floating windows, splitters, drop overlay. */
+.dock-region { position: relative; }
+.dock-region.dock-empty { display: none; }
+#app.dock-dragging .dock-region.dock-empty { display: flex; border: 1px dashed var(--accent-line); background: var(--accent-bg); align-items: center; justify-content: center; }
+.dock-empty-hint { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; color: var(--accent); font-size: 12px; pointer-events: none; text-align: center; padding: 6px; }
+#app.dock-dragging .dock-region.dock-empty .dock-empty-hint { display: flex; }
+#app.dock-dragging { user-select: none; cursor: grabbing; }
+#app.dock-dragging iframe { pointer-events: none; }
+.dock-groups { flex: 1; min-height: 0; min-width: 0; display: flex; }
+.dock-groups.col { flex-direction: column; }
+.dock-groups.row { flex-direction: row; }
+.dock-group { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--panel); position: relative; }
+.dock-group-body { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+.dock-group.collapsed .dock-group-body { display: none; }
+.dock-ghead { display: flex; align-items: flex-end; flex: none; min-width: 0; }
+.dock-ghead.dock-head, .dock .dock-ghead { align-items: center; }
+.dock-tabs { display: flex; gap: 2px; min-width: 0; overflow: hidden; }
+.dock-ghead .tab { cursor: grab; white-space: nowrap; }
+.dock-ghead .tab:active { cursor: grabbing; }
+.dock-ghead .tab-toolbar { align-self: center; }
+.dock-gbtns { display: flex; align-items: center; gap: 1px; margin-left: auto; padding: 0 2px 4px 4px; flex: none; opacity: 0.55; transition: opacity 0.12s; }
+.dock .dock-gbtns { padding-bottom: 0; }
+.dock-ghead:hover .dock-gbtns, .dock-gbtns:focus-within { opacity: 1; }
+.dock-gbtn { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--text-2); border-radius: 5px; padding: 0; }
+.dock-gbtn:hover { background: var(--hover); color: var(--text); }
+.dock-glyph { width: 13px; height: 13px; }
+.dock-float-head { padding: 6px 6px 0; background: var(--panel-2); border-radius: 9px 9px 0 0; cursor: move; }
+.dock-float-head .tab { cursor: grab; }
+
+/* splitters */
+.dock-rsplit { position: absolute; z-index: 6; background: transparent; transition: background 0.12s; touch-action: none; }
+.dock-rsplit:hover, .dock-rsplit:focus-visible, .dock-rsplit:active { background: var(--accent-line); outline: none; }
+.dock-rsplit.left { right: -3px; top: 0; bottom: 0; width: 6px; cursor: ew-resize; }
+.dock-rsplit.right { left: -3px; top: 0; bottom: 0; width: 6px; cursor: ew-resize; }
+.dock-rsplit.bottom { top: -3px; left: 0; right: 0; height: 6px; cursor: ns-resize; }
+.dock-gsplit { flex: none; background: var(--border); touch-action: none; position: relative; z-index: 2; transition: background 0.12s; }
+.dock-gsplit::after { content: ""; position: absolute; inset: -3px; }
+.dock-gsplit:hover { background: var(--accent-line); }
+.dock-gsplit.h { height: 1px; cursor: ns-resize; }
+.dock-gsplit.v { width: 1px; cursor: ew-resize; }
+
+/* floating windows */
+.dock-float-layer { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
+.dock-group.dock-floating { position: absolute; pointer-events: auto; border: 1px solid var(--border-2); border-radius: 10px; box-shadow: var(--shadow), 0 0 0 1px rgba(0, 0, 0, 0.4); overflow: hidden; min-width: 220px; }
+.dock-resize { position: absolute; z-index: 3; touch-action: none; }
+.dock-resize.n, .dock-resize.s { left: 10px; right: 10px; height: 5px; cursor: ns-resize; }
+.dock-resize.e, .dock-resize.w { top: 10px; bottom: 10px; width: 5px; cursor: ew-resize; }
+.dock-resize.n { top: 0; } .dock-resize.s { bottom: 0; } .dock-resize.e { right: 0; } .dock-resize.w { left: 0; }
+.dock-resize.ne, .dock-resize.nw, .dock-resize.se, .dock-resize.sw { width: 12px; height: 12px; }
+.dock-resize.ne { top: 0; right: 0; cursor: nesw-resize; } .dock-resize.sw { bottom: 0; left: 0; cursor: nesw-resize; }
+.dock-resize.nw { top: 0; left: 0; cursor: nwse-resize; } .dock-resize.se { bottom: 0; right: 0; cursor: nwse-resize; }
+
+/* maximised */
+.dock-group.maximised { position: fixed !important; left: 0 !important; right: 0 !important; top: 48px !important; bottom: 26px !important; width: auto !important; height: auto !important; z-index: 60 !important; border-radius: 0; flex: none !important; box-shadow: none; }
+.dock-group.maximised .dock-resize { display: none; }
+.dock-group.maximised .dock-ghead { cursor: default; }
+
+/* drag feedback */
+.dock-drop { position: fixed; z-index: 200; pointer-events: none; display: none; background: var(--accent-bg); border: 2px solid var(--accent-line); border-radius: 6px; transition: left 0.07s, top 0.07s, width 0.07s, height 0.07s; }
+.dock-drop.show { display: block; }
+.dock-ghost { position: fixed; z-index: 210; pointer-events: none; padding: 5px 11px; background: var(--raised); border: 1px solid var(--accent-line); border-radius: 7px; box-shadow: var(--shadow); font-weight: 550; font-size: 12.5px; }
+
+/* Fixed grid columns: a hidden / empty side region must not let the stage slide into its (0 px) column. */
+.workspace > .panel.left { grid-column: 1; grid-row: 1; }
+.workspace > .stage-col { grid-column: 2; grid-row: 1; }
+.workspace > .panel.right { grid-column: 3; grid-row: 1; }
+
+/* The narrow left strip keeps its four text tabs: the group buttons appear over its right end on hover / focus. */
+.panel.left > .dock-groups > .dock-group > .dock-ghead { position: relative; }
+.panel.left > .dock-groups > .dock-group > .dock-ghead .dock-gbtns { position: absolute; right: 4px; top: 4px; opacity: 0; padding: 0 0 0 10px; background: linear-gradient(90deg, transparent, var(--panel) 10px); }
+.panel.left > .dock-groups > .dock-group > .dock-ghead:hover .dock-gbtns, .panel.left .dock-gbtns:focus-within { opacity: 1; }

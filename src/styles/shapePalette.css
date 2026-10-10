@@ -1,0 +1,28 @@
+/* Shape palette of the Add tab (src/ui/shapePalette.ts) */
+.shape-palette { display: block; position: relative; }
+.shape-search { display: flex; align-items: center; gap: 6px; position: relative; margin: 8px 10px 2px; }
+.shape-search > .icon { position: absolute; left: 9px; width: 14px; height: 14px; color: var(--text-3); pointer-events: none; }
+.shape-search .shape-search-input { padding-left: 29px; padding-right: 28px; }
+.shape-search .shape-search-clear { position: absolute; right: 4px; }
+.shape-search .shape-search-clear[hidden] { display: none; }
+.shape-status { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.shape-group-title { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: 0; text-align: left; }
+button.shape-group-title { cursor: pointer; }
+button.shape-group-title:hover { color: var(--text-2); }
+button.shape-group-title:focus-visible { outline: 1px solid var(--accent-line); outline-offset: -1px; border-radius: var(--radius-s); }
+.shape-group-title .caret { width: 12px; height: 12px; transition: transform 0.15s; }
+.shape-group-title.closed .caret { transform: rotate(-90deg); }
+.shape-group-title i { margin-left: auto; font: 500 10px var(--mono); font-style: normal; color: var(--text-3); letter-spacing: 0; }
+.shape-group-title.static { cursor: default; }
+
+.shape-tiles { grid-template-columns: repeat(3, 1fr); padding-bottom: 6px; }
+.shape-tile { position: relative; justify-content: flex-start; min-height: 78px; padding: 7px 3px 6px; gap: 4px; }
+.shape-tile .tile-art { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; flex: none; }
+.shape-tile .tile-art img { width: 40px; height: 40px; display: block; pointer-events: none; user-select: none; }
+.shape-tile .tile-art .icon { width: 26px; height: 26px; }
+.shape-tile .tile-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 100%; padding: 0 2px; text-align: center; line-height: 1.15; font-size: 11px; overflow-wrap: break-word; }
+.shape-tile[data-key]::after { content: attr(data-key); position: absolute; top: 3px; left: 4px; font: 600 9px var(--mono); color: var(--text-3); }
+.shape-tile:hover[data-key]::after { color: var(--text-2); }
+.shape-tile:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; border-color: var(--accent-line); color: var(--text); }
+.shape-palette .empty-state .icon.big { width: 28px; height: 28px; }

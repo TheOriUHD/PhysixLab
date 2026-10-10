@@ -18,7 +18,7 @@
  *     on the side of; anchors exactly on the cut go to the side the plane normal points to). The anchor is
  *     re-expressed in the half's frame, so the mechanism keeps its geometry. Components are copied to both halves.
  */
-import { convexHull, hullMoments, clipConvexByPlane, type Hull } from '../core/hull';
+import { convexHull, hullMoments, clipConvexByPlane, type Hull } from '../core/convexHull';
 import { qrot, qrotInv, vadd, vcross, vdot, vlen, vscale, vsub, type Vec3 } from '../core/math';
 import { createBody } from '../model/factory';
 import { cloneComponents } from '../model/componentRegistry';

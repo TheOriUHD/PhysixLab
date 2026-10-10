@@ -57,6 +57,14 @@ export interface PanelDef {
   build: (app: App, ctx: PanelContext) => PanelView;
 }
 
+// -- UI-A: the dock (src/ui/dock) shows a panel wherever the user moved it --
+type Revealer = (app: App, id: string) => boolean;
+let revealer: Revealer | null = null;
+/** Installed by the dock manager so "Show <panel>" finds a panel that was moved, floated or tabbed elsewhere. */
+export function setPanelRevealer(fn: Revealer | null): void {
+  revealer = fn;
+}
+
 export const panelRegistry = new Registry<PanelDef>({
   kind: 'panel',
   order: (p) => p.order,
@@ -82,7 +90,10 @@ export function registerPanel(def: PanelDef): () => void {
       description: `Switch to the ${def.label} ${def.region === 'bottom' ? 'dock' : 'panel'}`,
       keywords: ['panel', 'tab', def.region],
       checked: (app) => app.prefs.value[keys.tab] === def.id && !!app.prefs.value[keys.show],
-      run: ({ app }) => app.prefs.set({ [keys.tab]: def.id, [keys.show]: true }),
+      run: ({ app }) => {
+        app.prefs.set({ [keys.tab]: def.id, [keys.show]: true });
+        revealer?.(app, def.id);
+      },
     });
     return () => {
       offCommand();

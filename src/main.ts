@@ -1,4 +1,13 @@
 import './styles/app.css';
+import './styles/ed-select.css';
+import './styles/ed-arrange.css';
+import './styles/ed-snap.css';
+import './styles/ed-hierarchy.css';
+import './styles/ed-prefabs.css';
+import './styles/ed-path.css';
+import './styles/ui-a.css';
+import './styles/cm.css'; // -- CM-A --
+import './styles/diag.css';
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';
@@ -14,6 +23,7 @@ import { importDocument } from './ui/sceneActions';
 import { mountToasts } from './ui/toasts';
 import { showWelcome } from './ui/dialogs';
 import { openMenu } from './ui/menu';
+import { mountZoneHud } from './ui/zoneHud'; // -- ZN
 import { resolveMenu } from './app/registry/menus';
 import { loadExtensions, registerBuiltins } from './ui/builtin';
 // -- ED-B: tool options bar --
@@ -22,6 +32,7 @@ import './styles/ed-b-tools.css';
 // -- ED-B --
 import { setContextTarget } from './ui/contextTarget';
 import './styles/ed-b.css';
+import { publishApi } from './api/install';
 
 async function boot(): Promise<void> {
   // Everything the UI offers is a registration; register the built-ins before any UI is built.
@@ -67,6 +78,7 @@ async function boot(): Promise<void> {
   shell.floatSlot.replaceWith(toolbox, viewbar);
   mountToasts(app);
   mountToolOptions(app); // -- ED-B --
+  mountZoneHud(app, shell.stage); // -- ZN: race board, score and event feed over the viewport
   wireShell(app, shell);
   const input = new InputController(app);
   app.viewport.controls.addEventListener('change', () => {
@@ -101,6 +113,9 @@ async function boot(): Promise<void> {
     for (const w of hashReport.warnings.slice(0, 2)) app.toast(w, 'warn');
     history.replaceState(null, '', location.pathname + location.search);
   }
+  // -- DT-10: open IndexedDB storage (migrates old localStorage data) before reading the autosave --
+  const storageState = await app.persistence.init();
+  if (storageState.warning) app.toast(storageState.warning, 'warn');
   if (!loaded) {
     const auto = app.persistence.loadAutosave();
     if (auto && auto.entities.length) {
@@ -138,7 +153,8 @@ async function boot(): Promise<void> {
   for (const f of extensionFailures) app.toast(`Extension ${f.file} failed to load: ${f.error.message}`, 'error');
   app.start();
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
-  (window as unknown as { physicslab: App }).physicslab = app;
+  // -- DT-30: the versioned public API (src/api); falls through to the App for the internal members --
+  (window as unknown as { physicslab: App }).physicslab = publishApi(app);
   if (!app.prefs.value.seenWelcome && !new URLSearchParams(location.search).has('nowelcome'))
     setTimeout(() => showWelcome(app), 400);
 }

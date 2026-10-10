@@ -4,8 +4,8 @@
  * (with the shortcut) follow that command, so a tool registered by a package appears here without any edit.
  */
 import type { App } from '../app/app';
-import { commandChecked, commandEnabled, getCommand, runCommand } from '../app/registry/commands';
-import { formatShortcut, shortcutList } from '../app/registry/shortcuts';
+import { commandChecked, commandEnabled, getCommand, runCommand, shortcutsOf } from '../app/registry/commands';
+import { formatShortcut } from '../app/registry/shortcuts';
 import { commandIdOf, listTools, toolRegistry, type ToolDef, type ToolRegion } from '../app/registry/tools';
 import { h } from './dom';
 import { icon } from './icons';
@@ -18,7 +18,7 @@ interface Built {
 function tooltip(def: ToolDef): string {
   const cmd = getCommand(commandIdOf(def));
   const base = def.title ?? cmd?.description ?? cmd?.label ?? def.id;
-  const shortcut = shortcutList(cmd?.shortcut)[0];
+  const shortcut = (cmd ? shortcutsOf(cmd) : [])[0];
   return def.showShortcut !== false && shortcut ? `${base} (${formatShortcut(shortcut)})` : base;
 }
 

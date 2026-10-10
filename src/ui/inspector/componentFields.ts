@@ -6,6 +6,7 @@
 import type { App } from '../../app/app';
 import type { ComponentValue, FieldDef } from '../../model/componentRegistry';
 import { fmt, colorField, keyField, numberField, toggleField, vec3Field, type Field } from '../controls';
+import { namesWithRole } from '../../model/controls'; // -- CP
 import { h } from '../dom';
 import { icon } from '../icons';
 
@@ -114,6 +115,21 @@ function textEditor(f: Extract<FieldDef, { kind: 'text' }>, env: EditorEnv): Fie
     if (e.key === 'Enter') input.blur();
   });
   input.addEventListener('change', () => env.onChange(input.value));
+  // -- CP: a field that names an axis or a drive-train shaft suggests the names the scene already uses
+  if (f.role) {
+    const role = f.role;
+    const list = h('datalist', { id: `names-${role}-${++nameLists}` });
+    input.setAttribute('list', list.id);
+    input.addEventListener('focus', () => {
+      list.replaceChildren(...namesWithRole(env.app.store.all(), role).map((n) => h('option', { value: n })));
+    });
+    return {
+      el: h('span', { class: 'comp-text-wrap' }, input, list),
+      set: (v) => {
+        if (document.activeElement !== input) input.value = String(v);
+      },
+    };
+  }
   return {
     el: input,
     set: (v) => {
@@ -121,6 +137,7 @@ function textEditor(f: Extract<FieldDef, { kind: 'text' }>, env: EditorEnv): Fie
     },
   };
 }
+let nameLists = 0; // -- CP
 
 /** A drop-down of scene entities by name (options follow the document); a reference to something gone shows as missing. */
 function refEditor(

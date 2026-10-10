@@ -1,6 +1,6 @@
-/** Pure convex hull, volume / centroid and plane clipping (src/core/hull.ts) against analytic values. */
+/** Pure convex hull, volume / centroid and plane clipping (src/core/convexHull.ts) against analytic values. */
 import { describe, expect, it } from 'vitest';
-import { clipConvexByPlane, convexHull, hullCentroid, hullVolume } from '../src/core/hull';
+import { clipConvexByPlane, convexHull, hullCentroid, hullVolume } from '../src/core/convexHull';
 import type { Vec3 } from '../src/core/math';
 
 const cube = (hx = 0.5, hy = 0.5, hz = 0.5): Vec3[] => {

@@ -1,0 +1,196 @@
+/**
+ * Rotor — a helicopter blade set. Lift grows with the square of the rotor speed and with the collective (blade
+ * pitch); cyclic pitch tilts the rotor disc, which tilts the thrust (translation, and a moment because the hub sits
+ * above the centre of mass); the rotor's drag torque turns the body the other way unless a tail rotor answers it.
+ * It turns with a hinge, a named drive-train shaft, or by itself. Runtime: `src/physics/components/rotor.ts`.
+ */
+import type { ComponentDef } from '../componentRegistry';
+import { axisField, keyField, shaftField } from './powerHelpers';
+
+export const rotor: ComponentDef = {
+  type: 'rotor',
+  label: 'Rotor / blade set',
+  icon: 'rotor',
+  category: 'Thrusters & rotors',
+  blurb:
+    'Helicopter rotor: lift ∝ rpm² × collective, cyclic tilts the disc for pitch and roll, torque reaction on the body.',
+  appliesTo: 'any',
+  fields: [
+    shaftField(
+      'shaft',
+      'Drive shaft',
+      '',
+      'On a body: the drive-train shaft that turns the rotor. Empty = it spins by itself at the throttle speed. On a hinge: ignored, the hinge turns it.',
+    ),
+    { kind: 'number', key: 'radius', label: 'Rotor radius', default: 1.5, min: 0.05, max: 50, step: 0.05, unit: 'm' },
+    {
+      kind: 'number',
+      key: 'blades',
+      label: 'Blades',
+      default: 3,
+      min: 1,
+      max: 8,
+      step: 1,
+      hint: 'Shown in the viewport; the thrust coefficient already includes the blade area',
+    },
+    {
+      kind: 'number',
+      key: 'thrustCoeff',
+      label: 'Thrust coefficient',
+      default: 0.012,
+      min: 0,
+      max: 0.5,
+      step: 0.001,
+      hint: 'C_T at full collective: lift = C_T · collective · ρ · π R² · (Ω R)²',
+    },
+    {
+      kind: 'number',
+      key: 'torqueCoeff',
+      label: 'Torque coefficient',
+      default: 0.001,
+      min: 0,
+      max: 0.5,
+      step: 0.0001,
+      hint: 'C_Q: drag torque at full collective = C_Q · ρ · π R² · (Ω R)² · R; about a third of it with no lift',
+    },
+    {
+      kind: 'number',
+      key: 'density',
+      label: 'Air density',
+      default: 1.225,
+      min: 0.01,
+      max: 20000,
+      step: 0.1,
+      unit: 'kg/m³',
+    },
+    {
+      kind: 'number',
+      key: 'collective',
+      label: 'Collective',
+      default: 0.5,
+      min: -1,
+      max: 1,
+      step: 0.05,
+      hint: 'Blade pitch at the start: 1 = full lift, 0 = none, negative = pushes down',
+    },
+    keyField('collectiveUp', 'Collective up key', '', 'Held: raise the collective'),
+    keyField('collectiveDown', 'Collective down key', '', 'Held: lower the collective'),
+    {
+      kind: 'number',
+      key: 'collectiveRate',
+      label: 'Collective rate',
+      default: 0.6,
+      min: 0,
+      max: 10,
+      step: 0.1,
+      unit: '/s',
+    },
+    axisField(
+      'collectiveAxis',
+      'Collective axis',
+      'Analog axis −1 … 1 setting the collective directly (replaces the keys)',
+    ),
+    axisField('pitchAxis', 'Cyclic pitch axis', 'Analog axis −1 … 1: positive tilts the disc forward'),
+    keyField('pitchForward', 'Pitch forward key'),
+    keyField('pitchBack', 'Pitch back key'),
+    axisField('rollAxis', 'Cyclic roll axis', 'Analog axis −1 … 1: positive tilts the disc to the right'),
+    keyField('rollRight', 'Roll right key'),
+    keyField('rollLeft', 'Roll left key'),
+    {
+      kind: 'number',
+      key: 'maxTilt',
+      label: 'Max disc tilt',
+      default: 8,
+      min: 0,
+      max: 30,
+      step: 0.5,
+      unit: '°',
+      hint: 'Disc tilt at full cyclic',
+    },
+    {
+      kind: 'number',
+      key: 'hubMoment',
+      label: 'Hub stiffness',
+      default: 0.15,
+      min: 0,
+      max: 2,
+      step: 0.05,
+      hint: 'Extra control moment from a stiff rotor head, as a fraction of thrust × radius per unit of tilt',
+    },
+    {
+      kind: 'vec3',
+      key: 'direction',
+      label: 'Lift direction',
+      default: [0, 1, 0],
+      step: 0.1,
+      hint: 'In the body frame: the rotor axis (up for a helicopter)',
+    },
+    {
+      kind: 'vec3',
+      key: 'forward',
+      label: 'Nose direction',
+      default: [0, 0, 1],
+      step: 0.1,
+      hint: 'In the body frame: the way "forward" cyclic tilts the disc',
+    },
+    {
+      kind: 'vec3',
+      key: 'position',
+      label: 'Hub position',
+      default: [0, 0.6, 0],
+      step: 0.05,
+      unit: 'm',
+      hint: 'In the body frame; above the centre of mass it gives the tilted thrust a lever',
+    },
+    {
+      kind: 'number',
+      key: 'maxRpm',
+      label: 'Self-driven speed',
+      default: 360,
+      min: 1,
+      max: 20000,
+      step: 10,
+      unit: 'rpm',
+      hint: 'Full-throttle speed when nothing drives it',
+    },
+    keyField('key', 'Throttle key', '', 'Self-driven: held = full speed'),
+    axisField('axis', 'Throttle axis', 'Self-driven: analog axis 0 … 1'),
+    {
+      kind: 'number',
+      key: 'throttle',
+      label: 'Throttle',
+      default: 1,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      hint: 'Self-driven, with no key or axis',
+    },
+    { kind: 'number', key: 'spool', label: 'Spool time', default: 1.5, min: 0, max: 30, step: 0.1, unit: 's' },
+    {
+      kind: 'bool',
+      key: 'reaction',
+      label: 'Torque reaction',
+      default: true,
+      hint: 'Self-driven: the body feels the opposite torque — add a tail rotor or the fuselage spins',
+    },
+    { kind: 'bool', key: 'blur', label: 'Show rotor disc', default: true },
+    { kind: 'color', key: 'bladeColor', label: 'Blade colour', default: '#d6e4f2', showIf: (p) => p.blur === true },
+  ],
+  state: [
+    { label: 'Speed', unit: 'rpm', digits: 0 },
+    { label: 'Lift', unit: 'N', digits: 0 },
+    { label: 'Collective', unit: '%', digits: 0 },
+    { label: 'Tilt fwd', unit: '°', digits: 1 },
+    { label: 'Tilt right', unit: '°', digits: 1 },
+    { label: 'Drag torque', unit: 'N·m', digits: 1 },
+  ],
+  check: (owner, p) => {
+    if (owner.kind === 'joint') return owner.type !== 'hinge' ? 'A rotor on a joint needs a hinge.' : null;
+    if (owner.bodyType !== 'dynamic') return 'Lift only moves dynamic bodies. Set the body type to Dynamic.';
+    const d = p.direction as number[];
+    const f = p.forward as number[];
+    if (Math.hypot(d[0], d[1], d[2]) < 1e-6) return 'The lift direction is zero.';
+    const cross = Math.hypot(d[1] * f[2] - d[2] * f[1], d[2] * f[0] - d[0] * f[2], d[0] * f[1] - d[1] * f[0]);
+    return cross < 1e-6 ? 'The nose direction must not be parallel to the lift direction.' : null;
+  },
+};

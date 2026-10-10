@@ -20,35 +20,16 @@ import { button } from './controls';
 import { clear, h } from './dom';
 import { icon } from './icons';
 import { confirmReplace, importDocument } from './sceneActions';
+import { zoneTiles } from './zoneTiles'; // -- ZN
+import { buildShapePalette } from './shapePalette'; // -- SH
 
 // ── Add ───────────────────────────────────────────────────────────────────────────────────────────
 
 function addTab(app: App): HTMLElement {
   const { prefs } = app;
   const root = h('div');
-  root.appendChild(h('div', { class: 'group-title' }, 'Shapes'));
-  const tiles = h('div', { class: 'tiles' });
-  listShapes().forEach((def, i) => {
-    const t = h(
-      'button',
-      {
-        class: 'tile',
-        type: 'button',
-        draggable: true,
-        title: `${def.label}${def.blurb ? ` — ${def.blurb}` : ''}\nClick to add, or drag into the scene${i < 9 ? ` (${i + 1})` : ''}`,
-      },
-      icon(def.icon),
-      def.label,
-    );
-    t.addEventListener('click', () => app.addShape(def.id));
-    t.addEventListener('dragstart', (e) => {
-      e.dataTransfer?.setData('text/x-physicslab-shape', def.id);
-      e.dataTransfer?.setData('text/plain', def.id);
-      if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
-    });
-    tiles.appendChild(t);
-  });
-  root.appendChild(tiles);
+  // -- SH: categories, search and generated thumbnails (src/ui/shapePalette.ts) replace the flat grid of shapes
+  root.appendChild(buildShapePalette(app));
 
   root.appendChild(h('div', { class: 'group-title' }, 'Soft bodies'));
   const st = h('div', { class: 'tiles' });
@@ -91,6 +72,8 @@ function addTab(app: App): HTMLElement {
   groupTile.addEventListener('click', () => app.addGroup());
   sc.append(pathTile, groupTile);
   root.appendChild(sc);
+
+  root.append(...zoneTiles(app)); // -- ZN: trigger zones, race lines, launch pads …
 
   root.appendChild(h('div', { class: 'group-title' }, 'Connect & constrain'));
   const jt = h('div', { class: 'tiles three' });
@@ -186,11 +169,22 @@ function prefabTab(app: App): HTMLElement {
     for (const p of prefabs) {
       const c = h(
         'button',
-        { class: 'card', type: 'button', title: 'Insert at the centre of the view' },
+        // -- ED-A snap: cards can be dragged onto a surface of the scene (ED-15) --
+        {
+          class: 'card',
+          type: 'button',
+          draggable: true,
+          title: 'Click to insert at the centre of the view, or drag onto a surface',
+        },
         h('h4', null, icon(p.icon), p.name),
         h('p', null, p.blurb),
       );
       c.addEventListener('click', () => app.insertPrefab(p.id));
+      c.addEventListener('dragstart', (e) => {
+        e.dataTransfer?.setData('text/x-physicslab-prefab', p.id);
+        e.dataTransfer?.setData('text/plain', p.name);
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
+      });
       cards.appendChild(c);
     }
     root.appendChild(cards);

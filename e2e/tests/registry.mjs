@@ -596,8 +596,14 @@ test('panels: the three regions are generated from the panel registry, follow it
   const page = await newPage();
   const tabs = async (sel) => (await page.locator(`${sel} .tab`).allTextContents()).map((t) => t.trim());
   assert((await tabs('.panel.left')).join() === 'Add,Prefabs,Maps,Scenes', `left: ${await tabs('.panel.left')}`);
-  assert((await tabs('.panel.right')).join() === 'Inspector,Outliner,World', 'right');
-  assert((await tabs('.dock')).join() === 'Energy,Selection', 'bottom dock');
+  assert((await tabs('.panel.right')).join() === 'Inspector,Outliner,World,Effects', 'right');
+  // -- ZN: packages add their own dock tabs (Zones, ...), so the built-in ones are checked in order, not the whole list.
+  const dockTabs = await tabs('.dock');
+  assert(
+    dockTabs.filter((t) => t === 'Energy' || t === 'Selection').join() === 'Energy,Selection',
+    `bottom dock: ${dockTabs}`,
+  );
+  assert(dockTabs.includes('Zones'), `the Zones tab is in the bottom dock: ${dockTabs}`);
 
   // Tab semantics.
   const aria = await page.evaluate(() => {
@@ -687,7 +693,7 @@ test('panels: the three regions are generated from the panel registry, follow it
     await import('/tests/examples/stats-panel.ts');
   });
   assert(
-    (await tabs('.panel.right')).join() === 'Inspector,Outliner,World,Stats',
+    (await tabs('.panel.right')).join() === 'Inspector,Outliner,World,Effects,Stats',
     `right now: ${await tabs('.panel.right')}`,
   );
   await page.click('.panel.right .tab:has-text("Stats")');
@@ -707,7 +713,7 @@ test('panels: the three regions are generated from the panel registry, follow it
   );
   assert(offered === 'Show Stats', 'registering the panel also registered its Show command');
   await page.evaluate(async () => (await import('/src/app/registry/index.ts')).unregisterPanel('stats'));
-  assert((await tabs('.panel.right')).join() === 'Inspector,Outliner,World', 'unregistering removes the tab');
+  assert((await tabs('.panel.right')).join() === 'Inspector,Outliner,World,Effects', 'unregistering removes the tab');
   assert(
     (await page.locator('.panel.right .tab.on').textContent()).trim() === 'Inspector',
     'and the region falls back to the first tab',

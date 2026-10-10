@@ -112,14 +112,14 @@ describe('docs/EXTENDING.md shows the tested examples', () => {
 
 // ── a new shape ─────────────────────────────────────────────────────────────────────────────────────
 
-describe('example: a new shape (pyramid)', () => {
+describe('example: a new shape (spire)', () => {
   it('registers, and the engine integrates the mass the definition promises', async () => {
-    const { pyramid } = await import('./examples/pyramid-shape');
-    registerShape(pyramid);
-    expect(listShapes().at(-1)?.id).toBe('pyramid');
-    expect(hasIcon(pyramid.icon)).toBe(true);
+    const { spire } = await import('./examples/spire-shape');
+    registerShape(spire);
+    expect(listShapes().at(-1)?.id).toBe('spire');
+    expect(hasIcon(spire.icon)).toBe(true);
 
-    const spec = makeShapeSpec('pyramid', [2, 3, 2]);
+    const spec = makeShapeSpec('spire', [2, 3, 2]);
     expect(shapeVolume(spec)).toBeCloseTo(4, 12); // base × height / 3
     const world = new RAPIER.World({ x: 0, y: 0, z: 0 });
     const rb = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
@@ -135,7 +135,7 @@ describe('example: a new shape (pyramid)', () => {
 
   it('is simulated like the built-ins: the centre of mass is a quarter of the height above the base, and it lands on its base', async () => {
     const body = createBody({
-      shape: { type: 'pyramid', size: [2, 3, 2] },
+      shape: { type: 'spire', size: [2, 3, 2] },
       material: { preset: 'custom', density: 500, friction: 0.8 },
       position: [0, 3, 0],
     });
@@ -149,23 +149,23 @@ describe('example: a new shape (pyramid)', () => {
   });
 
   it('has a mesh that fills its size box, survives saving, and an unknown shape still falls back to a box', () => {
-    const spec = makeShapeSpec('pyramid');
+    const spec = makeShapeSpec('spire');
     const g = shapeGeometry(GEOMETRY_KIT, spec);
     g.computeBoundingBox();
     // The shared mesh is built at unit size (the renderer scales it by the body size): base at −½, apex at +½.
     g.boundingBox!.min.toArray().forEach((v) => expect(v).toBeCloseTo(-0.5, 6));
     g.boundingBox!.max.toArray().forEach((v) => expect(v).toBeCloseTo(0.5, 6));
     expect(g.getAttribute('position').count).toBeGreaterThan(8);
-    const body = createBody({ shape: { type: 'pyramid', size: [1, 2, 3] } });
+    const body = createBody({ shape: { type: 'spire', size: [1, 2, 3] } });
     const loaded = parseDocument(serializeDocument({ ...makeDoc(), entities: [body] }), newReport())
       .entities[0] as BodyEntity;
-    expect(loaded.shape.type).toBe('pyramid');
+    expect(loaded.shape.type).toBe('spire');
     expect(loaded.shape.size).toEqual([1, 2, 3]);
     expect(sanitizeShapeSpec({ type: 'nope', size: [1, 1, 1] }).type).toBe('box');
   });
 });
 
-const makeDoc = () => newDocument('pyramid test');
+const makeDoc = () => newDocument('spire test');
 
 // ── a new component ─────────────────────────────────────────────────────────────────────────────────
 

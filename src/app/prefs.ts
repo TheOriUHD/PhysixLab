@@ -3,6 +3,11 @@ import type { ColorMode } from '../render/bodyViews';
 import { DEFAULT_OVERLAYS, type OverlayOptions } from '../render/overlays';
 import type { Quality } from '../render/viewport';
 import type { JointType } from '../model/types';
+// ── FX: visual-effects settings live in the preferences ──
+import { DEFAULT_FX_SETTINGS, sanitizeFxSettings, type FxSettings } from '../render/fx/settings';
+// ── FX: sound settings live in the preferences too ──
+import { sanitizeAudioSettings, type AudioSettings } from '../audio/settings';
+import { DEFAULT_INPUT, sanitizeInput, type InputSettings } from './input/settings';
 
 /** The interaction mode (`ToolDef.mode`): 'select', 'joint', 'measure', 'blast', 'shoot' … — any registered tool's mode. */
 export type ToolId = string;
@@ -15,6 +20,16 @@ export interface Prefs {
   snap: boolean;
   snapGrid: number;
   snapAngle: number;
+  // -- ED-A snap: object snapping modes (src/model/edit/snap.ts); `snap` above stays the grid toggle --
+  snapVertex: boolean;
+  snapEdge: boolean;
+  snapFace: boolean;
+  snapBounds: boolean;
+  /** Dragging / dropping puts objects flush on the surface under the pointer. */
+  snapSurface: boolean;
+  /** …and turns their up axis onto the surface normal. */
+  snapAlignNormal: boolean;
+  // -- /ED-A snap --
   timeScale: number;
   colorMode: ColorMode;
   overlays: OverlayOptions;
@@ -50,6 +65,12 @@ export interface Prefs {
   showBottom: boolean;
   bottomTab: string;
   seenWelcome: boolean;
+  // ── FX: particles, impact effects, skid marks, explosions (src/render/fx) ──
+  fx: FxSettings;
+  // ── FX: sound — master volume, mute, per-category volumes, spatialisation (src/audio) ──
+  audio: AudioSettings;
+  // -- CM-A: key bindings, gamepad, touch and axis settings --
+  input: InputSettings;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -59,6 +80,14 @@ export const DEFAULT_PREFS: Prefs = {
   snap: true,
   snapGrid: 0.25,
   snapAngle: 15,
+  // -- ED-A snap --
+  snapVertex: true,
+  snapEdge: false,
+  snapFace: false,
+  snapBounds: false,
+  snapSurface: true,
+  snapAlignNormal: false,
+  // -- /ED-A snap --
   timeScale: 1,
   colorMode: 'material',
   overlays: { ...DEFAULT_OVERLAYS },
@@ -88,6 +117,9 @@ export const DEFAULT_PREFS: Prefs = {
   showBottom: true,
   bottomTab: 'energy',
   seenWelcome: false,
+  fx: { ...DEFAULT_FX_SETTINGS },
+  audio: sanitizeAudioSettings(undefined),
+  input: DEFAULT_INPUT, // -- CM-A --
 };
 
 const KEY = 'physicslab:prefs:v1';
@@ -98,13 +130,21 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
 
   constructor() {
     super();
-    this.value = { ...DEFAULT_PREFS, overlays: { ...DEFAULT_OVERLAYS } };
+    this.value = {
+      ...DEFAULT_PREFS,
+      overlays: { ...DEFAULT_OVERLAYS },
+      fx: { ...DEFAULT_FX_SETTINGS },
+      audio: sanitizeAudioSettings(undefined), // ── FX ──
+    };
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const saved = JSON.parse(raw) as Partial<Prefs>;
         this.value = { ...this.value, ...saved, overlays: { ...DEFAULT_OVERLAYS, ...(saved.overlays ?? {}) } };
         this.value.tool = 'select';
+        this.value.fx = sanitizeFxSettings(saved.fx); // ── FX: stored values are validated ──
+        this.value.audio = sanitizeAudioSettings(saved.audio); // ── FX ──
+        this.value.input = sanitizeInput(saved.input); // -- CM-A --
       }
     } catch {
       /* storage unavailable */

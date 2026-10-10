@@ -19,7 +19,7 @@ import type { Quat, Vec3 } from '../../core/math';
 import type { BodySnapshot, JointSnapshot, WorldSnapshot } from '../protocol';
 import { sleepEmulation } from './bodies';
 import { registerColliders, registerGround } from './events';
-import type { BodyRec, JointRec, WorldState } from './state';
+import type { BodyRec, JointRec, SoftRec, WorldState } from './state';
 
 export function takeSnapshot(s: WorldState): WorldSnapshot {
   const bodies: BodySnapshot[] = s.order.map((r) => ({
@@ -51,6 +51,8 @@ export function takeSnapshot(s: WorldState): WorldSnapshot {
     force: j.force,
     motorTarget: j.motorTarget,
     cache: [...j.cache] as [number, number, number],
+    rt: [...j.rt], // -- JT-A --
+    jl: j.jl ? { ...j.jl } : undefined,
   }));
   return {
     version: 1,
@@ -62,7 +64,13 @@ export function takeSnapshot(s: WorldState): WorldSnapshot {
     settings: s.settings,
     bodies,
     joints,
-    softs: s.softOrder.map((r) => ({ def: r.def, root: r.root.handle })),
+    softs: s.softOrder.map((r) => ({
+      def: r.def,
+      root: r.root.handle,
+      volumeFactor: r.volumeFactor,
+      released: [...r.released],
+      attached: r.attached.map((a) => ({ id: a.att.id, particles: [...a.particles], bodyHandle: a.bodyHandle })),
+    })),
     paths: [...s.paths.values()].map((p) => p.def),
     worldBody: s.worldBody.handle,
     ground: s.ground ? { body: s.ground.body.handle, collider: s.ground.col.handle } : null,
@@ -172,6 +180,8 @@ export function restoreSnapshot(s: WorldState, snap: WorldSnapshot): void {
       force: j.force,
       motorTarget: j.motorTarget,
       cache: [...j.cache] as [number, number, number],
+      rt: j.rt ? [...j.rt] : [], // -- JT-A --
+      jl: j.jl ? { ...j.jl } : undefined,
     };
     s.joints.set(rec.id, rec);
     s.jointOrder.push(rec);
@@ -181,7 +191,20 @@ export function restoreSnapshot(s: WorldState, snap: WorldSnapshot): void {
   for (const sb of snap.softs) {
     const root = next.softBodies.get(sb.root);
     if (!root) continue;
-    const rec = { id: sb.def.id, def: sb.def, root };
+    const rec: SoftRec = {
+      id: sb.def.id,
+      def: sb.def,
+      root,
+      rest: null,
+      attached: [],
+      released: new Set(sb.released ?? []),
+      volumeFactor: sb.volumeFactor ?? sb.def.volumeFactor,
+      restLen: new Map(),
+    };
+    for (const a of sb.attached ?? []) {
+      const att = sb.def.attachments.find((x) => x.id === a.id);
+      if (att) rec.attached.push({ att, particles: [...a.particles], bodyHandle: a.bodyHandle });
+    }
     s.softs.set(rec.id, rec);
     s.softOrder.push(rec);
   }

@@ -6,7 +6,7 @@
  * in the inspector scales the chunk and the volume is (unit-hull volume) × sx·sy·sz. The origin is wherever the
  * creator put it (the cut tool puts it at the volume centroid).
  */
-import { convexHull, hullVolume, type Hull } from '../../core/hull';
+import { convexHull, hullVolume, type Hull } from '../../core/convexHull';
 import type { Vec3 } from '../../core/math';
 import type { ShapeDef } from '../shapeRegistry';
 import { clampDims, hullCollider, hullGeometry, unitSpec, WIDTH_HEIGHT_DEPTH } from './helpers';

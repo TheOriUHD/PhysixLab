@@ -543,5 +543,10 @@ function softSizeFromScale(e: SoftEntity, s: Vec3): Vec3 {
       return [m(s[0]), 0, m(s[2])];
     case 'cable':
       return [m(s[0]), 0, 0];
+    // -- SF --
+    case 'mesh':
+      return [m(s[0]), m(s[1]), m(s[2])];
+    case 'tyre':
+      return [Math.max(0.3, s[0]), Math.max(0.08, s[1]), Math.max(0.06, Math.min(s[2], s[0] / 2 - 0.05))];
   }
 }

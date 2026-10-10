@@ -19,6 +19,7 @@ import {
 } from '../controls';
 import type { Field } from '../controls';
 import { h } from '../dom';
+import { breakageSection } from './jointBreakage';
 import type { InspectorContext } from './shared';
 
 export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElement[] {
@@ -310,6 +311,9 @@ export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElem
     );
   }
 
+  // -- JT-B: breakage thresholds and load readout (springs keep their own break force) --
+  if (j0.type !== 'spring') out.push(breakageSection(ctx, id));
+
   // ---- live ---------------------------------------------------------------------------------
   if (app.sim.active) {
     const dl = h('dl', { class: 'readout' });
@@ -422,6 +426,20 @@ function motorSection(ctx: InspectorContext, id: string, type: string): HTMLElem
   });
   const kp = keyField({ onChange: (c) => setM('Motor key', { keyPos: c }), placeholder: 'None' });
   const kn = keyField({ onChange: (c) => setM('Motor key', { keyNeg: c }), placeholder: 'None' });
+  // -- CM-A: analog axis name (gamepad stick, touch joystick, ramped keys) --
+  const axisInput = h('input', {
+    class: 'plain comp-text',
+    type: 'text',
+    spellcheck: false,
+    maxLength: 40,
+    placeholder: 'e.g. steer, drive',
+    title: 'Analog input axis: gamepad sticks, touch joysticks and the ramped keys above all drive this name',
+  });
+  axisInput.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') axisInput.blur();
+  });
+  axisInput.addEventListener('change', () => setM('Motor axis', { axis: axisInput.value.trim() }));
   const slew = numberField({
     step: 0.5,
     min: 0,
@@ -451,6 +469,7 @@ function motorSection(ctx: InspectorContext, id: string, type: string): HTMLElem
     maxF.set(m.maxForce);
     kp.set(m.keyPos);
     kn.set(m.keyNeg);
+    if (document.activeElement !== axisInput) axisInput.value = m.axis ?? '';
     slew.set(m.slewRate);
     brake.set(m.brake);
     const off = m.mode === 'off';
@@ -460,7 +479,7 @@ function motorSection(ctx: InspectorContext, id: string, type: string): HTMLElem
     rowSlew.style.display = m.mode === 'position' ? '' : 'none';
     rowBrake.style.display = m.mode === 'velocity' ? '' : 'none';
     rowDamp.style.display = off ? 'none' : '';
-    for (const el of [rowMax, rowKp, rowKn]) el.style.display = off ? 'none' : '';
+    for (const el of [rowMax, rowKp, rowKn, rowAxis]) el.style.display = off ? 'none' : '';
   });
   const rowMax = row('Max force', maxF.el, 'Largest force / torque the motor can apply');
   const rowKp = row(
@@ -469,6 +488,11 @@ function motorSection(ctx: InspectorContext, id: string, type: string): HTMLElem
     hinge ? 'Positive rotation follows the right-hand rule about the axis' : 'Positive = along the axis',
   );
   const rowKn = row('Key (−)', kn.el);
+  const rowAxis = row(
+    'Analog axis',
+    axisInput,
+    'Name of an analog input (−1 … 1) added to the keys: a gamepad stick or touch joystick. With the keys above, the keys ramp up like a stick.',
+  );
   return section(
     'Motor',
     [
@@ -480,6 +504,7 @@ function motorSection(ctx: InspectorContext, id: string, type: string): HTMLElem
       rowMax,
       rowKp,
       rowKn,
+      rowAxis,
       rowSlew,
       rowBrake,
       h(

@@ -1,3 +1,4 @@
+import { sanitizeParams } from './jointParams';
 import { clamp, type Vec3 } from '../core/math';
 import { SceneFormatError, warn, type LoadReport } from './errors';
 import {
@@ -17,6 +18,7 @@ import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
 import { dedupeComponentIds, repairComponentRefs, sanitizeComponents } from './componentRegistry';
 import { parentField, sanitizeGroup, sanitizeLight, sanitizePath } from './sanitize/kinds';
 import { sanitizeParts } from './sanitize/parts';
+import { breakageField } from './breakage';
 import { SCENE_FORMAT, SCENE_VERSION, migrateDocument } from './migrations';
 import {
   bool,
@@ -43,6 +45,7 @@ import type {
   SceneDocument,
   SceneSettings,
   SkyPreset,
+  SoftAttachment,
   SoftEntity,
   SoftPin,
   SoftType,
@@ -50,9 +53,27 @@ import type {
 } from './types';
 import { isLight, isPosed } from './types';
 
-const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable'];
+const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable', 'mesh', 'tyre'];
 const PINS: SoftPin[] = ['none', 'edge', 'corners', 'corners4', 'one-end', 'ends'];
-const JOINTS: JointType[] = ['fixed', 'hinge', 'slider', 'ball', 'spring', 'rope'];
+const JOINTS: JointType[] = [
+  'fixed',
+  'hinge',
+  'slider',
+  'ball',
+  'spring',
+  'rope',
+  // -- JT-A --
+  'conetwist',
+  'sixdof',
+  'pulley',
+  'rack',
+  'gear',
+  'belt',
+  'universal',
+  'screw',
+  'winch',
+  'softweld',
+];
 const SKIES: SkyPreset[] = ['studio', 'day', 'sunset', 'night', 'overcast'];
 
 function sanitizeBody(raw: any, report?: LoadReport): BodyEntity {
@@ -151,6 +172,7 @@ function sanitizeJoint(raw: any, report?: LoadReport): JointEntity {
       maxForce: Math.max(0, num(m.maxForce, base.motor.maxForce)),
       keyPos: str(m.keyPos, ''),
       keyNeg: str(m.keyNeg, ''),
+      axis: str(m.axis, '').slice(0, 40), // -- CM-A --
       slewRate: Math.max(0, num(m.slewRate, base.motor.slewRate)),
       brake: bool(m.brake, true),
     },
@@ -162,18 +184,52 @@ function sanitizeJoint(raw: any, report?: LoadReport): JointEntity {
     },
     ropeLength: Math.max(0.01, num(raw?.ropeLength, base.ropeLength)),
     collideConnected: bool(raw?.collideConnected, false),
+    params: sanitizeParams(raw?.params), // -- JT-A --
     hidden: bool(raw?.hidden, false),
     components: sanitizeComponents(raw?.components, 'joint', report, 'a joint'),
+    // -- JT-B: breakage thresholds --
+    ...breakageField(raw?.breakage),
   };
 }
 
-function sanitizeSoft(raw: any): SoftEntity {
+// -- SF: attachments are untrusted JSON; cap their number and clamp every number --
+function sanitizeAttachments(raw: any): SoftAttachment[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SoftAttachment[] = [];
+  for (const a of raw.slice(0, 64)) {
+    if (!a || typeof a !== 'object' || typeof a.body !== 'string' || !a.body) continue;
+    const att: SoftAttachment = {
+      id: idStr(a.id, `a${out.length + 1}`),
+      body: idStr(a.body, ''),
+      kind: a.kind === 'rim' ? 'rim' : 'region',
+      center: vec3(a.center, [0, 0, 0]),
+      radius: clamp(num(a.radius, 0.1), 0.005, 5),
+      offset: vec3(a.offset, [0, 0, 0]),
+    };
+    if (typeof a.joint === 'string' && a.joint) att.joint = idStr(a.joint, '');
+    out.push(att);
+  }
+  return out;
+}
+
+function sanitizeSoft(raw: any, report?: LoadReport): SoftEntity {
   const type: SoftType = SOFTS.includes(raw?.type) ? raw.type : 'jelly';
   const base = createSoft(type);
   const d = softDefaults(type);
   const size = vec3(raw?.size, d.size).map((v, i) => (v <= 0 && d.size[i] === 0 ? 0 : Math.max(0.05, v))) as Vec3;
-  const maxRes = type === 'jelly' ? 10 : type === 'balloon' ? 3 : type === 'cloth' ? 40 : 100;
-  const minRes = type === 'balloon' ? 1 : type === 'cable' ? 4 : type === 'cloth' ? 4 : 3;
+  const maxRes =
+    type === 'jelly'
+      ? 10
+      : type === 'balloon'
+        ? 3
+        : type === 'cloth'
+          ? 40
+          : type === 'tyre'
+            ? 48
+            : type === 'mesh'
+              ? 10
+              : 100;
+  const minRes = type === 'balloon' ? 1 : type === 'cable' ? 4 : type === 'cloth' ? 4 : type === 'tyre' ? 8 : 3;
   return {
     ...base,
     id: idStr(raw?.id, base.id),
@@ -196,6 +252,18 @@ function sanitizeSoft(raw: any): SoftEntity {
     locked: bool(raw?.locked, false),
     hidden: bool(raw?.hidden, false),
     ...parentField(raw ?? {}),
+    // -- SF --
+    attachments: sanitizeAttachments(raw?.attachments),
+    volumeFactor: clamp(num(raw?.volumeFactor, d.volumeFactor), 0.2, 3),
+    volumePreserve: bool(raw?.volumePreserve, d.volumePreserve),
+    leakRate: clamp(num(raw?.leakRate, 0), 0, 10),
+    poisson: clamp(num(raw?.poisson, d.poisson), 0, 0.49),
+    plasticYield: clamp(num(raw?.plasticYield, 0), 0, 5),
+    friction: clamp(num(raw?.friction, d.friction), 0, 5),
+    particleRadius: raw?.particleRadius === 0 ? 0 : clamp(num(raw?.particleRadius, 0), 0, 0.2),
+    shape: sanitizeShapeSpec(raw?.shape ?? d.shape, report, 'a soft mesh'),
+    cell: clamp(num(raw?.cell, d.cell), 0.04, 1),
+    pneumatic: bool(raw?.pneumatic, d.pneumatic),
   };
 }
 
@@ -207,7 +275,7 @@ function sanitizeEntity(r: any, report: LoadReport | undefined): Entity | null {
     case 'joint':
       return sanitizeJoint(r, report);
     case 'soft':
-      return sanitizeSoft(r);
+      return sanitizeSoft(r, report);
     case 'group':
       return sanitizeGroup(r);
     case 'light':
@@ -242,11 +310,37 @@ function sanitizeBounds(raw: any): BoundsSettings {
   const min = lo.map((v, i) => Math.min(v, hi[i])) as BoundsSettings['min'];
   const max = lo.map((v, i) => Math.max(v, hi[i])) as BoundsSettings['max'];
   for (let i = 0; i < 3; i++) if (max[i] - min[i] < 1e-3) max[i] = min[i] + 1;
+  // -- ZN-34: per-face edges, the soft wall and the respawn policy (files without them get the plain kill box)
+  const edgeKinds = ['open', 'kill', 'soft', 'water'] as const;
+  const edges = raw?.edges ?? {};
+  const soft = raw?.soft ?? {};
+  const respawn = raw?.respawn ?? {};
   return {
     enabled: bool(raw?.enabled, d.enabled),
     min,
     max,
     policy: oneOf(raw?.policy, ['kill', 'respawn'], d.policy),
+    edges: {
+      nx: oneOf(edges.nx, edgeKinds, d.edges.nx),
+      px: oneOf(edges.px, edgeKinds, d.edges.px),
+      ny: oneOf(edges.ny, edgeKinds, d.edges.ny),
+      py: oneOf(edges.py, edgeKinds, d.edges.py),
+      nz: oneOf(edges.nz, edgeKinds, d.edges.nz),
+      pz: oneOf(edges.pz, edgeKinds, d.edges.pz),
+    },
+    soft: {
+      margin: clamp(num(soft.margin, d.soft.margin), 0.1, 1000),
+      stiffness: clamp(num(soft.stiffness, d.soft.stiffness), 0, 10000),
+      damping: clamp(num(soft.damping, d.soft.damping), 0, 1000),
+    },
+    respawn: {
+      to: oneOf(respawn.to, ['start', 'checkpoint'], d.respawn.to),
+      delay: clamp(num(respawn.delay, d.respawn.delay), 0, 600),
+      penaltySeconds: clamp(num(respawn.penaltySeconds, d.respawn.penaltySeconds), 0, 3600),
+      penaltyPoints: clamp(num(respawn.penaltyPoints, d.respawn.penaltyPoints), 0, 1_000_000),
+      max: int(respawn.max, d.respawn.max, 0, 9999),
+      wholeGroups: bool(respawn.wholeGroups, d.respawn.wholeGroups),
+    },
   };
 }
 

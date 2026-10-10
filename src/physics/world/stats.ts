@@ -54,9 +54,28 @@ export function getPose(
 export function getJointRec(
   s: WorldState,
   id: string,
-): { value: number; speed: number; force: number; broken: boolean } | null {
+): {
+  value: number;
+  speed: number;
+  force: number;
+  broken: boolean;
+  load: number;
+  torque: number;
+  ratio: number;
+  damage: number;
+} | null {
   const j = s.joints.get(id);
   if (!j) return null;
   if (!j.broken && j.joint) measureJoint(j);
-  return { value: j.value, speed: j.speed, force: j.force, broken: j.broken };
+  const l = j.jl;
+  return {
+    value: j.value,
+    speed: j.speed,
+    force: j.force,
+    broken: j.broken,
+    load: l?.force ?? 0,
+    torque: l?.torque ?? 0,
+    ratio: l?.ratio ?? 0,
+    damage: l?.damage ?? 0,
+  };
 }

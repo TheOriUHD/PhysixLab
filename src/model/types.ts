@@ -5,6 +5,7 @@
  * JSON-serializable data. The physics worker builds a Rapier world from it, the renderer
  * mirrors it, and the UI edits it through SceneStore (which keeps it immutable + undoable).
  */
+import type { JointParams } from './jointParams';
 import type { Quat, Vec3 } from '../core/math';
 
 export type { Quat, Vec3 };
@@ -58,6 +59,12 @@ export interface ThrustSpec {
   key: string;
 }
 
+/** A visual skin on a body: the registry id of a skin (`render/skins/registry.ts`) and its parameters. */
+export interface SkinSpec {
+  id: string;
+  params?: Record<string, number | string | boolean>;
+}
+
 export interface BodyEntity {
   kind: 'body';
   id: string;
@@ -105,6 +112,10 @@ export interface BodyEntity {
   layer: string;
   /** Id of the entity this one is grouped under. */
   parent?: string;
+
+  // -- VZ-B: visual skin (VZ-42) --
+  /** Render-only model drawn in place of the body's own shape (src/render/skins); the physics is unaffected. */
+  skin?: SkinSpec;
 
   // ── FB-3: compound bodies ──────────────────────────────────────────────────────────────────────
   /**
@@ -176,7 +187,24 @@ export interface DragSpec {
   angular2: number;
 }
 
-export type JointType = 'fixed' | 'hinge' | 'slider' | 'ball' | 'spring' | 'rope';
+export type JointType =
+  | 'fixed'
+  | 'hinge'
+  | 'slider'
+  | 'ball'
+  | 'spring'
+  | 'rope'
+  // -- JT-A: new joint types --
+  | 'conetwist'
+  | 'sixdof'
+  | 'pulley'
+  | 'rack'
+  | 'gear'
+  | 'belt'
+  | 'universal'
+  | 'screw'
+  | 'winch'
+  | 'softweld';
 
 export type MotorMode = 'off' | 'velocity' | 'position';
 
@@ -195,6 +223,9 @@ export interface MotorSpec {
   /** KeyboardEvent.code that drives the motor in the + / − direction. Empty = none. */
   keyPos: string;
   keyNeg: string;
+  // -- CM-A: analog input --
+  /** Name of an analog input axis (−1 … 1: gamepad, touch stick, ramped keys) added to the key input. Empty = none. */
+  axis?: string;
   /** Position mode with keys: how quickly the target slews (units / s). */
   slewRate: number;
   /** Velocity mode with keys: hold the joint (brake) when no key is down. */
@@ -216,6 +247,25 @@ export interface SpringSpec {
   damping: number;
   /** Breaks when the spring force exceeds this many newtons (0 = unbreakable). */
   breakForce: number;
+}
+
+/**
+ * JT-11: when a joint fails. The thresholds apply to the force / torque the joint transmits (estimated by the
+ * engine, see `src/physics/world/jointLoad.ts`); 0 = that component never breaks the joint. Springs keep their
+ * own `spring.breakForce`. `fatigue` makes overload cumulative instead of instantaneous.
+ */
+export interface BreakSpec {
+  /** Newtons. */
+  force: number;
+  /** N·m (ignored by joints that transmit no torque, e.g. ball and rope). */
+  torque: number;
+  fatigue: {
+    enabled: boolean;
+    /** Load ratio (load / threshold, 0..1) above which damage accumulates. */
+    start: number;
+    /** Seconds the joint survives at exactly its threshold once fatigue is accumulating at the full rate. */
+    life: number;
+  };
 }
 
 export interface JointEntity {
@@ -240,17 +290,40 @@ export interface JointEntity {
   ropeLength: number;
   /** Collide the two connected bodies with each other. */
   collideConnected: boolean;
+  // -- JT-A: settings of the cone-twist / 6-DOF / pulley / rack / gear / belt / screw / winch / soft weld types --
+  params: JointParams;
   hidden: boolean;
   /** Behaviours attached to the joint (FB-7); same mechanism as `BodyEntity.components`. */
   components: ComponentSpec[];
+  // -- JT-B: breakage thresholds (absent = unbreakable) --
+  breakage?: BreakSpec;
 }
 
 /**
  * Deformable bodies (engine soft-body solver): jelly lattices, balloons, cloth and cables.
  * Particles live in the physics worker; the document only stores the recipe.
  */
-export type SoftType = 'jelly' | 'balloon' | 'cloth' | 'cable';
+export type SoftType = 'jelly' | 'balloon' | 'cloth' | 'cable' | 'mesh' | 'tyre';
 export type SoftPin = 'none' | 'edge' | 'corners' | 'corners4' | 'one-end' | 'ends';
+
+// -- SF: attachments, pressure, material model, volumetric meshes, tyres --
+/**
+ * A soft body fastened to a rigid body (SF-1). The particles inside `radius` of `center` (soft-body local rest frame)
+ * are rigidly attached to `body` at the stored body-local `offset` of `center`; they follow the body (rotation
+ * included), drag it back when pulled, and are released when `joint` breaks or the body is removed.
+ */
+export interface SoftAttachment {
+  id: string;
+  body: string;
+  /** `region`: particles within `radius` of `center`; `rim`: the inner rim ring of a tyre (hub fastening). */
+  kind: 'region' | 'rim';
+  center: Vec3;
+  radius: number;
+  /** Body-local position of `center`. */
+  offset: Vec3;
+  /** Optional joint whose failure releases the attachment ("release on break"). */
+  joint?: string;
+}
 
 export interface SoftEntity {
   kind: 'soft';
@@ -285,6 +358,29 @@ export interface SoftEntity {
   hidden: boolean;
   /** Id of the group (or other entity) this one is grouped under (FB-6). */
   parent?: string;
+  // -- SF --
+  /** Rigid-body fastenings (SF-1); particle sets are resolved from the rest lattice when the body is built. */
+  attachments: SoftAttachment[];
+  /** Target volume relative to the rest volume (pressure of balloons / tyres); 1 = unpressurised. */
+  volumeFactor: number;
+  /** Keep the enclosed volume (balloon, pneumatic tyre) — on for shells, off for plain lattices. */
+  volumePreserve: boolean;
+  /** Air escaping through a puncture: the volume factor decays at this rate (1/s). 0 = airtight. */
+  leakRate: number;
+  /** Poisson ratio of the material (0 – 0.49). */
+  poisson: number;
+  /** Permanent set: strain beyond which the material stays deformed (0 = purely elastic). */
+  plasticYield: number;
+  /** Surface friction of the particles' contact skin (SF-6). */
+  friction: number;
+  /** Collision radius override in metres (0 = automatic) (SF-6). */
+  particleRadius: number;
+  /** `mesh`: the shape this volumetric jelly is built from. */
+  shape: ShapeSpec;
+  /** `mesh`: volumetric cell size in metres (smaller = more particles). */
+  cell: number;
+  /** `tyre`: true = pneumatic (pressurised shell), false = airless (solid lattice). */
+  pneumatic: boolean;
 }
 
 // ── FB-6: group / light / path entities ────────────────────────────────────────────────────────────────
@@ -416,6 +512,54 @@ export interface BoundsSettings {
   max: Vec3;
   /** 'kill' switches a body that leaves the box off; 'respawn' returns it to its starting pose. */
   policy: BoundsPolicy;
+  // ── ZN-34: what each face of the box does, soft walls, the respawn policy ──
+  /** What happens at each face of the box (default: every face kills, as a plain kill box). */
+  edges: BoundsEdges;
+  /** The spring wall of 'soft' faces. */
+  soft: BoundsSoftWall;
+  /** Used when `policy` is 'respawn'. */
+  respawn: BoundsRespawn;
+}
+
+/**
+ * What a face of the bounds box does to a dynamic body whose centre goes past it:
+ *  - `open`   nothing (the world just continues; bodies are still switched off 400 m below the origin);
+ *  - `kill`   the body is lost (removed, or respawned, by the policy) — a kill wall, or with the bottom face a kill plane;
+ *  - `soft`   an invisible spring wall pushes the body back before it gets there (never kills);
+ *  - `water`  like `kill`, reported as drowned and drawn as a sea (the bottom face is the one it is made for).
+ */
+export type BoundsEdge = 'open' | 'kill' | 'soft' | 'water';
+export interface BoundsEdges {
+  /** −x, +x, −y (the floor), +y (the ceiling), −z, +z. */
+  nx: BoundsEdge;
+  px: BoundsEdge;
+  ny: BoundsEdge;
+  py: BoundsEdge;
+  nz: BoundsEdge;
+  pz: BoundsEdge;
+}
+/** Soft wall: starts `margin` metres inside the face and pushes with an acceleration `stiffness`·depth, damped outward. */
+export interface BoundsSoftWall {
+  /** Thickness of the wall, metres. */
+  margin: number;
+  /** Spring constant as an acceleration per metre of depth, 1/s². */
+  stiffness: number;
+  /** Damping of the outward velocity, 1/s. */
+  damping: number;
+}
+export interface BoundsRespawn {
+  /** Where the body comes back: its starting pose, or the last checkpoint / respawn point it passed (else the start). */
+  to: 'start' | 'checkpoint';
+  /** Seconds the body is out of the world before it returns. */
+  delay: number;
+  /** Seconds added to the racer's times for every respawn. */
+  penaltySeconds: number;
+  /** Points taken off the score for every respawn. */
+  penaltyPoints: number;
+  /** Respawns allowed per body (or group) before it is removed for good (0 = unlimited). */
+  max: number;
+  /** Bodies that share a group (a vehicle) are lost and respawned together. */
+  wholeGroups: boolean;
 }
 
 export type LengthUnit = 'm' | 'cm' | 'ft' | 'in';

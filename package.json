@@ -14,7 +14,9 @@
     "format:check": "prettier --check .",
     "docs:sync": "node scripts/sync-doc-examples.mjs",
     "test": "vitest run",
-    "test:e2e": "node e2e/run.mjs"
+    "test:e2e": "node e2e/run.mjs",
+    "size": "node scripts/check-size.mjs",
+    "cli": "node scripts/cli.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",
@@ -25,6 +27,7 @@
     "@types/node": "^26.6.5",
     "@types/three": "^0.186.0",
     "eslint": "^10.12.0",
+    "fake-indexeddb": "^6.2.5",
     "globals": "^17.13.0",
     "playwright-core": "^1.64.0",
     "prettier": "^3.9.9",

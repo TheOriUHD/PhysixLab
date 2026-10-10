@@ -8,10 +8,14 @@ export class PrefsSync {
   applyAll(): void {
     const { app } = this;
     const p = app.prefs.value;
-    app.viewport.setQuality(p.quality);
+    // -- VZ-B: `?quality=low|medium|high` overrides the stored tier for this session (fast headless tests) --
+    const urlQ = new URLSearchParams(location.search).get('quality');
+    app.viewport.setQuality(urlQ === 'low' || urlQ === 'medium' || urlQ === 'high' ? urlQ : p.quality);
     app.bodies.mode = p.colorMode;
     app.joints.visible = p.showJoints;
     app.overlays.options = { ...p.overlays };
+    app.joints.stressOverlay = p.overlays.stress;
+    app.sim.client.watchLoads(p.overlays.stress);
     app.sim.timeScale = p.timeScale;
     app.sim.wantContacts = p.overlays.contacts;
     app.gizmo.setSpace(p.space);
@@ -36,6 +40,8 @@ export class PrefsSync {
           break;
         case 'overlays':
           app.overlays.options = { ...p.overlays };
+          app.joints.stressOverlay = p.overlays.stress;
+          app.sim.client.watchLoads(p.overlays.stress);
           app.sim.wantContacts = p.overlays.contacts;
           if (p.overlays.trails === 'off') app.overlays.clearTrails();
           break;

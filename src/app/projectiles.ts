@@ -3,6 +3,7 @@ import type { Vector3 } from 'three';
 import { qfromEuler, qfromUnitVectors, type Quat, type Vec3 } from '../core/math';
 import { createBody } from '../model/factory';
 import type { App } from './app';
+import { PROJECTILE_TAG } from './fx/bodyFx';
 import { projectileRecipe, projectileType } from './projectileTypes';
 
 /** Charge multiplier of a held throw: a tap (< 180 ms) is 1×, holding builds up to 2.5× over 1.5 s. */
@@ -42,9 +43,11 @@ export class Projectiles {
       linearDamping: r.init.linearDamping,
       ccd: true,
       rotation,
+      tags: [PROJECTILE_TAG], // ── FX: the effects give a hard projectile hit a small blast ──
       ...(r.mass !== null ? { massOverride: r.mass } : {}),
     });
     app.sim.spawn(b);
+    app.audioDirector.launch(b.position, speed, r.radius * 2); // ── FX: the report of the shot ──
     if (type.fuse) setTimeout(() => this.detonate(b.id), type.fuse * 1000);
   }
 
@@ -81,7 +84,10 @@ export class Projectiles {
       falloff: p.blastFalloff,
       dir: dir ? [dir.x, dir.y, dir.z] : undefined,
     });
-    if (!quiet) app.effects.shockwave(at, p.blastRadius);
+    if (quiet) return;
+    // ── FX: a particle explosion; the wireframe shock wave remains when effects are off ──
+    if (!app.fxDirector.blast(at, p.blastRadius, p.blastStrength)) app.effects.shockwave(at, p.blastRadius);
+    app.audioDirector.explosion([at.x, at.y, at.z], p.blastRadius, p.blastStrength); // ── FX: the sound is independent of the visual switch ──
   }
 
   /** Index (within the entity's particle block) of the soft particle closest to a world point. */

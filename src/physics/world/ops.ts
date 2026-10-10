@@ -10,9 +10,12 @@ import { beginGrab, explode, freezeBody, impulse, releaseGrab } from './forces';
 import { addJoint, updateJoint } from './joints';
 import { applySettings } from './settings';
 import { addSoft, beginSoftGrab, releaseSoftGrab, removeSoft } from './soft';
+import { releaseSoftAttachments } from './softAttach';
+import { cutSoft, tearSoftAt } from './softCut';
 import type { WorldState } from './state';
 
 export function applyOp(s: WorldState, op: SimOp): void {
+  if (!s.recorder.onOp(s, op)) return; // -- TM: logs the op; a replay viewer ignores live edits --
   switch (op.op) {
     case 'addBody':
       addBody(s, op.body, !!op.ephemeral);
@@ -71,8 +74,23 @@ export function applyOp(s: WorldState, op: SimOp): void {
     case 'grabSoft':
       beginSoftGrab(s, op.id, op.index, op.target, op.strength);
       break;
+    case 'cutSoft':
+      cutSoft(s, op.id, op.origin, op.a, op.b);
+      break;
+    case 'tearSoft':
+      tearSoftAt(s, op.id, op.point, op.radius);
+      break;
+    case 'releaseSoft':
+      releaseSoftAttachments(s, op.id, op.attachment);
+      break;
+    case 'softEconomy':
+      s.world.integrationParameters.softBodiesMaxExtraSubsteps = op.on ? 0 : 4;
+      break;
     case 'wakeAll':
       for (const r of s.order) r.rb.wakeUp();
+      break;
+    case 'watchLoads':
+      s.loads.watch = op.on;
       break;
     case 'setSeed':
       s.rng.seed(op.seed);

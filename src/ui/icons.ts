@@ -1,5 +1,7 @@
 /** Inline stroke icons (24×24 viewBox, 1.75 stroke) — one consistent family. */
 import { svg } from './dom';
+import { ZONE_ICONS } from './iconsZones'; // -- ZN
+import { POWERED_ICONS } from './iconsPowered'; // -- CP
 
 const wrap = (body: string, extra = '') =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" ${extra}>${body}</svg>`;
@@ -52,7 +54,13 @@ const PATHS: Record<string, string> = {
   camera:
     '<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/>',
   zap: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  // ── FX ──
+  sparkle:
+    '<path d="M10 3l1.9 5.6L17.5 10.5l-5.6 1.9L10 18l-1.9-5.6L2.5 10.5l5.6-1.9z"/><path d="M19 14l.8 2.2 2.2.8-2.2.8L19 20l-.8-2.2-2.2-.8 2.2-.8z"/>',
   layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  // ── FX: sound ──
+  speaker: '<path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.2 5.8a8.8 8.8 0 0 1 0 12.4"/>',
+  speakerOff: '<path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/>',
   // shapes
   box: '<path d="M12 3l8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4M12 11v10"/>',
   sphere: '<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="9" ry="3.5"/><path d="M12 3a14 14 0 0 1 0 18"/>',
@@ -80,6 +88,17 @@ const PATHS: Record<string, string> = {
   weld: '<rect x="3" y="8" width="7" height="8" rx="1.5"/><rect x="14" y="8" width="7" height="8" rx="1.5"/><path d="M10 12h4"/><path d="M12 9v6"/>',
   spring: '<path d="M3 12h3l1.5-5 3 10 3-10 3 10L18 12h3"/>',
   rope: '<path d="M3 6c4 0 4 8 9 8s5-8 9-8"/><circle cx="3" cy="6" r="1.5" fill="currentColor"/><circle cx="21" cy="6" r="1.5" fill="currentColor"/>',
+  // -- JT-A: joint types --
+  conetwist: '<path d="M12 4l6 14H6z"/><ellipse cx="12" cy="18" rx="6" ry="2"/><path d="M12 4v8" opacity=".6"/>',
+  sixdof: '<path d="M12 3v18M3 12h18"/><path d="M12 3l-2 2.5M12 3l2 2.5M21 12l-2.5-2M21 12l-2.5 2"/><circle cx="12" cy="12" r="2.2"/>',
+  universal: '<path d="M4 12h5M15 12h5"/><path d="M12 5v14"/><rect x="9" y="9" width="6" height="6" rx="1" transform="rotate(45 12 12)"/>',
+  softweld: '<rect x="3" y="8" width="6" height="8" rx="1.5"/><rect x="15" y="8" width="6" height="8" rx="1.5"/><path d="M9 12c1 -3 2 3 3 0s2 3 3 0"/>',
+  pulley: '<circle cx="12" cy="9" r="4"/><circle cx="12" cy="9" r="1" fill="currentColor"/><path d="M8 9v11M16 9v7"/><rect x="14" y="16" width="4" height="4" rx=".8"/>',
+  gear: '<circle cx="8" cy="12" r="3.6"/><circle cx="17" cy="12" r="2.6"/><path d="M8 6.5v1.4M8 16.1v1.4M2.5 12h1.4M12.1 12h1.2M17 8v1.2M17 14.8V16M13.6 12h.9M20.4 12h.9"/>',
+  rack: '<circle cx="12" cy="8" r="3.4"/><path d="M3 17h18"/><path d="M4 17v2M7 17v2M10 17v2M13 17v2M16 17v2M19 17v2"/><path d="M12 11.4V15"/>',
+  belt: '<circle cx="6.5" cy="12" r="3.5"/><circle cx="17.5" cy="12" r="2.2"/><path d="M6.5 8.5l11 .9M6.5 15.5l11-.9"/>',
+  screw: '<path d="M12 3v18"/><path d="M8 6l8 2M8 10l8 2M8 14l8 2M8 18l8 2"/>',
+  winch: '<rect x="3" y="7" width="12" height="7" rx="2"/><path d="M6 7v7M9 7v7M12 7v7" opacity=".6"/><path d="M15 12h2l3 6"/><rect x="18" y="18" width="3.4" height="3" rx=".6"/>',
   car: '<path d="M3 15l1.5-5A2 2 0 0 1 6.4 8.5h11.2a2 2 0 0 1 1.9 1.5L21 15v3H3z"/><circle cx="7.5" cy="18" r="1.8"/><circle cx="16.5" cy="18" r="1.8"/>',
   bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
   velocity: '<path d="M4 20L19 5M19 5h-8M19 5v8"/>',
@@ -115,6 +134,8 @@ const PATHS: Record<string, string> = {
   scissors: '<circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><path d="M8.2 7.5L20 18M8.2 16.5L20 6"/>',
   // -- ED-B --
   history: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>',
+  ...ZONE_ICONS, // -- ZN: zones, races, world bounds
+  ...POWERED_ICONS, // -- CP: powered parts
 };
 
 /** Is `name` one of the built-in icon keys? */

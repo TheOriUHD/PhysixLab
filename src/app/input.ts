@@ -67,7 +67,7 @@ export class InputController {
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
     window.addEventListener('keyup', (e) => this.onKeyUp(e));
     window.addEventListener('blur', () => {
-      this.app.sim.keys.clear();
+      this.app.input.clearKeys();
       if (this.g.kind === 'custom') {
         this.g.cancel?.();
         this.g = { kind: 'none' };
@@ -568,7 +568,7 @@ export class InputController {
   // ---- keyboard ------------------------------------------------------------------------------
 
   private onKeyUp(e: KeyboardEvent): void {
-    this.app.sim.keys.delete(e.code);
+    this.app.input.keyUp(e); // -- CM-A: the hub owns the simulation key set --
   }
 
   /**
@@ -587,10 +587,9 @@ export class InputController {
     const app = this.app;
     const typing = isTyping(e.target);
     // Forward keys to the running simulation (motor / thruster bindings).
-    if (!typing && app.sim.active && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      app.sim.keys.add(e.code);
-      if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
-    }
+    const forward = !typing && app.sim.active && !e.ctrlKey && !e.metaKey && !e.altKey;
+    if (!typing) app.input.keyDown(e, forward); // -- CM-A --
+    if (forward && (e.code.startsWith('Arrow') || e.code === 'Space')) e.preventDefault();
     // Every other key is a command's shortcut (src/app/registry/commands.ts); nothing here binds keys.
     const cmd = keymap.find(e);
     if (!cmd || cmd.allowWhileTyping || typing) return; // allowWhileTyping ones already ran in the capture phase

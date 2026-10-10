@@ -43,7 +43,10 @@ beforeAll(async () => {
   await initRapier();
 });
 
-const BUILTIN = ['box', 'sphere', 'cylinder', 'capsule', 'cone', 'wedge', 'prism', 'icosahedron', 'chunk'];
+/** The first eight shapes, in palette order (the 1–9 keys depend on it). */
+const CORE = ['box', 'sphere', 'cylinder', 'capsule', 'cone', 'wedge', 'prism', 'icosahedron'];
+/** Every shape registered when the module loads: the generic checks below cover each of them automatically. */
+const BUILTIN = listShapes().map((d) => d.id);
 
 /** The specs every shape is checked at: its default, a stretched box-ish size, and every prism side count. */
 function variants(def: ShapeDef): ShapeSpec[] {
@@ -77,7 +80,9 @@ function engineMass(spec: ShapeSpec, density: number): number {
 }
 
 describe('registry contents', () => {
-  it('registers the nine built-in shapes in palette order, each with a valid definition', () => {
+  it('registers the built-in shapes in palette order, each with a valid definition', () => {
+    expect(BUILTIN.slice(0, CORE.length)).toEqual(CORE);
+    expect(new Set(BUILTIN).size).toBe(BUILTIN.length);
     expect(listShapes().map((d) => d.id)).toEqual(BUILTIN);
     for (const d of listShapes()) {
       expect(() => validateShapeDef(d), d.id).not.toThrow();

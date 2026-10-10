@@ -182,6 +182,7 @@ export class SimClient extends Emitter<ClientEvents> {
     this.frameNo = 0;
     this.layoutNo++;
     this.send({ type: 'build', doc });
+    if (this.loadWatch) this.opQueue.push({ op: 'watchLoads', on: true }); // the new world starts without it
   }
 
   /** Discard the simulated world (back to edit mode). */
@@ -233,6 +234,14 @@ export class SimClient extends Emitter<ClientEvents> {
   jsonOf(componentId: string): unknown {
     return this.componentState.get(componentId)?.json;
   }
+
+  /** JT-10: keep joint load estimates running (otherwise only breakable joints are tracked). */
+  watchLoads(on: boolean): void {
+    if (on === this.loadWatch) return;
+    this.loadWatch = on;
+    this.op({ op: 'watchLoads', on });
+  }
+  private loadWatch = false;
 
   setSeed(seed: number): void {
     this.op({ op: 'setSeed', seed });

@@ -2,6 +2,7 @@ import { qident, qnorm, type Quat, type Vec3 } from '../core/math';
 import { materialFromPreset } from './materials';
 import { SCENE_FORMAT, SCENE_VERSION } from './migrations';
 import { makeShapeSpec, shapeLabel } from './shapeRegistry';
+import { defaultParams, type JointParams } from './jointParams';
 import type {
   BodyEntity,
   BoundsSettings,
@@ -51,7 +52,16 @@ export function defaultEnvironment(): EnvironmentSettings {
 }
 
 export function defaultBounds(): BoundsSettings {
-  return { enabled: false, min: [-100, -50, -100], max: [100, 100, 100], policy: 'kill' };
+  return {
+    enabled: false,
+    min: [-100, -50, -100],
+    max: [100, 100, 100],
+    policy: 'kill',
+    // -- ZN-34
+    edges: { nx: 'kill', px: 'kill', ny: 'kill', py: 'kill', nz: 'kill', pz: 'kill' },
+    soft: { margin: 3, stiffness: 40, damping: 4 },
+    respawn: { to: 'checkpoint', delay: 0, penaltySeconds: 0, penaltyPoints: 0, max: 0, wholeGroups: false },
+  };
 }
 
 export function defaultUnits(): UnitsSettings {
@@ -138,6 +148,7 @@ export function defaultMotor(): MotorSpec {
     maxForce: 5000,
     keyPos: '',
     keyNeg: '',
+    axis: '', // -- CM-A --
     slewRate: 4,
     brake: true,
   };
@@ -161,8 +172,27 @@ const JOINT_LABELS: Record<JointType, string> = {
   ball: 'Ball joint',
   spring: 'Spring',
   rope: 'Rope',
+  // -- JT-A --
+  conetwist: 'Cone-twist',
+  sixdof: '6-DOF joint',
+  pulley: 'Pulley',
+  rack: 'Rack and pinion',
+  gear: 'Gear pair',
+  belt: 'Belt / chain drive',
+  universal: 'Universal joint',
+  screw: 'Screw',
+  winch: 'Winch',
+  softweld: 'Soft weld',
 };
 export const JOINT_TYPE_LABELS = JOINT_LABELS;
+
+/** Defaults for a new joint's `params`, tuned per type. */
+function jointParamsFor(type: JointType): JointParams {
+  const p = defaultParams();
+  if (type === 'sixdof') for (const d of p.dof) d.mode = 'locked';
+  if (type === 'winch') p.loadRating = 0;
+  return p;
+}
 
 export function createJoint(init: JointInit): JointEntity {
   const { name, type, bodyA, bodyB, anchorA, anchorB, axis, ...rest } = init;
@@ -181,6 +211,7 @@ export function createJoint(init: JointInit): JointEntity {
     spring: { restLength: 1, stiffness: 400, damping: 12, breakForce: 0 },
     ropeLength: 2,
     collideConnected: false,
+    params: jointParamsFor(type),
     hidden: false,
     components: [],
     ...(rest as Partial<JointEntity>),
@@ -194,6 +225,8 @@ export const SOFT_LABELS: Record<SoftType, string> = {
   balloon: 'Balloon',
   cloth: 'Cloth',
   cable: 'Cable',
+  mesh: 'Soft mesh',
+  tyre: 'Soft tyre',
 };
 
 export function softDefaults(type: SoftType): Omit<SoftEntity, 'kind' | 'id' | 'name' | 'position' | 'rotation'> {
@@ -204,6 +237,18 @@ export function softDefaults(type: SoftType): Omit<SoftEntity, 'kind' | 'id' | '
     selfCollide: false,
     locked: false,
     hidden: false,
+    // -- SF --
+    attachments: [],
+    volumeFactor: 1,
+    volumePreserve: false,
+    leakRate: 0,
+    poisson: 0.3,
+    plasticYield: 0,
+    friction: 0.8,
+    particleRadius: 0,
+    shape: { type: 'sphere', size: [1, 1, 1] } as ShapeSpec,
+    cell: 0.2,
+    pneumatic: true,
   };
   switch (type) {
     case 'jelly':
@@ -230,6 +275,7 @@ export function softDefaults(type: SoftType): Omit<SoftEntity, 'kind' | 'id' | '
         stiffness: 25,
         damping: 0.2,
         pin: 'none',
+        volumePreserve: true,
         color: '#4fc3f7',
         roughness: 0.2,
         opacity: 0.9,
@@ -260,6 +306,37 @@ export function softDefaults(type: SoftType): Omit<SoftEntity, 'kind' | 'id' | '
         pin: 'ends',
         color: '#d7a86e',
         roughness: 0.7,
+        opacity: 1,
+      };
+    case 'mesh':
+      return {
+        ...base,
+        type,
+        size: [1, 1, 1],
+        resolution: 5,
+        mass: 8,
+        stiffness: 12,
+        damping: 0.15,
+        pin: 'none',
+        color: '#7be0a0',
+        roughness: 0.3,
+        opacity: 0.94,
+      };
+    case 'tyre':
+      return {
+        ...base,
+        type,
+        size: [0.8, 0.26, 0.2],
+        resolution: 24,
+        mass: 6,
+        stiffness: 30,
+        damping: 0.25,
+        pin: 'none',
+        volumePreserve: true,
+        volumeFactor: 1.1,
+        friction: 1.4,
+        color: '#2b2f36',
+        roughness: 0.85,
         opacity: 1,
       };
   }

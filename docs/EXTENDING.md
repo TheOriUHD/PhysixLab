@@ -22,6 +22,8 @@ imports are rewritten for the folder the example says it belongs in. If you chan
 | an **inspector section** | `registerInspectorSection` | `src/ui/extensions/<name>.ts` | no |
 | a **menu** or **menu entry** | `registerMenu`, `registerMenuEntry` | `src/ui/extensions/<name>.ts` | no |
 | a **template**, **prefab** or **map** | `registerTemplate`, `registerPrefab`, `registerMap` | `src/model/content/<name>.ts` | no |
+| a **particle effect** (sparks, smoke, confetti …) | `registerParticleType`, then `app.fx.emit` | `src/ui/extensions/<name>.ts` | no |
+| a **sound** or a **material's sound** | `registerSoundEvent`, `registerSoundMaterial`, then `app.audio.playEvent` | `src/ui/extensions/<name>.ts` | no |
 | a **joint type** | *(a closed union for now)* | seven places, listed below | yes — see the checklist |
 
 Why two folders for the same kind of thing? **Content** (`src/model/content/`) is pure data built from the public
@@ -44,9 +46,9 @@ radius, half height, the convex points (if it has them), the Rapier collider(s) 
 palette tile, the number key, the inspector fields, the physics world, the renderer, picking, saving and loading
 all read the registry — nothing else changes.
 
-<!-- example: pyramid-shape.ts -->
+<!-- example: spire-shape.ts -->
 ```ts
-// File: src/model/shapes/pyramid.ts   (then add `pyramid` to BUILTIN_SHAPES in src/model/shapes/index.ts)
+// File: src/model/shapes/spire.ts   (then add `spire` to BUILTIN_SHAPES in src/model/shapes/index.ts)
 import type { Vec3 } from '../../core/math';
 import type { ShapeDef } from '../shapeRegistry';
 import {
@@ -58,8 +60,8 @@ import {
   WIDTH_HEIGHT_DEPTH,
 } from './helpers';
 
-/** Square pyramid: the base lies in the XZ plane at the bottom of the size box, the apex is above its centre. */
-function pyramidPoints([x, y, z]: Vec3): Vec3[] {
+/** Square spire: the base lies in the XZ plane at the bottom of the size box, the apex is above its centre. */
+function spirePoints([x, y, z]: Vec3): Vec3[] {
   const hx = x / 2,
     hy = y / 2,
     hz = z / 2;
@@ -72,12 +74,12 @@ function pyramidPoints([x, y, z]: Vec3): Vec3[] {
   ];
 }
 
-export const pyramid: ShapeDef = {
-  id: 'pyramid',
-  label: 'Pyramid',
+export const spire: ShapeDef = {
+  id: 'spire',
+  label: 'Spire',
   icon: 'cone',
   category: 'structural',
-  blurb: 'Square pyramid: roofs, spikes, monuments',
+  blurb: 'Square spire: roofs, spikes, monuments',
   defaultSize: [1, 1, 1],
   params: [],
   sizeFields: WIDTH_HEIGHT_DEPTH,
@@ -85,22 +87,36 @@ export const pyramid: ShapeDef = {
   volume: ({ size }) => (size[0] * size[1] * size[2]) / 3,
   boundingRadius: ({ size }) => halfDiagonal(size),
   halfHeight: ({ size }) => size[1] / 2,
-  convexPoints: ({ size }) => pyramidPoints(size),
-  colliders: (R, { size }) => hullCollider(R, pyramidPoints(size), size),
-  geometry: (T, spec) => hullGeometry(T, pyramidPoints(unitSpec(spec).size)),
+  convexPoints: ({ size }) => spirePoints(size),
+  colliders: (R, { size }) => hullCollider(R, spirePoints(size), size),
+  geometry: (T, spec) => hullGeometry(T, spirePoints(unitSpec(spec).size)),
 };
 ```
 
-Then add `pyramid` to `BUILTIN_SHAPES` in `src/model/shapes/index.ts` (the position in that array is the position in
+Then add `spire` to `BUILTIN_SHAPES` in `src/model/shapes/index.ts` (the position in that array is the position in
 the palette; the first nine also answer to the 1–9 keys). Register shapes there, **not** with a `registerShape()`
 call from a main-thread-only module: the physics worker has its own copy of the registry and would simulate an
 unknown shape as a box.
 
 Helpers for the common cases live in `src/model/shapes/helpers.ts` (`hullCollider` / `hullGeometry` for convex
 shapes given as points, `single` for a one-collider shape, size fields, `clampDims` …). A compound shape returns
-several colliders from `colliders()`. `tests/shapeRegistry.test.ts` runs every registered shape against the engine
+several colliders from `colliders()`. Hollow and concave shapes are built from several
+convex parts that tile the solid without overlapping (so the engine's mass is exactly `density × volume`): `parts.ts`
+has `boxPart` / `hullPart`, `meshKit.ts` the mesh side (`MeshBuilder` with crease-angle normals, `lathe`,
+`extrudeOutline`) — `torus.ts` and `arch.ts` are worked examples, and `tests/primitiveShapes.test.ts` shows how to
+prove a compound shape (mesh volume = analytic volume = engine mass, a ball through the hole). `tests/shapeRegistry.test.ts` runs every registered shape against the engine
 (volume × density = integrated mass, bounding radius, mesh bounds); the example's own test also checks the centre
-of mass of a real pyramid.
+of mass of a real spire.
+
+A shape can also carry three optional fields that the palette and the inspector pick up without further code:
+`keywords` (extra search words: "donut" finds the torus), `quantities` (derived numbers the inspector shows and
+edits — a gear's module, a rounded box's corner radius in metres; each maps a value to the size and parameters
+that realise it, so undo, live resizing and the scale gizmo keep working) and `surface` (a painted texture over the
+geometry's uvs, as the dice have; the painter itself is registered in `src/render/shapeSurface.ts`). A geometry
+with a `color` attribute (`MeshBuilder.tint`) is drawn with vertex colours, as the wheel's dark tyre is. Convex
+shapes with a fine rounded edge or a flat polygon almost parallel to a neighbour need the engine-safety rule in
+`src/model/shapes/hull3.ts` (`firstSafeHull`): the engine's hull builder silently merges faces that meet at under
+about 1.35° and mis-computes the mass of such hulls, so give it candidates from the most detailed to a plain one.
 
 ## How to add a component
 
@@ -432,6 +448,164 @@ registerMap({
 });
 ```
 
+## How to add a particle effect
+
+The visual-effects system (`src/render/fx/`, reachable as `app.fx`) is one pooled, GPU-instanced particle system that
+every package shares. A **particle type** is data — a sprite from the procedural atlas (`soft`, `glow`, `spark`,
+`smoke1`–`smoke3`, `chip`, `shard`, `shard2`, `ring`, `ringSoft`, `flame`, `star`, `crumb`, `dust`, `streak`), a lifetime,
+a size and an opacity and a colour *over life*, a speed range and cone, gravity (a multiplier of the scene's gravity
+vector: negative rises), drag, wind, an optional floor bounce — registered with `registerParticleType`. After that
+`app.fx.emit('my.type', position, options)` creates particles: `options` can set the count, size scale, speed, life,
+direction and spread, a colour tint, the emitter's velocity to inherit, and a `pattern` (`cone`, `sphere`, `disc`).
+Counts follow the quality tier and the intensity setting and respect the particle budget; every `emit` draws from a
+random stream seeded by the scene seed, so a scene plays out identically for the same seed. Effects freeze while the
+simulation is paused and slow down with the time scale — a package passes nothing for that, `app.fx` is advanced by the
+frame loop.
+
+<!-- example: confetti-effect.ts -->
+```ts
+// File: src/ui/extensions/confetti.ts   (files in src/ui/extensions are loaded at start-up, nothing to edit)
+import { registerCommand } from '../../app/registry';
+import { registerParticleType } from '../../render/fx';
+
+// A particle type is data: sprite, lifetime, size / opacity / colour over life, speed, gravity, drag, wind, floor bounce.
+registerParticleType({
+  id: 'demo.confetti',
+  label: 'Confetti',
+  blend: 'normal',
+  sprites: ['chip', 'shard2'],
+  life: [1.6, 2.6],
+  size: [0.04, 0.09],
+  sizeOverLife: [
+    [0, 1],
+    [0.85, 1],
+    [1, 0],
+  ],
+  alphaOverLife: [
+    [0, 1],
+    [0.8, 1],
+    [1, 0],
+  ],
+  colorOverLife: [
+    [0, '#ff5964'],
+    [0.5, '#ffd23f'],
+    [1, '#35a7ff'],
+  ],
+  speed: [3, 9],
+  spread: 0.9, // half-angle of the emission cone, radians
+  gravity: 0.6, // × the scene's gravity
+  drag: 1.2,
+  wind: 0.8, // how strongly the wind carries it (0 … 1)
+  spin: [4, 16],
+  orient: 'billboard',
+  bounce: 0.3, // restitution on the ground; it then lies there until it fades
+  settle: true,
+  count: 60,
+  radius: 0.1,
+});
+
+registerCommand({
+  id: 'demo.confetti',
+  label: 'Confetti at the view centre',
+  category: 'View',
+  icon: 'sparkle',
+  keywords: ['party', 'particles', 'effect'],
+  // `app.fx.emit(type, position, options)` is the whole API: count, scale, speed, direction, spread, colour tint …
+  run: ({ app }) => {
+    const t = app.viewport.controls.target;
+    app.fx.emit('demo.confetti', [t.x, 0.2, t.z], { count: 80 });
+  },
+});
+```
+
+Three more entry points, all in `src/render/fx`:
+
+- `app.fx.explosion(position, { radius, energy })` — fireball, shock ring, embers, debris, smoke and a light flash (what
+  the Blast tool uses; `app.fxDirector.blast(point, radius, strength)` also tells you whether effects are on).
+- `app.fx.impact({ position, normal, speed, impulse, a, b, … })` — the material-dependent effects of one collision;
+  `surfaceFor(presetId, colorHex)` builds the two surfaces, `impactBursts` is the recipe. A package that adds a
+  **material** teaches the effects how it behaves with `registerFxSurface(presetId, { cls, hardness, brittle, dust,
+  spark, chip, skid })` (hardness decides who sparks against / chips whom; `chip` is a particle type id; `skid` is the
+  mark it leaves when it slides). A material nobody described is classified from its density, restitution, friction,
+  metalness and opacity.
+- `app.fx.setEnvironment({ wind, windAt, gravity, floorY })` — the wind particles feel (a constant, or a field sampled at
+  each particle's position, which is what a wind zone should provide).
+
+Contact events are shared through `app.contacts.acquire(owner, needs, handler)` (`src/app/contactFeed.ts`): the feed
+switches the worker's contact events on for as long as anybody holds it and hands every consumer the events, so two
+packages never fight over the configuration (the worker serves the most eager consumer; the feed hands each of the
+others only what its own `minImpulse` / `pairInterval` allow, so switching the sound on never changes the effects). The **Effects panel** is a list of sections too:
+`registerFxPanelSection({ id, order, build })` (`src/ui/fxPanel.ts`) adds one — an audio or camera-shake package puts
+its settings there.
+
+## How to add a sound
+
+All sound is synthesised — there are no sample files — by the audio engine (`src/audio/`, reachable as `app.audio`). A
+**sound event** is a recipe: *modes* (decaying sinusoids: frequency in Hz, loudness, seconds to fall 60 dB, optionally a
+pitch glide or vibrato), *noise layers* (white / pink / brown noise through a low-, high- or band-pass filter that can
+sweep, with an envelope) and *grains* (a spray of tiny modes: glass shattering, gravel). `registerSoundEvent` takes the
+recipe, a `category` (which of the five volume sliders and voice budgets it belongs to: `impacts`, `rolling`, `engines`,
+`ambience`, `ui`), whether it is `spatial`, a quantised `key` (equal keys share one rendered buffer, so keep the number of
+distinct keys small) and a `gain`. After that `app.audio.playEvent(id, position, params)` plays it: the engine renders the
+buffer on first use (a few milliseconds, spread over frames), pans and attenuates it by where `position` is relative to
+the camera, bends its pitch with the simulation's time scale, and admits it to the voice pool — a louder newcomer steals
+the quietest voice of its category, a quieter one is turned away.
+
+A **material** teaches collisions how it rings: `registerSoundMaterial(presetId, profile)` gives the modes of a struck
+object of that material (frequency ratios and loudness), how long the fundamental rings, how brittle and how hard it is;
+a preset nobody described is classified from its density, restitution, friction, metalness and opacity. Bigger bodies
+pitch lower, harder and faster hits are louder and brighter — none of that is the package's job.
+
+<!-- example: tuning-fork-sound.ts -->
+```ts
+// File: src/ui/extensions/tuning-fork.ts   (files in src/ui/extensions are loaded at start-up, nothing to edit)
+import { registerCommand } from '../../app/registry';
+import { registerSoundEvent, registerSoundMaterial, soundProfileFor } from '../../audio';
+
+// A sound is a recipe, not a sample: ringing modes (frequency Hz, loudness, seconds to fall 60 dB), noise layers and
+// grains. The engine renders each distinct `key` once into a buffer and plays it with a gain, a pan and a pitch.
+registerSoundEvent({
+  id: 'demo.tuningFork',
+  label: 'Tuning fork',
+  category: 'impacts', // which volume slider and voice budget it belongs to
+  spatial: true, // positioned relative to the camera (false: heard at the same level everywhere, like the interface)
+  key: (p) => `demo|fork|l${Math.round((p.level ?? 0.5) * 4)}`, // equal keys share one rendered buffer
+  gain: (p) => 0.05 + 0.2 * (p.level ?? 0.5),
+  recipe: (p) => ({
+    duration: 2.6,
+    modes: [
+      { freq: 440, gain: 1, t60: 2.2 }, // the fundamental rings for seconds…
+      { freq: 440 * 6.27, gain: 0.1 + 0.2 * (p.level ?? 0.5), t60: 0.12 }, // …the strike's overtone dies at once
+    ],
+    noise: [{ color: 'white', gain: 0.15, t60: 0.01, filter: { type: 'highpass', freq: 3000 } }], // the tick of the blow
+  }),
+});
+
+// A material is a profile too: how an object of it rings when struck (mode ratios and loudness, ring time, brightness).
+registerSoundMaterial('titanium', { ...soundProfileFor('steel'), pitch: 1100, ring: 2.2, hardness: 0.9 });
+
+registerCommand({
+  id: 'demo.tuningFork',
+  label: 'Strike a tuning fork',
+  category: 'Sound',
+  icon: 'speaker',
+  keywords: ['sound', 'audio', 'note', 'a440'],
+  // `app.audio.playEvent(id, position, params)` is the whole API: a position (null = not positioned), `size`, `level`, …
+  run: ({ app }) => {
+    const t = app.viewport.controls.target;
+    app.audio.playEvent('demo.tuningFork', [t.x, t.y, t.z], { level: 0.7 });
+  },
+});
+```
+
+Where sounds come from in the app, so a package knows what already exists: contact events (`app.contacts`, shared with
+the particle effects) become impact sounds; the ground contact and slip of every body become rolling and sliding noise;
+every motorised hinge or slider, and every component whose published state (`ComponentDef.state`) has a speed in rpm,
+°/s or rad/s — or, for jets and thrusters, a throttle percentage — becomes an engine voice; the body the camera follows
+makes wind; a **component can ask for a sound** with `ctx.emit('sound', { id: 'explosion', params: { size: 5 } })` (and
+`ignite` and `bounce` events play the launch and trampoline sounds). The mute key is `Shift+M` (`M` is the Measure
+tool). The **Effects panel** carries the sound settings, as sections registered with `registerFxPanelSection`.
+
 ## How to add a joint type
 
 Joint types are the one extension point that is still a closed union (`JointType`), so adding one means touching
@@ -464,6 +638,24 @@ If what you want is a *behaviour* rather than a new constraint — a motor with 
 under load, a gear coupling between two hinges — write a **component** with `appliesTo: 'joint'` instead: no
 union to extend, and the inspector, undo, saving and the worker integration come for free.
 
+## How to add a zone action
+
+Zones (package ZN, `docs/ARCHITECTURE.md` §6a) are bodies with a `zone` component; what a zone *does* is its `action`.
+Actions are not a registry yet, so a new one touches three known places (guarded by `tests/zonePresets.test.ts`, which
+builds, saves, loads and runs a zone of every action):
+
+1. `src/model/zones.ts` — an entry in `ZONE_ACTIONS` (id, label, one-line help, icon, colour) and, if it raises a new
+   event, its name and payload in `ZoneEventData`.
+2. `src/model/components/zone.ts` — the fields it needs, each with `showIf: only('myAction')` so the inspector shows them
+   only for that action.
+3. `src/physics/zones/actions.ts` — a case in `fire` (once per unit that enters; `ctx.zones` has the loss / respawn,
+   rigid-move, spawn and score machinery, `zones.emit` raises the event) or in `applyField` (every step, for each body
+   inside). Add a preset in `src/model/zonePresets.ts` for the Add tab and the command palette, and a physics test with an
+   analytic expectation (`tests/zones.actions.test.ts` has one per action).
+
+A behaviour that is not "something happens to the bodies that enter" — a force field with its own visuals, a fluid, a
+surface — is a **component** (above), not a zone action.
+
 ---
 
 ## Testing an extension
@@ -477,6 +669,31 @@ union to extend, and the inspector, undo, saving and the worker integration come
   Run it with `E2E_PORT=5231 E2E_FILTER=extension npm run test:e2e`.
 - Before you finish: `npm run typecheck && npm run lint && npm test && npm run build`, then the e2e suite.
 
+## Keeping the download small: `lazy()` (DT-42)
+
+The first load is budgeted (`npm run size`, `scripts/check-size.mjs`, limits in `scripts/size-budget.json`, enforced
+in CI). Anything heavy that most sessions never touch — exporters, importers, CSG, the GIF encoder, the circuit
+editor, the plugin host, education content, locales — belongs in its own chunk that is fetched on first use:
+
+```typescript
+import { lazy } from '../../core/lazy';
+
+const exporters = lazy(() => import('../../export/gltf')); // a separate chunk; nothing is fetched until first call
+
+registerCommand({
+  id: 'file.exportGlb',
+  label: 'Export glTF…',
+  run: async (app) => (await exporters()).exportGlb(app),
+});
+```
+
+Rules of thumb: put the dynamic `import()` in the *command / panel body*, never at module top level; never
+`import` the lazy module statically anywhere else (that pulls it back into the first load); show a spinner or toast
+if the load can take a moment. `lazy()` runs the loader once, shares the promise and retries after a failure.
+`npm run build && npm run size` prints every chunk, classified as first-load / worker / wasm / css / lazy.
+
+---
+
 ## Registry cheat sheet
 
 | Registry | Import | Functions |
@@ -488,6 +705,8 @@ union to extend, and the inspector, undo, saving and the worker integration come
 | menus | `src/app/registry` | `registerMenu`, `registerMenuEntry`, `unregisterMenu`, `unregisterMenuEntry`, `resolveMenu` |
 | shortcut help | `src/app/registry` | `registerHelp` (gestures), `helpSections` (generated) |
 | templates / prefabs / maps | `src/model/content` | `register…`, `unregister…`, `get…`, `list…`, `onContentChange` |
+| particle types / fx surfaces | `src/render/fx` | `registerParticleType`, `particleTypes`, `registerFxSurface`, `surfaceFor`; `app.fx.emit` |
+| sound events / materials | `src/audio` | `registerSoundEvent`, `soundEvent`, `registerSoundMaterial`, `soundProfileFor`; `app.audio.playEvent` |
 | shapes | `src/model/shapeRegistry` | `registerShape`, `getShape`, `listShapes`, `shapeDef` … |
 | components | `src/model/componentRegistry` + `src/physics/components` | `registerComponent`, `registerRuntime`, `componentDef`, `listComponents` |
 

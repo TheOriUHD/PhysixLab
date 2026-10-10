@@ -2,8 +2,8 @@
  * The keymap: key events → commands. It is *derived* from the command registry (nothing else binds keys), indexed
  * by key so a lookup costs a map access, and rebuilt lazily whenever a command is registered or removed.
  */
-import { commandRegistry, type CommandDef } from './commands';
-import { chordMatches, parseShortcut, shortcutList, type Chord, type KeyLike } from './shortcuts';
+import { commandRegistry, shortcutsOf, type CommandDef } from './commands';
+import { chordMatches, parseShortcut, type Chord, type KeyLike } from './shortcuts';
 
 interface Binding {
   chord: Chord;
@@ -13,11 +13,13 @@ interface Binding {
 export class Keymap {
   private index = new Map<string, Binding[]>();
   private builtFor = -1;
+  /** -- CM-A: also rebuild when the user rebinds (see `bindingsRevision`) -- */
+  bindingsRevision: () => number = () => 0;
 
   private rebuild(): void {
     const index = new Map<string, Binding[]>();
     for (const command of commandRegistry.list())
-      for (const s of shortcutList(command.shortcut)) {
+      for (const s of shortcutsOf(command)) {
         const chord = parseShortcut(s);
         const k = `${chord.by}:${chord.key}`;
         const list = index.get(k);
@@ -25,12 +27,12 @@ export class Keymap {
         else index.set(k, [{ chord, command }]);
       }
     this.index = index;
-    this.builtFor = commandRegistry.revision;
+    this.builtFor = commandRegistry.revision * 100000 + this.bindingsRevision();
   }
 
   /** The command a key event triggers, if any. An exact Shift match beats a chord that ignores Shift. */
   find(e: KeyLike): CommandDef | undefined {
-    if (this.builtFor !== commandRegistry.revision) this.rebuild();
+    if (this.builtFor !== commandRegistry.revision * 100000 + this.bindingsRevision()) this.rebuild();
     const byKey = this.index.get(`key:${e.key.toLowerCase()}`);
     const byCode = this.index.get(`code:${e.code}`);
     let loose: CommandDef | undefined;
