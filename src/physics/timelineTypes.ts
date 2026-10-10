@@ -12,6 +12,8 @@ export type TimelineCmd =
   | { cmd: 'status' }
   | { cmd: 'seek'; step: number }
   | { cmd: 'rewind'; on: boolean; rate?: number }
+  /** Play forward through the recorded past (logged inputs applied) instead of branching from it. */
+  | { cmd: 'playThrough'; on: boolean }
   | { cmd: 'config'; budgetMB?: number; enabled?: boolean }
   | { cmd: 'record'; on: boolean }
   | { cmd: 'recordGet'; stop?: boolean }
@@ -49,6 +51,7 @@ export interface TimelineStatus {
   budgetBytes: number;
   enabled: boolean;
   mode: 'live' | 'rewind';
+  playThrough: boolean;
   recording: { startStep: number; entries: number; fromStart: boolean } | null;
   replay: {
     startStep: number;

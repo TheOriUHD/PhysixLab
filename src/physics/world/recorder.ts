@@ -64,7 +64,7 @@ const ALWAYS_ACCEPTED = new Set<SimOp['op']>(['raycast', 'snapshot']);
 
 export const HASH_EVERY = 60;
 const MIN_INTERVAL = 2;
-const MAX_INTERVAL = 480;
+const MAX_INTERVAL = 240;
 const MAX_LOG = 400_000;
 
 export class Recorder {
@@ -72,8 +72,11 @@ export class Recorder {
   /** Memory the ring may use, bytes. */
   budgetBytes = 96 * 1024 * 1024;
   maxEntries = 6000;
-  /** Steps between snapshots right now. */
+  /** Steps between snapshots right now: the larger of what time cost and memory allow. */
   interval = 6;
+  private baseInterval = 6;
+  private timeInterval = 6;
+  private memInterval = 0;
   ring: RingEntry[] = [];
   bytes = 0;
   log: InputEntry[] = [];
@@ -87,6 +90,11 @@ export class Recorder {
   applying = 0;
   /** Replay viewer: logged inputs drive the world and live ones are ignored. */
   followLog = false;
+  /**
+   * Playing forward through the recorded past (loop regions): logged inputs are applied, the page's live inputs are
+   * ignored until one of them really changes, and no new snapshots are taken for steps that already have one.
+   */
+  playThrough = false;
   replay: ReplayState | null = null;
   /** Hashes of a determinism clone's future; the real run is checked against them while nothing is edited. */
   watch: { hashes: Map<number, string>; checked: number; firstBad: { step: number } | null } | null = null;
@@ -96,14 +104,12 @@ export class Recorder {
   /** Fractional step the rewind has reached. */
   rewindPos = 0;
   snapMsEma = 0;
-  /** Milliseconds one fixed step takes (smoothed, snapshots excluded). */
-  stepMsEma = 0;
   /** Let the interval grow when snapshots get expensive (tests switch it off for fixed spacing). */
   adaptive = true;
-  private stepT0 = 0;
   api!: RecorderApi;
   readonly track = new TrackSampler();
-  private rebase = false;
+  private rebaseKeys = false;
+  private rebaseAxes = false;
   private keysSig: string | null = null;
   private axesSig: string | null = null;
   private lastCapture = -1;
@@ -116,19 +122,18 @@ export class Recorder {
 
   beforeStep(s: WorldState): void {
     if (!this.enabled) return;
-    this.stepT0 = performance.now();
-    if (!this.seeking && !this.followLog) this.branchIfNeeded(s);
+    if (this.playThrough && s.stepCount >= this.head) this.playThrough = false;
+    if (!this.seeking && !this.followLog && !this.playThrough) this.branchIfNeeded(s);
     if (this.ring.length === 0 && !this.seeking) this.capture(s);
-    if (this.followLog || this.seeking) this.applyDue(s);
+    if (this.followLog || this.seeking || this.playThrough) this.applyDue(s);
   }
 
   afterStep(s: WorldState): void {
     if (!this.enabled || this.seeking) return;
-    const ms = performance.now() - this.stepT0;
-    this.stepMsEma = this.stepMsEma === 0 ? ms : this.stepMsEma * 0.95 + ms * 0.05;
     const step = s.stepCount;
+    if (this.playThrough && step < this.head) return; // the past is already recorded
     if (step > this.head) this.head = step;
-    if (step - this.lastCapture >= this.interval) this.capture(s);
+    if (step - this.lastCapture >= this.interval && !this.ring.some((e) => e.step === step)) this.capture(s);
     this.track.sample(s);
     const w = this.watch;
     if (w) {
@@ -169,21 +174,63 @@ export class Recorder {
       return true;
     }
     if (!this.enabled || NOT_LOGGED.has(op.op)) return true;
+    if (this.playThrough) {
+      this.playThrough = false;
+      this.branchPending = true;
+    }
     this.branchIfNeeded(s);
     this.watch = null; // an edit makes the clone's future differ legitimately
     this.note(s, { step: s.stepCount, kind: 'op', op });
     return true;
   }
 
+  /**
+   * Should the page's `keys` / `axes` replace the world's inputs? Not in a replay, and not while playing through the
+   * recorded past — unless the player really changed an input, which ends the playback and starts a new branch.
+   */
+  acceptKeys(s: WorldState, keys: readonly string[]): boolean {
+    if (this.followLog) return false;
+    if (!this.playThrough) return true;
+    const ksig = [...keys].sort().join('|');
+    if (this.rebaseKeys) {
+      // first sight of the page's keys after the world moved in time: that is the baseline, not an edit
+      this.rebaseKeys = false;
+      this.keysSig = ksig;
+      return false;
+    }
+    return ksig !== this.keysSig && this.takeOver(s);
+  }
+
+  acceptAxes(s: WorldState, axes: Record<string, number>): boolean {
+    if (this.followLog) return false;
+    if (!this.playThrough) return true;
+    const asig = JSON.stringify(axes);
+    if (this.rebaseAxes) {
+      this.rebaseAxes = false;
+      this.axesSig = asig;
+      return false;
+    }
+    return asig !== this.axesSig && this.takeOver(s);
+  }
+
+  /** The player changed an input while the recorded past was playing: it ends here and a new branch begins. */
+  private takeOver(s: WorldState): boolean {
+    this.playThrough = false;
+    this.branchPending = true;
+    this.branchIfNeeded(s);
+    return true;
+  }
+
   /** Keys / axes as supplied with a tick. Only changes are logged. */
   onInputs(s: WorldState, keys: Iterable<string>, axes: Record<string, number>): void {
-    if (!this.enabled || this.followLog || this.applying > 0) return;
+    if (!this.enabled || this.followLog || this.applying > 0 || this.playThrough) return;
     const k = [...keys].sort();
     const ksig = k.join('|');
     const asig = JSON.stringify(axes);
-    if (this.rebase) {
+    if (this.rebaseKeys || this.rebaseAxes) {
       // The world just moved in time: what the page supplies now is the new baseline, not an edit.
-      this.rebase = false;
+      this.rebaseKeys = false;
+      this.rebaseAxes = false;
       this.keysSig = ksig;
       this.axesSig = asig;
       return;
@@ -244,13 +291,15 @@ export class Recorder {
     while ((this.bytes > this.budgetBytes || this.ring.length > this.maxEntries) && this.ring.length > 3) this.thin();
   }
 
-  /** Grow the interval while snapshots cost more than ~10% of the stepping they sit between. */
+  /**
+   * Snapshots cost far more than a step, so what matters is their share of the wall-clock time at real-time speed:
+   * keep it near 6% (`snapMs × steps per second / interval`). Memory pressure raises the floor separately (`thin`).
+   */
   private adapt(s: WorldState): void {
     if (!this.adaptive) return;
-    void s;
-    const stepMs = Math.max(this.stepMsEma, 0.05);
-    const want = Math.ceil(this.snapMsEma / (0.1 * stepMs));
-    if (want > this.interval) this.interval = Math.min(MAX_INTERVAL, want);
+    const hz = s.settings.physicsHz;
+    this.timeInterval = Math.min(MAX_INTERVAL, Math.max(this.baseInterval, Math.ceil((this.snapMsEma * hz) / 60)));
+    this.interval = Math.max(this.timeInterval, this.memInterval);
   }
 
   /** Drop every other snapshot (keeping the first and the newest) and double the interval. */
@@ -264,7 +313,8 @@ export class Recorder {
       }
     }
     this.ring = keep;
-    this.interval = Math.min(MAX_INTERVAL, Math.max(MIN_INTERVAL, this.interval * 2));
+    this.memInterval = Math.min(MAX_INTERVAL, Math.max(MIN_INTERVAL, this.interval * 2));
+    this.interval = Math.max(this.timeInterval, this.memInterval);
   }
 
   /** The newest snapshot at or before `step`, or null. */
@@ -330,7 +380,8 @@ export class Recorder {
   landed(s: WorldState): void {
     this.watch = null;
     this.branchPending = !this.followLog && s.stepCount < this.head;
-    this.rebase = true;
+    this.rebaseKeys = true;
+    this.rebaseAxes = true;
   }
 
   /** Forget the whole history (the world was replaced by something the log does not describe). */

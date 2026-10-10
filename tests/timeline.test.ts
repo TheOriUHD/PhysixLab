@@ -155,6 +155,39 @@ describe('snapshot ring and seeking', () => {
   });
 });
 
+describe('play-through', () => {
+  it('plays the recorded past forward with its inputs, without branching; a live edit then branches', async () => {
+    const doc = busyScene();
+    const w = await World.create(doc);
+    for (let i = 0; i < 100; i++) {
+      if (i === 40) w.applyOp({ op: 'impulse', id: doc.entities[0].id, impulse: [4, 2, 0], point: [0, 0, 0] });
+      w.setKeys([]);
+      w.stepOnce();
+    }
+    const h100 = stateHash(w.state);
+    const ringBefore = w.recorder.ring.map((e) => e.step);
+    seekTo(w.state, 10);
+    send(w, { cmd: 'playThrough', on: true });
+    for (let i = 0; i < 90; i++) {
+      w.setKeys([]); // what the page supplies every tick: nothing changed
+      w.stepOnce();
+    }
+    expect(w.stepCount).toBe(100);
+    expect(stateHash(w.state)).toBe(h100);
+    expect(w.recorder.ring.map((e) => e.step)).toEqual(ringBefore);
+    expect(w.recorder.head).toBe(100);
+    // back to 30, play through, then press a key at step 50: the future after 50 is replaced
+    seekTo(w.state, 30);
+    send(w, { cmd: 'playThrough', on: true });
+    w.setKeys([]);
+    for (let i = 0; i < 20; i++) w.stepOnce();
+    w.setKeys(['w']);
+    expect(w.recorder.playThrough).toBe(false);
+    for (let i = 0; i < 10; i++) w.stepOnce();
+    expect(w.recorder.head).toBe(60);
+  });
+});
+
 describe('replays', () => {
   it('records inputs and replays them exactly, verifying the checkpoints', async () => {
     const doc = busyScene();

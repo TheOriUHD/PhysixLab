@@ -30,6 +30,7 @@ export function timelineStatus(world: PhysicsWorld): TimelineStatus {
     budgetBytes: r.budgetBytes,
     enabled: r.enabled,
     mode: r.mode,
+    playThrough: r.playThrough,
     recording: rec ? { startStep: rec.startStep, entries: rec.entries.length, fromStart: rec.base === null } : null,
     replay: rp
       ? {
@@ -113,6 +114,9 @@ registerCustomChannel('timeline', (data, { world, reply }) => {
       case 'rewind':
         if (cmd.on) startRewind(s, cmd.rate ?? 1);
         else stopRewind(s);
+        break;
+      case 'playThrough':
+        r.playThrough = cmd.on && s.stepCount < r.head;
         break;
       case 'config':
         if (cmd.budgetMB !== undefined) r.budgetBytes = Math.max(8, Math.min(1024, cmd.budgetMB)) * 1024 * 1024;

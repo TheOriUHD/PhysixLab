@@ -14,7 +14,7 @@ import { pruneAssets } from '../model/assets';
 import { Emitter } from '../core/events';
 import type { Quat, Vec3 } from '../core/math';
 import type { SceneChange, SceneStore } from '../model/store';
-import type { BodyEntity } from '../model/types';
+import type { BodyEntity, SceneDocument } from '../model/types';
 import { isBody, isJoint, isPath, isSoft } from '../model/types';
 import { SimClient } from '../physics/client';
 import { B, BODY_STRIDE } from '../physics/protocol';
@@ -50,6 +50,8 @@ export class SimController extends Emitter<Events> {
   readonly ephemeral = new Map<string, BodyEntity>();
   readonly keys = new Set<string>();
   wantContacts = false;
+  /** The document the running world was built from (null while editing). */
+  builtDoc: SceneDocument | null = null;
   private pendingSteps = 0;
   private lastTick = performance.now();
 
@@ -102,7 +104,8 @@ export class SimController extends Emitter<Events> {
   private build(): void {
     this.ephemeral.clear();
     // Only assets something references go to the worker (they can be megabytes).
-    this.client.build(pruneAssets(this.store.toDocument()));
+    this.builtDoc = pruneAssets(this.store.toDocument()); // -- TM: replays start from this scene --
+    this.client.build(this.builtDoc);
     this.emit('layout', undefined);
   }
 

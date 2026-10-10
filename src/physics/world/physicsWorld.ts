@@ -167,12 +167,13 @@ export class PhysicsWorld {
     this.s.loads.watch = on;
   }
   setKeys(keys: Iterable<string>): void {
-    if (this.s.recorder.followLog) return; // -- TM: a replay supplies its own inputs --
-    this.s.keys = new Set(keys);
+    const list = [...keys];
+    if (!this.s.recorder.acceptKeys(this.s, list)) return; // -- TM: a replay supplies its own inputs --
+    this.s.keys = new Set(list);
   }
   /** Analog inputs by name (replaces the previous set). */
   setAxes(axes: Record<string, number>): void {
-    if (this.s.recorder.followLog) return; // -- TM --
+    if (!this.s.recorder.acceptAxes(this.s, axes)) return; // -- TM --
     this.s.axes = axes;
     this.s.recorder.onInputs(this.s, this.s.keys, axes); // -- TM: log input changes --
   }

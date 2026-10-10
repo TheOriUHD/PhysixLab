@@ -6,6 +6,7 @@ import './styles/ed-hierarchy.css';
 import './styles/ed-prefabs.css';
 import './styles/ed-path.css';
 import './styles/ui-a.css';
+import './styles/tm.css'; // -- TM --
 import './styles/cm.css'; // -- CM-A --
 import './styles/diag.css';
 import './styles/tour.css';
@@ -31,6 +32,7 @@ import { showWelcome } from './ui/dialogs';
 import { openMenu } from './ui/menu';
 import { mountZoneHud } from './ui/zoneHud'; // -- ZN
 import { resolveMenu } from './app/registry/menus';
+import { installTimeTravel } from './app/timeTravel'; // -- TM
 import { loadExtensions, registerBuiltins } from './ui/builtin';
 // -- ED-B: tool options bar --
 import { mountToolOptions } from './ui/toolOptionsBar';
@@ -162,6 +164,7 @@ async function boot(): Promise<void> {
 
   for (const f of extensionFailures) app.toast(`Extension ${f.file} failed to load: ${f.error.message}`, 'error');
   initPwa(app); // -- DT-40: service worker (production only), update banner, file / share intake --
+  installTimeTravel(app); // -- TM: timeline, rewind, replays, ghosts --
   app.start();
   installTour(app); // -- UI-B: guided tours, context hints, tips --
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
