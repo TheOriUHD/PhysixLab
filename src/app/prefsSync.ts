@@ -1,6 +1,7 @@
 /** Preferences → renderer / simulation / gizmo: applies stored preferences and reacts to changes. */
 import type { App } from './app';
 import { hintForMode, toolModes } from './registry/tools';
+import { applyTheme } from '../ui/theme';
 
 export class PrefsSync {
   constructor(private app: App) {}
@@ -8,6 +9,7 @@ export class PrefsSync {
   applyAll(): void {
     const { app } = this;
     const p = app.prefs.value;
+    applyTheme(p.theme, p.accent); // -- VZ-50 --
     // -- VZ-B: `?quality=low|medium|high` overrides the stored tier for this session (fast headless tests) --
     const urlQ = new URLSearchParams(location.search).get('quality');
     app.viewport.setQuality(urlQ === 'low' || urlQ === 'medium' || urlQ === 'high' ? urlQ : p.quality);
@@ -46,6 +48,10 @@ export class PrefsSync {
           break;
         case 'space':
           app.gizmo.setSpace(p.space);
+          break;
+        case 'theme':
+        case 'accent':
+          applyTheme(p.theme, p.accent); // -- VZ-50 --
           break;
         case 'snap':
         case 'snapGrid':

@@ -8,6 +8,7 @@ import { icon, LOGO } from './icons';
 import { openMenu } from './menu';
 import { createImportInput } from './sceneActions';
 import { buildSoundButton } from './soundButton'; // ── FX ──
+import { appearanceButton } from './appearance';
 
 const TIME_SCALES = [0.1, 0.25, 0.5, 1, 2, 4];
 
@@ -179,6 +180,7 @@ export function buildTopbar(app: App): HTMLElement {
     pBottom,
     pRight,
     help,
+    appearanceButton(app), // -- VZ-50 --
   );
   return h(
     'header',

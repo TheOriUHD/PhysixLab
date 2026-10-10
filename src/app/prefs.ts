@@ -7,6 +7,7 @@ import type { JointType } from '../model/types';
 import { DEFAULT_FX_SETTINGS, sanitizeFxSettings, type FxSettings } from '../render/fx/settings';
 // ── FX: sound settings live in the preferences too ──
 import { sanitizeAudioSettings, type AudioSettings } from '../audio/settings';
+import { sanitizeAccent, sanitizeTheme, type ThemeId } from '../ui/theme';
 
 /** The interaction mode (`ToolDef.mode`): 'select', 'joint', 'measure', 'blast', 'shoot' … — any registered tool's mode. */
 export type ToolId = string;
@@ -41,6 +42,10 @@ export interface Prefs {
   fx: FxSettings;
   // ── FX: sound — master volume, mute, per-category volumes, spatialisation (src/audio) ──
   audio: AudioSettings;
+  // -- VZ-50: UI theme --
+  theme: ThemeId;
+  /** Custom accent colour `#rrggbb`, or '' for the theme's own accent. */
+  accent: string;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -69,6 +74,8 @@ export const DEFAULT_PREFS: Prefs = {
   seenWelcome: false,
   fx: { ...DEFAULT_FX_SETTINGS },
   audio: sanitizeAudioSettings(undefined),
+  theme: 'dark',
+  accent: '',
 };
 
 const KEY = 'physicslab:prefs:v1';
@@ -93,6 +100,8 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
         this.value.tool = 'select';
         this.value.fx = sanitizeFxSettings(saved.fx); // ── FX: stored values are validated ──
         this.value.audio = sanitizeAudioSettings(saved.audio); // ── FX ──
+        this.value.theme = sanitizeTheme(this.value.theme);
+        this.value.accent = sanitizeAccent(this.value.accent);
       }
     } catch {
       /* storage unavailable */
@@ -104,6 +113,8 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
   }
 
   set(patch: Partial<Prefs>): void {
+    if ('theme' in patch) patch = { ...patch, theme: sanitizeTheme(patch.theme) };
+    if ('accent' in patch) patch = { ...patch, accent: sanitizeAccent(patch.accent) };
     const keys: (keyof Prefs)[] = [];
     for (const k of Object.keys(patch) as (keyof Prefs)[]) {
       if (this.value[k] !== patch[k]) keys.push(k);

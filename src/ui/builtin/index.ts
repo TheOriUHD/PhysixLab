@@ -10,6 +10,7 @@ import { BUILTIN_INSPECTOR_SECTIONS } from '../inspector/sections';
 import { uiCommands } from './commands';
 import { registerBuiltinMenus } from './menus';
 import { registerBuiltinPanels } from './panels';
+import { registerAppearance } from '../appearance';
 
 let done = false;
 
@@ -20,6 +21,7 @@ export function registerUiBuiltins(): void {
   registerBuiltinMenus();
   for (const s of BUILTIN_INSPECTOR_SECTIONS) registerInspectorSection(s);
   registerBuiltinPanels();
+  registerAppearance(); // -- VZ-50 --
 }
 
 /** All built-in commands, tools, help, menus, panels and inspector sections. */

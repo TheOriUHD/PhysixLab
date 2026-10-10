@@ -6,6 +6,7 @@ import './styles/ed-hierarchy.css';
 import './styles/ed-prefabs.css';
 import './styles/ed-path.css';
 import './styles/ui-a.css';
+import './styles/themes.css';
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';
@@ -23,8 +24,13 @@ import { showWelcome } from './ui/dialogs';
 import { openMenu } from './ui/menu';
 import { resolveMenu } from './app/registry/menus';
 import { loadExtensions, registerBuiltins } from './ui/builtin';
+import { PrefsStore } from './app/prefs';
+import { applyTheme } from './ui/theme';
 
 async function boot(): Promise<void> {
+  // -- VZ-50: paint the stored theme before anything is built (no flash of the default theme) --
+  const early = new PrefsStore().value;
+  applyTheme(early.theme, early.accent);
   // Everything the UI offers is a registration; register the built-ins before any UI is built.
   registerBuiltins();
   const extensionFailures = await loadExtensions();
@@ -145,5 +151,5 @@ async function boot(): Promise<void> {
 boot().catch((e: unknown) => {
   console.error(e);
   const root = document.getElementById('app')!;
-  root.innerHTML = `<div style="padding:40px;max-width:640px;margin:auto;color:#dbe3ef;font:15px system-ui"><h2>PhysicsLab couldn’t start</h2><p>${String((e as { message?: unknown } | null)?.message ?? e)}</p><p style="color:#98a5b9">PhysicsLab needs a modern desktop browser with WebGL 2 and WebAssembly.</p></div>`;
+  root.innerHTML = `<div style="padding:40px;max-width:640px;margin:auto;color:var(--text,#dbe3ef);font:15px system-ui"><h2>PhysicsLab couldn’t start</h2><p>${String((e as { message?: unknown } | null)?.message ?? e)}</p><p style="color:var(--text-2,#98a5b9)">PhysicsLab needs a modern desktop browser with WebGL 2 and WebAssembly.</p></div>`;
 });
