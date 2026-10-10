@@ -200,6 +200,19 @@ describe('InputMap', () => {
     expect(m.isHeld('test.fly.fwd', new Set(['s']))).toBe(false);
     expect(m.ownsKey(key('w', 'KeyW'), 'fly')).toBe(true);
     expect(m.ownsKey(key('q', 'KeyQ'), 'fly')).toBe(false);
+    // A real KeyboardEvent exposes key / code as prototype getters, not own properties.
+    class FakeEvent {
+      get key() {
+        return 'w';
+      }
+      get code() {
+        return 'KeyW';
+      }
+      ctrlKey = false;
+      metaKey = false;
+      shiftKey = false;
+    }
+    expect(m.ownsKey(new FakeEvent(), 'fly')).toBe(true);
   });
 
   it('exports, validates and imports bindings', () => {

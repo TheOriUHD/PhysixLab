@@ -14,6 +14,7 @@ import {
 import { LIMITS, formatBytes, formatCount } from './limits';
 import { pruneAssets, remapAssetRefs } from './assets';
 import { sanitizeAssetMap } from './sanitize/assets';
+import { sanitizeCameras } from './sanitize/cameras'; // -- CM-A --
 import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
 import { dedupeComponentIds, repairComponentRefs, sanitizeComponents } from './componentRegistry';
 import { outlinerMetaFields, sanitizeSelectionSets } from './sanitize/outlinerMeta'; // -- UI-A --
@@ -174,9 +175,10 @@ function sanitizeJoint(raw: any, report?: LoadReport): JointEntity {
       maxForce: Math.max(0, num(m.maxForce, base.motor.maxForce)),
       keyPos: str(m.keyPos, ''),
       keyNeg: str(m.keyNeg, ''),
-      axis: str(m.axis, '').slice(0, 40), // -- CM-A --
       slewRate: Math.max(0, num(m.slewRate, base.motor.slewRate)),
       brake: bool(m.brake, true),
+      // -- CM-A: kept only when the file has one, so scenes without an axis save back unchanged --
+      ...(typeof m.axis === 'string' ? { axis: m.axis.slice(0, 40) } : {}),
     },
     spring: {
       restLength: Math.max(0, num(s.restLength, base.spring.restLength)),
@@ -453,6 +455,7 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
     settings: sanitizeSettings(raw.settings),
     entities: linked,
     assets,
+    cameras: sanitizeCameras(raw.cameras), // -- CM-A --
   });
 }
 

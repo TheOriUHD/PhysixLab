@@ -149,7 +149,6 @@ export function defaultMotor(): MotorSpec {
     maxForce: 5000,
     keyPos: '',
     keyNeg: '',
-    axis: '', // -- CM-A --
     slewRate: 4,
     brake: true,
   };

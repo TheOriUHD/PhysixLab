@@ -8,6 +8,7 @@
  * Held camera actions and rebinding capture read the same state.
  */
 import { clamp } from '../../core/math';
+import { sceneControls } from '../../model/controls';
 import { isJoint } from '../../model/types';
 import type { App } from '../app';
 import { runCommand } from '../registry/commands';
@@ -139,13 +140,7 @@ export class InputHub {
       if (m.keyPos) this.axisKeys.set(m.keyPos, { axis: m.axis, sign: 1 });
       if (m.keyNeg) this.axisKeys.set(m.keyNeg, { axis: m.axis, sign: -1 });
     }
-    for (const e of this.app.store.all()) {
-      if (!('components' in e)) continue;
-      for (const c of e.components) {
-        const a = c.params.axis;
-        if (typeof a === 'string' && a) this.axisNames.add(a);
-      }
-    }
+    for (const a of sceneControls(this.app.store.all()).axes) this.axisNames.add(a.name);
     for (const n of this.axes.keys()) if (!this.axisNames.has(n)) this.axes.delete(n);
   }
 

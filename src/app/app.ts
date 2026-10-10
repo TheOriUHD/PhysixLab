@@ -50,6 +50,7 @@ import { Editor } from './editor';
 import { FrameLoop } from './frameLoop';
 import { GizmoController } from './gizmoController';
 import { InputHub } from './input/hub'; // -- CM-A --
+import { CameraRig } from './camera/rig'; // -- CM-A --
 import { MeasureTool } from './measureTool';
 import { Persistence } from './persistence';
 import { Placement } from './placement';
@@ -115,6 +116,8 @@ export class App extends Emitter<AppEvents> {
   readonly zoneViews: ZoneViews;
   /** -- CM-A: keyboard / gamepad / touch → simulation keys and analog axes -- */
   readonly input: InputHub;
+  /** -- CM-A: camera modes, projection, bookmarks, shake -- */
+  readonly cameraRig: CameraRig;
 
   constructor(readonly shell: Shell) {
     super();
@@ -168,6 +171,7 @@ export class App extends Emitter<AppEvents> {
     this.zones = new ZoneBridge(this); // -- ZN
     this.zoneViews = new ZoneViews(this); // -- ZN
     this.input = new InputHub(this); // -- CM-A --
+    this.cameraRig = new CameraRig(this); // -- CM-A --
 
     shell.stage.appendChild(this.labels.layer);
     this.measureTool = new MeasureTool(this);

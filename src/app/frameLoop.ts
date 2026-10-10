@@ -89,6 +89,7 @@ export class FrameLoop {
     app.effects.update(dt);
     app.componentFx.update(dt); // -- CP
     app.cameraControl.updateFollow(dt);
+    app.cameraRig.update(dt); // -- CM-A --
     app.fxDirector.update(dt); // ── FX: particles, trails, skid marks ──
     app.audioDirector.update(dt); // ── FX: impact, rolling, engine and wind sound ──
     app.measureTool.updateLabel();

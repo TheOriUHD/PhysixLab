@@ -90,6 +90,20 @@ export function sceneControls(entities: readonly Entity[]): SceneControls {
         };
         note(keys, code, () => ({ code, uses: [] }), use);
       }
+      // -- CM-A: the motor's analog axis (gamepad stick, touch joystick, ramped keys) --
+      if (e.motor.axis) {
+        const name = e.motor.axis;
+        const use: ControlUse = {
+          ownerId: e.id,
+          ownerName: e.name,
+          componentId: '',
+          componentLabel: 'Joint motor',
+          fieldLabel: 'Motor axis',
+          index: 1,
+          count: 1,
+        };
+        note(axes, name, () => ({ name, uses: [] }), use);
+      }
     }
   }
   return { keys: [...keys.values()], axes: [...axes.values()].sort((a, b) => a.name.localeCompare(b.name)) };

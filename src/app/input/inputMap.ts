@@ -305,7 +305,14 @@ export class InputMap extends Emitter<{ change: undefined }> {
       if (a.scope !== scope) continue;
       for (const s of this.shortcuts(a.id)) {
         const c = parseShortcut(s);
-        if (chordMatches({ ...c, mod: false, shift: null }, { ...e, ctrlKey: false, metaKey: false })) return true;
+        if (
+          chordMatches(
+            { ...c, mod: false, shift: null },
+            // A KeyboardEvent's fields are prototype getters: copy them out, do not spread the event.
+            { key: e.key, code: e.code, ctrlKey: false, metaKey: false, shiftKey: false },
+          )
+        )
+          return true;
       }
     }
     return false;
