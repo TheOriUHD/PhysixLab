@@ -121,6 +121,7 @@ export class InputController {
     dom.focus({ preventScroll: true });
     // -- CM-A touch: a second finger belongs to the camera (pinch / orbit / pan), never to a one-finger tool --
     if (e.pointerType === 'touch') {
+      if (e.isPrimary) this.touchIds.clear(); // a new touch sequence: ids left over from a lost pointer-up are stale
       this.touchIds.add(e.pointerId);
       if (this.touchIds.size > 1) {
         this.cancelGesture();

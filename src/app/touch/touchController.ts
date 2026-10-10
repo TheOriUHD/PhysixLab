@@ -78,11 +78,28 @@ export class TouchGestures {
     on('pointercancel', (e) => this.onUp(e));
     // The camera mapping follows the settings.
     this.applyMapping();
+    const onBlur = () => this.reset();
+    window.addEventListener('blur', onBlur);
+    this.off.push(() => window.removeEventListener('blur', onBlur));
     this.off.push(
       app.prefs.on('change', (k) => {
         if (k.includes('input')) this.applyMapping();
       }),
     );
+  }
+
+  /** Forget every finger (focus lost, a pointer-up never arrived): the next touch starts a clean gesture. */
+  private reset(): void {
+    window.clearTimeout(this.pressTimer);
+    cancelAnimationFrame(this.evalFrame);
+    this.evalFrame = 0;
+    this.press.cancel();
+    this.endMove();
+    this.fingers.clear();
+    this.ignored.clear();
+    this.mode = 'idle';
+    this.downEvent = null;
+    this.applyMapping();
   }
 
   dispose(): void {
@@ -122,6 +139,8 @@ export class TouchGestures {
   // ---- events --------------------------------------------------------------------------------
 
   private onDown(e: PointerEvent): void {
+    // A primary touch starts a new sequence: any finger still remembered is stale (its pointer-up got lost).
+    if (e.isPrimary && this.fingers.count > 0) this.reset();
     if (this.app.gizmo.isDragging && this.fingers.count >= 1) {
       // A gizmo handle is being dragged by the first finger: further fingers must not reach it.
       this.ignored.add(e.pointerId);
@@ -235,6 +254,7 @@ export class TouchGestures {
     this.prev.y = this.cur.y;
     if (dx === 0 && dy === 0) return;
     const vp = this.app.viewport;
+    if (!vp.controls.enabled || !vp.controls.enablePan) return; // a camera mode may own the pose (fly, orbit point …)
     const cam = vp.camera;
     const target = vp.controls.target;
     tmpR.setFromMatrixColumn(cam.matrixWorld, 0);
@@ -308,6 +328,7 @@ export class TouchGestures {
   /** Dolly the camera towards / away from its target (the camera-side of a pinch while OrbitControls is off). */
   private dolly(scale: number): void {
     const vp = this.app.viewport;
+    if (!vp.controls.enabled || !vp.controls.enableZoom) return;
     const cam = vp.camera;
     const target = vp.controls.target;
     const off = tmpO.copy(cam.position).sub(target);
