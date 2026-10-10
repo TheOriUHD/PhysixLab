@@ -33,3 +33,8 @@
 .addmenu-item.on { background: var(--accent-bg); }
 .addmenu-tag { color: var(--text-3); font-size: 11px; }
 .addmenu-empty { padding: 18px 10px; text-align: center; color: var(--text-3); }
+
+/* the right region now has four tabs: tighten them and show History as an icon (its tooltip names it) */
+.panel.right .tabs { overflow-x: auto; scrollbar-width: none; }
+.panel.right .tabs .tab { padding-left: 8px; padding-right: 8px; flex: none; }
+.panel.right .tabs #tab-history { font-size: 0; gap: 0; }
