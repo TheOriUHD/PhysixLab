@@ -76,7 +76,14 @@ export class ContactFeed {
     };
   }
 
+  /** Whether the last configuration sent switched contact events on (so that letting go switches them off again). */
+  private sentOn = false;
+
   private push(): void {
-    if (this.sim.client.active) this.sim.client.configureEvents(this.config());
+    if (!this.sim.client.active) return;
+    // With no consumer there is nothing to tell a world that never heard of contact events (they default to off).
+    if (!this.consumers.size && !this.sentOn) return;
+    this.sim.client.configureEvents(this.config());
+    this.sentOn = this.consumers.size > 0;
   }
 }

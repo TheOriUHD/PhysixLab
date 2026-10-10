@@ -14,7 +14,7 @@
 import type { Vector3 } from 'three';
 import type { Vec3 } from '../../core/math';
 import { hexToLinear } from '../../render/fx/particleTypes';
-import { Fx, sanitizeFxSettings, type FxSettings, type FxStats } from '../../render/fx';
+import { Fx, sanitizeFxSettings, type EmitOptions, type FxSettings, type FxStats } from '../../render/fx';
 import { groundContact, newGroundContact } from '../../render/fx/slip';
 import { impactIntensity, surfaceFor, type FxSurface } from '../../render/fx/surfaces';
 import { newTrailPlan, planTrail } from '../../render/fx/trails';
@@ -23,6 +23,7 @@ import { B, BODY_STRIDE, GROUND_ID, type ContactEvent } from '../../physics/prot
 import type { App } from '../app';
 import type { SimMode } from '../simController';
 import { bodyFxInfo, hingedBodies, type BodyFxInfo } from './bodyFx';
+import { ContactQueue } from './contactQueue';
 import { FxClock } from './fxClock';
 import { onReducedMotionChange, prefersReducedMotion } from './motion';
 import { PhysicalDebris } from './physicalDebris';
@@ -37,12 +38,11 @@ export class FxDirector {
   readonly fx: Fx;
   readonly debris: PhysicalDebris;
   private readonly clock = new FxClock();
-  private readonly queue: ContactEvent[] = [];
+  private readonly queue = new ContactQueue(MAX_QUEUE);
   private release: (() => void) | null = null;
   private lastMode: SimMode = 'edit';
   private lastSettings: SceneSettings | null = null;
   private groundSurface: FxSurface = surfaceFor('ground', '#2b3038');
-  private groundTint: Vec3 = [0.3, 0.3, 0.3];
 
   // Per-body info, cached by id and indexed by the simulation's body order for the per-frame scan.
   private readonly infos = new Map<string, BodyFxInfo>();
@@ -55,6 +55,10 @@ export class FxDirector {
 
   private readonly contact = newGroundContact();
   private readonly plan = newTrailPlan();
+  // Reused emit options: the scan runs every frame and must not allocate.
+  private readonly smokeOpts: EmitOptions = { direction: [0, 1, 0] };
+  private readonly dustOpts: EmitOptions = { direction: [0, 1, 0], color: [0.3, 0.3, 0.3] };
+  private readonly sparkOpts: EmitOptions = { spread: 0.7, speed: 0.8, scale: 0.8 };
   private scratchPos: [number, number, number] = [0, 0, 0];
   private scratchDir: [number, number, number] = [0, 1, 0];
   private scratchVel: [number, number, number] = [0, 0, 0];
@@ -98,13 +102,13 @@ export class FxDirector {
     // Contact events only while something needs them.
     const wantContacts = s.enabled && (s.impacts || s.debris || s.physicalDebris);
     if (wantContacts && !this.release) {
-      this.release = app.contacts.acquire('fx', { minImpulse: 0.1, pairInterval: 0.08, maxPerFrame: 48 }, (ev) => {
-        if (this.queue.length < MAX_QUEUE) this.queue.push(ev);
-      });
+      this.release = app.contacts.acquire('fx', { minImpulse: 0.1, pairInterval: 0.08, maxPerFrame: 48 }, (ev) =>
+        this.queue.push(ev),
+      );
     } else if (!wantContacts && this.release) {
       this.release();
       this.release = null;
-      this.queue.length = 0;
+      this.queue.clear();
     }
   }
 
@@ -122,7 +126,7 @@ export class FxDirector {
     this.fx.reseed(seed);
     this.debris.reseed(seed);
     this.clock.reset();
-    this.queue.length = 0;
+    this.queue.clear();
   }
 
   /** Reset or a new scene: no particles, marks, fragments or pending events survive. */
@@ -130,7 +134,7 @@ export class FxDirector {
     this.fx.clear();
     this.debris.clear();
     this.clock.reset();
-    this.queue.length = 0;
+    this.queue.clear();
   }
 
   private invalidate(): void {
@@ -146,7 +150,11 @@ export class FxDirector {
     const g = s.ground;
     const color = hexToLinear(g.color) ?? [0.03, 0.03, 0.04];
     this.groundSurface = surfaceFor('ground', g.color);
-    this.groundTint = color;
+    this.dustOpts.color = [
+      Math.min(1, color[0] * 1.8 + 0.12),
+      Math.min(1, color[1] * 1.8 + 0.11),
+      Math.min(1, color[2] * 1.8 + 0.1),
+    ];
     this.fx.setEnvironment({
       gravity: s.gravity,
       floorY: g.enabled ? 0 : -Infinity,
@@ -196,7 +204,7 @@ export class FxDirector {
       simTime: client.stats?.simTime,
     });
     if (fx.settings.enabled) {
-      if (this.queue.length) this.processContacts();
+      if (this.queue.size) this.processContacts();
       if (fxDt > 0 && client.active && client.frameNo > 0) this.scanBodies(fxDt);
       this.debris.update(fxDt);
     }
@@ -206,13 +214,7 @@ export class FxDirector {
   // -- impacts -----------------------------------------------------------------------------------------------------
 
   private processContacts(): void {
-    const q = this.queue;
-    // Strongest first: when the frame's budget is spent, the weak ones are dropped.
-    q.sort((a, b) => b.impulse * b.speed - a.impulse * a.speed);
-    const budget = this.fx.tier.burstsPerFrame;
-    let used = 0;
-    for (let i = 0; i < q.length && used < budget; i++) if (this.onContact(q[i])) used++;
-    q.length = 0;
+    this.queue.drain(this.fx.tier.burstsPerFrame, (ev) => this.onContact(ev));
   }
 
   private onContact(ev: ContactEvent): boolean {
@@ -309,21 +311,18 @@ export class FxDirector {
         vel[0] = poses[o + B.vx];
         vel[1] = 0;
         vel[2] = poses[o + B.vz];
-        fx.emit('smoke.tyre', pos, {
-          count: plan.smoke * dt,
-          scale: 0.6 + info.size * 0.9,
-          velocity: vel,
-          direction: [0, 1, 0],
-        });
+        const o2 = this.smokeOpts;
+        o2.count = plan.smoke * dt;
+        o2.scale = 0.6 + info.size * 0.9;
+        o2.velocity = vel;
+        fx.emit('smoke.tyre', pos, o2);
         emitted++;
       }
       if (plan.dust > 0) {
-        fx.emit('dust.trail', pos, {
-          count: plan.dust * dt,
-          scale: 0.6 + info.size * 0.7,
-          color: this.dustColor(),
-          direction: [0, 1, 0],
-        });
+        const o2 = this.dustOpts;
+        o2.count = plan.dust * dt;
+        o2.scale = 0.6 + info.size * 0.7;
+        fx.emit('dust.trail', pos, o2);
         emitted++;
       }
       if (plan.sparks > 0 && c.slip > 0) {
@@ -332,16 +331,14 @@ export class FxDirector {
         d[0] = (-c.slipX / c.slip) * 0.8;
         d[1] = 0.6;
         d[2] = (-c.slipZ / c.slip) * 0.8;
-        fx.emit('spark', pos, { count: plan.sparks * dt, direction: d, spread: 0.7, speed: 0.8, scale: 0.8 });
+        const o2 = this.sparkOpts;
+        o2.count = plan.sparks * dt;
+        o2.direction = d;
+        fx.emit('spark', pos, o2);
         emitted++;
       }
     }
     fx.endScan();
-  }
-
-  private dustColor(): Vec3 {
-    const g = this.groundTint;
-    return [Math.min(1, g[0] * 1.8 + 0.12), Math.min(1, g[1] * 1.8 + 0.11), Math.min(1, g[2] * 1.8 + 0.1)];
   }
 
   // -- explosions and previews -----------------------------------------------------------------------------------
