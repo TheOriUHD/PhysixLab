@@ -449,7 +449,7 @@ describe('tool registry', () => {
     expect(hintForMode('select', app)).toBeNull();
     sim.active = true;
     expect(hintForMode('select', app)).toMatch(/Drag<\/b> a body to throw it/);
-    expect(hintForMode('blast', app)).toBe('Click anywhere to set off a blast');
+    expect(hintForMode('blast', app)).toMatch(/^Click anywhere to set off a blast/); // -- ED-B: the hint also names the blast kind --
     sim.active = false;
     expect(hintForMode('blast', app)).toMatch(/Start the simulation/);
     expect(hintForMode('nothing', app)).toBeNull();
@@ -649,13 +649,30 @@ describe('menus resolve from the registry', () => {
       'Camera follows selection',
       '---',
       '# Graphics quality',
+      'Auto — adapts to this GPU and the frame rate',
       'Low — fastest',
-      'Medium — shadows + MSAA',
-      'High — shadows + AO + MSAA',
+      'Medium — shadows + FXAA',
+      'High — shadows + AO + bloom + MSAA',
+      'Ultra — adds reflections, light shafts, motion blur',
       '---',
       'Appearance…',
       '---',
       'Frame everything',
+      // -- UI-A: layout presets --
+      '---',
+      '# Layout',
+      'Build',
+      'Simulate',
+      'Analyse',
+      'Present',
+      'Save layout as…',
+      'Reset layout',
+      '---',
+      '# Interface',
+      'Simple interface',
+      'Advanced interface',
+      'Quick properties bar',
+      'Floating inspector',
     ]);
     const item = (label: string) =>
       v.find((i): i is Extract<MenuItem, { label: string }> => 'label' in i && i.label === label)!;
@@ -664,7 +681,7 @@ describe('menus resolve from the registry', () => {
     expect(item('Motion trails: off').checked).toBeUndefined();
     expect(item('Camera follows selection').kbd).toBe('C');
     expect(item('Frame everything').kbd).toBe('Home');
-    expect(item('Medium — shadows + MSAA').checked).toBe(raw.prefs.value.quality === 'medium');
+    expect(item('Medium — shadows + FXAA').checked).toBe(raw.prefs.value.quality === 'medium');
     // Clicking an item runs its command.
     void item('Speed').action();
     expect(raw.prefs.value.colorMode).toBe('speed');
@@ -817,7 +834,7 @@ describe('integrity of the built-in registrations', () => {
     for (const m of ['file', 'edit', 'view', 'help', 'context'])
       for (const item of resolveMenu(app, m)) if ('label' in item) expect(item.label.length).toBeGreaterThan(0);
     // Every command referenced by a menu entry exists (resolveMenu silently skips missing ones, so check by count).
-    expect(resolveMenu(app, 'view').filter((i) => 'label' in i)).toHaveLength(6 + 5 + 2 + 3 + 1 + 1);
+    expect(resolveMenu(app, 'view').filter((i) => 'label' in i)).toHaveLength(6 + 5 + 2 + 5 + 1 + 6 + 4 + 1);
   });
 
   it('gives every command a category from the known list or a sensible one, and no label is empty', () => {

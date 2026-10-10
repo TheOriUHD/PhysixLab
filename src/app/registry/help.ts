@@ -5,8 +5,8 @@
  * gestures such as "drag to throw a body" or "right-drag to orbit" — is registered as a `HelpEntry`.
  */
 import { Registry } from '../../core/registry';
-import { COMMAND_CATEGORY_ORDER, listCommands } from './commands';
-import { detectPlatform, shortcutList, shortcutTokens, type Platform } from './shortcuts';
+import { COMMAND_CATEGORY_ORDER, listCommands, shortcutsOf } from './commands';
+import { detectPlatform, shortcutTokens, type Platform } from './shortcuts';
 
 export interface HelpEntry {
   id: string;
@@ -49,7 +49,7 @@ export function helpSections(platform: Platform = detectPlatform()): HelpSection
     return r;
   };
   for (const c of listCommands()) {
-    const shortcuts = shortcutList(c.shortcut);
+    const shortcuts = shortcutsOf(c);
     if (!shortcuts.length || c.help === false) continue;
     rows(c.category).push({ label: c.label, alternatives: shortcuts.map((s) => shortcutTokens(s, platform)) });
   }

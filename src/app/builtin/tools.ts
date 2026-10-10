@@ -28,7 +28,7 @@ export const BUILTIN_TOOLS: readonly ToolDef[] = [
     pointerDown: (_app, e, input) => input.downSelect(e),
     hint: (app) =>
       app.sim.active
-        ? '<b>Drag</b> a body to throw it · <b>Right-drag</b> orbit · <b>Middle-drag</b> pan · <b>Scroll</b> zoom'
+        ? '<b>Drag</b> a body to throw it · <b>Scroll</b> pushes / pulls it · <kbd>Q</kbd><kbd>E</kbd> spin · <kbd>R</kbd>+drag turn · <kbd>F</kbd> freeze'
         : null,
   },
   {
@@ -102,7 +102,7 @@ export const BUILTIN_TOOLS: readonly ToolDef[] = [
     group: 'interact',
     order: 70,
     label: 'Blast tool',
-    title: 'Blast — radial impulse (while simulating)',
+    title: 'Blast — explosion, directional, implosion, shockwave ring or gust (while simulating)',
     icon: 'blast',
     shortcut: 'B',
     keywords: ['explosion', 'explode'],
@@ -110,22 +110,26 @@ export const BUILTIN_TOOLS: readonly ToolDef[] = [
     isActive: (app) => app.prefs.value.tool === 'blast',
     pointerDown: (_app, e, input) => input.downBlast(e),
     hint: (app) =>
-      app.sim.active ? 'Click anywhere to set off a blast' : 'Start the simulation, then click to set off blasts',
+      app.sim.active
+        ? `Click anywhere to set off a blast (${app.prefs.value.blastKind}) · change kind, falloff and radius in the bar below`
+        : 'Start the simulation, then click to set off blasts',
   },
   {
     id: 'shoot',
     group: 'interact',
     order: 80,
     label: 'Fire projectiles',
-    title: 'Fire projectiles (while simulating)',
+    title: 'Throw / aim — fire projectiles with a trajectory preview (while simulating)',
     icon: 'shoot',
     shortcut: 'T',
-    keywords: ['shoot', 'ball', 'cannon'],
+    keywords: ['shoot', 'ball', 'cannon', 'throw', 'aim', 'trajectory', 'projectile'],
     activate: (app) => app.setTool('shoot'),
     isActive: (app) => app.prefs.value.tool === 'shoot',
     pointerDown: (_app, e, input) => input.downShoot(e),
     hint: (app) =>
-      app.sim.active ? 'Click to fire a ball along the view ray' : 'Start the simulation, then click to fire balls',
+      app.sim.active
+        ? '<b>Click</b> to fire along the view ray · <b>hold</b> to charge power and see the predicted path'
+        : 'Start the simulation, then click to fire (hold to preview the path)',
   },
   // ── options ──
   { id: 'snap', group: 'options', order: 90, icon: 'magnet', command: 'view.snap', title: 'Grid snapping' },

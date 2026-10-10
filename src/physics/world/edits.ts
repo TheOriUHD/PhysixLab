@@ -2,11 +2,12 @@
 import type { Quat, Vec3 } from '../../core/math';
 import type { BodyEntity } from '../../model/types';
 import { addBody } from './bodies';
-import { interactionGroups } from './bodyFields';
+import { applyBodyLayer, countHooks } from './layers';
 import { colliderSurface } from './colliders';
 import { unregisterColliders } from './events';
 import { addJoint, dropJoint } from './joints';
 import { removeSoft } from './soft';
+import { detachBody } from './softAttach';
 import type { BodyRec, WorldState } from './state';
 import { pos, rot, rq, rv, ZERO } from './util';
 
@@ -34,6 +35,7 @@ export function removeEntities(s: WorldState, ids: string[]): void {
       s.host.detach(jr.id);
     }
     s.host.detach(id);
+    detachBody(s, id); // -- SF-1: release soft fastenings before the body goes --
     unregisterColliders(s, b);
     s.queriesDirty = true;
     s.world.removeRigidBody(b.rb);
@@ -42,6 +44,7 @@ export function removeEntities(s: WorldState, ids: string[]): void {
     if (b.dragged) s.draggers = s.draggers.filter((r) => r !== b);
     if (b.sleep) s.sleepers = s.sleepers.filter((r) => r !== b);
   }
+  countHooks(s); // -- JT-B --
   s.layoutVersion++;
 }
 
@@ -82,9 +85,12 @@ export function updateBody(s: WorldState, next: BodyEntity): void {
       s.draggers = dragged ? [...s.draggers, rec] : s.draggers.filter((r) => r !== rec);
     }
   }
-  if (old.collision.group !== next.collision.group || old.collision.mask !== next.collision.mask) {
-    const g = interactionGroups(next.collision);
-    for (const c of rec.cols) c.setCollisionGroups(g);
+  if (
+    old.collision.group !== next.collision.group ||
+    old.collision.mask !== next.collision.mask ||
+    JSON.stringify(old.oneWay) !== JSON.stringify(next.oneWay) // -- JT-B: also refreshes trigger / one-way flags --
+  ) {
+    applyBodyLayer(s, rec, next);
   }
   if (next.bodyType === 'kinematic') {
     rec.rb.setLinvel(rv(next.velocity), true);

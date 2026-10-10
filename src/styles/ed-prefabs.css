@@ -1,1 +1,42 @@
-/* ED-A: prefabs styles */
+/* ED-A: prefabs styles (ED-22 "My prefabs" tab and its dialogs) */
+.ed-pf-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 10px 6px; }
+.ed-pf-tagrow { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 4px; }
+.ed-pf-tagrow:empty { display: none; }
+.ed-pf-chip { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text-2); font-size: 11px; }
+.ed-pf-chip:hover { border-color: var(--border-2); color: var(--text); }
+.ed-pf-chip.on { background: var(--accent-bg); border-color: var(--accent-line); color: var(--accent); }
+.ed-pf-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 4px 10px 12px; }
+.ed-pf-tile { position: relative; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel-2); min-width: 0; }
+.ed-pf-tile:hover { border-color: var(--accent-line); background: var(--raised); }
+.ed-pf-main { display: flex; flex-direction: column; gap: 5px; width: 100%; padding: 6px 6px 8px; text-align: left; color: var(--text); background: none; border: 0; border-radius: inherit; min-width: 0; }
+.ed-pf-thumb { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; width: 100%; border-radius: var(--radius-s); background: #10151d; overflow: hidden; color: var(--text-3); }
+.ed-pf-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+.ed-pf-thumb .icon { width: 28px; height: 28px; }
+.ed-pf-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ed-pf-tags { display: flex; flex-wrap: wrap; gap: 3px; min-height: 0; }
+.ed-pf-tags:empty { display: none; }
+.ed-pf-badge { opacity: 0.8; }
+.ed-pf-more { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; background: rgba(16, 21, 29, 0.78); border: 1px solid var(--border); border-radius: 6px; line-height: 1; opacity: 0; transition: opacity 0.12s; }
+.ed-pf-tile:hover .ed-pf-more, .ed-pf-more:focus-visible { opacity: 1; }
+.ed-pf-empty { padding: 24px 14px; }
+
+/* dialogs */
+.ed-pf-label { display: block; margin: 10px 0 4px; font-size: 11.5px; color: var(--text-2); }
+.ed-pf-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.ed-pf-rowlabel { width: 96px; flex: none; color: var(--text-2); font-size: 12px; }
+.ed-pf-pair { display: flex; align-items: center; gap: 8px; flex: 1; }
+.ed-pf-range { flex: 1; min-width: 0; }
+.ed-pf-num { width: 84px; flex: none; }
+.ed-pf-select { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 5px 7px; min-width: 0; }
+.ed-pf-color { width: 34px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: none; flex: none; }
+.ed-pf-error { color: var(--danger); font-size: 12px; margin: 8px 0 0; }
+.ed-pf-error:empty { display: none; }
+.ed-pf-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin: 18px 0 6px; }
+.ed-pf-head h4 { margin: 0 0 2px; font-size: 13px; }
+.ed-pf-head p { margin: 0; max-width: 440px; }
+.ed-pf-card { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel-2); padding: 8px; margin: 6px 0; display: flex; flex-direction: column; gap: 6px; }
+.ed-pf-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ed-pf-line > input[type="text"] { flex: 1; min-width: 120px; width: auto; }
+.ed-pf-bind { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-left: 8px; }
+.ed-pf-checks { display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow: auto; }
+.ed-pf-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }

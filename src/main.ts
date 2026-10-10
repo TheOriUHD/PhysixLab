@@ -8,6 +8,14 @@ import './styles/ed-path.css';
 import './styles/ui-a.css';
 import './styles/themes.css';
 import './styles/vz-a.css';
+import './styles/tm.css'; // -- TM --
+import './styles/cm.css'; // -- CM-A --
+import './styles/diag.css';
+import './styles/tour.css';
+import './styles/vzb.css'; // -- VZ-B --
+import './styles/dtb.css'; // -- DT-B --
+import './styles/collab.css'; // -- DT-23 --
+import './styles/jointsB.css'; // -- JT-B --
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';
@@ -21,12 +29,24 @@ import { buildToolbox } from './ui/toolbox';
 import { buildTopbar } from './ui/topbar';
 import { importDocument } from './ui/sceneActions';
 import { mountToasts } from './ui/toasts';
+import { mountUiA } from './ui/uiA';
 import { showWelcome } from './ui/dialogs';
 import { openMenu } from './ui/menu';
+import { mountZoneHud } from './ui/zoneHud'; // -- ZN
 import { resolveMenu } from './app/registry/menus';
+import { installTimeTravel } from './app/timeTravel'; // -- TM
 import { loadExtensions, registerBuiltins } from './ui/builtin';
 import { PrefsStore } from './app/prefs';
 import { applyTheme } from './ui/theme';
+// -- ED-B: tool options bar --
+import { mountToolOptions } from './ui/toolOptionsBar';
+import './styles/ed-b-tools.css';
+// -- ED-B --
+import { setContextTarget } from './ui/contextTarget';
+import './styles/ed-b.css';
+import { publishApi } from './api/install';
+import { installTour } from './ui/tour';
+import { initPwa } from './pwa'; // -- DT-40 --
 
 async function boot(): Promise<void> {
   // -- VZ-50: paint the stored theme before anything is built (no flash of the default theme) --
@@ -74,6 +94,10 @@ async function boot(): Promise<void> {
   const { toolbox, viewbar } = buildToolbox(app);
   shell.floatSlot.replaceWith(toolbox, viewbar);
   mountToasts(app);
+  mountToolOptions(app); // -- ED-B --
+  // -- UI-A: simple / advanced mode, quick-properties bar --
+  mountUiA(app);
+  mountZoneHud(app, shell.stage); // -- ZN: race board, score and event feed over the viewport
   wireShell(app, shell);
   const input = new InputController(app);
   app.viewport.controls.addEventListener('change', () => {
@@ -83,6 +107,10 @@ async function boot(): Promise<void> {
   input.onContextMenu = (ev) => {
     const hit = app.pickEntity(ev);
     if (hit && !app.store.selection.includes(hit.entityId)) app.store.setSelection([hit.entityId]);
+    // -- ED-B: remember where the user clicked; right-clicking nothing clears the selection --
+    if (!hit) app.store.setSelection([]);
+    const gp = hit ? hit.point : app.picker.groundPoint(ev, 0);
+    setContextTarget(gp ? [gp.x, gp.y, gp.z] : null);
     openMenu(resolveMenu(app, 'context'), { x: ev.clientX, y: ev.clientY });
   };
 
@@ -142,9 +170,13 @@ async function boot(): Promise<void> {
   });
 
   for (const f of extensionFailures) app.toast(`Extension ${f.file} failed to load: ${f.error.message}`, 'error');
+  initPwa(app); // -- DT-40: service worker (production only), update banner, file / share intake --
+  installTimeTravel(app); // -- TM: timeline, rewind, replays, ghosts --
   app.start();
+  installTour(app); // -- UI-B: guided tours, context hints, tips --
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
-  (window as unknown as { physicslab: App }).physicslab = app;
+  // -- DT-30: the versioned public API (src/api); falls through to the App for the internal members --
+  (window as unknown as { physicslab: App }).physicslab = publishApi(app);
   if (!app.prefs.value.seenWelcome && !new URLSearchParams(location.search).has('nowelcome'))
     setTimeout(() => showWelcome(app), 400);
 }

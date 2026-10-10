@@ -36,7 +36,7 @@ export interface KeyLike {
 
 /** The `KeyboardEvent.code` names a shortcut may use (anything else is a typo such as "Esc" or "Del"). */
 const KNOWN_CODE =
-  /^(Arrow(Up|Down|Left|Right)|Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Period|Comma|Slash|Backslash|Semicolon|Quote|Minus|Equal|Backquote|BracketLeft|BracketRight|F([1-9]|1\d|2[0-4])|Digit\d|Key[A-Z]|Numpad[A-Za-z0-9]+)$/;
+  /^(Arrow(Up|Down|Left|Right)|Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Period|Comma|Slash|Backslash|Semicolon|Quote|Minus|Equal|Backquote|BracketLeft|BracketRight|F([1-9]|1\d|2[0-4])|Digit\d|Key[A-Z]|Numpad[A-Za-z0-9]+|(Shift|Control|Alt)(Left|Right))$/; // -- CM-A: held-key actions such as the fly boost use the modifier keys
 
 /** Parse "Mod+Shift+Z". Throws a descriptive Error for a malformed chord (a programming error). */
 export function parseShortcut(text: string): Chord {

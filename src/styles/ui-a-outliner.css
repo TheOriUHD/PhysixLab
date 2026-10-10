@@ -1,1 +1,47 @@
-/* UI-A: outliner */
+/* UI-A: outliner (UI-20 / UI-21) */
+.panel-body.o-panel { display: flex; flex-direction: column; overflow: hidden; }
+.o-panel .o-toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px 4px; flex: none; }
+.o-panel .o-toolbar input { flex: 1 1 100%; min-width: 0; }
+.o-sort { flex: 1 1 90px; min-width: 0; }
+.o-filter-btn { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 8px; flex: none; border: 1px solid var(--line); background: var(--raised); color: var(--text-2); border-radius: 6px; cursor: pointer; font: inherit; font-size: 12px; }
+.o-filter-btn .icon { width: 12px; height: 12px; }
+.o-filter-btn:hover, .o-filter-btn.on { color: var(--text); border-color: var(--accent-line); }
+.o-filters { display: none; flex-wrap: wrap; gap: 4px; padding: 0 8px 6px; flex: none; }
+.o-filters.open { display: flex; }
+.o-filters select { flex: 1 1 88px; min-width: 0; font-size: 11.5px; }
+
+/* the scrolling, virtualised list */
+.o-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; position: relative; outline: none; padding: 0 6px; }
+.o-scroll:focus-visible { box-shadow: inset 0 0 0 1px var(--accent-line); }
+.o-spacer { position: relative; width: 100%; }
+.o-spacer > .o-item, .o-spacer > .o-group { position: absolute; left: 0; right: 0; top: 0; box-sizing: border-box; }
+.o-spacer > .o-group { align-items: flex-end; padding-bottom: 4px; padding-top: 0; }
+.o-spacer > .o-item { padding-right: 4px; }
+.o-empty { flex: none; }
+.o-footer { flex: none; padding: 4px 10px; color: var(--text-3); font-size: 11px; border-top: 1px solid var(--line); }
+
+/* row content */
+.o-item .o-thumb { width: 22px; height: 22px; flex: none; border-radius: 5px; background: var(--raised); object-fit: contain; }
+.o-item .o-ctag, .o-tagchip .o-ctag { width: 8px; height: 8px; border-radius: 50%; flex: none; cursor: pointer; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25); }
+.o-chips { display: inline-flex; gap: 3px; flex: none; max-width: 40%; overflow: hidden; }
+.o-chip { font-size: 10px; line-height: 14px; padding: 0 5px; border-radius: 7px; background: var(--raised); color: var(--text-3); border: 1px solid var(--line); white-space: nowrap; cursor: pointer; max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
+.o-chip:hover { color: var(--text); border-color: var(--accent-line); }
+.o-chip.more { cursor: default; }
+.o-tool.o-solo { font: 700 10px var(--font); width: 20px; }
+.o-item.is-solo .o-name { color: var(--accent); }
+.o-item .o-tools:has(.o-solo.active) { opacity: 1; }
+
+/* drop indicators */
+.o-item.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+.o-item.drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
+.o-item.drop-inside { background: var(--accent-bg); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* selection sets and tag chips */
+.o-sets, .o-tags { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px 6px; flex: none; max-height: 62px; overflow-y: auto; }
+.o-set, .o-tagchip, .o-set-add { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 11px; border: 1px solid var(--line); background: var(--raised); color: var(--text-2); font: inherit; font-size: 11.5px; cursor: pointer; }
+.o-set:hover, .o-tagchip:hover, .o-set-add:hover:not(:disabled) { color: var(--text); border-color: var(--accent-line); }
+.o-set-add { border-style: dashed; padding: 0 8px 0 6px; }
+.o-set-add:disabled { opacity: 0.4; cursor: default; }
+.o-set-add .icon { width: 11px; height: 11px; }
+.o-set-n { font-size: 10px; color: var(--text-3); }
+.o-set-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

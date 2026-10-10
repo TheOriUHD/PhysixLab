@@ -13,16 +13,15 @@ import {
   DoubleSide,
   Fog,
   Group,
-  HalfFloatType,
   MathUtils,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
   MOUSE,
   PCFShadowMap,
-  PerspectiveCamera,
   PlaneGeometry,
   PMREMGenerator,
+  Quaternion,
   Scene,
   ShaderMaterial,
   ShadowMaterial,
@@ -30,21 +29,37 @@ import {
   Vector2,
   Vector3,
   WebGLRenderer,
-  WebGLRenderTarget,
   type Object3D,
 } from 'three';
 import type { Material } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ViewHelper } from 'three/addons/helpers/ViewHelper.js';
 import type { GroundSettings } from '../model/types';
 import { EnvironmentController } from './environment';
+// -- VZ-B: graphics settings, the post stack and the Auto governor (VZ-20..22) --
+import {
+  DEFAULT_GRAPHICS,
+  probeTier,
+  resolveGraphics,
+  type GraphicsOptions,
+  type QualityChoice,
+  type QualityTier,
+} from './graphics';
+import { Governor } from './governor';
+import { DEFAULT_HIGHLIGHT, PALETTES, SelectionDecor, type HighlightOptions } from './highlight';
+import { PostStack } from './postStack';
+import { DualCamera } from './dualCamera'; // -- CM-A --
+import { ViewGrid, type ViewPlane } from './viewGrid'; // -- CM-A --
+import { Weather } from './weather'; // -- VZ-B: weather (VZ-23) --
 
-export type Quality = 'low' | 'medium' | 'high';
+export type Quality = QualityChoice;
+
+// -- CM-A: scratch values for the camera tween --
+const TWEEN_A = new Vector3();
+const TWEEN_B = new Vector3();
+const TWEEN_Q = new Quaternion();
+const TWEEN_Q2 = new Quaternion();
 
 const SKY_VERT = /* glsl */ `
 varying vec3 vDir;
@@ -110,7 +125,7 @@ void main() {
 export class Viewport {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
-  readonly camera: PerspectiveCamera;
+  readonly camera: DualCamera;
   readonly controls: OrbitControls;
   readonly dom: HTMLCanvasElement;
 
@@ -125,11 +140,22 @@ export class Viewport {
   readonly lights = new Group();
   readonly paths = new Group();
 
-  private composer: EffectComposer;
-  private renderPass: RenderPass;
-  private outline: OutlinePass;
-  private ao: GTAOPass | null = null;
-  private output: OutputPass;
+  // -- VZ-B: post stack (src/render/postStack.ts) --
+  readonly post: PostStack;
+  readonly outline: OutlinePass;
+  readonly outlineHover: OutlinePass;
+  readonly outlineLinked: OutlinePass;
+  // -- VZ-B: highlight (VZ-40) --
+  private highlight: HighlightOptions = DEFAULT_HIGHLIGHT;
+  private multiSelect = false;
+  readonly decor = new SelectionDecor();
+  // -- VZ-B: weather --
+  readonly weather: Weather;
+  private graphics: GraphicsOptions = DEFAULT_GRAPHICS;
+  private governor: Governor | null = null;
+  private probedTier: QualityTier = 'high';
+  private activeTier: QualityTier = 'medium';
+  private pixelRatioNow = 1;
   private viewHelper: ViewHelper;
   // -- VZ-A: environment controller (src/render/environment.ts) and the direction the sun shines from --
   env!: EnvironmentController;
@@ -154,8 +180,11 @@ export class Viewport {
   } | null = null;
   private lastTime = performance.now();
   private resizeObserver: ResizeObserver;
-  private shadowsOn = true;
-  private aoOn = false;
+  // -- CM-A: a camera rig drives `camera` itself (fly, first person …): the tween and orbit controls stand aside --
+  externalCamera = false;
+  readonly viewGrid = new ViewGrid();
+  private viewPlane: ViewPlane = null;
+  private thumbRequests: { w: number; h: number; done: (url: string | null) => void }[] = [];
   /** Called every frame before rendering with the frame delta in seconds. */
   onFrame: ((dt: number) => void) | null = null;
   needsRender = true;
@@ -176,7 +205,7 @@ export class Viewport {
     this.renderer.toneMapping = ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
 
-    this.camera = new PerspectiveCamera(48, 1, 0.05, 2000);
+    this.camera = new DualCamera(48, 1, 0.05, 2000);
     this.camera.position.set(9, 7, 11);
 
     this.scene.fog = new Fog(0x1b2330, 60, 260);
@@ -247,8 +276,9 @@ export class Viewport {
     );
     this.shadowCatcher.position.y = 0.002;
     this.shadowCatcher.receiveShadow = true;
-    this.scene.add(this.slab, this.grid, this.shadowCatcher);
+    this.scene.add(this.slab, this.grid, this.shadowCatcher, this.viewGrid.mesh);
     this.setGround({ enabled: true, friction: 0.8, restitution: 0.1, halfSize: 60, color: '#2b3038' });
+    this.weather = new Weather(this.scene, container, this.bodies, this.slab.material as Material); // -- VZ-B: weather --
 
     // ---- controls ---------------------------------------------------------------------------
     this.controls = new OrbitControls(this.camera, this.dom);
@@ -273,16 +303,41 @@ export class Viewport {
     this.dom.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // ---- post-processing --------------------------------------------------------------------
-    this.composer = this.makeComposer();
-    this.renderPass = new RenderPass(this.scene, this.camera);
     this.outline = new OutlinePass(new Vector2(1, 1), this.scene, this.camera);
     this.outline.edgeStrength = 4.5;
     this.outline.edgeGlow = 0.0;
     this.outline.edgeThickness = 1.6;
     this.outline.visibleEdgeColor.set('#5ec8ff');
     this.outline.hiddenEdgeColor.set('#1e5f8a');
-    this.output = new OutputPass();
-    this.rebuildPasses();
+    const mk = () => {
+      const p = new OutlinePass(new Vector2(1, 1), this.scene, this.camera);
+      p.edgeStrength = 4.5;
+      p.edgeGlow = 0;
+      p.edgeThickness = 1.6;
+      return p;
+    };
+    this.outlineHover = mk();
+    this.outlineLinked = mk();
+    this.outlineHover.edgeStrength = 3.5;
+    this.outlineLinked.edgeStrength = 3.2;
+    this.post = new PostStack(this.renderer, this.scene, this.camera, [
+      this.outline,
+      this.outlineHover,
+      this.outlineLinked,
+    ]);
+    this.helpers.add(this.decor.group);
+    this.setHighlightStyle(DEFAULT_HIGHLIGHT);
+    this.post.sun = this.sun;
+    this.post.velocityHidden = [
+      this.overlays,
+      this.helpers,
+      this.joints,
+      this.groups,
+      this.lights,
+      this.paths,
+      this.skyMesh,
+    ];
+    this.probedTier = probeTier(this.gpuString(), isMobile());
 
     this.viewHelper = new ViewHelper(this.camera, this.dom);
     this.viewHelper.center = this.controls.target;
@@ -291,33 +346,11 @@ export class Viewport {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
-    this.setQuality('medium');
+    this.setQuality('auto');
     this.env = new EnvironmentController(this); // -- VZ-A --
   }
 
   // ------------------------------------------------------------------------------------------
-
-  private makeComposer(): EffectComposer {
-    const rt = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: this.quality === 'low' ? 0 : 4 });
-    return new EffectComposer(this.renderer, rt);
-  }
-
-  private rebuildPasses(): void {
-    const c = this.composer;
-    c.passes.length = 0;
-    c.addPass(this.renderPass);
-    if (this.aoOn) {
-      this.ao = this.ao ?? new GTAOPass(this.scene, this.camera, this.width, this.height);
-      this.ao.output = GTAOPass.OUTPUT.Default;
-      this.ao.blendIntensity = 0.9;
-      this.ao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.6, thickness: 1.2, scale: 1.1, samples: 12 });
-      this.ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 5, rings: 2, samples: 12 });
-      c.addPass(this.ao);
-    }
-    c.addPass(this.outline);
-    c.addPass(this.output);
-    c.setSize(this.width, this.height);
-  }
 
   private buildEnvironment(): void {
     const pmrem = new PMREMGenerator(this.renderer);
@@ -365,36 +398,125 @@ export class Viewport {
     this.needsRender = true;
   }
 
+  /** The WebGL renderer string ("ANGLE (NVIDIA …)", "SwiftShader" …) for the Auto tier probe. */
+  private gpuString(): string {
+    try {
+      const gl = this.renderer.getContext();
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      return String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    } catch {
+      return '';
+    }
+  }
+
+  /** Choose a quality tier — or 'auto', which lets the governor pick and adapt (VZ-22). */
   setQuality(q: Quality): void {
     this.quality = q;
-    const sunMap = q === 'low' ? 1024 : q === 'medium' ? 2048 : 4096;
-    this.shadowsOn = q !== 'low';
-    this.aoOn = q === 'high';
-    this.renderer.shadowMap.enabled = this.shadowsOn;
-    this.sun.castShadow = this.shadowsOn;
-    this.sun.shadow.mapSize.set(sunMap, sunMap);
-    this.sun.shadow.map?.dispose();
-    this.sun.shadow.map = null;
-    this.renderer.setPixelRatio(q === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, 2));
-    this.composer.dispose();
-    this.composer = this.makeComposer();
-    this.rebuildPasses();
-    this.resize();
-    // materials must recompile when shadows are toggled
-    this.scene.traverse((o) => {
-      const m: Material | Material[] = (o as Mesh).material;
-      if (m && !Array.isArray(m)) m.needsUpdate = true;
-    });
+    if (q === 'auto') {
+      this.governor = new Governor(this.probedTier);
+      this.activeTier = this.governor.step.tier;
+    } else {
+      this.governor = null;
+      this.activeTier = q;
+    }
+    this.applyGraphics();
+  }
+
+  /** The user's per-effect options (prefs). */
+  setGraphics(g: GraphicsOptions): void {
+    this.graphics = g;
+    this.applyGraphics();
+  }
+
+  /** Resolve tier + options and push the result into the renderer, the shadow system and the post stack. */
+  private applyGraphics(): void {
+    const tier = this.governor ? this.governor.step.tier : this.activeTier;
+    this.activeTier = tier;
+    let g = resolveGraphics(this.graphics, tier, this.renderer.capabilities.maxSamples);
+    // -- CM-A: depth-of-field, ambient occlusion, reflections, shafts and motion blur assume a perspective lens --
+    if (this.camera.ortho) g = { ...g, ao: null, ssr: null, godRays: null, dof: null, motionBlur: null };
+    this.resolvedGraphics = g;
+    this.renderer.shadowMap.enabled = g.shadows.enabled;
+    this.sun.castShadow = g.shadows.enabled;
+    const res = g.shadows.resolution;
+    if (this.sun.shadow.mapSize.x !== res) {
+      this.sun.shadow.mapSize.set(res, res);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+    }
+    this.sun.shadow.radius = 1 + g.shadows.softness * 5;
+    const dpr = Math.min(window.devicePixelRatio || 1, g.pixelRatioCap);
+    const pr = Math.max(0.5, dpr * this.graphics.resolutionScale * (this.governor ? this.governor.step.scale : 1));
+    this.pixelRatioNow = pr;
+    this.renderer.setPixelRatio(pr);
+    this.post.setSize(this.width, this.height, pr);
+    const before = this.post.currentSignature;
+    this.post.configure(g);
+    if (before !== this.post.currentSignature || this.lastShadowsOn !== g.shadows.enabled) {
+      // materials must recompile when shadows are toggled
+      this.scene.traverse((o) => {
+        const m: Material | Material[] = (o as Mesh).material;
+        if (m && !Array.isArray(m)) m.needsUpdate = true;
+      });
+    }
+    this.lastShadowsOn = g.shadows.enabled;
     this.needsRender = true;
+  }
+
+  private lastShadowsOn = true;
+  resolvedGraphics = resolveGraphics(DEFAULT_GRAPHICS, 'medium');
+
+  /** The tier actually in force (differs from the chosen quality under Auto) and the live governor state. */
+  get graphicsInfo(): { tier: QualityTier; auto: boolean; pixelRatio: number; frameMs: number; probe: QualityTier } {
+    return {
+      tier: this.activeTier,
+      auto: this.governor !== null,
+      pixelRatio: this.pixelRatioNow,
+      frameMs: this.governor?.averageMs ?? 0,
+      probe: this.probedTier,
+    };
   }
 
   get currentQuality(): Quality {
     return this.quality;
   }
 
-  setOutlineTargets(objects: Object3D[], hover: Object3D[] = []): void {
-    this.outline.selectedObjects = objects.concat(hover);
+  /**
+   * Selection outline (colour by selection kind), hover outline and linked-entity outline are three passes, each
+   * only doing work while it has objects (VZ-40).
+   */
+  setOutlineTargets(objects: Object3D[], hover: Object3D[] = [], linked: Object3D[] = []): void {
+    this.multiSelect = objects.length > 1;
+    this.outline.selectedObjects = objects;
+    this.outlineHover.selectedObjects = hover;
+    this.outlineLinked.selectedObjects = linked;
+    this.outline.enabled = objects.length > 0;
+    this.outlineHover.enabled = hover.length > 0;
+    this.outlineLinked.enabled = linked.length > 0;
+    this.paintOutlines();
+    this.decor.update(objects, this.highlight.bbox, this.highlight.axes);
     this.needsRender = true;
+  }
+
+  /** Palette, pulse, bounding box / axes options. */
+  setHighlightStyle(o: HighlightOptions): void {
+    this.highlight = o;
+    this.paintOutlines();
+    this.outline.pulsePeriod = o.pulse ? 1.6 : 0;
+    this.decor.update(this.outline.selectedObjects, o.bbox, o.axes);
+    this.needsRender = true;
+  }
+
+  private paintOutlines(): void {
+    const pal = PALETTES[this.highlight.palette];
+    const paint = (p: OutlinePass, css: string) => {
+      p.visibleEdgeColor.set(css);
+      p.hiddenEdgeColor.set(css).multiplyScalar(pal.hiddenFactor);
+    };
+    paint(this.outline, this.multiSelect ? pal.multi : pal.selected);
+    paint(this.outlineHover, pal.hover);
+    paint(this.outlineLinked, pal.linked);
+    this.decor.setColor(this.multiSelect ? pal.multi : pal.selected);
   }
 
   resize(): void {
@@ -406,7 +528,7 @@ export class Viewport {
     this.renderer.setSize(w, h, false);
     this.dom.style.width = '100%';
     this.dom.style.height = '100%';
-    this.composer.setSize(w, h);
+    this.post.setSize(w, h, this.pixelRatioNow);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.needsRender = true;
@@ -464,21 +586,40 @@ export class Viewport {
 
   private frameOnce(): void {
     const now = performance.now();
-    const dt = Math.min(0.1, (now - this.lastTime) / 1000);
+    const rawDt = (now - this.lastTime) / 1000;
+    const dt = Math.min(0.1, rawDt);
     this.lastTime = now;
+    if (this.governor?.update(rawDt)) this.applyGraphics(); // -- VZ-B: Auto governor --
 
-    if (this.tween) {
+    if (this.tween && !this.externalCamera) {
       const t = this.tween;
       t.t += dt;
       const k = Math.min(1, t.t / t.dur);
       const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-      this.camera.position.lerpVectors(t.fromPos, t.toPos, e);
       this.controls.target.lerpVectors(t.fromTarget, t.toTarget, e);
+      // -- CM-A: swing around the target instead of cutting through it when the direction changes a lot --
+      const r0 = TWEEN_A.subVectors(t.fromPos, t.fromTarget);
+      const r1 = TWEEN_B.subVectors(t.toPos, t.toTarget);
+      const l0 = r0.length();
+      const l1 = r1.length();
+      if (l0 > 1e-6 && l1 > 1e-6 && r0.angleTo(r1) > 0.35) {
+        TWEEN_Q.setFromUnitVectors(r0.multiplyScalar(1 / l0), r1.multiplyScalar(1 / l1));
+        TWEEN_Q2.identity().slerp(TWEEN_Q, e);
+        this.camera.position
+          .copy(r0)
+          .applyQuaternion(TWEEN_Q2)
+          .multiplyScalar(l0 + (l1 - l0) * e)
+          .add(this.controls.target);
+      } else {
+        this.camera.position.lerpVectors(t.fromPos, t.toPos, e);
+      }
       if (k >= 1) this.tween = null;
     }
     if (this.viewHelper.animating) this.viewHelper.update(dt);
-    const moved = this.controls.update(dt);
-    void moved;
+    if (!this.externalCamera) {
+      const moved = this.controls.update(dt);
+      void moved;
+    }
 
     this.onFrame?.(dt);
 
@@ -504,18 +645,103 @@ export class Viewport {
     this.skyMesh.position.copy(this.camera.position);
     this.env.followCamera(this.camera.position);
     this.env.tick(dt); // -- VZ-A --
-    (this.gridMat.uniforms.uCamPos.value as Vector3).copy(this.camera.position);
+    // An orthographic camera sits far away: fade the ground grid around what is looked at instead.
+    (this.gridMat.uniforms.uCamPos.value as Vector3).copy(this.camera.ortho ? tgt : this.camera.position);
+    this.updateViewGrid();
 
-    this.composer.render(dt);
+    this.post.focusDistance = this.camera.position.distanceTo(this.controls.target);
+    this.weather.update(dt, this.camera, this.controls.target, this.activeTier); // -- VZ-B: weather --
+    this.post.render(dt);
     this.renderer.autoClear = false;
     this.viewHelper.render(this.renderer);
     this.renderer.autoClear = true;
+    if (this.thumbRequests.length) this.flushThumbnails();
+  }
+
+  /** A small JPEG data URL of the next rendered frame (cropped to w:h), or null when it cannot be made. */
+  captureThumbnail(w: number, h: number): Promise<string | null> {
+    return new Promise((done) => {
+      this.thumbRequests.push({ w, h, done });
+      this.needsRender = true;
+    });
+  }
+
+  private flushThumbnails(): void {
+    const reqs = this.thumbRequests;
+    this.thumbRequests = [];
+    for (const r of reqs) {
+      try {
+        const c = document.createElement('canvas');
+        c.width = r.w;
+        c.height = r.h;
+        const ctx = c.getContext('2d');
+        if (!ctx) {
+          r.done(null);
+          continue;
+        }
+        const sw = this.dom.width;
+        const sh = this.dom.height;
+        const want = r.w / r.h;
+        let cw = sw;
+        let ch = sw / want;
+        if (ch > sh) {
+          ch = sh;
+          cw = sh * want;
+        }
+        ctx.drawImage(this.dom, (sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, r.w, r.h);
+        let url = c.toDataURL('image/jpeg', 0.7);
+        if (url.length > 22000) url = c.toDataURL('image/jpeg', 0.4);
+        r.done(url.length <= 22000 ? url : null);
+      } catch {
+        r.done(null);
+      }
+    }
+  }
+
+  // ---- CM-A: projection -------------------------------------------------------------------------
+
+  /** Switch between perspective and orthographic projection (same camera object). */
+  setProjection(ortho: boolean, size?: number): void {
+    const cam = this.camera;
+    const changed = cam.ortho !== ortho;
+    cam.ortho = ortho;
+    if (size !== undefined) cam.orthoSize = Math.max(0.1, size);
+    cam.zoom = 1;
+    cam.updateProjectionMatrix();
+    if (changed) this.applyGraphics(); // the perspective-only passes drop out (and come back) with the projection
+    this.needsRender = true;
+  }
+
+  /** The plane of the extra grid in an orthographic front / side view (null = none). */
+  setViewPlane(plane: ViewPlane): void {
+    this.viewPlane = plane;
+    if (!plane) this.viewGrid.mesh.visible = false;
+    this.needsRender = true;
+  }
+
+  private updateViewGrid(): void {
+    const cam = this.camera;
+    if (!cam.ortho || !this.viewPlane) {
+      if (this.viewGrid.mesh.visible) this.viewGrid.set(null, this.controls.target, 1, 1);
+      return;
+    }
+    const visible = cam.orthoSize / Math.max(1e-6, cam.zoom);
+    // 1 m lines while they are at least a few pixels apart, 10 m lines when zoomed far out.
+    const step = visible > 160 ? 10 : visible > 16 ? 1 : visible > 1.6 ? 0.1 : 0.01;
+    this.viewGrid.set(this.viewPlane, this.controls.target, visible * 2.2, step);
   }
 
   dispose(): void {
+    this.viewGrid.dispose();
     this.resizeObserver.disconnect();
     this.controls.dispose();
-    this.composer.dispose();
+    this.weather.dispose(); // -- VZ-B: weather --
+    this.post.dispose();
     this.renderer.dispose();
   }
+}
+
+/** Phones and tablets start Auto one tier lower. */
+function isMobile(): boolean {
+  return typeof navigator !== 'undefined' && /android|iphone|ipad|mobile/i.test(navigator.userAgent);
 }

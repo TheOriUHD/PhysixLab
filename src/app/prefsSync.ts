@@ -1,5 +1,9 @@
 /** Preferences → renderer / simulation / gizmo: applies stored preferences and reacts to changes. */
+import { QUALITY_CHOICES } from '../render/graphics';
 import type { App } from './app';
+
+/** `?instancing=0`: every body gets its own mesh (the draw-call benchmark baseline). */
+const URL_NO_INSTANCING = new URLSearchParams(location.search).get('instancing') === '0';
 import { hintForMode, toolModes } from './registry/tools';
 import { applyTheme } from '../ui/theme';
 
@@ -10,12 +14,18 @@ export class PrefsSync {
     const { app } = this;
     const p = app.prefs.value;
     applyTheme(p.theme, p.accent); // -- VZ-50 --
-    // -- VZ-B: `?quality=low|medium|high` overrides the stored tier for this session (fast headless tests) --
+    // -- VZ-B: `?quality=auto|low|medium|high|ultra` overrides the stored tier for this session (fast headless tests) --
     const urlQ = new URLSearchParams(location.search).get('quality');
-    app.viewport.setQuality(urlQ === 'low' || urlQ === 'medium' || urlQ === 'high' ? urlQ : p.quality);
+    const urlTier = QUALITY_CHOICES.find((q) => q === urlQ);
+    app.viewport.setQuality(urlTier ?? p.quality);
+    app.viewport.setGraphics(p.graphics); // -- VZ-B --
+    app.viewport.setHighlightStyle(p.highlight);
+    app.bodies.setInstancing(p.graphics.instancing && !URL_NO_INSTANCING);
     app.bodies.mode = p.colorMode;
     app.joints.visible = p.showJoints;
     app.overlays.options = { ...p.overlays };
+    app.joints.stressOverlay = p.overlays.stress;
+    app.sim.client.watchLoads(p.overlays.stress);
     app.sim.timeScale = p.timeScale;
     app.sim.wantContacts = p.overlays.contacts;
     app.gizmo.setSpace(p.space);
@@ -32,6 +42,15 @@ export class PrefsSync {
         case 'quality':
           app.viewport.setQuality(p.quality);
           break;
+        case 'highlight':
+          app.viewport.setHighlightStyle(p.highlight);
+          app.viewSync.refreshOutline();
+          break;
+        case 'graphics':
+          app.viewport.setGraphics(p.graphics);
+          app.bodies.setInstancing(p.graphics.instancing && !URL_NO_INSTANCING);
+          app.invalidateColors();
+          break;
         case 'colorMode':
           app.bodies.mode = p.colorMode;
           break;
@@ -40,6 +59,8 @@ export class PrefsSync {
           break;
         case 'overlays':
           app.overlays.options = { ...p.overlays };
+          app.joints.stressOverlay = p.overlays.stress;
+          app.sim.client.watchLoads(p.overlays.stress);
           app.sim.wantContacts = p.overlays.contacts;
           if (p.overlays.trails === 'off') app.overlays.clearTrails();
           break;

@@ -8,6 +8,7 @@ export class FrameLoop {
   private colorsDirty = true;
   private fpsAcc = 0;
   private fpsFrames = 0;
+  private reflectTick = 0;
 
   constructor(private app: App) {}
 
@@ -26,6 +27,7 @@ export class FrameLoop {
       this.fpsFrames = 0;
     }
 
+    app.input.update(dt); // -- CM-A --
     app.sim.tick();
     const client = app.sim.client;
     const live = client.active && client.frameNo > 0;
@@ -45,7 +47,12 @@ export class FrameLoop {
     app.viewSync.syncSoftLayout(client);
     for (const id of app.softs.views.keys()) app.softs.tint(id, app.store.selection.includes(id));
 
-    if (app.bodies.hoverId !== app.hoverId) this.colorsDirty = true; // -- VZ-B: hover highlight (and promotion) follows the pointer --
+    if (app.bodies.hoverId !== app.hoverId) {
+      // -- VZ-B: the hover outline (and instance promotion) follows the pointer --
+      this.colorsDirty = true;
+      app.bodies.hoverId = app.hoverId;
+      app.viewSync.refreshOutline();
+    }
     app.bodies.hoverId = app.hoverId;
     if (live || this.colorsDirty || app.bodies.mode !== 'material') {
       const sel = new Set(app.store.selection);
@@ -53,8 +60,14 @@ export class FrameLoop {
       this.colorsDirty = false;
     }
 
+    app.bodies.updateSkins(dt, app.sim.keys, app.sim.active);
+    // SSR reflects only glossy / metallic bodies; the list is rebuilt twice a second while the effect is on.
+    if (app.viewport.resolvedGraphics.ssr && ++this.reflectTick % 30 === 1)
+      app.viewport.post.reflectives = app.bodies.reflectiveMeshes();
     app.bodies.flush(); // -- VZ-B: instance buffers (VZ-30) --
 
+    // -- JT-B: joint load estimates run while the stress overlay is on or a joint inspector is showing them --
+    client.watchLoads(app.prefs.value.overlays.stress || performance.now() - app.loadWatchStamp < 800);
     const broken = client.broken;
     app.joints.updateFrame(app.camera, live ? client.joints : null, (id) => client.jointIndex.get(id), broken);
 
@@ -74,7 +87,9 @@ export class FrameLoop {
     );
 
     app.effects.update(dt);
+    app.componentFx.update(dt); // -- CP
     app.cameraControl.updateFollow(dt);
+    app.cameraRig.update(dt); // -- CM-A --
     app.fxDirector.update(dt); // ── FX: particles, trails, skid marks ──
     app.audioDirector.update(dt); // ── FX: impact, rolling, engine and wind sound ──
     app.measureTool.updateLabel();

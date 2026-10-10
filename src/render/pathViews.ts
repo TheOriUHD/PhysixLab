@@ -31,6 +31,7 @@ const MAX_ARROWS = 48;
 const START = new Color('#5be3a1');
 const END = new Color('#ff6b6b');
 const SELECTED = new Color('#ffffff');
+const HOVER = new Color('#fff3b0');
 
 let dot: CanvasTexture | null = null;
 /** Soft round sprite for the control-point handles. */
@@ -69,6 +70,8 @@ export class PathView {
   selected = false;
   /** Index of the control point being edited with the gizmo, or -1. */
   activePoint = -1;
+  // -- ED-A path: the control point under the pointer in the Path tool (-1 = none) --
+  hoverPoint = -1;
   /** Total length of the curve in metres (for the inspector). */
   length = 0;
   /** The definition the line, handles and arrows were last built from. */
@@ -169,7 +172,15 @@ export class PathView {
     const n = this.def.points.length;
     for (let i = 0; i < n; i++) {
       const k =
-        i === this.activePoint ? new Color('#ffb347') : i === 0 ? START : i === n - 1 && !this.def.closed ? END : c;
+        i === this.activePoint
+          ? new Color('#ffb347')
+          : i === this.hoverPoint
+            ? HOVER
+            : i === 0
+              ? START
+              : i === n - 1 && !this.def.closed
+                ? END
+                : c;
       col.setXYZ(i, k.r, k.g, k.b);
     }
     col.needsUpdate = true;
@@ -251,6 +262,17 @@ export class PathViews {
       const want = v.def.id === id ? index : -1;
       if (v.activePoint !== want) {
         v.activePoint = want;
+        v.refreshState();
+      }
+    }
+  }
+
+  // -- ED-A path: hover highlight of one control point (-1 / null = none) --
+  setHoverPoint(id: string | null, index: number): void {
+    for (const v of this.views.values()) {
+      const want = v.def.id === id ? index : -1;
+      if (v.hoverPoint !== want) {
+        v.hoverPoint = want;
         v.refreshState();
       }
     }

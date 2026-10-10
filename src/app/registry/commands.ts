@@ -120,9 +120,19 @@ export function commandChecked(def: CommandDef, app: App): boolean | undefined {
   return def.checked ? def.checked(app) : undefined;
 }
 
+// -- CM-A: shortcuts can be rebound (src/app/input/inputMap.ts installs the resolver) --
+let shortcutResolver: ((def: CommandDef) => readonly string[]) | null = null;
+export function setShortcutResolver(fn: ((def: CommandDef) => readonly string[]) | null): void {
+  shortcutResolver = fn;
+}
+/** The shortcuts a command has right now (the user's rebinding if any, else the registered default). */
+export function shortcutsOf(def: CommandDef): readonly string[] {
+  return shortcutResolver ? shortcutResolver(def) : shortcutList(def.shortcut);
+}
+
 /** The shortcut to display (the first one), or undefined. */
 export function primaryShortcut(def: CommandDef): string | undefined {
-  return shortcutList(def.shortcut)[0];
+  return shortcutsOf(def)[0];
 }
 
 /** "Undo (Ctrl+Z)": a tooltip with the command's current shortcut for this platform (just `text` without one). */
@@ -132,6 +142,14 @@ export function withShortcut(text: string, commandId: string): string {
   return shortcut ? `${text} (${formatShortcut(shortcut)})` : text;
 }
 
+// -- UI-B: observers of command runs (used by the guided-tour engine) --
+const commandRunListeners = new Set<(id: string, source: CommandSource) => void>();
+/** Call `fn` whenever a command is run through `runCommand` (after the enabled check, before it executes). */
+export function onCommandRun(fn: (id: string, source: CommandSource) => void): () => void {
+  commandRunListeners.add(fn);
+  return () => commandRunListeners.delete(fn);
+}
+
 /**
  * Run a command by id. Returns false when there is no such command or it is not enabled; a command that throws
  * (or whose promise rejects) is reported to the user as a toast instead of breaking the caller.
@@ -139,6 +157,14 @@ export function withShortcut(text: string, commandId: string): string {
 export function runCommand(id: string, app: App, source: CommandSource = 'api', event?: KeyboardEvent): boolean {
   const def = commandRegistry.get(id);
   if (!def || !commandEnabled(def, app)) return false;
+  // -- UI-B: tell observers (guided tours, context hints) that a command is about to run --
+  for (const fn of [...commandRunListeners]) {
+    try {
+      fn(id, source);
+    } catch (e) {
+      console.error('[command observer]', e);
+    }
+  }
   const fail = (e: unknown) => {
     console.error(`[command ${id}]`, e);
     app.toast(`“${commandLabel(def, app)}” failed: ${e instanceof Error ? e.message : String(e)}`, 'error');

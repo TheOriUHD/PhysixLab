@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createBody, createJoint, run, worldOf } from './helpers';
-import { B, BODY_STRIDE, CONTACT_STRIDE, J } from '../src/physics/protocol';
+import { B, BODY_STRIDE, CONTACT_STRIDE, J, JOINT_STRIDE } from '../src/physics/protocol';
 import { PhysicsWorld, initRapier } from '../src/physics/world';
 import { vlen } from '../src/core/math';
 
@@ -336,7 +336,7 @@ describe('readback', () => {
     const w = await worldOf([post, weight, spring]);
     run(w, 0.05);
     const j = w.readJoints();
-    expect(j.length).toBe(4);
+    expect(j.length).toBe(JOINT_STRIDE);
     expect(j[J.value]).toBeGreaterThan(2.5); // stretched from rest length 2 (anchor distance 3)
     expect(j[J.force]).toBeGreaterThan(100); // k·x ≈ 300 N of tension
     expect(j[J.broken]).toBe(0);

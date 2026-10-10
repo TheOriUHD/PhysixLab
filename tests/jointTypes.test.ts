@@ -26,8 +26,27 @@ function twoBodies(type: JointType) {
 }
 
 describe('every joint type is wired everywhere it has to be', () => {
-  it('has the six built-in types (a deliberate change must update this list and docs/EXTENDING.md)', () => {
-    expect([...TYPES].sort()).toEqual(['ball', 'fixed', 'hinge', 'rope', 'slider', 'spring']);
+  it('has the built-in types (a deliberate change must update this list and docs/EXTENDING.md)', () => {
+    expect([...TYPES].sort()).toEqual(
+      [
+        'ball',
+        'belt',
+        'conetwist',
+        'fixed',
+        'gear',
+        'hinge',
+        'pulley',
+        'rack',
+        'rope',
+        'screw',
+        'sixdof',
+        'slider',
+        'softweld',
+        'spring',
+        'universal',
+        'winch',
+      ].sort(),
+    );
   });
 
   for (const type of TYPES) {

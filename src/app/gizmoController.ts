@@ -8,6 +8,7 @@ import type { JointEntity } from '../model/types';
 import { Gizmo, type GizmoItem, type GizmoUpdate } from '../render/gizmo';
 import type { App } from './app';
 import type { PathPointRef } from './appTypes';
+import { ComHandle } from './comHandle'; // -- JT-B
 
 export class GizmoController {
   readonly gizmo: Gizmo;
@@ -16,9 +17,12 @@ export class GizmoController {
   /** The path control point the gizmo is editing (FB-6), or null. */
   pathPoint: PathPointRef | null = null;
   private undoOpen = false;
+  /** JT-B: the centre-of-mass handle of a body (JT-33). */
+  readonly com: ComHandle;
 
   constructor(private app: App) {
     const { viewport } = app;
+    this.com = new ComHandle(app);
     this.gizmo = new Gizmo(
       viewport.camera,
       viewport.dom,
@@ -63,6 +67,8 @@ export class GizmoController {
     const { app } = this;
     const items: GizmoItem[] = [];
     const sel = app.store.selection;
+    const comItem = this.com.item(); // -- JT-B: the COM handle replaces the body's own gizmo --
+    if (comItem) return [comItem];
     if (sel.length === 1 && app.store.joint(sel[0])) {
       const j = app.store.joint(sel[0])!;
       const f = app.joints.frameOf(j, { a: new Vector3(), b: new Vector3(), axis: new Vector3() });
@@ -132,6 +138,8 @@ export class GizmoController {
   /** The gizmo edits poses, so it is hidden while the simulation is running (grabbing takes over). */
   private active(): boolean {
     const { prefs, sim } = this.app;
+    // -- ED-A path: the Path tool shows the gizmo only on the active control point --
+    if (prefs.value.tool === 'path') return this.pathPoint !== null && sim.mode !== 'running';
     return prefs.value.gizmo !== 'none' && prefs.value.tool === 'select' && sim.mode !== 'running';
   }
 
@@ -145,6 +153,8 @@ export class GizmoController {
     // A path control point can only be translated; lights, paths and groups have no size to scale.
     const point = items.length === 1 && items[0].id.includes('#');
     if (point && this.gizmo.mode !== 'translate') this.gizmo.setMode('translate');
+    if (items.length === 1 && items[0].id.endsWith('@com') && this.gizmo.mode !== 'translate')
+      this.gizmo.setMode('translate'); // -- JT-B
     const posedOnly =
       items.length > 0 &&
       items.every(
@@ -176,6 +186,7 @@ export class GizmoController {
 
   private onChange(updates: GizmoUpdate[]): void {
     const { app } = this;
+    if (updates.length === 1 && this.com.apply(updates[0])) return; // -- JT-B --
     if (updates.length === 1 && updates[0].id.includes('#')) {
       const [id, index] = updates[0].id.split('#');
       app.editor.movePathPoint(id, Number(index), updates[0].position);

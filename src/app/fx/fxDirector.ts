@@ -11,6 +11,7 @@
  * per frame from the frame loop. All decisions that can be made without the app — the material recipes, the slip
  * estimate, the trail plan, the wheel detection — live in pure modules with their own tests.
  */
+import { legacyTier } from '../../render/graphics';
 import type { Vector3 } from 'three';
 import type { Vec3 } from '../../core/math';
 import { hexToLinear } from '../../render/fx/particleTypes';
@@ -64,7 +65,7 @@ export class FxDirector {
   private scratchVel: [number, number, number] = [0, 0, 0];
 
   constructor(private readonly app: App) {
-    this.fx = new Fx(app.viewport.helpers, app.prefs.value.quality);
+    this.fx = new Fx(app.viewport.helpers, legacyTier(app.prefs.value.quality, app.viewport.graphicsInfo.tier));
     this.debris = new PhysicalDebris(app.sim);
 
     app.sim.on('mode', (m) => this.onMode(m));
@@ -96,7 +97,7 @@ export class FxDirector {
     const { app, fx } = this;
     const s = app.prefs.value.fx;
     const wasOn = fx.settings.enabled;
-    fx.configure(s, app.prefs.value.quality);
+    fx.configure(s, legacyTier(app.prefs.value.quality, app.viewport.graphicsInfo.tier)); // -- VZ-B: Quality grew ultra / auto --
     this.debris.cap = fx.tier.physicalDebrisCap;
     if (!s.enabled && wasOn) this.clearAll();
     // Contact events only while something needs them.

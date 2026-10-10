@@ -1,4 +1,7 @@
 import { Emitter } from '../core/events';
+import { DEFAULT_DAMAGE, sanitizeDamage, type DamageSettings } from '../render/damage';
+import { sanitizeHighlight, DEFAULT_HIGHLIGHT, type HighlightOptions } from '../render/highlight';
+import { cloneGraphics, DEFAULT_GRAPHICS, sanitizeGraphics, type GraphicsOptions } from '../render/graphics';
 import type { ColorMode } from '../render/bodyViews';
 import { DEFAULT_OVERLAYS, type OverlayOptions } from '../render/overlays';
 import type { Quality } from '../render/viewport';
@@ -8,6 +11,7 @@ import { DEFAULT_FX_SETTINGS, sanitizeFxSettings, type FxSettings } from '../ren
 // ── FX: sound settings live in the preferences too ──
 import { sanitizeAudioSettings, type AudioSettings } from '../audio/settings';
 import { sanitizeAccent, sanitizeTheme, type ThemeId } from '../ui/theme';
+import { DEFAULT_INPUT, sanitizeInput, type InputSettings } from './input/settings';
 
 /** The interaction mode (`ToolDef.mode`): 'select', 'joint', 'measure', 'blast', 'shoot' … — any registered tool's mode. */
 export type ToolId = string;
@@ -20,6 +24,16 @@ export interface Prefs {
   snap: boolean;
   snapGrid: number;
   snapAngle: number;
+  // -- ED-A snap: object snapping modes (src/model/edit/snap.ts); `snap` above stays the grid toggle --
+  snapVertex: boolean;
+  snapEdge: boolean;
+  snapFace: boolean;
+  snapBounds: boolean;
+  /** Dragging / dropping puts objects flush on the surface under the pointer. */
+  snapSurface: boolean;
+  /** …and turns their up axis onto the surface normal. */
+  snapAlignNormal: boolean;
+  // -- /ED-A snap --
   timeScale: number;
   colorMode: ColorMode;
   overlays: OverlayOptions;
@@ -30,6 +44,23 @@ export interface Prefs {
   blastStrength: number;
   shootSpeed: number;
   shootSize: number;
+  // -- ED-B: tool options (blast variants, throw/aim, paint, pin, grab) --
+  blastKind: 'radial' | 'directional' | 'implosion' | 'ring' | 'gust';
+  blastFalloff: 'quadratic' | 'linear' | 'smooth' | 'constant' | 'steep';
+  blastRadius: number;
+  /** Projectile type id (src/app/projectileTypes.ts). */
+  shootType: string;
+  /** Projectile mass in kg; 0 = the type's own mass. */
+  shootMass: number;
+  paintColor: string;
+  paintPalette: string;
+  paintMode: 'color' | 'material';
+  paintMaterial: string;
+  pinJoint: 'hinge' | 'ball' | 'fixed';
+  /** Grab spring strength multiplier (1 = default). */
+  grabStrength: number;
+  /** Velocity kept on release (0 = drop, 1 = throw with the hand's velocity, 2 = boosted). */
+  grabThrow: number;
   /** Ids of registered panels (src/app/registry/panels.ts); an unknown id falls back to the first tab. */
   leftTab: string;
   rightTab: string;
@@ -46,6 +77,14 @@ export interface Prefs {
   theme: ThemeId;
   /** Custom accent colour `#rrggbb`, or '' for the theme's own accent. */
   accent: string;
+  // -- CM-A: key bindings, gamepad, touch and axis settings --
+  input: InputSettings;
+  // -- VZ-B: per-effect graphics options, tri-state `on` follows the quality tier --
+  graphics: GraphicsOptions;
+  // -- VZ-B: selection / hover highlight options (VZ-40) --
+  highlight: HighlightOptions;
+  // -- VZ-B: impact damage visuals (VZ-41) --
+  damage: DamageSettings;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -55,16 +94,36 @@ export const DEFAULT_PREFS: Prefs = {
   snap: true,
   snapGrid: 0.25,
   snapAngle: 15,
+  // -- ED-A snap --
+  snapVertex: true,
+  snapEdge: false,
+  snapFace: false,
+  snapBounds: false,
+  snapSurface: true,
+  snapAlignNormal: false,
+  // -- /ED-A snap --
   timeScale: 1,
   colorMode: 'material',
   overlays: { ...DEFAULT_OVERLAYS },
   showJoints: true,
-  quality: 'medium',
+  quality: 'auto', // -- VZ-B: Auto governor (VZ-22) --
   jointType: 'hinge',
   followSelection: false,
   blastStrength: 60,
   shootSpeed: 28,
   shootSize: 0.4,
+  blastKind: 'radial',
+  blastFalloff: 'quadratic',
+  blastRadius: 7,
+  shootType: 'ball',
+  shootMass: 0,
+  paintColor: '#ff5d5d',
+  paintPalette: 'vivid',
+  paintMode: 'color',
+  paintMaterial: 'plastic',
+  pinJoint: 'hinge',
+  grabStrength: 1,
+  grabThrow: 1,
   leftTab: 'add',
   rightTab: 'inspector',
   showLeft: true,
@@ -76,6 +135,11 @@ export const DEFAULT_PREFS: Prefs = {
   audio: sanitizeAudioSettings(undefined),
   theme: 'dark',
   accent: '',
+  input: DEFAULT_INPUT, // -- CM-A --
+  // -- VZ-B: per-effect graphics options (VZ-20..22) --
+  graphics: cloneGraphics(DEFAULT_GRAPHICS),
+  highlight: { ...DEFAULT_HIGHLIGHT },
+  damage: { ...DEFAULT_DAMAGE },
 };
 
 const KEY = 'physicslab:prefs:v1';
@@ -91,6 +155,9 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
       overlays: { ...DEFAULT_OVERLAYS },
       fx: { ...DEFAULT_FX_SETTINGS },
       audio: sanitizeAudioSettings(undefined), // ── FX ──
+      graphics: cloneGraphics(DEFAULT_GRAPHICS), // -- VZ-B --
+      highlight: { ...DEFAULT_HIGHLIGHT },
+      damage: { ...DEFAULT_DAMAGE },
     };
     try {
       const raw = localStorage.getItem(KEY);
@@ -102,6 +169,10 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
         this.value.audio = sanitizeAudioSettings(saved.audio); // ── FX ──
         this.value.theme = sanitizeTheme(this.value.theme);
         this.value.accent = sanitizeAccent(this.value.accent);
+        this.value.input = sanitizeInput(saved.input); // -- CM-A --
+        this.value.graphics = sanitizeGraphics(saved.graphics); // -- VZ-B --
+        this.value.highlight = sanitizeHighlight(saved.highlight);
+        this.value.damage = sanitizeDamage(saved.damage);
       }
     } catch {
       /* storage unavailable */

@@ -1,0 +1,15 @@
+/* ED-B: tool options bar, aim/trajectory chip */
+.tool-options { position: absolute; z-index: 5; left: 50%; bottom: 52px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 7px 14px; max-width: calc(100% - 140px); flex-wrap: wrap; justify-content: center; font-size: 12px; }
+.tool-options[hidden] { display: none; }
+.to-item { display: inline-flex; align-items: center; gap: 7px; color: var(--text-2); }
+.to-item[hidden] { display: none; }
+.to-label { font: 650 10px var(--font); letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3); }
+.to-select { background: var(--bg); color: var(--text); border: 1px solid var(--border-2); border-radius: var(--radius-s); padding: 3px 6px; font: 500 12px var(--font); }
+.to-select:focus-visible, .to-range:focus-visible, .to-color:focus-visible, .to-swatch:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 1px; }
+.to-range-wrap { display: inline-flex; align-items: center; gap: 6px; }
+.to-range { width: 92px; accent-color: var(--accent); }
+.to-read { min-width: 44px; font: 600 11px var(--mono); color: var(--text); }
+.to-color { width: 26px; height: 22px; padding: 0; border: 1px solid var(--border-2); border-radius: 5px; background: none; cursor: pointer; }
+.to-swatches { display: inline-flex; gap: 4px; }
+.to-swatch { width: 18px; height: 18px; border-radius: 50%; border: 2px solid transparent; box-shadow: 0 0 0 1px var(--border-2); cursor: pointer; padding: 0; }
+.to-swatch.on { border-color: var(--text); }

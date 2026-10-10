@@ -80,13 +80,15 @@ export function softInspector(ctx: InspectorContext, sel: SoftEntity[]): HTMLEle
       return row(label, f.el);
     };
     const sizes =
-      type === 'jelly'
+      type === 'jelly' || type === 'mesh'
         ? [dim('Width', 0), dim('Height', 1), dim('Depth', 2)]
-        : type === 'balloon'
-          ? [dim('Diameter', 0)]
-          : type === 'cloth'
-            ? [dim('Width', 0), dim('Depth', 2)]
-            : [dim('Length', 0)];
+        : type === 'tyre'
+          ? [dim('Diameter', 0), dim('Width', 1, 0.08), dim('Sidewall', 2, 0.06)]
+          : type === 'balloon'
+            ? [dim('Diameter', 0)]
+            : type === 'cloth'
+              ? [dim('Width', 0), dim('Depth', 2)]
+              : [dim('Length', 0)];
     out.push(
       section('Transform', [rowStack('Position (m)', pos.el), rowStack('Rotation (°)', rot.el), ...sizes], {
         id: 'soft-transform',
@@ -95,8 +97,8 @@ export function softInspector(ctx: InspectorContext, sel: SoftEntity[]): HTMLEle
   }
 
   // ---- soft-body parameters ----------------------------------------------------------------
-  const resMax = { jelly: 8, balloon: 3, cloth: 28, cable: 80 }[type];
-  const resMin = { jelly: 3, balloon: 1, cloth: 6, cable: 6 }[type];
+  const resMax = { jelly: 8, balloon: 3, cloth: 28, cable: 80, mesh: 8, tyre: 48 }[type];
+  const resMin = { jelly: 3, balloon: 1, cloth: 6, cable: 6, mesh: 3, tyre: 8 }[type];
   const res = sliderField({
     min: resMin,
     max: resMax,
@@ -110,7 +112,17 @@ export function softInspector(ctx: InspectorContext, sel: SoftEntity[]): HTMLEle
     const e = first();
     const n = e.resolution;
     const count =
-      e.type === 'jelly' ? n ** 3 : e.type === 'cloth' ? n * n : e.type === 'cable' ? n : 10 * 4 ** (n - 1) * 2 + 2;
+      e.type === 'jelly'
+        ? n ** 3
+        : e.type === 'cloth'
+          ? n * n
+          : e.type === 'cable'
+            ? n
+            : e.type === 'tyre'
+              ? n * 10
+              : e.type === 'mesh'
+                ? Math.round((e.size[0] * e.size[1] * e.size[2]) / e.cell ** 3)
+                : 10 * 4 ** (n - 1) * 2 + 2;
     particles.textContent = `≈ ${count} particles${count > 700 ? ' — heavy' : ''}`;
   });
   const mass = numberField({

@@ -1,1 +1,2 @@
-/* ED-A: snap styles */
+/* ED-A: snap styles (snap indicator label, numeric entry feedback, rotate-by row) */
+.v-label.snap { border-color: var(--warn); color: var(--warn); transform: translate(-50%, -190%); pointer-events: none; }

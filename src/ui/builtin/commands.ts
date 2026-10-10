@@ -34,21 +34,29 @@ export function uiCommands(): CommandDef[] {
       description: 'Pack the scene into a URL; anyone opening it gets this scene',
       keywords: ['url', 'send'],
       run: async ({ app }) => {
-        let url: string;
+        let info;
         try {
-          url = await app.persistence.shareLink();
+          info = await app.persistence.shareInfo();
         } catch (e) {
           app.toast((e as Error).message, 'error');
           return;
         }
+        if (info.tooLarge) {
+          app.toast(
+            `This scene is too large for a link (${Math.round(info.url.length / 1000)} kB). Saving it as a file instead — files have no size limit.`,
+            'warn',
+          );
+          app.persistence.exportFile();
+          return;
+        }
+        const url = info.url;
+        const saved = Math.max(0, Math.round((1 - info.chars / info.v1Chars) * 100));
+        const size = `${(url.length / 1000).toFixed(1)} kB${info.format === 'v2' && saved > 0 ? `, ${saved} % shorter than before` : ''}`;
         try {
           await navigator.clipboard.writeText(url);
-          app.toast(
-            `Share link copied (${Math.round(url.length / 1000)} kB). Anyone opening it gets this scene.`,
-            'success',
-          );
+          app.toast(`Share link copied (${size}). Anyone opening it gets this scene.`, 'success');
         } catch {
-          await promptText('Share link', 'Copy this link:', url, 'Done');
+          await promptText('Share link', `Copy this link (${size}):`, url, 'Done');
         }
       },
     },
@@ -72,7 +80,7 @@ export function uiCommands(): CommandDef[] {
       icon: 'keyboard',
       keywords: ['keys', 'hotkeys', 'cheat sheet'],
       shortcut: '?',
-      run: () => showShortcuts(),
+      run: ({ app }) => showShortcuts(app),
     },
     {
       id: 'help.welcome',

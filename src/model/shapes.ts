@@ -47,9 +47,17 @@ export function halfHeight(shape: ShapeSpec): number {
  * Collision radius of one soft-body particle. It also sets how far the visible surface hovers
  * above whatever it rests on, so it is kept small relative to the lattice spacing.
  */
-export function softParticleRadius(def: Pick<SoftEntity, 'type' | 'size' | 'resolution'>): number {
+export function softParticleRadius(
+  def: Pick<SoftEntity, 'type' | 'size' | 'resolution'> & Partial<Pick<SoftEntity, 'particleRadius' | 'cell'>>,
+): number {
+  // -- SF-6: an explicit override wins --
+  if (def.particleRadius && def.particleRadius > 0) return def.particleRadius;
   const n = Math.max(2, def.resolution);
   switch (def.type) {
+    case 'mesh':
+      return Math.min(0.05, Math.max(0.012, (def.cell ?? 0.2) * 0.2));
+    case 'tyre':
+      return 0.02;
     case 'jelly':
       return Math.min(0.05, Math.max(0.012, (Math.min(...def.size) / (n - 1)) * 0.2));
     case 'balloon':

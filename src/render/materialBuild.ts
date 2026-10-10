@@ -105,6 +105,8 @@ interface MatState {
   texKey: string;
   owned: Texture[];
   triplanar: boolean;
+  prevPatch?: MeshPhysicalMaterial['onBeforeCompile'];
+  prevKey?: MeshPhysicalMaterial['customProgramCacheKey'];
 }
 
 const states = new WeakMap<MeshPhysicalMaterial, MatState>();
@@ -253,8 +255,23 @@ export function applyMaterialSpec(mat: MeshPhysicalMaterial, spec: MaterialSpec,
   const tri = !!t?.triplanar && !!mat.map;
   if (tri !== st.triplanar) {
     st.triplanar = tri;
-    mat.onBeforeCompile = tri ? patchTriplanar : () => undefined;
-    mat.customProgramCacheKey = () => (tri ? 'triplanar' : '');
+    if (tri) {
+      // compose with whatever other patches the material already carries (damage look, surface ink …)
+      /* eslint-disable @typescript-eslint/unbound-method -- the saved patch is called back with the material as `this` */
+      st.prevPatch = mat.onBeforeCompile;
+      st.prevKey = mat.customProgramCacheKey;
+      /* eslint-enable @typescript-eslint/unbound-method */
+      const prev = st.prevPatch;
+      const prevKey = st.prevKey;
+      mat.onBeforeCompile = function (this: unknown, shader, renderer) {
+        prev.call(this, shader, renderer);
+        patchTriplanar(shader);
+      };
+      mat.customProgramCacheKey = () => `${prevKey.call(mat)}|triplanar`;
+    } else if (st.prevPatch && st.prevKey) {
+      mat.onBeforeCompile = st.prevPatch;
+      mat.customProgramCacheKey = st.prevKey;
+    }
     mat.needsUpdate = true;
   }
 }

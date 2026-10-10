@@ -1,0 +1,49 @@
+/* UI-40: spotlight tours, context hints, tip of the day. Sits above the palette (115) and the toasts (120). */
+.tour-layer { position: fixed; inset: 0; z-index: 130; pointer-events: none; }
+.tour-dim { position: fixed; background: rgba(4, 6, 10, 0.68); pointer-events: auto; transition: none; }
+.tour-layer.interactive .tour-dim { pointer-events: none; background: rgba(4, 6, 10, 0.5); }
+.tour-ring { position: fixed; border-radius: 10px; border: 2px solid var(--accent); box-shadow: 0 0 0 4px var(--accent-bg), 0 0 24px rgba(61, 220, 255, 0.35); pointer-events: none; animation: tour-pulse 2s ease-in-out infinite; }
+.tour-ring[hidden] { display: none; }
+@keyframes tour-pulse { 50% { box-shadow: 0 0 0 7px rgba(61, 220, 255, 0.07), 0 0 30px rgba(61, 220, 255, 0.5); } }
+
+.tour-card, .tour-hint { background: var(--panel-2); border: 1px solid var(--border-2); border-radius: 12px; box-shadow: var(--shadow); color: var(--text); font-family: var(--font); }
+.tour-card { position: fixed; width: 340px; max-width: calc(100vw - 24px); padding: 14px 16px 12px; pointer-events: auto; outline: none; animation: tour-in 0.18s ease-out; }
+.tour-card:focus-visible { box-shadow: var(--shadow), 0 0 0 2px var(--accent-line); }
+@keyframes tour-in { from { opacity: 0; transform: translateY(4px); } }
+.tour-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.tour-counter { font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.tour-dots { display: flex; gap: 4px; flex: 1; min-width: 0; flex-wrap: wrap; }
+.tour-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--border-2); }
+.tour-dots i.done { background: var(--accent-line); }
+.tour-dots i.on { background: var(--accent); }
+.tour-close { margin: -4px -6px -4px 0; }
+.tour-title { margin: 0 0 6px; font-size: 16px; font-weight: 650; }
+.tour-body { font-size: 13.5px; line-height: 1.5; color: var(--text-2); }
+.tour-body b { color: var(--text); }
+.tour-body kbd, .tour-hint kbd { font: 11.5px var(--mono); padding: 1px 6px; border-radius: 5px; background: var(--raised); border: 1px solid var(--border-2); color: var(--text); }
+.tour-wait { margin-top: 8px; font-size: 12.5px; color: var(--accent-2); }
+.tour-wait::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--accent-2); animation: tour-blink 1.2s ease-in-out infinite; }
+@keyframes tour-blink { 50% { opacity: 0.25; } }
+.tour-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.tour-foot .grow { flex: 1; }
+.tour-foot .btn[hidden] { display: none; }
+.tour-foot .ghost { background: transparent; border-color: transparent; color: var(--text-3); padding-left: 0; }
+.tour-foot .ghost:hover { color: var(--text); }
+
+/* Context hints, tips and the first-run offer: one small card above the status bar, never over the toolbox. */
+.tour-hint { position: fixed; z-index: 118; left: 50%; bottom: 84px; transform: translateX(-50%); width: 420px; max-width: calc(100vw - 24px); padding: 11px 14px 10px; display: flex; flex-direction: column; gap: 8px; animation: tour-hint-in 0.2s ease-out; }
+@keyframes tour-hint-in { from { opacity: 0; transform: translate(-50%, 6px); } }
+.tour-hint.leaving { opacity: 0; transition: opacity 0.25s; }
+.tour-hint-row { display: flex; gap: 10px; align-items: flex-start; }
+.tour-hint-ic { color: var(--accent); flex: none; margin-top: 1px; display: inline-flex; }
+.tour-hint-ic svg { width: 18px; height: 18px; }
+.tour-hint-text { font-size: 13px; line-height: 1.45; color: var(--text-2); flex: 1; }
+.tour-hint-text b { color: var(--text); }
+.tour-hint-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.tour-hint-actions .btn { font-size: 12px; padding: 4px 10px; }
+.tour-hint-actions .ghost { background: transparent; border-color: transparent; color: var(--text-3); }
+.tour-hint-actions .ghost:hover { color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-ring, .tour-wait::before, .tour-card, .tour-hint { animation: none; }
+}

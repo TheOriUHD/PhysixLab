@@ -22,6 +22,10 @@ export interface PoolMember {
   readonly scale: readonly [number, number, number];
   /** Not hidden, not fallen out of the world, and not promoted to its own mesh. */
   poolVisible: boolean;
+  /** World velocity (m/s), for the motion-blur velocity buffer. */
+  readonly vel: Vector3;
+  /** Accumulated impact damage 0..1 (VZ-41), written to the per-instance `aDamage` attribute. */
+  damage: number;
   /** Slot in the pool (maintained by the pool; -1 when not pooled). */
   slot: number;
 }
@@ -31,6 +35,9 @@ const SLOT_STRIDE = 7;
 export class InstancePool {
   mesh: InstancedMesh;
   private capacity: number;
+  private readonly geometry: BufferGeometry;
+  private lastVel: Float32Array;
+  private lastDmg: Float32Array;
   private members: PoolMember[] = [];
   private lastPose: Float32Array;
   private lastShown: Uint8Array;
@@ -44,14 +51,18 @@ export class InstancePool {
 
   constructor(
     readonly key: string,
-    private geometry: BufferGeometry,
+    sourceGeometry: BufferGeometry,
     readonly material: Material,
     private parent: Object3D,
     initial = 16,
   ) {
+    // A private copy: it carries this pool's per-instance velocity attribute (`aVel`).
+    this.geometry = sourceGeometry.clone();
     this.capacity = initial;
     this.lastPose = new Float32Array(initial * SLOT_STRIDE);
     this.lastShown = new Uint8Array(initial);
+    this.lastVel = new Float32Array(initial * 3);
+    this.lastDmg = new Float32Array(initial);
     this.mesh = this.makeMesh(initial);
     parent.add(this.mesh);
   }
@@ -61,6 +72,12 @@ export class InstancePool {
   }
 
   private makeMesh(capacity: number): InstancedMesh {
+    const vel = new InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
+    vel.setUsage(DynamicDrawUsage);
+    this.geometry.setAttribute('aVel', vel);
+    const dmg = new InstancedBufferAttribute(new Float32Array(capacity), 1);
+    dmg.setUsage(DynamicDrawUsage);
+    this.geometry.setAttribute('aDamage', dmg);
     const mesh = new InstancedMesh(this.geometry, this.material, capacity);
     mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     mesh.instanceColor = new InstancedBufferAttribute(new Float32Array(capacity * 3).fill(1), 3);
@@ -118,6 +135,14 @@ export class InstancePool {
     const shown = new Uint8Array(cap);
     shown.set(this.lastShown);
     this.lastShown = shown;
+    const lv = new Float32Array(cap * 3);
+    lv.set(this.lastVel);
+    this.lastVel = lv;
+    const ld = new Float32Array(cap);
+    ld.set(this.lastDmg);
+    this.lastDmg = ld;
+    (this.geometry.getAttribute('aDamage').array as Float32Array).set(this.lastDmg.subarray(0, this.members.length));
+    (this.geometry.getAttribute('aVel').array as Float32Array).set(this.lastVel.subarray(0, this.members.length * 3));
     this.capacity = cap;
     this.parent.remove(old);
     old.dispose();
@@ -187,6 +212,30 @@ export class InstancePool {
       this.m.compose(this.p.copy(pos), this.q.copy(rot), this.s).toArray(arr, i * 16);
       this.matrixDirty = true;
     }
+    const va = this.geometry.getAttribute('aVel') as InstancedBufferAttribute;
+    const vArr = va.array as Float32Array;
+    let velDirty = false;
+    for (let i = 0; i < n; i++) {
+      const v = this.members[i].vel;
+      const o = i * 3;
+      if (this.lastVel[o] !== v.x || this.lastVel[o + 1] !== v.y || this.lastVel[o + 2] !== v.z) {
+        this.lastVel[o] = vArr[o] = v.x;
+        this.lastVel[o + 1] = vArr[o + 1] = v.y;
+        this.lastVel[o + 2] = vArr[o + 2] = v.z;
+        velDirty = true;
+      }
+    }
+    if (velDirty) va.needsUpdate = true;
+    const da = this.geometry.getAttribute('aDamage') as InstancedBufferAttribute;
+    let dmgDirty = false;
+    for (let i = 0; i < n; i++) {
+      const d = this.members[i].damage;
+      if (this.lastDmg[i] !== d) {
+        this.lastDmg[i] = (da.array as Float32Array)[i] = d;
+        dmgDirty = true;
+      }
+    }
+    if (dmgDirty) da.needsUpdate = true;
     if (this.matrixDirty) {
       this.mesh.instanceMatrix.needsUpdate = true;
       // Culling and raycasting use the bounding sphere of the instances: recompute lazily.
@@ -208,6 +257,7 @@ export class InstancePool {
   dispose(): void {
     this.parent.remove(this.mesh);
     this.mesh.dispose();
+    this.geometry.dispose();
     this.material.dispose();
   }
 }

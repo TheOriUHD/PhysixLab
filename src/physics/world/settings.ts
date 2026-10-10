@@ -1,7 +1,8 @@
 /** Scene settings applied to the live world: gravity, step rate and sub-steps, solver iterations, air drag, ground. */
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { SceneSettings } from '../../model/types';
-import { GROUND_GROUPS } from './bodyFields';
+import { groundGroups } from './bodyFields';
+import { refreshLayers } from './layers';
 import { registerGround, unregisterGround } from './events';
 import { piecesOf } from './soft';
 import type { WorldState } from './state';
@@ -22,7 +23,16 @@ export function applySettings(s: WorldState, next: SceneSettings, initial = fals
   }
   s.world.integrationParameters.dt = engineDt(s);
   s.world.integrationParameters.numSolverIterations = next.solverIterations;
+  // -- SH: the engine's default contact prediction distance is 2 cm, wide enough that a ball rolling over a surface
+  // made of several convex pieces (stairs, ramps, half-pipes, tiled floors) catches on the seams between them and
+  // loses a third of its speed; 2 mm keeps 97 % (tests/seams.test.ts). --
+  s.world.integrationParameters.normalizedPredictionDistance = 0.002;
   if (initial || prev.ground !== next.ground) buildGround(s);
+  // -- JT-B: the layer matrix / trigger layers changed --
+  if (!initial && JSON.stringify(prev.layers) !== JSON.stringify(next.layers)) {
+    refreshLayers(s);
+    for (const r of s.order) r.rb.wakeUp();
+  }
   // A new seed in the settings restarts the random stream (the initial seed is applied by the constructor).
   if (!initial && prev.seed !== next.seed) s.rng.seed(next.seed);
   if (prev.airDrag !== next.airDrag) {
@@ -45,7 +55,7 @@ function buildGround(s: WorldState): void {
     RAPIER.ColliderDesc.cuboid(g.halfSize, 1, g.halfSize)
       .setFriction(g.friction)
       .setRestitution(g.restitution)
-      .setCollisionGroups(GROUND_GROUPS)
+      .setCollisionGroups(groundGroups(s.settings.layers))
       .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Average)
       .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max),
     body,

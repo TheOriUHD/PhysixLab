@@ -13,13 +13,14 @@
  * tick supplies them). Components keep their own state through `saveState` / `loadState`; those without it start
  * over from their parameters.
  */
+import { countHooks } from './layers';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { pathCurveOf } from '../../model/path';
 import type { Quat, Vec3 } from '../../core/math';
 import type { BodySnapshot, JointSnapshot, WorldSnapshot } from '../protocol';
 import { sleepEmulation } from './bodies';
 import { registerColliders, registerGround } from './events';
-import type { BodyRec, JointRec, WorldState } from './state';
+import type { BodyRec, JointRec, SoftRec, WorldState } from './state';
 
 export function takeSnapshot(s: WorldState): WorldSnapshot {
   const bodies: BodySnapshot[] = s.order.map((r) => ({
@@ -51,6 +52,8 @@ export function takeSnapshot(s: WorldState): WorldSnapshot {
     force: j.force,
     motorTarget: j.motorTarget,
     cache: [...j.cache] as [number, number, number],
+    rt: [...j.rt], // -- JT-A --
+    jl: j.jl ? { ...j.jl } : undefined,
   }));
   return {
     version: 1,
@@ -62,7 +65,13 @@ export function takeSnapshot(s: WorldState): WorldSnapshot {
     settings: s.settings,
     bodies,
     joints,
-    softs: s.softOrder.map((r) => ({ def: r.def, root: r.root.handle })),
+    softs: s.softOrder.map((r) => ({
+      def: r.def,
+      root: r.root.handle,
+      volumeFactor: r.volumeFactor,
+      released: [...r.released],
+      attached: r.attached.map((a) => ({ id: a.att.id, particles: [...a.particles], bodyHandle: a.bodyHandle })),
+    })),
     paths: [...s.paths.values()].map((p) => p.def),
     worldBody: s.worldBody.handle,
     ground: s.ground ? { body: s.ground.body.handle, collider: s.ground.col.handle } : null,
@@ -143,6 +152,7 @@ export function restoreSnapshot(s: WorldState, snap: WorldSnapshot): void {
       forced: b.forced,
       dragged: def.bodyType === 'dynamic' && (def.drag.linear2 > 0 || def.drag.angular2 > 0),
       sleep: sleepEmulation(def),
+      oneWay: def.oneWay !== undefined, // -- JT-B --
     };
     if (rec.sleep && b.sleepCalm !== null) rec.sleep.calm = b.sleepCalm;
     s.bodies.set(def.id, rec);
@@ -151,6 +161,7 @@ export function restoreSnapshot(s: WorldState, snap: WorldSnapshot): void {
     if (rec.sleep) s.sleepers.push(rec);
     registerColliders(s, rec);
   }
+  countHooks(s); // -- JT-B --
 
   // joints
   for (const j of snap.joints) {
@@ -172,6 +183,8 @@ export function restoreSnapshot(s: WorldState, snap: WorldSnapshot): void {
       force: j.force,
       motorTarget: j.motorTarget,
       cache: [...j.cache] as [number, number, number],
+      rt: j.rt ? [...j.rt] : [], // -- JT-A --
+      jl: j.jl ? { ...j.jl } : undefined,
     };
     s.joints.set(rec.id, rec);
     s.jointOrder.push(rec);
@@ -181,7 +194,20 @@ export function restoreSnapshot(s: WorldState, snap: WorldSnapshot): void {
   for (const sb of snap.softs) {
     const root = next.softBodies.get(sb.root);
     if (!root) continue;
-    const rec = { id: sb.def.id, def: sb.def, root };
+    const rec: SoftRec = {
+      id: sb.def.id,
+      def: sb.def,
+      root,
+      rest: null,
+      attached: [],
+      released: new Set(sb.released ?? []),
+      volumeFactor: sb.volumeFactor ?? sb.def.volumeFactor,
+      restLen: new Map(),
+    };
+    for (const a of sb.attached ?? []) {
+      const att = sb.def.attachments.find((x) => x.id === a.id);
+      if (att) rec.attached.push({ att, particles: [...a.particles], bodyHandle: a.bodyHandle });
+    }
     s.softs.set(rec.id, rec);
     s.softOrder.push(rec);
   }

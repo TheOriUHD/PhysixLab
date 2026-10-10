@@ -1,6 +1,9 @@
 /** Reusable form controls for the inspector and settings panels. */
+import { captureKey, describeKey } from '../app/input/capture';
 import { h } from './dom';
 import { icon } from './icons';
+// -- UI-A: Simple / Advanced mode --
+import { friendly } from './uiMode';
 
 export interface Field<T> {
   el: HTMLElement;
@@ -365,31 +368,31 @@ export function keyField(o: { value?: string; onChange: (code: string) => void; 
   let code = o.value ?? '';
   const btn = h('button', { class: 'key-btn', type: 'button', title: 'Click, then press a key. Esc clears.' });
   const show = () => {
-    btn.textContent = code ? keyLabel(code) : (o.placeholder ?? 'None');
+    btn.textContent = code ? describeKey(code, keyLabel) : (o.placeholder ?? 'None');
     btn.classList.toggle('empty', !code);
   };
   show();
+  // -- CM-A: capture goes through the InputMap pipeline (keyboard and gamepad buttons) --
   btn.addEventListener('click', () => {
-    btn.textContent = 'Press a key…';
+    btn.textContent = 'Press a key or pad button…';
     btn.classList.add('listening');
-    const onKey = (e: KeyboardEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      code = e.code === 'Escape' ? '' : e.code;
-      cleanup();
-      show();
-      o.onChange(code);
-    };
+    let stop: (() => void) | null = null;
     const cleanup = () => {
       btn.classList.remove('listening');
-      window.removeEventListener('keydown', onKey, true);
+      stop?.();
+      stop = null;
       btn.removeEventListener('blur', onBlur);
     };
     const onBlur = () => {
       cleanup();
       show();
     };
-    window.addEventListener('keydown', onKey, true);
+    stop = captureKey((c) => {
+      code = c;
+      cleanup();
+      show();
+      o.onChange(code);
+    });
     btn.addEventListener('blur', onBlur);
   });
   return {
@@ -429,7 +432,7 @@ export function row(label: string, control: HTMLElement | HTMLElement[], hint?: 
   return h(
     'div',
     { class: 'row' },
-    h('div', { class: 'row-label', title: hint ?? '' }, label),
+    h('div', { class: 'row-label', title: hint ?? '' }, friendly(label)),
     h('div', { class: 'row-control' }, control),
   );
 }
@@ -439,7 +442,7 @@ export function rowStack(label: string, control: HTMLElement | HTMLElement[], hi
   return h(
     'div',
     { class: 'row stack' },
-    h('div', { class: 'row-label', title: hint ?? '' }, label),
+    h('div', { class: 'row-label', title: hint ?? '' }, friendly(label)),
     h('div', { class: 'row-control' }, control),
   );
 }
@@ -464,10 +467,12 @@ export function section(
     'button',
     { class: 'section-head', type: 'button' },
     icon('chevron', 'icon section-caret'),
-    h('span', null, title),
+    h('span', null, friendly(title)),
     opts.badge ? h('span', { class: 'badge' }, opts.badge) : null,
   );
   const el = h('section', { class: `section ${open ? 'open' : ''}` }, head, content);
+  // -- UI-A: Simple mode hides sections by id (src/ui/uiMode.ts) --
+  if (opts.id) el.dataset.sid = opts.id;
   head.addEventListener('click', () => {
     open = !open;
     el.classList.toggle('open', open);

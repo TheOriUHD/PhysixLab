@@ -1,1 +1,11 @@
 /* ED-A: path styles */
+
+.ed-path-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.ed-path-actions .num-input {
+  width: 64px;
+}

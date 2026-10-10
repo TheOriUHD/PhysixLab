@@ -5,6 +5,7 @@
  */
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { ALL_GROUPS } from '../../model/factory';
+import { effectiveMask, type CollisionLayers } from '../../model/collisionLayers';
 import type { BodyEntity, CollisionSpec } from '../../model/types';
 import { rv } from './util';
 
@@ -12,12 +13,16 @@ import { rv } from './util';
  * Rapier interaction groups: membership bit in the high 16 bits, filter in the low 16. Two colliders interact
  * when each one's membership intersects the other's filter.
  */
-export function interactionGroups(c: CollisionSpec): number {
-  return (((1 << c.group) << 16) | (c.mask & ALL_GROUPS)) >>> 0;
+export function interactionGroups(c: CollisionSpec, layers?: CollisionLayers): number {
+  // -- JT-B: the scene's layer matrix limits the filter --
+  return (((1 << c.group) << 16) | effectiveMask(c, layers)) >>> 0;
 }
 
-/** The ground slab is a member of group 0 and accepts every group. */
-export const GROUND_GROUPS = interactionGroups({ group: 0, mask: ALL_GROUPS });
+/** The ground slab is a member of group 0 and accepts every group (the scene matrix still applies to layer 0). */
+export function groundGroups(layers?: CollisionLayers): number {
+  return interactionGroups({ group: 0, mask: ALL_GROUPS }, layers);
+}
+export const GROUND_GROUPS = groundGroups();
 
 /** True when the body overrides what the shape's density would give. */
 export function hasMassOverride(def: BodyEntity): boolean {

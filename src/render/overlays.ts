@@ -31,6 +31,8 @@ export interface OverlayOptions {
   contacts: boolean;
   com: boolean;
   trails: TrailMode;
+  // -- JT-B: colour joints by the load they carry --
+  stress: boolean;
 }
 
 export const DEFAULT_OVERLAYS: OverlayOptions = {
@@ -39,6 +41,7 @@ export const DEFAULT_OVERLAYS: OverlayOptions = {
   contacts: false,
   com: false,
   trails: 'off',
+  stress: false,
 };
 
 const TRAIL_LEN = 320;

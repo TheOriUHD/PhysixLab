@@ -18,6 +18,7 @@ import '../components'; // registers the built-in component runtimes
 import { ComponentHost } from '../components/host';
 import { dispatchCustom } from '../custom';
 import '../diagnostics'; // registers the built-in `diagnostics` custom channel
+import '../timelineChannel'; // -- TM: registers the `timeline` custom channel (rewind, replay, ghosts, determinism) --
 import type {
   BuiltInfo,
   ComponentStateEntry,
@@ -44,8 +45,12 @@ import { applySettings } from './settings';
 import { addSoft, readSoft } from './soft';
 import { WorldState, type BodyRec, type JointRec } from './state';
 import { advance, alpha, fixedDt, stepManual, stepOnce } from './stepping';
+import type { Recorder } from './recorder';
+import { stashTrack } from './track';
+import { installTimeline } from './travel';
 import { builtInfo, getJointRec, getPose, stats } from './stats';
 import { rv } from './util';
+import { newDocument } from '../../model/factory';
 
 export class PhysicsWorld {
   private readonly s: WorldState;
@@ -62,6 +67,7 @@ export class PhysicsWorld {
     this.s = new WorldState(world, worldBody, doc.settings);
     this.s.eventQueue = new RAPIER.EventQueue(true);
     this.s.host = new ComponentHost(this.s);
+    installTimeline(this.s); // -- TM --
     this.s.rng.seed(doc.settings.seed);
     applySettings(this.s, doc.settings, true);
     for (const e of doc.entities) if (e.kind === 'path') this.s.paths.set(e.id, { def: e, curve: pathCurveOf(e) });
@@ -72,6 +78,7 @@ export class PhysicsWorld {
   }
 
   dispose(): void {
+    stashTrack(this.s.recorder.track); // -- TM: the run stays available as a ghost --
     this.s.host.disposeAll();
     this.s.eventQueue.free();
     this.s.world.free();
@@ -155,12 +162,20 @@ export class PhysicsWorld {
 
   // stepping ----------------------------------------------------------------------------------
 
+  /** JT-10: track joint loads even when no joint is breakable. */
+  watchLoads(on: boolean): void {
+    this.s.loads.watch = on;
+  }
   setKeys(keys: Iterable<string>): void {
-    this.s.keys = new Set(keys);
+    const list = [...keys];
+    if (!this.s.recorder.acceptKeys(this.s, list)) return; // -- TM: a replay supplies its own inputs --
+    this.s.keys = new Set(list);
   }
   /** Analog inputs by name (replaces the previous set). */
   setAxes(axes: Record<string, number>): void {
+    if (!this.s.recorder.acceptAxes(this.s, axes)) return; // -- TM --
     this.s.axes = axes;
+    this.s.recorder.onInputs(this.s, this.s.keys, axes); // -- TM: log input changes --
   }
   /** Advance the simulation by exactly one fixed step. */
   stepOnce(): void {
@@ -228,6 +243,26 @@ export class PhysicsWorld {
   restore(snapshot: WorldSnapshot): void {
     restoreSnapshot(this.s, snapshot);
   }
+  // time travel (package TM) -----------------------------------------------------------------
+
+  /** The recorder: snapshot ring, input log, recording and replay state. */
+  get recorder(): Recorder {
+    return this.s.recorder;
+  }
+  /** The raw world state, for the timeline channel and the determinism tools. */
+  get state(): WorldState {
+    return this.s;
+  }
+  /** An independent world in the same state as this one (a snapshot restored into a fresh world). */
+  clone(): PhysicsWorld {
+    const doc = newDocument('clone');
+    doc.settings = { ...this.s.settings };
+    const w = new PhysicsWorld(doc);
+    w.restore(this.snapshot());
+    w.s.recorder.enabled = false; // scratch worlds do not keep history
+    return w;
+  }
+
   /** Run the handler of a custom channel; returns its replies. */
   custom(channel: string, data: unknown): { channel: string; data: unknown }[] {
     return dispatchCustom(this, channel, data);
@@ -277,7 +312,7 @@ export class PhysicsWorld {
   getPose(id: string): { position: Vec3; rotation: Quat; linvel: Vec3; angvel: Vec3 } | null {
     return getPose(this.s, id);
   }
-  getJointRec(id: string): { value: number; speed: number; force: number; broken: boolean } | null {
+  getJointRec(id: string): ReturnType<typeof getJointRec> {
     return getJointRec(this.s, id);
   }
 }

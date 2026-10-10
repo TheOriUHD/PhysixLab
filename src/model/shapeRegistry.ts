@@ -62,7 +62,8 @@ export const SHAPE_CATEGORY_LABELS: Record<ShapeCategory, string> = {
   special: 'Special',
 };
 
-export type ParamKind = 'int' | 'float' | 'bool' | 'enum';
+// -- ED-B: 'text' kind (string payloads such as the chunk's point list) --
+export type ParamKind = 'int' | 'float' | 'bool' | 'enum' | 'text';
 
 /** One entry of a shape's parameter schema. */
 export interface ParamDef {
@@ -78,6 +79,11 @@ export interface ParamDef {
   /** enum only: the allowed values. */
   options?: readonly { value: string; label: string }[];
   hint?: string;
+  // -- ED-B: text params --
+  /** text only: longest accepted string (longer input is cut). */
+  maxLength?: number;
+  /** Stored and sanitised like any parameter, but the inspector shows no field for it. */
+  hidden?: boolean;
 }
 
 /** A labelled size axis the inspector edits for this shape. */
@@ -92,6 +98,39 @@ export interface ShapeCollider {
   desc: RAPIER.ColliderDesc;
   localPos: Vec3;
   localRot: Quat;
+}
+
+// -- SH: editable derived quantities and painted surfaces (optional parts of a ShapeDef) --
+
+/**
+ * A number the inspector shows and edits that is *derived* from the size and parameters rather than stored — a
+ * gear's module, a rounded box's corner radius in metres. Editing it asks the shape for the size and / or
+ * parameters that realise the value, so it behaves like any other field (undo, live resize, gizmo, saving).
+ */
+export interface QuantityDef {
+  key: string;
+  label: string;
+  unit?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  /** Decimals shown in the field. */
+  digits?: number;
+  hint?: string;
+  /** The current value for a (complete) spec. */
+  get(spec: ShapeSpec): number;
+  /** The size and / or parameters that make `get` return `value`; anything left out stays as it is. */
+  set(spec: ShapeSpec, value: number): { size?: Vec3; params?: Partial<ShapeParams> };
+}
+
+/**
+ * A painted surface: the renderer draws the shape with a texture produced by the painter registered under `painter`
+ * (`src/render/shapeSurface.ts`), e.g. the pips and numbers of a die. The geometry's uvs address the texture.
+ */
+export interface ShapeSurface {
+  painter: string;
+  /** Texture variant for a spec (default: one texture per painter). */
+  variant?(spec: ShapeSpec): string;
 }
 
 export interface ShapeDef {
@@ -129,6 +168,14 @@ export interface ShapeDef {
   visualScale?(spec: ShapeSpec): Vec3;
   /** The geometry the renderer scales by `visualScale` (a unit-size mesh for most shapes). */
   geometry(T: GeometryKit, spec: ShapeSpec): THREE.BufferGeometry;
+
+  // -- SH: optional extras --
+  /** Extra search words for the Add tab ("cog" finds the gear). */
+  keywords?: readonly string[];
+  /** Derived numbers the inspector can edit besides the size and parameters. */
+  quantities?: readonly QuantityDef[];
+  /** A painted texture over the geometry's uvs. */
+  surface?: ShapeSurface;
 }
 
 // ── registry ────────────────────────────────────────────────────────────────────────────────────────
@@ -149,6 +196,12 @@ export function validateShapeDef(def: ShapeDef): void {
   if (def.defaultSize.length !== 3 || !def.defaultSize.every((v) => v > 0))
     throw new Error(`${where} needs a positive default size`);
   if (!def.sizeFields.length) throw new Error(`${where} needs at least one size field`);
+  // -- SH: quantity keys are unique and do not shadow a parameter --
+  const qkeys = new Set<string>(def.params.map((p) => p.key));
+  for (const q of def.quantities ?? []) {
+    if (qkeys.has(q.key)) throw new Error(`${where} declares "${q.key}" twice (parameter or quantity)`);
+    qkeys.add(q.key);
+  }
   const keys = new Set<string>();
   for (const p of def.params) {
     if (keys.has(p.key)) throw new Error(`${where} declares parameter "${p.key}" twice`);
@@ -157,6 +210,8 @@ export function validateShapeDef(def: ShapeDef): void {
       if (!p.options?.length) throw new Error(`${where} parameter "${p.key}" is an enum without options`);
       if (!p.options.some((o) => o.value === p.default))
         throw new Error(`${where} parameter "${p.key}": default is not an option`);
+    } else if (p.kind === 'text') {
+      if (typeof p.default !== 'string') throw new Error(`${where} parameter "${p.key}": default must be a string`);
     } else if (p.kind === 'bool') {
       if (typeof p.default !== 'boolean') throw new Error(`${where} parameter "${p.key}": default must be a boolean`);
     } else {
@@ -204,6 +259,8 @@ export function coerceParam(p: ParamDef, raw: unknown): ParamValue {
       return typeof raw === 'boolean' ? raw : p.default;
     case 'enum':
       return typeof raw === 'string' && p.options?.some((o) => o.value === raw) ? raw : p.default;
+    case 'text':
+      return typeof raw === 'string' ? raw.trim().slice(0, p.maxLength ?? 1000) : p.default;
     case 'int':
       return int(raw, p.default as number, p.min ?? -Infinity, p.max ?? Infinity);
     case 'float':
@@ -273,6 +330,25 @@ export function sanitizeShapeSpec(raw: unknown, report?: LoadReport, owner = 'an
   const spec: ShapeSpec = { type, size: normalizeShapeSize(type, vec3(r.size, def.defaultSize), params) };
   if (params) spec.params = params;
   return spec;
+}
+
+// -- SH: derived quantities --
+
+/** `spec` with its parameters completed and in range (the form quantities and factories expect). */
+export function completeSpec(spec: ShapeSpec): ShapeSpec {
+  return resolved(shapeDef(spec.type), spec);
+}
+
+/** The spec after setting a derived quantity: its new size (normalised) and parameters (coerced). */
+export function applyQuantity(spec: ShapeSpec, q: QuantityDef, value: number): ShapeSpec {
+  const full = completeSpec(spec);
+  const def = shapeDef(spec.type);
+  const patch = q.set(full, value);
+  const params = patch.params ? resolveParams(def, { ...full.params, ...patch.params }) : full.params;
+  const size = normalizeShapeSize(spec.type, patch.size ?? full.size, params, full.size);
+  const out: ShapeSpec = { type: spec.type, size };
+  if (params) out.params = params;
+  return out;
 }
 
 // ── queries (always through the registry, always crash-free) ────────────────────────────────────────

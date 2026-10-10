@@ -25,6 +25,18 @@ import type { JointEntity, JointType } from '../model/types';
 import { J, JOINT_STRIDE } from '../physics/protocol';
 import type { BodyViews } from './bodyViews';
 
+const STRESS_GREEN = new Color('#35d07f');
+const STRESS_AMBER = new Color('#ffc233');
+const STRESS_RED = new Color('#ff3b3b');
+
+/** Green → amber → red for a load ratio 0..1 (clamped); a joint at or beyond its threshold is pure red. */
+export function stressColor(t: number, out: Color): Color {
+  const x = Math.min(1, Math.max(0, t));
+  return x < 0.5
+    ? out.copy(STRESS_GREEN).lerp(STRESS_AMBER, x * 2)
+    : out.copy(STRESS_AMBER).lerp(STRESS_RED, (x - 0.5) * 2);
+}
+
 export const JOINT_COLORS: Record<JointType, string> = {
   fixed: '#ff6b8b',
   hinge: '#ffb347',
@@ -32,6 +44,17 @@ export const JOINT_COLORS: Record<JointType, string> = {
   ball: '#c792ff',
   spring: '#4fd1ff',
   rope: '#d7a86e',
+  // -- JT-A --
+  conetwist: '#b58cff',
+  sixdof: '#7aa2ff',
+  pulley: '#e0b36a',
+  rack: '#7fd6c2',
+  gear: '#ff9f6e',
+  belt: '#c9a37a',
+  universal: '#ffd166',
+  screw: '#8fe388',
+  winch: '#f08fc0',
+  softweld: '#ff8fa8',
 };
 const MOTOR_COLOR = '#19e6c1';
 const SELECTED = '#ffffff';
@@ -65,6 +88,8 @@ class JointView {
   selected = false;
   broken = false;
   scale = 1;
+  /** JT-B: the gizmo currently shows a load colour (so it must be reset when the load goes away). */
+  tinted = false;
   def: JointEntity;
   private colorBase: Color;
 
@@ -166,6 +191,8 @@ class JointView {
         this.root.add(line);
         break;
       }
+      default:
+        break; // -- JT-A: gizmos of the new types are added in jointGizmos.ts --
     }
   }
 
@@ -183,6 +210,18 @@ class JointView {
         m.color.copy(c);
       }
     }
+  }
+
+  /** JT-B: paint the gizmo in a load colour (everything but the motor ring, the limit discs and the ball halo). */
+  tint(c: Color): void {
+    this.tinted = true;
+    for (let i = 0; i < this.mats.length; i++) {
+      const part = this.parts[i];
+      if (part === this.motorRing || part === this.limitDiscs[0] || part === this.limitDiscs[1]) continue;
+      if (this.def.type === 'ball' && i === 1) continue;
+      this.mats[i].color.copy(c);
+    }
+    this.lineMat?.color.copy(c);
   }
 
   dispose(): void {
@@ -205,6 +244,9 @@ export class JointViews {
   readonly views = new Map<string, JointView>();
   private res = { w: 1, h: 1 };
   visible = true;
+  /** JT-B: colour joints by the load they carry (the "Joint stress" overlay). */
+  stressOverlay = false;
+  private stressColor = new Color();
 
   constructor(
     readonly group: Group,
@@ -307,6 +349,14 @@ export class JointViews {
     indexOf: (id: string) => number | undefined,
     broken: Set<string>,
   ): void {
+    // -- JT-B: the highest load in the scene, the reference for joints without a break threshold --
+    let maxLoad = 0;
+    if (state && this.stressOverlay) {
+      for (const v of this.views.values()) {
+        const i = indexOf(v.def.id);
+        if (i !== undefined) maxLoad = Math.max(maxLoad, state[i * JOINT_STRIDE + J.load]);
+      }
+    }
     for (const v of this.views.values()) {
       const def = v.def;
       const isBroken = broken.has(def.id);
@@ -378,6 +428,21 @@ export class JointViews {
         }
         v.lineMat!.color.copy(col);
         for (const m of v.mats) m.color.copy(col);
+      }
+      // -- JT-B: load-ratio colouring (a joint with a break threshold always shows it; the overlay adds the rest) --
+      if (v.def.type !== 'spring') {
+        const idx = state ? indexOf(def.id) : undefined;
+        let t = 0;
+        if (state && idx !== undefined) {
+          const ratio = state[idx * JOINT_STRIDE + J.ratio];
+          const load = state[idx * JOINT_STRIDE + J.load];
+          t = ratio > 0 ? ratio : this.stressOverlay && maxLoad > 0 ? load / maxLoad : 0;
+        }
+        if (t > 0.02) v.tint(stressColor(t, this.stressColor));
+        else if (v.tinted) {
+          v.tinted = false;
+          v.setColor();
+        }
       }
     }
   }

@@ -5,14 +5,20 @@
  * glance.
  */
 import type { BufferGeometry, Group, Object3D } from 'three';
-import { Color, Group as ThreeGroup, Mesh, MeshPhysicalMaterial, SRGBColorSpace, Vector3 } from 'three';
+import { Color, Group as ThreeGroup, Mesh, MeshPhysicalMaterial, Quaternion, SRGBColorSpace, Vector3 } from 'three';
 import { applyMaterialSpec, disposeMaterialTextures } from './materialBuild';
 import { isCompound, partMaterial } from '../model/compound';
-import { shapeGeometry, shapeGeometryKey, shapeVisualScale } from '../model/shapeRegistry';
+import { shapeDef, shapeGeometry, shapeGeometryKey, shapeVisualScale } from '../model/shapeRegistry';
 import type { BodyEntity, ColliderPart, MaterialSpec, ShapeSpec } from '../model/types';
 import { B, BODY_STRIDE } from '../physics/protocol';
 import { GEOMETRY_KIT } from './geometryKit';
+import { damageKindOf } from './damage';
+import { patchDamage, type DamageHandle } from './damageShader';
+import { getSkin } from './skins/registry';
+import type { SkinBodyPose, SkinFrame, SkinInstance } from './skins/types';
+import './skins';
 import { DISSOLVE_BELOW, InstancePool, MIN_POOL, type PoolMember } from './instancing';
+import { applyShapeSurface } from './shapeSurface';
 
 export type ColorMode = 'material' | 'type' | 'speed' | 'energy' | 'force' | 'sleep';
 
@@ -75,7 +81,7 @@ interface Piece {
   baseEmissive: string;
 }
 
-export class BodyView implements PoolMember {
+export class BodyView implements PoolMember, SkinBodyPose {
   /**
    * Carries the pose: the body's own Mesh, or a Group of part meshes for a compound body. Anything that
    * moves, hides or measures a body uses this; picking and tinting use `pieces`.
@@ -99,8 +105,26 @@ export class BodyView implements PoolMember {
   /** Highlighted (selected / hovered): drawn through its own mesh even though a pool exists. */
   promoted = false;
   poolVisible = true;
+  /** World velocity of the body (m/s), read by the motion-blur velocity pass through `mesh.userData.vel`. */
+  readonly vel = new Vector3();
+  /** Accumulated impact damage 0..1 (VZ-41). */
+  damage = 0;
+  /** Visual skin (VZ-42) drawn in place of the shape, or null. */
+  skin: SkinInstance | null = null;
   get id(): string {
     return this.def.id;
+  }
+  /** Drive the crack / scorch shader of every piece (instanced bodies read `damage` through the pool). */
+  setDamage(d: number): void {
+    if (d === this.damage) return;
+    this.damage = d;
+    for (const p of this.pieces) {
+      const h = (p.material.userData as { damage?: DamageHandle }).damage;
+      if (h) h.uniforms.uDamage.value = d;
+    }
+  }
+  get quaternion() {
+    return this.mesh.quaternion;
   }
 
   constructor(
@@ -127,17 +151,47 @@ export class BodyView implements PoolMember {
     this.applyMaterial(def);
     this.applyShape(def);
     this.setPoseFromDef(def);
+    this.applySkin(def);
+  }
+
+  /** (Re)build the visual skin from `def.skin`; the shape's own mesh stays as the (invisible) pick / outline proxy. */
+  applySkin(def: BodyEntity): void {
+    if (this.skin) {
+      this.first.mesh.remove(this.skin.root);
+      this.skin.dispose();
+      this.skin = null;
+    }
+    if (this.compound || !def.skin) {
+      if (!this.compound) this.first.material.visible = true;
+      return;
+    }
+    const sd = getSkin(def.skin.id);
+    if (!sd || (sd.shapes && !sd.shapes.includes(def.shape.type))) {
+      this.first.material.visible = true;
+      return;
+    }
+    const size = shapeVisualScale(def.shape);
+    this.skin = sd.build(size, def.skin, def);
+    // The pose carrier is scaled by the shape size; the skin is authored in metres, so undo that scale.
+    const k = this.first.mesh.scale;
+    this.skin.root.scale.set(1 / (k.x || 1), 1 / (k.y || 1), 1 / (k.z || 1));
+    this.skin.root.traverse((o) => (o.userData.vel = this.vel));
+    this.first.mesh.add(this.skin.root);
+    this.first.material.visible = false;
   }
 
   private makePiece(shape: ShapeSpec, part: ColliderPart | null): Piece {
     const { key, geo } = this.cache.acquire(shape);
     const material = new MeshPhysicalMaterial();
     const mesh = new Mesh(geo, material);
+    applyShapeSurface(material, geo, shape); // -- SH: vertex-coloured tyres, painted dice
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.userData.entityId = this.def.id;
     const s = shapeVisualScale(shape);
     mesh.scale.set(s[0], s[1], s[2]);
+    mesh.userData.vel = this.vel;
+    patchDamage(material, damageKindOf(this.def.material), false);
     const piece: Piece = {
       mesh,
       material,
@@ -166,6 +220,7 @@ export class BodyView implements PoolMember {
       piece.geoKey = key;
       piece.mesh.geometry = geo;
     }
+    applyShapeSurface(piece.material, piece.mesh.geometry, def.shape); // -- SH: the new shape's surface
     const s = shapeVisualScale(def.shape);
     piece.mesh.scale.set(s[0], s[1], s[2]);
     this.scale = [s[0], s[1], s[2]];
@@ -178,6 +233,7 @@ export class BodyView implements PoolMember {
       piece.baseColor = m.texture && m.texture.pattern !== 'image' ? '#ffffff' : m.color;
       applyMaterialSpec(piece.material, m, def.ghost || !!piece.part?.sensor); // -- VZ-A --
       piece.baseEmissive = `#${piece.material.emissive.getHexString()}`;
+      patchDamage(piece.material, damageKindOf(m), false);
     }
     this.mesh.visible = !def.hidden;
   }
@@ -190,6 +246,7 @@ export class BodyView implements PoolMember {
 
   /** Free GPU resources: the materials and this view's share of the cached geometries. */
   dispose(): void {
+    this.skin?.dispose();
     for (const piece of this.pieces) {
       disposeMaterialTextures(piece.material);
       piece.material.dispose();
@@ -228,8 +285,20 @@ export class BodyViews {
   private candidates = new Map<string, Set<BodyView>>();
   private colorCache = new Map<string, Color>();
   private instancingOn = true;
+  // -- VZ-B: skins (VZ-42) --
+  private tagIndex = new Map<string, SkinBodyPose[]>();
+  private skinFrame: SkinFrame = {
+    dt: 0,
+    position: new Vector3(),
+    quaternion: new Quaternion(),
+    keys: new Set<string>(),
+    simulating: false,
+    bodiesWithTag: (tag) => this.bodiesWithTag(tag),
+  };
   mode: ColorMode = 'material';
   hoverId: string | null = null;
+  /** Bodies outlined as linked to the selection (VZ-40): drawn through their own mesh like selected ones. */
+  readonly linkedIds = new Set<string>();
   /** Auto-ranging scale for the analytic colour modes. */
   private scaleMax: Record<string, number> = { speed: 3, energy: 50, force: 100 };
 
@@ -243,6 +312,7 @@ export class BodyViews {
     this.remove(def.id);
     const v = new BodyView(def, this.cache);
     this.views.set(def.id, v);
+    this.tagIndex.clear();
     this.group.add(v.mesh);
     this.register(v);
     return v;
@@ -255,6 +325,7 @@ export class BodyViews {
     this.group.remove(v.mesh);
     v.dispose();
     this.views.delete(id);
+    this.tagIndex.clear();
   }
 
   // -- VZ-B: instanced rendering (VZ-30) --
@@ -281,7 +352,9 @@ export class BodyViews {
   }
 
   private instKeyOf(v: BodyView): string | null {
-    if (!this.instancingOn || v.compound) return null;
+    if (!this.instancingOn || v.compound || v.def.skin) return null;
+    // -- SH: a painted surface (dice) is an ink-mask map with its own shader, which a pooled clone of the material would lose
+    if (shapeDef(v.def.shape.type).surface) return null;
     const { color: _color, ...rest } = v.def.material;
     void _color;
     // -- VZ-A: a procedural pattern bakes the material colour into its texture --
@@ -301,6 +374,8 @@ export class BodyViews {
       const leader = set.values().next().value as BodyView;
       const { key: geoKey, geo } = this.cache.acquire(leader.def.shape);
       const mat = leader.pieces[0].material.clone();
+      delete (mat.userData as { damage?: DamageHandle }).damage; // the clone's shader patch is its own
+      patchDamage(mat, damageKindOf(leader.def.material), true);
       mat.color.setRGB(1, 1, 1);
       mat.emissive.setRGB(0, 0, 0);
       pool = new InstancePool(key, geo, mat, this.group);
@@ -337,6 +412,30 @@ export class BodyViews {
       this.pools.delete(key);
       this.cache.release(this.poolGeo.get(key)!);
       this.poolGeo.delete(key);
+    }
+  }
+
+  private bodiesWithTag(tag: string): readonly SkinBodyPose[] {
+    let list = this.tagIndex.get(tag);
+    if (!list) {
+      list = [];
+      for (const v of this.views.values()) if (v.def.tags.includes(tag)) list.push(v);
+      this.tagIndex.set(tag, list);
+    }
+    return list;
+  }
+
+  /** Per frame: let every skinned body update its model (wheel travel, lights …). */
+  updateSkins(dt: number, keys: ReadonlySet<string>, simulating: boolean): void {
+    const f = this.skinFrame;
+    f.dt = dt;
+    f.keys = keys;
+    f.simulating = simulating;
+    for (const v of this.views.values()) {
+      if (!v.skin) continue;
+      f.position = v.mesh.position;
+      f.quaternion = v.mesh.quaternion;
+      v.skin.update(f);
     }
   }
 
@@ -398,12 +497,37 @@ export class BodyViews {
       return true;
     }
     v.def = def;
-    const regroup = old.shape !== def.shape || old.material !== def.material || old.ghost !== def.ghost;
+    const regroup =
+      old.shape !== def.shape || old.material !== def.material || old.ghost !== def.ghost || old.skin !== def.skin;
     if (regroup) this.unregister(v);
     if (old.shape !== def.shape) v.applyShape(def);
     if (old.material !== def.material || old.hidden !== def.hidden || old.ghost !== def.ghost) v.applyMaterial(def);
+    if (old.shape !== def.shape || old.skin !== def.skin) v.applySkin(def);
+    if (old.tags !== def.tags) this.tagIndex.clear();
     if (regroup) this.register(v);
     return false;
+  }
+
+  /** Meshes glossy or metallic enough to show screen-space reflections (VZ-20). */
+  reflectiveMeshes(): Mesh[] {
+    const out: Mesh[] = [];
+    const glossy = (m: unknown): boolean => {
+      const sm = m as { roughness?: number; metalness?: number; visible?: boolean };
+      return sm.visible !== false && ((sm.roughness ?? 1) <= 0.5 || (sm.metalness ?? 0) >= 0.4);
+    };
+    for (const p of this.pools.values()) if (glossy(p.material)) out.push(p.mesh);
+    for (const v of this.views.values()) {
+      if (!this.shown(v)) continue;
+      if (v.skin) {
+        v.skin.root.traverse((o) => {
+          const m = o as Mesh;
+          if (m.isMesh && !Array.isArray(m.material) && glossy(m.material)) out.push(m);
+        });
+      } else if (!v.pool || v.promoted) {
+        for (const p of v.pieces) if (glossy(p.material)) out.push(p.mesh);
+      }
+    }
+    return out;
   }
 
   /** Every mesh a click can hit (all parts of compound bodies), skipping hidden and fallen bodies. */
@@ -425,12 +549,14 @@ export class BodyViews {
     v.mesh.position.set(poses[o + B.px], poses[o + B.py], poses[o + B.pz]);
     v.mesh.quaternion.set(poses[o + B.qx], poses[o + B.qy], poses[o + B.qz], poses[o + B.qw]);
     v.position.copy(v.mesh.position);
+    v.vel.set(poses[o + B.vx], poses[o + B.vy], poses[o + B.vz]);
     v.state = poses[o + B.state];
     v.mesh.visible = !v.def.hidden && v.state !== 2;
   }
 
   resetStates(): void {
     for (const v of this.views.values()) {
+      v.vel.set(0, 0, 0);
       v.state = 0;
       v.mesh.visible = !v.def.hidden;
     }
@@ -462,7 +588,7 @@ export class BodyViews {
     for (const v of this.views.values()) {
       const d = v.def;
       const sel = selected.has(d.id);
-      if (v.pool) v.promoted = sel || d.id === this.hoverId;
+      if (v.pool) v.promoted = sel || d.id === this.hoverId || this.linkedIds.has(d.id);
       // Colour the whole body for the analytic modes; in 'material' mode each part keeps its own colour.
       let flat: string | null = null;
       const heat = this.tmpColor;

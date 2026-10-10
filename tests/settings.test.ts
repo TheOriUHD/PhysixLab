@@ -40,7 +40,7 @@ describe('v2 scene settings', () => {
         fog: { ...doc.settings.environment.fog, enabled: true, color: '#aabbcc', density: 0.2 },
         exposure: 1.4,
       },
-      bounds: { enabled: true, min: [-10, -5, -10], max: [10, 50, 10], policy: 'respawn' },
+      bounds: { ...doc.settings.bounds, enabled: true, min: [-10, -5, -10], max: [10, 50, 10], policy: 'respawn' },
       units: { length: 'ft', mass: 'lb', angle: 'rad' },
     };
     expect(parseDocument(serializeDocument(doc)).settings).toEqual(doc.settings);

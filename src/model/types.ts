@@ -5,7 +5,11 @@
  * JSON-serializable data. The physics worker builds a Rapier world from it, the renderer
  * mirrors it, and the UI edits it through SceneStore (which keeps it immutable + undoable).
  */
+import type { CollisionLayers } from './collisionLayers';
+import type { JointParams } from './jointParams';
 import type { Quat, Vec3 } from '../core/math';
+// -- ED-A array: the stored definition of a linked array --
+import type { ArrayDef } from './edit/arraySpec';
 
 export type { Quat, Vec3 };
 
@@ -108,7 +112,26 @@ export interface ThrustSpec {
   key: string;
 }
 
-export interface BodyEntity {
+/** A visual skin on a body: the registry id of a skin (`render/skins/registry.ts`) and its parameters. */
+export interface SkinSpec {
+  id: string;
+  params?: Record<string, number | string | boolean>;
+}
+
+// -- UI-A: outliner organisation fields shared by every entity kind (UI-20/UI-21) --
+export interface OutlinerMeta {
+  /** Colour tag key (see `TAG_COLORS` in `model/outlinerMeta.ts`). Editor-only. */
+  colorTag?: string;
+  /** Free-form labels (bodies always carry the list; other kinds only when tagged). */
+  tags?: string[];
+  /** Soloed in the outliner: everything unrelated to the soloed entities is hidden (and marked `soloHid`). */
+  solo?: boolean;
+  /** Hidden *by* a solo (so that clearing the solo shows exactly these again). */
+  soloHid?: boolean;
+}
+// -- end UI-A --
+
+export interface BodyEntity extends OutlinerMeta {
   kind: 'body';
   id: string;
   name: string;
@@ -149,12 +172,21 @@ export interface BodyEntity {
   inertiaScale: number;
   /** Speed (m/s) below which the body may fall asleep. Unset = the engine's default. */
   sleepThreshold?: number;
+  /**
+   * JT-31: one-way platform. The direction (in the body's local frame) of the solid side: other bodies collide only
+   * when they are on that side and not moving away from it, and pass through otherwise. Absent = a normal solid.
+   */
+  oneWay?: Vec3;
   /** Free-form labels for later features (zones, scripts, selection sets). */
   tags: string[];
   /** Named layer for editor visibility / selection filters. */
   layer: string;
   /** Id of the entity this one is grouped under. */
   parent?: string;
+
+  // -- VZ-B: visual skin (VZ-42) --
+  /** Render-only model drawn in place of the body's own shape (src/render/skins); the physics is unaffected. */
+  skin?: SkinSpec;
 
   // ── FB-3: compound bodies ──────────────────────────────────────────────────────────────────────
   /**
@@ -226,7 +258,24 @@ export interface DragSpec {
   angular2: number;
 }
 
-export type JointType = 'fixed' | 'hinge' | 'slider' | 'ball' | 'spring' | 'rope';
+export type JointType =
+  | 'fixed'
+  | 'hinge'
+  | 'slider'
+  | 'ball'
+  | 'spring'
+  | 'rope'
+  // -- JT-A: new joint types --
+  | 'conetwist'
+  | 'sixdof'
+  | 'pulley'
+  | 'rack'
+  | 'gear'
+  | 'belt'
+  | 'universal'
+  | 'screw'
+  | 'winch'
+  | 'softweld';
 
 export type MotorMode = 'off' | 'velocity' | 'position';
 
@@ -245,6 +294,9 @@ export interface MotorSpec {
   /** KeyboardEvent.code that drives the motor in the + / − direction. Empty = none. */
   keyPos: string;
   keyNeg: string;
+  // -- CM-A: analog input --
+  /** Name of an analog input axis (−1 … 1: gamepad, touch stick, ramped keys) added to the key input. Empty = none. */
+  axis?: string;
   /** Position mode with keys: how quickly the target slews (units / s). */
   slewRate: number;
   /** Velocity mode with keys: hold the joint (brake) when no key is down. */
@@ -268,7 +320,26 @@ export interface SpringSpec {
   breakForce: number;
 }
 
-export interface JointEntity {
+/**
+ * JT-11: when a joint fails. The thresholds apply to the force / torque the joint transmits (estimated by the
+ * engine, see `src/physics/world/jointLoad.ts`); 0 = that component never breaks the joint. Springs keep their
+ * own `spring.breakForce`. `fatigue` makes overload cumulative instead of instantaneous.
+ */
+export interface BreakSpec {
+  /** Newtons. */
+  force: number;
+  /** N·m (ignored by joints that transmit no torque, e.g. ball and rope). */
+  torque: number;
+  fatigue: {
+    enabled: boolean;
+    /** Load ratio (load / threshold, 0..1) above which damage accumulates. */
+    start: number;
+    /** Seconds the joint survives at exactly its threshold once fatigue is accumulating at the full rate. */
+    life: number;
+  };
+}
+
+export interface JointEntity extends OutlinerMeta {
   kind: 'joint';
   id: string;
   name: string;
@@ -290,19 +361,42 @@ export interface JointEntity {
   ropeLength: number;
   /** Collide the two connected bodies with each other. */
   collideConnected: boolean;
+  // -- JT-A: settings of the cone-twist / 6-DOF / pulley / rack / gear / belt / screw / winch / soft weld types --
+  params: JointParams;
   hidden: boolean;
   /** Behaviours attached to the joint (FB-7); same mechanism as `BodyEntity.components`. */
   components: ComponentSpec[];
+  // -- JT-B: breakage thresholds (absent = unbreakable) --
+  breakage?: BreakSpec;
 }
 
 /**
  * Deformable bodies (engine soft-body solver): jelly lattices, balloons, cloth and cables.
  * Particles live in the physics worker; the document only stores the recipe.
  */
-export type SoftType = 'jelly' | 'balloon' | 'cloth' | 'cable';
+export type SoftType = 'jelly' | 'balloon' | 'cloth' | 'cable' | 'mesh' | 'tyre';
 export type SoftPin = 'none' | 'edge' | 'corners' | 'corners4' | 'one-end' | 'ends';
 
-export interface SoftEntity {
+// -- SF: attachments, pressure, material model, volumetric meshes, tyres --
+/**
+ * A soft body fastened to a rigid body (SF-1). The particles inside `radius` of `center` (soft-body local rest frame)
+ * are rigidly attached to `body` at the stored body-local `offset` of `center`; they follow the body (rotation
+ * included), drag it back when pulled, and are released when `joint` breaks or the body is removed.
+ */
+export interface SoftAttachment {
+  id: string;
+  body: string;
+  /** `region`: particles within `radius` of `center`; `rim`: the inner rim ring of a tyre (hub fastening). */
+  kind: 'region' | 'rim';
+  center: Vec3;
+  radius: number;
+  /** Body-local position of `center`. */
+  offset: Vec3;
+  /** Optional joint whose failure releases the attachment ("release on break"). */
+  joint?: string;
+}
+
+export interface SoftEntity extends OutlinerMeta {
   kind: 'soft';
   id: string;
   name: string;
@@ -335,6 +429,29 @@ export interface SoftEntity {
   hidden: boolean;
   /** Id of the group (or other entity) this one is grouped under (FB-6). */
   parent?: string;
+  // -- SF --
+  /** Rigid-body fastenings (SF-1); particle sets are resolved from the rest lattice when the body is built. */
+  attachments: SoftAttachment[];
+  /** Target volume relative to the rest volume (pressure of balloons / tyres); 1 = unpressurised. */
+  volumeFactor: number;
+  /** Keep the enclosed volume (balloon, pneumatic tyre) — on for shells, off for plain lattices. */
+  volumePreserve: boolean;
+  /** Air escaping through a puncture: the volume factor decays at this rate (1/s). 0 = airtight. */
+  leakRate: number;
+  /** Poisson ratio of the material (0 – 0.49). */
+  poisson: number;
+  /** Permanent set: strain beyond which the material stays deformed (0 = purely elastic). */
+  plasticYield: number;
+  /** Surface friction of the particles' contact skin (SF-6). */
+  friction: number;
+  /** Collision radius override in metres (0 = automatic) (SF-6). */
+  particleRadius: number;
+  /** `mesh`: the shape this volumetric jelly is built from. */
+  shape: ShapeSpec;
+  /** `mesh`: volumetric cell size in metres (smaller = more particles). */
+  cell: number;
+  /** `tyre`: true = pneumatic (pressurised shell), false = airless (solid lattice). */
+  pneumatic: boolean;
 }
 
 // ── FB-6: group / light / path entities ────────────────────────────────────────────────────────────────
@@ -344,7 +461,7 @@ export interface SoftEntity {
  * *world* pose; the group's `position` / `rotation` is the pivot that moving the group (`SceneStore.transformGroup`)
  * carries every descendant about. A group has no physics of its own — it exists only in the document and the editor.
  */
-export interface GroupEntity {
+export interface GroupEntity extends OutlinerMeta {
   kind: 'group';
   id: string;
   name: string;
@@ -354,6 +471,8 @@ export interface GroupEntity {
   locked: boolean;
   hidden: boolean;
   parent?: string;
+  // -- ED-A array: present when this group holds the instances of a linked (re-editable) array --
+  array?: ArrayDef;
 }
 
 export type LightType = 'point' | 'spot' | 'directional' | 'area';
@@ -373,7 +492,7 @@ export interface LightFlicker {
   speed: number;
 }
 
-export interface LightEntity {
+export interface LightEntity extends OutlinerMeta {
   kind: 'light';
   id: string;
   name: string;
@@ -405,7 +524,7 @@ export interface LightEntity {
  * cameras and anything else that follows a route. Points are in the path's own frame; `position` / `rotation` place
  * that frame in the world.
  */
-export interface PathEntity {
+export interface PathEntity extends OutlinerMeta {
   kind: 'path';
   id: string;
   name: string;
@@ -462,6 +581,41 @@ export interface SceneSettings {
   bounds: BoundsSettings;
   /** Display units — storage only (the engine always works in m, kg, s, rad). */
   units: UnitsSettings;
+  // -- JT-B: named collision layers + matrix (absent = every layer collides with every layer) and a steady wind --
+  layers?: CollisionLayers;
+  /** Wind velocity (m/s, world frame). Quadratic drag acts on the velocity relative to it. Absent = still air. */
+  wind?: Vec3;
+
+  // -- UI-A: named selection sets (UI-21) --
+  /** Named groups of entity ids the outliner saves and recalls. */
+  selectionSets: SelectionSet[];
+  // -- VZ-B: weather --
+  /** Per-scene weather (VZ-23). Absent = clear. */
+  weather?: WeatherSettings;
+}
+
+/** A named, saved selection (UI-21). Ids of removed entities are skipped when it is recalled. */
+export interface SelectionSet {
+  name: string;
+  ids: string[];
+}
+
+// -- VZ-B: weather --
+export type WeatherKind = 'none' | 'rain' | 'snow' | 'leaves' | 'dust';
+
+/** Weather of a scene: GPU particles, the wind they (and the effects package) feel, wet surfaces, lightning. */
+export interface WeatherSettings {
+  kind: WeatherKind;
+  /** 0–1: scales the particle count (and the lightning rate). */
+  intensity: number;
+  /** Random lightning flashes (a brief screen flash; gentler with "reduce motion"). */
+  lightning: boolean;
+  /** 0–1: how wet the surfaces look (roughness down, darker ground). Rain wets at least as much as its intensity. */
+  wet: number;
+  /** Wind speed, m/s (0–40). The one scene wind: weather particles and the effects package both drift with it. */
+  windSpeed: number;
+  /** Direction the wind blows towards, degrees clockwise from −Z (0 = −Z, 90 = +X). */
+  windDir: number;
 }
 
 export type SkyPreset =
@@ -539,6 +693,54 @@ export interface BoundsSettings {
   max: Vec3;
   /** 'kill' switches a body that leaves the box off; 'respawn' returns it to its starting pose. */
   policy: BoundsPolicy;
+  // ── ZN-34: what each face of the box does, soft walls, the respawn policy ──
+  /** What happens at each face of the box (default: every face kills, as a plain kill box). */
+  edges: BoundsEdges;
+  /** The spring wall of 'soft' faces. */
+  soft: BoundsSoftWall;
+  /** Used when `policy` is 'respawn'. */
+  respawn: BoundsRespawn;
+}
+
+/**
+ * What a face of the bounds box does to a dynamic body whose centre goes past it:
+ *  - `open`   nothing (the world just continues; bodies are still switched off 400 m below the origin);
+ *  - `kill`   the body is lost (removed, or respawned, by the policy) — a kill wall, or with the bottom face a kill plane;
+ *  - `soft`   an invisible spring wall pushes the body back before it gets there (never kills);
+ *  - `water`  like `kill`, reported as drowned and drawn as a sea (the bottom face is the one it is made for).
+ */
+export type BoundsEdge = 'open' | 'kill' | 'soft' | 'water';
+export interface BoundsEdges {
+  /** −x, +x, −y (the floor), +y (the ceiling), −z, +z. */
+  nx: BoundsEdge;
+  px: BoundsEdge;
+  ny: BoundsEdge;
+  py: BoundsEdge;
+  nz: BoundsEdge;
+  pz: BoundsEdge;
+}
+/** Soft wall: starts `margin` metres inside the face and pushes with an acceleration `stiffness`·depth, damped outward. */
+export interface BoundsSoftWall {
+  /** Thickness of the wall, metres. */
+  margin: number;
+  /** Spring constant as an acceleration per metre of depth, 1/s². */
+  stiffness: number;
+  /** Damping of the outward velocity, 1/s. */
+  damping: number;
+}
+export interface BoundsRespawn {
+  /** Where the body comes back: its starting pose, or the last checkpoint / respawn point it passed (else the start). */
+  to: 'start' | 'checkpoint';
+  /** Seconds the body is out of the world before it returns. */
+  delay: number;
+  /** Seconds added to the racer's times for every respawn. */
+  penaltySeconds: number;
+  /** Points taken off the score for every respawn. */
+  penaltyPoints: number;
+  /** Respawns allowed per body (or group) before it is removed for good (0 = unlimited). */
+  max: number;
+  /** Bodies that share a group (a vehicle) are lost and respawned together. */
+  wholeGroups: boolean;
 }
 
 export type LengthUnit = 'm' | 'cm' | 'ft' | 'in';
@@ -649,6 +851,8 @@ export interface SceneDocument {
   entities: Entity[];
   /** Binary payloads referenced by entities (see the asset store section above). */
   assets: Record<string, Asset>;
+  /** -- CM-A: bookmarks, shots and view setups; absent in files from before the camera package. -- */
+  cameras?: SceneCameras;
 }
 
 export const isBody = (e: Entity | undefined | null): e is BodyEntity => !!e && e.kind === 'body';
@@ -661,3 +865,79 @@ export const isPath = (e: Entity | undefined | null): e is PathEntity => !!e && 
 export const isPosed = (e: Entity | undefined | null): e is PosedEntity => !!e && e.kind !== 'joint';
 /** The id of the entity this one is grouped under, if any (joints are never grouped). */
 export const parentOf = (e: Entity): string | undefined => (e.kind === 'joint' ? undefined : e.parent);
+
+// ── CM-A: saved cameras (bookmarks, cinematic shots, split / picture-in-picture setups) ───────────────────────
+/** A named view: where the camera is and what it looks at, with a tiny thumbnail (a data URL, ≤ 24 kB). */
+export interface CameraBookmark {
+  id: string;
+  name: string;
+  position: Vec3;
+  target: Vec3;
+  fov: number;
+  ortho: boolean;
+  /** Visible height in metres of an orthographic view. */
+  orthoSize: number;
+  thumb?: string;
+}
+
+export type ShotEase = 'linear' | 'in' | 'out' | 'inOut';
+
+/** A keyframe of a cinematic shot: at time `t` seconds the camera is at fraction `u` (0…1 of the path) with this lens. */
+export interface ShotKey {
+  t: number;
+  u: number;
+  fov: number;
+  /** Easing of the motion from this key to the next. */
+  ease: ShotEase;
+}
+
+/** A camera on a rail: the path entity is the spline, the keys time the flight along it. */
+export interface CameraShot {
+  id: string;
+  name: string;
+  pathId: string;
+  duration: number;
+  loop: boolean;
+  keys: ShotKey[];
+  /** What the camera looks at: along the path, at a body (tracked) or at a fixed point. */
+  look: { mode: 'tangent' | 'body' | 'point'; bodyId: string; point: Vec3 };
+}
+
+/** One secondary view (a split-screen pane or a picture-in-picture window). */
+export interface ViewPane {
+  id: string;
+  /** `chase`: behind the subject; `topdown`: above it; `mount`: fixed on it (dashcam, drone); `bookmark`: a saved view. */
+  mode: 'chase' | 'topdown' | 'mount' | 'bookmark' | 'shot';
+  /** Body id the view follows / is mounted on (null = the first selected body at draw time). */
+  subject: string | null;
+  /** Bookmark or shot id for those modes. */
+  ref: string;
+  fov: number;
+  /** `mount`: offset in the subject's frame (x right, y up, z back) and look direction yaw / pitch in degrees. */
+  offset: Vec3;
+  yaw: number;
+  pitch: number;
+  /** Picture-in-picture window: left / top / width as fractions of the viewport (ignored for split panes). */
+  x: number;
+  y: number;
+  w: number;
+}
+
+export interface MinimapSettings {
+  enabled: boolean;
+  /** Visible half-extent in metres. */
+  range: number;
+  rotate: boolean;
+  /** Window corner. */
+  corner: 'tl' | 'tr' | 'bl' | 'br';
+}
+
+export interface SceneCameras {
+  bookmarks: CameraBookmark[];
+  shots: CameraShot[];
+  /** Number of viewports in the split layout: 1 (none), 2, 3 or 4; the main view is the first. */
+  split: 1 | 2 | 3 | 4;
+  panes: ViewPane[];
+  pips: ViewPane[];
+  minimap: MinimapSettings;
+}

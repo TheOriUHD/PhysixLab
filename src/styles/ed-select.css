@@ -1,1 +1,27 @@
-/* ED-A: select styles */
+/* ED-A: select styles (ED-1: lasso, paint select, Select panel) */
+.viewport-canvas.tool-lasso,
+.viewport-canvas.tool-paintselect { cursor: crosshair; }
+
+.ed-lasso { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 6; pointer-events: none; display: none; }
+.ed-lasso polygon { fill: var(--accent-bg); stroke: none; }
+.ed-lasso polyline { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; stroke-linejoin: round; }
+.ed-lasso[data-mode='subtract'] polyline { stroke: var(--danger); }
+.ed-lasso[data-mode='subtract'] polygon { fill: rgba(255, 90, 90, 0.12); }
+
+.ed-brush-ring { position: absolute; z-index: 6; display: none; pointer-events: none; border-radius: 50%; border: 1.5px solid var(--accent); background: var(--accent-bg); box-sizing: border-box; }
+.ed-brush-ring[data-mode='subtract'] { border-color: var(--danger); background: rgba(255, 90, 90, 0.12); }
+.ed-brush-ring[data-mode='add']::after { content: '+'; position: absolute; inset: 0; display: grid; place-items: center; color: var(--accent); font: 600 14px var(--mono); }
+.ed-brush-ring[data-mode='subtract']::after { content: '\2212'; position: absolute; inset: 0; display: grid; place-items: center; color: var(--danger); font: 600 14px var(--mono); }
+
+.ed-select-panel { padding: 4px 0 12px; }
+.ed-sel-section { padding: 8px 12px 4px; }
+.ed-sel-title { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 4px; }
+.ed-sel-input { width: 100%; min-width: 0; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 5px 8px; outline: none; height: 28px; box-sizing: border-box; }
+.ed-sel-input:focus { border-color: var(--accent); }
+.ed-sel-input.invalid { border-color: var(--danger); }
+.ed-sel-layer, .ed-sel-shape { width: 100%; }
+.ed-sel-count { margin: 8px 0 6px; font: 12px var(--mono); color: var(--text-2); }
+.ed-sel-actions { display: flex; gap: 6px; }
+.ed-sel-actions .btn { flex: 1; justify-content: center; }
+.ed-sel-actions .btn:disabled { opacity: 0.45; pointer-events: none; }
+.ed-sel-note { color: var(--text-3); font-size: 11.5px; margin: 6px 0 0; line-height: 1.45; }

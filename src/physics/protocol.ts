@@ -11,7 +11,10 @@
  *                 approach speed and the materials involved. Off by default (`SimOp 'events'` switches it on);
  *                 aggregated per pair and rate-limited, see `EventConfig`.
  *      `sensor`   a body entered / left a sensor collider (a compound part with `sensor`, or a ghost body). Always on.
- *      `component` a component's own notification (`ctx.emit`).
+ *      `component` a component's own notification (`ctx.emit`). Zones raise them with `type: 'zone'` (enter, exit, stay,
+ *                 checkpoint, lap, finish, kill, respawn, teleport, launch, spawn, sound, score … — names and payloads in
+ *                 `model/zones.ts`), the world bounds with `type: 'bounds'` (kill, respawn); the race standings and the score
+ *                 are published as component state `@zones`.
  *      `jointBroken` a breakable joint failed.
  *  - **Component state**: a component publishes numbers (`ctx.state.set`) or JSON (`ctx.state.setJson`) that the
  *    page reads by component id (`SimClient.stateOf`) — gauges, sensors, readouts. Only changes are sent.
@@ -56,16 +59,25 @@ export const B = {
 } as const;
 
 /** Floats per joint in the joint-state buffer. */
-export const JOINT_STRIDE = 4;
+export const JOINT_STRIDE = 9;
 export const J = {
   value: 0, // hinge: angle (rad) · slider: position (m) · spring/rope: length (m)
   speed: 1, // matching rate of change
   force: 2, // spring: force along the spring (N, + = tension); rope: tension estimate (N)
   broken: 3, // 1 once the joint has failed
+  load: 4, // estimated force the joint transmits (N), JT-10
+  torque: 5, // estimated torque it resists (N·m)
+  ratio: 6, // load / break threshold (0 = no threshold)
+  damage: 7, // fatigue damage 0..1
+  exact: 8, // 1 = the load estimate is exact (bridge of the joint graph), 0 = shared-load heuristic
 } as const;
 
 /** Floats per contact point in the contact buffer. */
 export const CONTACT_STRIDE = 7; // x y z nx ny nz force
+
+/** Blast shapes and strength-versus-distance curves (ED-40); the maths is in `world/blast.ts`. */
+export type BlastKind = 'radial' | 'directional' | 'implosion' | 'ring' | 'gust';
+export type FalloffKind = 'quadratic' | 'linear' | 'smooth' | 'constant' | 'steep';
 
 export type SimOp =
   | { op: 'addBody'; body: BodyEntity; ephemeral?: boolean }
@@ -76,14 +88,39 @@ export type SimOp =
   | { op: 'settings'; settings: SceneSettings }
   | { op: 'teleport'; id: string; position: Vec3; rotation: Quat; keepVelocity?: boolean }
   | { op: 'setVelocity'; id: string; linvel: Vec3; angvel: Vec3 }
-  | { op: 'grab'; id: string; point: Vec3; target: Vec3 }
+  // -- ED-B: grab strength / spin / freeze / throw scale, blast variants --
+  /** `strength` scales the grab spring (1 = default; 0.25 floppy … 4 stiff). */
+  | { op: 'grab'; id: string; point: Vec3; target: Vec3; strength?: number }
   | { op: 'grabMove'; target: Vec3 }
-  | { op: 'release' }
+  /** Spin the held body at this angular velocity (world, rad/s); zero stops spinning it. */
+  | { op: 'grabSpin'; angvel: Vec3 }
+  /** Freeze (true) or unfreeze (false) the held body in place; with no `frozen`, toggle. */
+  | { op: 'grabFreeze'; frozen?: boolean }
+  /** `throwScale` multiplies the held body's velocity at release (1 = keep, 0 = drop dead). */
+  | { op: 'release'; throwScale?: number }
   | { op: 'impulse'; id: string; impulse: Vec3; point: Vec3 }
-  | { op: 'explode'; center: Vec3; strength: number; radius: number }
+  | {
+      op: 'explode';
+      center: Vec3;
+      strength: number;
+      radius: number;
+      kind?: BlastKind;
+      falloff?: FalloffKind;
+      /** World direction of a directional blast / gust. */
+      dir?: Vec3;
+    }
   | { op: 'addSoft'; soft: SoftEntity }
   | { op: 'updateSoft'; soft: SoftEntity }
-  | { op: 'grabSoft'; id: string; index: number; target: Vec3 }
+  | { op: 'grabSoft'; id: string; index: number; target: Vec3; strength?: number }
+  // -- SF: cutting, tearing and fastenings of soft bodies --
+  /** Cut a soft body with the triangle (viewer position, line end a, line end b) — SF-2. */
+  | { op: 'cutSoft'; id: string; origin: Vec3; a: Vec3; b: Vec3 }
+  /** Tear a hole of the given radius around a world point — SF-2 "tear on demand". */
+  | { op: 'tearSoft'; id: string; point: Vec3; radius: number }
+  /** Release one fastening (or all of them) of a soft body — SF-1. */
+  | { op: 'releaseSoft'; id: string; attachment?: string }
+  /** Soft-body economy mode: fewer impact substeps, cheaper and slightly less accurate (SF-9). */
+  | { op: 'softEconomy'; on: boolean }
   | { op: 'wakeAll' }
   // ── protocol v2 ──
   /** Re-seed the world's random number generator. */
@@ -94,6 +131,8 @@ export type SimOp =
   | { op: 'snapshot'; id: number }
   /** Replace the world state by a snapshot taken from this scene (see `WorldSnapshot`). */
   | { op: 'restore'; snapshot: WorldSnapshot }
+  // -- JT-B: estimate joint loads even when nothing is breakable (inspector readout, stress overlay) --
+  | { op: 'watchLoads'; on: boolean }
   /** Change how contact events are generated (`EventConfig`). */
   | { op: 'events'; config: Partial<EventConfig> }
   /** Add or replace a path the components can follow (`ctx.path`). Removal goes through `remove`. */
@@ -243,7 +282,8 @@ export interface ComponentEvent {
   data?: unknown;
 }
 
-export type SimEvent = { kind: 'jointBroken'; id: string; force: number } | ContactEvent | SensorEvent | ComponentEvent;
+export type SimEvent =
+  { kind: 'jointBroken'; id: string; force: number; torque?: number } | ContactEvent | SensorEvent | ComponentEvent;
 
 /**
  * Contact-event generation. Contact events cost a little per new contact, so they are off until something asks:
@@ -330,7 +370,14 @@ export interface WorldSnapshot {
   settings: SceneSettings;
   bodies: BodySnapshot[];
   joints: JointSnapshot[];
-  softs: { def: SoftEntity; root: number }[];
+  softs: {
+    def: SoftEntity;
+    root: number;
+    // -- SF: runtime state the engine bytes cannot carry (older snapshots omit it) --
+    volumeFactor?: number;
+    released?: string[];
+    attached?: { id: string; particles: number[]; bodyHandle: number }[];
+  }[];
   paths: PathEntity[];
   /** Engine handle of the fixed body world-anchored joints attach to, and of the ground slab (if enabled). */
   worldBody: number;
@@ -372,5 +419,9 @@ export interface JointSnapshot {
   speed: number;
   force: number;
   motorTarget: number;
+  /** -- JT-A: runtime values of the coupling constraints (absent in older snapshots). -- */
+  rt?: number[];
   cache: [number, number, number];
+  /** JT-10: last load estimate and fatigue damage. */
+  jl?: { force: number; torque: number; ratio: number; damage: number; exact: boolean };
 }

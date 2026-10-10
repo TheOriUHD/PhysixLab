@@ -4,6 +4,7 @@
  * pointer, and what every key does, is decided by the registries (`./registry`), not here.
  */
 import { Plane, Vector3, type Camera } from 'three';
+import { edTools } from './edTools';
 import { vadd, type Vec3 } from '../core/math';
 import { topLevel } from '../model/groups';
 import { isGroup, isLight, isPosed } from '../model/types';
@@ -25,7 +26,10 @@ type Gesture =
       moved: boolean;
       primary: string;
     }
-  | { kind: 'grab'; plane: Plane; id: string };
+  // -- ED-B: grab keeps its depth plane, kind of target and the keys being held --
+  | { kind: 'grab'; plane: Plane; id: string; soft: boolean; spinKeys: Set<string> }
+  // -- ED-B: a tool that keeps going after the press (held gust, charging throw, paint stroke) --
+  | { kind: 'custom'; move(e: PointerEvent): void; up(e: PointerEvent): void; cancel?(): void };
 
 const isTyping = (t: EventTarget | null): boolean => {
   const el = t as HTMLElement | null;
@@ -54,11 +58,21 @@ export class InputController {
       this.setHover(null);
     });
     dom.addEventListener('dblclick', (e) => this.onDouble(e));
+    // -- ED-B: scroll depth and held-body keys; capture phase so the camera and the tool shortcuts never see them --
+    window.addEventListener('wheel', (e) => this.onWheel(e), { capture: true, passive: false });
+    window.addEventListener('keydown', (e) => this.onGrabKey(e, true), true);
+    window.addEventListener('keyup', (e) => this.onGrabKey(e, false), true);
     // Capture phase for the shortcuts that work inside text fields (see `onKeyDownCapture`).
     window.addEventListener('keydown', (e) => this.onKeyDownCapture(e), true);
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
     window.addEventListener('keyup', (e) => this.onKeyUp(e));
-    window.addEventListener('blur', () => this.app.sim.keys.clear());
+    window.addEventListener('blur', () => {
+      this.app.input.clearKeys();
+      if (this.g.kind === 'custom') {
+        this.g.cancel?.();
+        this.g = { kind: 'none' };
+      }
+    });
   }
 
   private get cam(): Camera {
@@ -137,8 +151,14 @@ export class InputController {
         if (idx >= 0) {
           const n = this.cam.getWorldDirection(new Vector3()).negate();
           const plane = new Plane().setFromNormalAndCoplanarPoint(n, hit.point);
-          app.sim.client.op({ op: 'grabSoft', id, index: idx, target: [hit.point.x, hit.point.y, hit.point.z] });
-          this.g = { kind: 'grab', plane, id };
+          app.sim.client.op({
+            op: 'grabSoft',
+            id,
+            index: idx,
+            target: [hit.point.x, hit.point.y, hit.point.z],
+            strength: app.prefs.value.grabStrength,
+          });
+          this.g = { kind: 'grab', plane, id, soft: true, spinKeys: new Set() };
           app.viewport.dom.classList.add('grabbing');
         }
         return;
@@ -159,8 +179,10 @@ export class InputController {
           id,
           point: [hit.point.x, hit.point.y, hit.point.z],
           target: [hit.point.x, hit.point.y, hit.point.z],
+          strength: app.prefs.value.grabStrength,
         });
-        this.g = { kind: 'grab', plane, id };
+        this.g = { kind: 'grab', plane, id, soft: false, spinKeys: new Set() };
+        this.rHeld = false;
         app.viewport.dom.classList.add('grabbing');
       }
       return;
@@ -262,15 +284,27 @@ export class InputController {
 
   /** Pointer press of the tool of the same name (called through the tool registry). */
   downBlast(e: PointerEvent): void {
-    const hit = this.app.pickEntity(e, { joints: false });
-    const p = hit?.point ?? this.app.picker.groundPoint(e, 0);
-    if (p) this.app.blast(p);
+    edTools(this.app).blastDown(e, this);
+  }
+
+  /** Pointer press of the paint tool (ED-42). */
+  downPaint(e: PointerEvent): void {
+    edTools(this.app).paintDown(e, this);
+  }
+
+  /** Pointer press of the pin tool (ED-43). */
+  downPin(e: PointerEvent): void {
+    edTools(this.app).pinDown(e);
+  }
+
+  /** Let a tool own the pointer until it is released (`move` / `up` get the events; `cancel` on blur or Esc). */
+  beginCustom(g: { move(e: PointerEvent): void; up(e: PointerEvent): void; cancel?(): void }): void {
+    this.g = { kind: 'custom', ...g };
   }
 
   /** Pointer press of the tool of the same name (called through the tool registry). */
   downShoot(e: PointerEvent): void {
-    const dir = this.app.picker.rayDirection(e);
-    this.app.shoot(this.cam.position.clone(), dir);
+    edTools(this.app).throwDown(e, this);
   }
 
   private onMove(e: PointerEvent): void {
@@ -308,11 +342,92 @@ export class InputController {
         this.moveDrag(e, g);
         break;
       case 'grab': {
-        const p = app.picker.cameraPlanePoint(e, g.plane.coplanarPoint(new Vector3()));
-        if (p) app.sim.client.op({ op: 'grabMove', target: [p.x, p.y, p.z] });
+        if (this.rHeld && !g.soft) {
+          this.rotateHeld(e);
+          break;
+        }
+        this.moveGrabTarget(e, g);
         break;
       }
+      case 'custom':
+        g.move(e);
+        break;
     }
+  }
+
+  // ---- grab upgrades (ED-45) -----------------------------------------------------------------
+
+  /** True while R is held during a grab: pointer movement turns the held body instead of moving it. */
+  private rHeld = false;
+  private spinTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private moveGrabTarget(e: { clientX: number; clientY: number }, g: Extract<Gesture, { kind: 'grab' }>): void {
+    const p = this.app.picker.cameraPlanePoint(e, g.plane.coplanarPoint(new Vector3()));
+    if (p) this.app.sim.client.op({ op: 'grabMove', target: [p.x, p.y, p.z] });
+  }
+
+  /** Angular velocity (world) the held body is asked to spin at: Q / E about the view's up axis, plus the R-drag. */
+  private spinFrom(keys: Set<string>, extra: Vec3 = [0, 0, 0]): Vec3 {
+    const up = this.cam.up;
+    const rate = (keys.has('KeyE') ? 3 : 0) - (keys.has('KeyQ') ? 3 : 0);
+    return [up.x * rate + extra[0], up.y * rate + extra[1], up.z * rate + extra[2]];
+  }
+
+  private rotateHeld(e: PointerEvent): void {
+    const g = this.g;
+    if (g.kind !== 'grab') return;
+    const dx = e.movementX,
+      dy = e.movementY;
+    const right = new Vector3().setFromMatrixColumn(this.cam.matrixWorld, 0);
+    const up = new Vector3().setFromMatrixColumn(this.cam.matrixWorld, 1);
+    // A drag across the screen turns the body about the matching view axis (about 0.25 rad per 10 px).
+    const w = up.multiplyScalar(dx * 0.35).add(right.multiplyScalar(dy * 0.35));
+    this.app.sim.client.op({ op: 'grabSpin', angvel: this.spinFrom(g.spinKeys, [w.x, w.y, w.z]) });
+    if (this.spinTimer) clearTimeout(this.spinTimer);
+    this.spinTimer = setTimeout(() => {
+      const cur = this.g;
+      if (cur.kind === 'grab') this.app.sim.client.op({ op: 'grabSpin', angvel: this.spinFrom(cur.spinKeys) });
+    }, 70);
+  }
+
+  /** Wheel while holding a body: push it away from / pull it towards the camera. */
+  private onWheel(e: WheelEvent): void {
+    const g = this.g;
+    if (g.kind !== 'grab' || (e.target !== this.app.viewport.dom && !this.app.viewport.dom.contains(e.target as Node)))
+      return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const point = g.plane.coplanarPoint(new Vector3());
+    const dist = point.distanceTo(this.cam.position);
+    const away = -Math.sign(e.deltaY) * Math.max(0.15, dist * 0.08);
+    const toCamera = g.plane.normal.clone();
+    // Never pull the plane through the camera, never push it out of the scene.
+    const next = point.clone().addScaledVector(toCamera, -away);
+    const nd = next.distanceTo(this.cam.position);
+    if (nd < 1 || nd > 200) return;
+    g.plane.setFromNormalAndCoplanarPoint(toCamera, next);
+    this.moveGrabTarget({ clientX: this.pointer.x, clientY: this.pointer.y }, g);
+  }
+
+  /** Keys while holding a body: Q / E spin it, R + drag turns it, F freezes / unfreezes it in place. */
+  private onGrabKey(e: KeyboardEvent, down: boolean): void {
+    const g = this.g;
+    if (g.kind !== 'grab' || g.soft || isTyping(e.target)) {
+      if (!down && e.code === 'KeyR') this.rHeld = false;
+      return;
+    }
+    if (e.code === 'KeyR') {
+      this.rHeld = down;
+    } else if (e.code === 'KeyQ' || e.code === 'KeyE') {
+      if (down) g.spinKeys.add(e.code);
+      else g.spinKeys.delete(e.code);
+      this.app.sim.client.op({ op: 'grabSpin', angvel: this.spinFrom(g.spinKeys) });
+    } else if (e.code === 'KeyF' && down && !e.repeat) {
+      this.app.sim.client.op({ op: 'grabFreeze' });
+      this.app.toast('Toggled freeze on the held body — grab it and press F again to release it', 'info');
+    } else return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
   }
 
   private moveMarquee(e: PointerEvent, g: Extract<Gesture, { kind: 'marquee' }>): void {
@@ -385,7 +500,11 @@ export class InputController {
         if (g.moved) app.store.end();
         break;
       case 'grab':
-        app.sim.client.op({ op: 'release' });
+        app.sim.client.op({ op: 'release', throwScale: app.prefs.value.grabThrow });
+        this.rHeld = false;
+        break;
+      case 'custom':
+        g.up(e);
         break;
       case 'none':
         break;
@@ -439,6 +558,12 @@ export class InputController {
   }
 
   private onDouble(e: MouseEvent): void {
+    // -- CM-A: in the orbit-point camera a double-click picks the new centre --
+    if (this.app.cameraRig.mode === 'point') {
+      const p = this.app.pickEntity(e)?.point ?? this.app.picker.groundPoint(e, 0);
+      if (p) this.app.cameraRig.setPivot(p);
+      return;
+    }
     const hit = this.app.pickEntity(e);
     if (hit) {
       this.app.store.setSelection([hit.entityId]);
@@ -449,7 +574,7 @@ export class InputController {
   // ---- keyboard ------------------------------------------------------------------------------
 
   private onKeyUp(e: KeyboardEvent): void {
-    this.app.sim.keys.delete(e.code);
+    this.app.input.keyUp(e); // -- CM-A: the hub owns the simulation key set --
   }
 
   /**
@@ -468,10 +593,15 @@ export class InputController {
     const app = this.app;
     const typing = isTyping(e.target);
     // Forward keys to the running simulation (motor / thruster bindings).
-    if (!typing && app.sim.active && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      app.sim.keys.add(e.code);
-      if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+    const forward = !typing && app.sim.active && !e.ctrlKey && !e.metaKey && !e.altKey;
+    // -- CM-A: the fly / chase camera owns its keys while it runs --
+    const swallowed = !typing && app.cameraRig.swallows(e);
+    if (!typing) app.input.keyDown(e, forward && !swallowed);
+    if (swallowed) {
+      e.preventDefault();
+      return;
     }
+    if (forward && (e.code.startsWith('Arrow') || e.code === 'Space')) e.preventDefault();
     // Every other key is a command's shortcut (src/app/registry/commands.ts); nothing here binds keys.
     const cmd = keymap.find(e);
     if (!cmd || cmd.allowWhileTyping || typing) return; // allowWhileTyping ones already ran in the capture phase

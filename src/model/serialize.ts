@@ -1,3 +1,4 @@
+import { sanitizeParams } from './jointParams';
 import { clamp, type Vec3 } from '../core/math';
 import { SceneFormatError, warn, type LoadReport } from './errors';
 import {
@@ -13,11 +14,16 @@ import {
 import { LIMITS, formatBytes, formatCount } from './limits';
 import { pruneAssets, remapAssetRefs } from './assets';
 import { sanitizeAssetMap } from './sanitize/assets';
+import { sanitizeCameras } from './sanitize/cameras'; // -- CM-A --
+import { sanitizeWeatherField } from './sanitize/weather'; // -- VZ-B: weather --
 import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
 import { dedupeComponentIds, repairComponentRefs, sanitizeComponents } from './componentRegistry';
+import { outlinerMetaFields, sanitizeSelectionSets } from './sanitize/outlinerMeta'; // -- UI-A --
 import { parentField, sanitizeGroup, sanitizeLight, sanitizePath } from './sanitize/kinds';
 import { sanitizeParts } from './sanitize/parts';
 import { sanitizeVisual } from './sanitize/visual';
+import { breakageField } from './breakage';
+import { layersField } from './collisionLayers';
 import { SCENE_FORMAT, SCENE_VERSION, migrateDocument } from './migrations';
 import {
   bool,
@@ -44,16 +50,35 @@ import type {
   SceneDocument,
   SceneSettings,
   SkyPreset,
+  SoftAttachment,
   SoftEntity,
   SoftPin,
   SoftType,
   UnitsSettings,
 } from './types';
-import { isLight, isPosed } from './types';
+import { isGroup, isLight, isPosed } from './types';
 
-const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable'];
+const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable', 'mesh', 'tyre'];
 const PINS: SoftPin[] = ['none', 'edge', 'corners', 'corners4', 'one-end', 'ends'];
-const JOINTS: JointType[] = ['fixed', 'hinge', 'slider', 'ball', 'spring', 'rope'];
+const JOINTS: JointType[] = [
+  'fixed',
+  'hinge',
+  'slider',
+  'ball',
+  'spring',
+  'rope',
+  // -- JT-A --
+  'conetwist',
+  'sixdof',
+  'pulley',
+  'rack',
+  'gear',
+  'belt',
+  'universal',
+  'screw',
+  'winch',
+  'softweld',
+];
 const SKIES: SkyPreset[] = [
   'studio',
   'day',
@@ -68,6 +93,7 @@ const SKIES: SkyPreset[] = [
   'physical',
   'hdri',
 ];
+
 
 function sanitizeBody(raw: any, report?: LoadReport): BodyEntity {
   const name = nameStr(raw?.name, '');
@@ -117,6 +143,7 @@ function sanitizeBody(raw: any, report?: LoadReport): BodyEntity {
     locked: bool(raw?.locked, false),
     hidden: bool(raw?.hidden, false),
     ...sanitizeBodyFields(raw ?? {}),
+    ...outlinerMetaFields(raw ?? {}, false), // -- UI-A --
     ...sanitizeCompound(raw ?? {}, report, name ? `"${name}"` : 'an object'),
     components: sanitizeComponents(raw?.components, 'body', report, name ? `"${name}"` : 'an object'),
   };
@@ -168,6 +195,8 @@ function sanitizeJoint(raw: any, report?: LoadReport): JointEntity {
       keyNeg: str(m.keyNeg, ''),
       slewRate: Math.max(0, num(m.slewRate, base.motor.slewRate)),
       brake: bool(m.brake, true),
+      // -- CM-A: kept only when the file has one, so scenes without an axis save back unchanged --
+      ...(typeof m.axis === 'string' ? { axis: m.axis.slice(0, 40) } : {}),
     },
     spring: {
       restLength: Math.max(0, num(s.restLength, base.spring.restLength)),
@@ -177,18 +206,53 @@ function sanitizeJoint(raw: any, report?: LoadReport): JointEntity {
     },
     ropeLength: Math.max(0.01, num(raw?.ropeLength, base.ropeLength)),
     collideConnected: bool(raw?.collideConnected, false),
+    params: sanitizeParams(raw?.params), // -- JT-A --
     hidden: bool(raw?.hidden, false),
+    ...outlinerMetaFields(raw ?? {}, true), // -- UI-A --
     components: sanitizeComponents(raw?.components, 'joint', report, 'a joint'),
+    // -- JT-B: breakage thresholds --
+    ...breakageField(raw?.breakage),
   };
 }
 
-function sanitizeSoft(raw: any): SoftEntity {
+// -- SF: attachments are untrusted JSON; cap their number and clamp every number --
+function sanitizeAttachments(raw: any): SoftAttachment[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SoftAttachment[] = [];
+  for (const a of raw.slice(0, 64)) {
+    if (!a || typeof a !== 'object' || typeof a.body !== 'string' || !a.body) continue;
+    const att: SoftAttachment = {
+      id: idStr(a.id, `a${out.length + 1}`),
+      body: idStr(a.body, ''),
+      kind: a.kind === 'rim' ? 'rim' : 'region',
+      center: vec3(a.center, [0, 0, 0]),
+      radius: clamp(num(a.radius, 0.1), 0.005, 5),
+      offset: vec3(a.offset, [0, 0, 0]),
+    };
+    if (typeof a.joint === 'string' && a.joint) att.joint = idStr(a.joint, '');
+    out.push(att);
+  }
+  return out;
+}
+
+function sanitizeSoft(raw: any, report?: LoadReport): SoftEntity {
   const type: SoftType = SOFTS.includes(raw?.type) ? raw.type : 'jelly';
   const base = createSoft(type);
   const d = softDefaults(type);
   const size = vec3(raw?.size, d.size).map((v, i) => (v <= 0 && d.size[i] === 0 ? 0 : Math.max(0.05, v))) as Vec3;
-  const maxRes = type === 'jelly' ? 10 : type === 'balloon' ? 3 : type === 'cloth' ? 40 : 100;
-  const minRes = type === 'balloon' ? 1 : type === 'cable' ? 4 : type === 'cloth' ? 4 : 3;
+  const maxRes =
+    type === 'jelly'
+      ? 10
+      : type === 'balloon'
+        ? 3
+        : type === 'cloth'
+          ? 40
+          : type === 'tyre'
+            ? 48
+            : type === 'mesh'
+              ? 10
+              : 100;
+  const minRes = type === 'balloon' ? 1 : type === 'cable' ? 4 : type === 'cloth' ? 4 : type === 'tyre' ? 8 : 3;
   return {
     ...base,
     id: idStr(raw?.id, base.id),
@@ -211,6 +275,19 @@ function sanitizeSoft(raw: any): SoftEntity {
     locked: bool(raw?.locked, false),
     hidden: bool(raw?.hidden, false),
     ...parentField(raw ?? {}),
+    // -- SF --
+    attachments: sanitizeAttachments(raw?.attachments),
+    volumeFactor: clamp(num(raw?.volumeFactor, d.volumeFactor), 0.2, 3),
+    volumePreserve: bool(raw?.volumePreserve, d.volumePreserve),
+    leakRate: clamp(num(raw?.leakRate, 0), 0, 10),
+    poisson: clamp(num(raw?.poisson, d.poisson), 0, 0.49),
+    plasticYield: clamp(num(raw?.plasticYield, 0), 0, 5),
+    friction: clamp(num(raw?.friction, d.friction), 0, 5),
+    particleRadius: raw?.particleRadius === 0 ? 0 : clamp(num(raw?.particleRadius, 0), 0, 0.2),
+    shape: sanitizeShapeSpec(raw?.shape ?? d.shape, report, 'a soft mesh'),
+    cell: clamp(num(raw?.cell, d.cell), 0.04, 1),
+    pneumatic: bool(raw?.pneumatic, d.pneumatic),
+    ...outlinerMetaFields(raw ?? {}, true), // -- UI-A --
   };
 }
 
@@ -222,7 +299,7 @@ function sanitizeEntity(r: any, report: LoadReport | undefined): Entity | null {
     case 'joint':
       return sanitizeJoint(r, report);
     case 'soft':
-      return sanitizeSoft(r);
+      return sanitizeSoft(r, report);
     case 'group':
       return sanitizeGroup(r);
     case 'light':
@@ -284,11 +361,37 @@ function sanitizeBounds(raw: any): BoundsSettings {
   const min = lo.map((v, i) => Math.min(v, hi[i])) as BoundsSettings['min'];
   const max = lo.map((v, i) => Math.max(v, hi[i])) as BoundsSettings['max'];
   for (let i = 0; i < 3; i++) if (max[i] - min[i] < 1e-3) max[i] = min[i] + 1;
+  // -- ZN-34: per-face edges, the soft wall and the respawn policy (files without them get the plain kill box)
+  const edgeKinds = ['open', 'kill', 'soft', 'water'] as const;
+  const edges = raw?.edges ?? {};
+  const soft = raw?.soft ?? {};
+  const respawn = raw?.respawn ?? {};
   return {
     enabled: bool(raw?.enabled, d.enabled),
     min,
     max,
     policy: oneOf(raw?.policy, ['kill', 'respawn'], d.policy),
+    edges: {
+      nx: oneOf(edges.nx, edgeKinds, d.edges.nx),
+      px: oneOf(edges.px, edgeKinds, d.edges.px),
+      ny: oneOf(edges.ny, edgeKinds, d.edges.ny),
+      py: oneOf(edges.py, edgeKinds, d.edges.py),
+      nz: oneOf(edges.nz, edgeKinds, d.edges.nz),
+      pz: oneOf(edges.pz, edgeKinds, d.edges.pz),
+    },
+    soft: {
+      margin: clamp(num(soft.margin, d.soft.margin), 0.1, 1000),
+      stiffness: clamp(num(soft.stiffness, d.soft.stiffness), 0, 10000),
+      damping: clamp(num(soft.damping, d.soft.damping), 0, 1000),
+    },
+    respawn: {
+      to: oneOf(respawn.to, ['start', 'checkpoint'], d.respawn.to),
+      delay: clamp(num(respawn.delay, d.respawn.delay), 0, 600),
+      penaltySeconds: clamp(num(respawn.penaltySeconds, d.respawn.penaltySeconds), 0, 3600),
+      penaltyPoints: clamp(num(respawn.penaltyPoints, d.respawn.penaltyPoints), 0, 1_000_000),
+      max: int(respawn.max, d.respawn.max, 0, 9999),
+      wholeGroups: bool(respawn.wholeGroups, d.respawn.wholeGroups),
+    },
   };
 }
 
@@ -299,6 +402,14 @@ function sanitizeUnits(raw: any): UnitsSettings {
     mass: oneOf(raw?.mass, ['kg', 'g', 'lb'], d.mass),
     angle: oneOf(raw?.angle, ['deg', 'rad'], d.angle),
   };
+}
+
+/** JT-B: the wind vector when non-zero and finite. */
+function windField(raw: unknown): { wind?: Vec3 } {
+  if (!Array.isArray(raw) || raw.length !== 3 || !raw.every((v) => typeof v === 'number' && Number.isFinite(v)))
+    return {};
+  const w = raw.map((v: number) => clamp(v, -1000, 1000)) as Vec3;
+  return w[0] === 0 && w[1] === 0 && w[2] === 0 ? {} : { wind: w };
 }
 
 function sanitizeSettings(raw: any): SceneSettings {
@@ -323,6 +434,11 @@ function sanitizeSettings(raw: any): SceneSettings {
     environment: sanitizeEnvironment(raw?.environment),
     bounds: sanitizeBounds(raw?.bounds),
     units: sanitizeUnits(raw?.units),
+    selectionSets: sanitizeSelectionSets(raw?.selectionSets), // -- UI-A --
+    ...sanitizeWeatherField(raw?.weather), // -- VZ-B: weather --
+    // -- JT-B: collision layers and wind --
+    ...layersField(raw?.layers),
+    ...windField(raw?.wind),
   };
 }
 
@@ -360,6 +476,15 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
   }
   // Drop group links that point nowhere (or loop).
   const parentsFixed = repairParents(entities.filter(isPosed));
+  // -- ED-A array: a linked array whose source objects no longer exist cannot be re-generated; it becomes a plain group --
+  for (let i = 0; i < entities.length; i++) {
+    const g = entities[i];
+    if (!isGroup(g) || !g.array) continue;
+    if (g.array.sourceIds.every((id) => seen.has(id) && id !== g.id)) continue;
+    const { array: _gone, ...rest } = g;
+    entities[i] = rest;
+    warn(report, `The linked array "${g.name}" lost its source object(s) and became an ordinary group.`);
+  }
   // Component ids are unique across the scene, and references between entities must point at something.
   dedupeComponentIds(entities);
   if (parentsFixed) warn(report, `${parentsFixed} grouping link(s) pointed at missing objects and were removed.`);
@@ -397,6 +522,7 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
     settings,
     entities: linked,
     assets,
+    cameras: sanitizeCameras(raw.cameras), // -- CM-A --
   });
 }
 

@@ -22,8 +22,23 @@ export function openMenu(
 ): void {
   closeMenu();
   const menu = h('div', { class: 'menu', role: 'menu' });
-  const build = (list: MenuItem[]) => {
+  // -- ED-B: submenus replace the popup content; `stack` remembers where "Back" goes --
+  const stack: { list: MenuItem[]; heading: string }[] = [];
+  const build = (list: MenuItem[], heading?: string) => {
     menu.replaceChildren();
+    if (heading !== undefined) {
+      const back = h(
+        'button',
+        { class: 'menu-item menu-back', type: 'button' },
+        h('span', { class: 'grow' }, '‹ Back'),
+      );
+      back.addEventListener('click', () => {
+        const prev = stack.pop();
+        if (prev) build(prev.list, prev.heading || undefined);
+      });
+      menu.appendChild(back);
+      menu.appendChild(h('div', { class: 'menu-label' }, heading));
+    }
     for (const it of list) {
       if ('sep' in it) {
         menu.appendChild(h('div', { class: 'menu-sep' }));
@@ -43,8 +58,15 @@ export function openMenu(
             : h('span', { style: { width: '16px' } }),
         h('span', { class: 'grow' }, it.label),
         it.kbd ? h('span', { class: 'kb' }, it.kbd) : null,
+        it.submenu ? h('span', { class: 'menu-chev' }, '›') : null,
       );
       b.addEventListener('click', () => {
+        if (it.submenu) {
+          stack.push({ list, heading: heading ?? '' });
+          build(it.submenu, it.label);
+          menu.querySelector<HTMLElement>('.menu-item:not(:disabled)')?.focus();
+          return;
+        }
         void it.action();
         if (it.keepOpen)
           build(
@@ -87,7 +109,25 @@ export function openMenu(
     if (e.key === 'Escape') {
       closeMenu();
       onClose?.();
+      return;
     }
+    // -- ED-B: keyboard navigation inside the popup --
+    const rowsEl = [...menu.querySelectorAll<HTMLElement>('.menu-item:not(:disabled)')];
+    const i = rowsEl.indexOf(document.activeElement as HTMLElement);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const n = rowsEl.length;
+      if (!n) return;
+      rowsEl[e.key === 'ArrowDown' ? (i + 1) % n : (i - 1 + n) % n].focus();
+    } else if (e.key === 'ArrowRight') {
+      if (i < 0 || !rowsEl[i].querySelector('.menu-chev')) return;
+      rowsEl[i].click();
+    } else if (e.key === 'ArrowLeft') {
+      if (!stack.length) return;
+      menu.querySelector<HTMLElement>('.menu-back')?.click();
+      menu.querySelector<HTMLElement>('.menu-item')?.focus();
+    } else return;
+    e.preventDefault();
+    e.stopPropagation();
   };
   setTimeout(() => {
     window.addEventListener('pointerdown', onDown, true);

@@ -24,6 +24,7 @@ imports are rewritten for the folder the example says it belongs in. If you chan
 | a **template**, **prefab** or **map** | `registerTemplate`, `registerPrefab`, `registerMap` | `src/model/content/<name>.ts` | no |
 | a **particle effect** (sparks, smoke, confetti …) | `registerParticleType`, then `app.fx.emit` | `src/ui/extensions/<name>.ts` | no |
 | a **sound** or a **material's sound** | `registerSoundEvent`, `registerSoundMaterial`, then `app.audio.playEvent` | `src/ui/extensions/<name>.ts` | no |
+| a **guided tour** or a **context hint** | `registerTour`, `registerHint` (`src/ui/tour`) | `src/ui/extensions/<name>.ts` | no |
 | a **joint type** | *(a closed union for now)* | seven places, listed below | yes — see the checklist |
 
 Why two folders for the same kind of thing? **Content** (`src/model/content/`) is pure data built from the public
@@ -46,9 +47,9 @@ radius, half height, the convex points (if it has them), the Rapier collider(s) 
 palette tile, the number key, the inspector fields, the physics world, the renderer, picking, saving and loading
 all read the registry — nothing else changes.
 
-<!-- example: pyramid-shape.ts -->
+<!-- example: spire-shape.ts -->
 ```ts
-// File: src/model/shapes/pyramid.ts   (then add `pyramid` to BUILTIN_SHAPES in src/model/shapes/index.ts)
+// File: src/model/shapes/spire.ts   (then add `spire` to BUILTIN_SHAPES in src/model/shapes/index.ts)
 import type { Vec3 } from '../../core/math';
 import type { ShapeDef } from '../shapeRegistry';
 import {
@@ -60,8 +61,8 @@ import {
   WIDTH_HEIGHT_DEPTH,
 } from './helpers';
 
-/** Square pyramid: the base lies in the XZ plane at the bottom of the size box, the apex is above its centre. */
-function pyramidPoints([x, y, z]: Vec3): Vec3[] {
+/** Square spire: the base lies in the XZ plane at the bottom of the size box, the apex is above its centre. */
+function spirePoints([x, y, z]: Vec3): Vec3[] {
   const hx = x / 2,
     hy = y / 2,
     hz = z / 2;
@@ -74,12 +75,12 @@ function pyramidPoints([x, y, z]: Vec3): Vec3[] {
   ];
 }
 
-export const pyramid: ShapeDef = {
-  id: 'pyramid',
-  label: 'Pyramid',
+export const spire: ShapeDef = {
+  id: 'spire',
+  label: 'Spire',
   icon: 'cone',
   category: 'structural',
-  blurb: 'Square pyramid: roofs, spikes, monuments',
+  blurb: 'Square spire: roofs, spikes, monuments',
   defaultSize: [1, 1, 1],
   params: [],
   sizeFields: WIDTH_HEIGHT_DEPTH,
@@ -87,22 +88,36 @@ export const pyramid: ShapeDef = {
   volume: ({ size }) => (size[0] * size[1] * size[2]) / 3,
   boundingRadius: ({ size }) => halfDiagonal(size),
   halfHeight: ({ size }) => size[1] / 2,
-  convexPoints: ({ size }) => pyramidPoints(size),
-  colliders: (R, { size }) => hullCollider(R, pyramidPoints(size), size),
-  geometry: (T, spec) => hullGeometry(T, pyramidPoints(unitSpec(spec).size)),
+  convexPoints: ({ size }) => spirePoints(size),
+  colliders: (R, { size }) => hullCollider(R, spirePoints(size), size),
+  geometry: (T, spec) => hullGeometry(T, spirePoints(unitSpec(spec).size)),
 };
 ```
 
-Then add `pyramid` to `BUILTIN_SHAPES` in `src/model/shapes/index.ts` (the position in that array is the position in
+Then add `spire` to `BUILTIN_SHAPES` in `src/model/shapes/index.ts` (the position in that array is the position in
 the palette; the first nine also answer to the 1–9 keys). Register shapes there, **not** with a `registerShape()`
 call from a main-thread-only module: the physics worker has its own copy of the registry and would simulate an
 unknown shape as a box.
 
 Helpers for the common cases live in `src/model/shapes/helpers.ts` (`hullCollider` / `hullGeometry` for convex
 shapes given as points, `single` for a one-collider shape, size fields, `clampDims` …). A compound shape returns
-several colliders from `colliders()`. `tests/shapeRegistry.test.ts` runs every registered shape against the engine
+several colliders from `colliders()`. Hollow and concave shapes are built from several
+convex parts that tile the solid without overlapping (so the engine's mass is exactly `density × volume`): `parts.ts`
+has `boxPart` / `hullPart`, `meshKit.ts` the mesh side (`MeshBuilder` with crease-angle normals, `lathe`,
+`extrudeOutline`) — `torus.ts` and `arch.ts` are worked examples, and `tests/primitiveShapes.test.ts` shows how to
+prove a compound shape (mesh volume = analytic volume = engine mass, a ball through the hole). `tests/shapeRegistry.test.ts` runs every registered shape against the engine
 (volume × density = integrated mass, bounding radius, mesh bounds); the example's own test also checks the centre
-of mass of a real pyramid.
+of mass of a real spire.
+
+A shape can also carry three optional fields that the palette and the inspector pick up without further code:
+`keywords` (extra search words: "donut" finds the torus), `quantities` (derived numbers the inspector shows and
+edits — a gear's module, a rounded box's corner radius in metres; each maps a value to the size and parameters
+that realise it, so undo, live resizing and the scale gizmo keep working) and `surface` (a painted texture over the
+geometry's uvs, as the dice have; the painter itself is registered in `src/render/shapeSurface.ts`). A geometry
+with a `color` attribute (`MeshBuilder.tint`) is drawn with vertex colours, as the wheel's dark tyre is. Convex
+shapes with a fine rounded edge or a flat polygon almost parallel to a neighbour need the engine-safety rule in
+`src/model/shapes/hull3.ts` (`firstSafeHull`): the engine's hull builder silently merges faces that meet at under
+about 1.35° and mis-computes the mass of such hulls, so give it candidates from the most detailed to a plain one.
 
 ## How to add a component
 
@@ -592,6 +607,77 @@ makes wind; a **component can ask for a sound** with `ctx.emit('sound', { id: 'e
 `ignite` and `bounce` events play the launch and trampoline sounds). The mute key is `Shift+M` (`M` is the Measure
 tool). The **Effects panel** carries the sound settings, as sections registered with `registerFxPanelSection`.
 
+## How to add a guided tour
+
+A tour is a spotlight walk-through of the real UI: the engine dims everything except the element a step points at,
+shows a card with the step counter and **Back / Next / Skip tour**, and moves on by itself when the user does what
+the step asks. The first-run onboarding tour (`src/ui/tour/onboarding.ts`) is built exactly this way, and the game
+tutorials use the same engine. `registerTour` also adds the command `help.tour.<id>` (so the tour is in the command
+palette) and a Help-menu entry; the user can leave at any time with **Skip tour** or `Esc`, and a step whose target
+cannot be found is shown as a centred card instead of failing.
+
+<!-- example: guided-tour.ts -->
+```ts
+// File: src/ui/extensions/inspector-tour.ts   (files in src/ui/extensions are loaded at start-up, nothing to edit)
+import { registerHint, registerTour } from '../tour';
+
+// A tour: Help → "Take the tour: Meet the Inspector" (and the palette command `help.tour.inspector-basics`).
+registerTour({
+  id: 'inspector-basics',
+  title: 'Meet the Inspector',
+  steps: [
+    // No target: a centred card.
+    { target: null, title: 'The Inspector', body: 'Everything about the selected object is edited on the right.' },
+    {
+      target: '.panel.right', // a CSS selector, or a function returning the element
+      title: 'Pick something',
+      body: 'Click an object in the 3D view. Keys look like this: [[Shift]] + click adds to the selection.',
+      placement: 'left',
+      onEnter: (app) => app.prefs.set({ showRight: true, rightTab: 'inspector' }),
+      waitFor: { event: 'selection' }, // moves on by itself when the user does it ("Skip step" stays available)
+    },
+    {
+      target: '.tbtn.play',
+      title: 'Now run it',
+      body: 'Press **Simulate** and watch what the numbers do.',
+      until: (app) => app.sim.mode === 'running', // or poll any condition you like
+    },
+  ],
+});
+
+// A context hint: shown once, the first time the user adds anything to the scene.
+registerHint({
+  id: 'demo-first-add',
+  trigger: { event: 'scene-change', type: 'add' },
+  text: 'Added! The Inspector on the right edits it — try the **Mass** field.',
+});
+```
+
+The API, all from `src/ui/tour`:
+
+- `registerTour({ id, title, steps, menuLabel?, onEnd? })` → unregister function. `onEnd(app, 'completed' | 'skipped')`
+  runs when the tour ends.
+- A step: `target` (CSS selector, `() => HTMLElement | null`, or `null` for a centred card), `title`, `body` (plain text
+  — `[[Ctrl+K]]` draws a key cap, `**bold**` makes bold text — or a DOM node you built; never raw HTML), and optionally
+  `placement` (`'auto'` default, `'top' | 'bottom' | 'left' | 'right' | 'center'`), `padding`, `onEnter(app)` /
+  `onExit(app)` (open the tab you are about to point at), and `allowInteraction`.
+- Waiting for the user: `waitFor` is one of `{ event: 'click', selector? }`, `{ event: 'command', id? }` (a command id
+  or a list of them), `{ event: 'selection', min? }`, `{ event: 'sim-mode', mode? }`, `{ event: 'scene-change', type? }`;
+  `until: (app) => boolean` is polled about eight times a second for anything no event announces. A step that waits
+  lets clicks through to the app and gets a **Skip step** button, so a tour can never get stuck.
+- `startTour(id, app)`, `stopTour()`, `isTourRunning()`, `runningTourId()`, `onTourChange(fn)`, `getTour`, `listTours`.
+- What the user finished or declined is remembered in `localStorage` (key `physicslab.guide.v1`, every access guarded),
+  so a tour you offer on first run is not offered twice.
+
+**Context hints** are the small cousin: `registerHint({ id, text, trigger?, when?, delayMs? })` shows a one-time card
+above the status bar the first time `trigger` (any `waitFor` event) happens and `when(app)` holds. Hints are
+remembered, wait while a tour or dialog is open, and can be switched off with the *Context hints* setting; there is a
+rotating tip of the day too (`help.tip`, setting *Tip of the day*). Pass `?nowelcome` in the URL to keep every
+unsolicited tour offer, hint and tip away (the test suite does).
+
+The pure parts — step state machine, wait matching, card placement, persistence — are in `src/ui/tour/tourLogic.ts`
+(no DOM), tested in `tests/tour.test.ts`; the spotlight itself is driven in a real browser by `e2e/tests/tour.mjs`.
+
 ## How to add a joint type
 
 Joint types are the one extension point that is still a closed union (`JointType`), so adding one means touching
@@ -624,6 +710,24 @@ If what you want is a *behaviour* rather than a new constraint — a motor with 
 under load, a gear coupling between two hinges — write a **component** with `appliesTo: 'joint'` instead: no
 union to extend, and the inspector, undo, saving and the worker integration come for free.
 
+## How to add a zone action
+
+Zones (package ZN, `docs/ARCHITECTURE.md` §6a) are bodies with a `zone` component; what a zone *does* is its `action`.
+Actions are not a registry yet, so a new one touches three known places (guarded by `tests/zonePresets.test.ts`, which
+builds, saves, loads and runs a zone of every action):
+
+1. `src/model/zones.ts` — an entry in `ZONE_ACTIONS` (id, label, one-line help, icon, colour) and, if it raises a new
+   event, its name and payload in `ZoneEventData`.
+2. `src/model/components/zone.ts` — the fields it needs, each with `showIf: only('myAction')` so the inspector shows them
+   only for that action.
+3. `src/physics/zones/actions.ts` — a case in `fire` (once per unit that enters; `ctx.zones` has the loss / respawn,
+   rigid-move, spawn and score machinery, `zones.emit` raises the event) or in `applyField` (every step, for each body
+   inside). Add a preset in `src/model/zonePresets.ts` for the Add tab and the command palette, and a physics test with an
+   analytic expectation (`tests/zones.actions.test.ts` has one per action).
+
+A behaviour that is not "something happens to the bodies that enter" — a force field with its own visuals, a fluid, a
+surface — is a **component** (above), not a zone action.
+
 ---
 
 ## Testing an extension
@@ -636,6 +740,31 @@ union to extend, and the inspector, undo, saving and the worker integration come
   (`await import('/tests/examples/stats-panel.ts')` — the dev server serves the repository), then drives the real UI.
   Run it with `E2E_PORT=5231 E2E_FILTER=extension npm run test:e2e`.
 - Before you finish: `npm run typecheck && npm run lint && npm test && npm run build`, then the e2e suite.
+
+## Keeping the download small: `lazy()` (DT-42)
+
+The first load is budgeted (`npm run size`, `scripts/check-size.mjs`, limits in `scripts/size-budget.json`, enforced
+in CI). Anything heavy that most sessions never touch — exporters, importers, CSG, the GIF encoder, the circuit
+editor, the plugin host, education content, locales — belongs in its own chunk that is fetched on first use:
+
+```typescript
+import { lazy } from '../../core/lazy';
+
+const exporters = lazy(() => import('../../export/gltf')); // a separate chunk; nothing is fetched until first call
+
+registerCommand({
+  id: 'file.exportGlb',
+  label: 'Export glTF…',
+  run: async (app) => (await exporters()).exportGlb(app),
+});
+```
+
+Rules of thumb: put the dynamic `import()` in the *command / panel body*, never at module top level; never
+`import` the lazy module statically anywhere else (that pulls it back into the first load); show a spinner or toast
+if the load can take a moment. `lazy()` runs the loader once, shares the promise and retries after a failure.
+`npm run build && npm run size` prints every chunk, classified as first-load / worker / wasm / css / lazy.
+
+---
 
 ## Registry cheat sheet
 
@@ -650,6 +779,7 @@ union to extend, and the inspector, undo, saving and the worker integration come
 | templates / prefabs / maps | `src/model/content` | `register…`, `unregister…`, `get…`, `list…`, `onContentChange` |
 | particle types / fx surfaces | `src/render/fx` | `registerParticleType`, `particleTypes`, `registerFxSurface`, `surfaceFor`; `app.fx.emit` |
 | sound events / materials | `src/audio` | `registerSoundEvent`, `soundEvent`, `registerSoundMaterial`, `soundProfileFor`; `app.audio.playEvent` |
+| tours / hints | `src/ui/tour` | `registerTour`, `startTour`, `stopTour`, `isTourRunning`, `registerHint` |
 | shapes | `src/model/shapeRegistry` | `registerShape`, `getShape`, `listShapes`, `shapeDef` … |
 | components | `src/model/componentRegistry` + `src/physics/components` | `registerComponent`, `registerRuntime`, `componentDef`, `listComponents` |
 

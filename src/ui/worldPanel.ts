@@ -13,6 +13,11 @@ import {
 import { GRAVITY_PRESETS } from '../model/gravityPresets';
 import { h } from './dom';
 import { buildEnvironmentSections } from './environmentPanel';
+import { buildBoundsSection } from './boundsSection'; // -- ZN
+import { buildGraphicsSection } from './graphicsSection'; // -- VZ-B: graphics (VZ-20..22)
+import { buildWeatherSection } from './weatherSection'; // -- VZ-B: weather --
+import { buildCollisionLayersSection } from './collisionLayersSection'; // -- JT-B
+import { buildSeedSection } from './timeTravel/seedSection'; // -- TM
 
 /** Scene-wide physics + environment settings. */
 export function buildWorldPanel(app: App): HTMLElement {
@@ -171,6 +176,26 @@ export function buildWorldPanel(app: App): HTMLElement {
   const envUi = buildEnvironmentSections(app);
   el.append(...envUi.sections);
   upd.push(envUi.refresh);
+  // -- ZN: world bounds (ZN-34)
+  const bounds = buildBoundsSection(app);
+  el.append(bounds.el);
+  upd.push(bounds.refresh);
+  // -- VZ-B: graphics quality, anti-aliasing, shadows and the post-processing stack (VZ-20..22) --
+  el.append(buildGraphicsSection(app).el);
+  // -- VZ-B: weather (VZ-23)
+  const weather = buildWeatherSection(app);
+  el.append(weather.el);
+  upd.push(weather.refresh);
+
+  // -- JT-B: collision layers (JT-30) and wind (JT-32)
+  const layers = buildCollisionLayersSection(app);
+  el.append(...layers.el);
+  upd.push(layers.refresh);
+  // -- TM: scene seed (TM-6)
+  const seedSection = buildSeedSection(app);
+  el.append(seedSection.el);
+  upd.push(seedSection.refresh);
+
   const refresh = () => upd.forEach((u) => u());
   store.on('change', refresh);
   refresh();

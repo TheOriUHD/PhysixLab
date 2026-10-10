@@ -10,7 +10,15 @@ import type RAPIER from '@dimforge/rapier3d-compat';
 import type { Quat, Vec3 } from '../../core/math';
 import { Rng } from '../../core/rng';
 import type { PathCurve } from '../../model/path';
-import type { BodyEntity, ColliderPart, JointEntity, PathEntity, SceneSettings, SoftEntity } from '../../model/types';
+import type {
+  BodyEntity,
+  ColliderPart,
+  JointEntity,
+  PathEntity,
+  SceneSettings,
+  SoftAttachment,
+  SoftEntity,
+} from '../../model/types';
 import type { ComponentHost } from '../components/host';
 import {
   DEFAULT_EVENT_CONFIG,
@@ -22,6 +30,9 @@ import {
   type WorldSnapshot,
 } from '../protocol';
 import { RigidEnergy } from './energy';
+// -- TM: the recorder (snapshot ring, input log, tracks) --
+import { Recorder } from './recorder';
+import { LoadTracker, type JointLoad } from './jointLoad';
 
 export interface BodyRec {
   id: string;
@@ -46,6 +57,8 @@ export interface BodyRec {
   forced: boolean;
   /** Quadratic drag is active (dynamic body with a non-zero drag coefficient). */
   dragged: boolean;
+  /** JT-31: this body is a one-way platform (the contact hook consults it). */
+  oneWay?: boolean;
   /** Emulated sleep threshold (see dynamics.ts); null = the engine's own sleeping applies. */
   sleep: { threshold: number; radius: number; calm: number } | null;
 }
@@ -93,6 +106,26 @@ export interface SoftRec {
   id: string;
   def: SoftEntity;
   root: RAPIER.SoftBody;
+  // -- SF: attachment bookkeeping and runtime pressure --
+  /** World positions of the particles right after construction (null after a snapshot restore: current positions are used). */
+  rest: Float32Array | null;
+  /** Resolved attachments: which engine particles are fastened to which rigid body. */
+  attached: SoftAttached[];
+  /** Attachment ids already released (broken joint, removed body, tool) — never re-fastened until the body is rebuilt. */
+  released: Set<string>;
+  /** Current target volume factor (decays with `def.leakRate`). */
+  volumeFactor: number;
+  /** Cached rest lengths per engine soft body (handle:topologyVersion) for the elastic energy. */
+  restLen: Map<number, SoftEdgeCache>;
+}
+
+import type { SoftEdgeCache } from './energy';
+
+export interface SoftAttached {
+  att: SoftAttachment;
+  particles: number[];
+  /** Engine handle of the rigid body the particles were attached to (detects a rebuilt body). */
+  bodyHandle: number;
 }
 
 export interface JointRec {
@@ -114,6 +147,10 @@ export interface JointRec {
   force: number;
   motorTarget: number; // slewed position-motor target
   cache: [number, number, number]; // last (mode-specific) motor parameters sent to the engine
+  // -- JT-A: per-type runtime values of the coupling constraints (couplings.ts): rope length, unwrapped angle, … --
+  rt: number[];
+  // -- JT-B: estimated load / fatigue (created by the estimator) --
+  jl?: JointLoad;
 }
 
 export class WorldState {
@@ -138,7 +175,7 @@ export class WorldState {
   softOrder: SoftRec[] = [];
   softBlocks: RAPIER.SoftBody[][] = [];
   softSig = '';
-  softGrab: { body: RAPIER.SoftBody; local: number; target: Vec3 } | null = null;
+  softGrab: { body: RAPIER.SoftBody; local: number; target: Vec3; strength: number } | null = null;
   softParticles = 0;
   /** Unconsumed wall-clock time (scaled), in seconds, for the fixed-step accumulator. */
   acc = 0;
@@ -147,6 +184,8 @@ export class WorldState {
   axes: Record<string, number> = {};
   /** The world's seeded random number generator (`settings.seed`). */
   readonly rng = new Rng(1);
+  /** Time travel: snapshot ring, input log, recordings, tracks (package TM). */
+  readonly recorder = new Recorder();
   bodySeq = 0;
   /** Collider handle → owner, for events, ray casts and contact queries. */
   owners = new Map<number, ColliderOwner>();
@@ -171,7 +210,10 @@ export class WorldState {
   componentStateRemoved: string[] = [];
   /** Component runtimes (created by `PhysicsWorld`). */
   host!: ComponentHost;
-  grab: { rec: BodyRec; local: Vec3; target: Vec3 } | null = null;
+  // -- ED-B: grab strength, spin, frozen bodies --
+  grab: { rec: BodyRec; local: Vec3; target: Vec3; strength: number; spin: Vec3 } | null = null;
+  /** Bodies frozen in place with the grab tool (F while holding); cleared when the world is rebuilt. */
+  frozen = new Set<string>();
   events: SimEvent[] = [];
   stepMsEma = 0;
   rtf = 1;
@@ -182,6 +224,11 @@ export class WorldState {
   readonly rigidEnergy = new RigidEnergy();
   /** Simulated seconds since the last readPoses (the force estimate divides by it). */
   simSinceRead = 0;
+  // -- JT-B: joint load estimation / breakage state --
+  readonly loads = new LoadTracker();
+  /** JT-31: how many one-way platforms exist (the engine only gets the hook while there are some). */
+  oneWayCount = 0;
+  hooks: RAPIER.PhysicsHooks | null = null;
 
   constructor(world: RAPIER.World, worldBody: RAPIER.RigidBody, settings: SceneSettings) {
     this.world = world;

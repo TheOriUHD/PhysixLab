@@ -17,14 +17,24 @@
  */
 import { Color, Vector3 } from 'three';
 import { Emitter } from '../core/events';
-import type { Vec3 } from '../core/math';
-import type { BodyEntity, Entity, JointType, LightType, SceneDocument, ShapeType, SoftType } from '../model/types';
+import type { Quat, Vec3 } from '../core/math';
+import type {
+  BodyEntity,
+  Entity,
+  JointEntity,
+  JointType,
+  LightType,
+  SceneDocument,
+  ShapeType,
+  SoftType,
+} from '../model/types';
 import { isBody } from '../model/types';
 import { componentDef } from '../model/componentRegistry';
 import { SceneStore } from '../model/store';
 import { BodyViews } from '../render/bodyViews';
 import { SoftViews } from '../render/softViews';
 import { Effects } from '../render/effects';
+import { ComponentFx } from '../render/componentFx'; // -- CP: flames, blades and gauges of the powered parts
 import type { Gizmo } from '../render/gizmo';
 import { GroupViews } from '../render/groupViews';
 import { JointViews } from '../render/jointViews';
@@ -39,6 +49,8 @@ import { CameraControl } from './cameraControl';
 import { Editor } from './editor';
 import { FrameLoop } from './frameLoop';
 import { GizmoController } from './gizmoController';
+import { InputHub } from './input/hub'; // -- CM-A --
+import { CameraRig } from './camera/rig'; // -- CM-A --
 import { MeasureTool } from './measureTool';
 import { Persistence } from './persistence';
 import { Placement } from './placement';
@@ -53,9 +65,12 @@ import { ViewSync } from './viewSync';
 import type { Fx } from '../render/fx';
 import { ContactFeed } from './contactFeed';
 import { FxDirector } from './fx/fxDirector';
+import { DamageDirector } from './damageDirector'; // -- VZ-B
 // ── FX: sound ──
 import type { AudioEngine } from '../audio/engine';
 import { AudioDirector } from './audio/audioDirector';
+import { ZoneBridge } from './zones'; // -- ZN
+import { ZoneViews } from '../render/zoneViews'; // -- ZN
 
 export type { Shell, ToastKind } from './appTypes';
 
@@ -80,10 +95,12 @@ export class App extends Emitter<AppEvents> {
   // ── FX: the contact-event feed, the effects director and its particle system (`app.fx.emit(type, position)`) ──
   readonly contacts: ContactFeed;
   readonly fxDirector: FxDirector;
+  readonly damage: DamageDirector; // -- VZ-B: impact damage visuals (VZ-41)
   readonly fx: Fx;
   // ── FX: the sound engine (`app.audio.playEvent('explosion', [x, y, z])`) and the director that feeds it ──
   readonly audioDirector: AudioDirector;
   readonly audio: AudioEngine;
+  readonly componentFx: ComponentFx; // -- CP
   readonly labels = new Labels();
   hoverId: string | null = null;
 
@@ -97,6 +114,13 @@ export class App extends Emitter<AppEvents> {
   readonly commands: SceneCommands;
   readonly projectiles: Projectiles;
   readonly frameLoop: FrameLoop;
+  // -- ZN: zones, races, world bounds (events and state as an API; the volumes drawn in the viewport)
+  readonly zones: ZoneBridge;
+  readonly zoneViews: ZoneViews;
+  /** -- CM-A: keyboard / gamepad / touch → simulation keys and analog axes -- */
+  readonly input: InputHub;
+  /** -- CM-A: camera modes, projection, bookmarks, shake -- */
+  readonly cameraRig: CameraRig;
 
   constructor(readonly shell: Shell) {
     super();
@@ -107,8 +131,6 @@ export class App extends Emitter<AppEvents> {
 
     this.viewport = new Viewport(shell.viewportHost);
     this.bodies = new BodyViews(this.viewport.bodies);
-    // -- VZ-B: `?instancing=0` draws every body with its own mesh (benchmark baseline) --
-    if (new URLSearchParams(location.search).get('instancing') === '0') this.bodies.setInstancing(false);
     this.softs = new SoftViews(this.viewport.softs);
     this.joints = new JointViews(this.viewport.joints, this.bodies);
     this.groupViews = new GroupViews(this.viewport.groups);
@@ -116,6 +138,23 @@ export class App extends Emitter<AppEvents> {
     this.pathViews = new PathViews(this.viewport.paths);
     this.overlays = new Overlays(this.viewport.overlays);
     this.effects = new Effects(this.viewport.helpers);
+    // -- CP: the powered parts' flames, blades and gauges read the document, the live poses and the published numbers
+    // (only the owners that carry components are looked at; the lists are rebuilt after any change of the document)
+    let fxOwners: { bodies: BodyEntity[]; joints: JointEntity[] } | null = null;
+    this.store.on('change', () => (fxOwners = null));
+    const owners = () =>
+      (fxOwners ??= {
+        bodies: this.store.bodies().filter((b) => b.components.length > 0),
+        joints: this.store.joints().filter((j) => j.components.length > 0),
+      });
+    this.componentFx = new ComponentFx(this.viewport.helpers, {
+      bodies: () => owners().bodies,
+      joints: () => owners().joints,
+      pose: (id) => this.sim.poseOf(id),
+      values: (id) => (this.sim.client.active ? this.sim.client.stateOf(id) : null),
+      live: () => this.sim.client.active && this.sim.client.frameNo > 0,
+      selected: (id) => this.store.selection.includes(id),
+    });
     this.picker = new Picker(this.viewport.dom, this.viewport.camera);
 
     this.gizmos = new GizmoController(this);
@@ -130,9 +169,14 @@ export class App extends Emitter<AppEvents> {
     this.frameLoop = new FrameLoop(this);
     // ── FX: after the viewport, the store, the preferences and the simulation exist ──
     this.fxDirector = new FxDirector(this);
+    this.damage = new DamageDirector(this); // -- VZ-B
     this.fx = this.fxDirector.fx;
     this.audioDirector = new AudioDirector(this); // ── FX: after the store, the preferences, the simulation and the camera exist ──
     this.audio = this.audioDirector.engine;
+    this.zones = new ZoneBridge(this); // -- ZN
+    this.zoneViews = new ZoneViews(this); // -- ZN
+    this.input = new InputHub(this); // -- CM-A --
+    this.cameraRig = new CameraRig(this); // -- CM-A --
 
     shell.stage.appendChild(this.labels.layer);
     this.measureTool = new MeasureTool(this);
@@ -299,8 +343,8 @@ export class App extends Emitter<AppEvents> {
   // high level commands used by the UI
   // ------------------------------------------------------------------------------------------
 
-  addShape(type: ShapeType, at?: Vec3): BodyEntity {
-    return this.commands.addShape(type, at);
+  addShape(type: ShapeType, at?: Vec3, rotation?: Quat): BodyEntity {
+    return this.commands.addShape(type, at, rotation);
   }
 
   addSoft(type: SoftType): void {
@@ -329,8 +373,9 @@ export class App extends Emitter<AppEvents> {
     this.gizmos.setPathPoint(id === null ? null : { id, index });
   }
 
-  insertPrefab(id: string): void {
-    this.commands.insertPrefab(id);
+  /** `drop` (ED-A snap): where the prefab goes; without it the view target is used. */
+  insertPrefab(id: string, drop?: { position: Vec3; rotation?: Quat }): void {
+    this.commands.insertPrefab(id, drop);
   }
 
   loadDocument(doc: SceneDocument, view?: 'frame'): void {
@@ -357,12 +402,18 @@ export class App extends Emitter<AppEvents> {
     this.cameraControl.frameAll(keepDirection);
   }
 
-  shoot(origin: Vector3, dir: Vector3): void {
-    this.projectiles.shoot(origin, dir);
+  // -- ED-B: charge power, blast options --
+  shoot(origin: Vector3, dir: Vector3, power = 1): void {
+    this.projectiles.shoot(origin, dir, power);
   }
 
-  blast(at: Vector3): void {
-    this.projectiles.blast(at);
+  /** Launch speed and flight parameters of the next shot at `power`× charge (for the aim preview). */
+  shotSetup(power = 1): ReturnType<Projectiles['shotSetup']> {
+    return this.projectiles.shotSetup(power);
+  }
+
+  blast(at: Vector3, dir?: Vector3, scale = 1, quiet = false): void {
+    this.projectiles.blast(at, dir, scale, quiet);
   }
 
   /** Index (within the entity's particle block) of the soft particle closest to a world point. */
@@ -393,9 +444,32 @@ export class App extends Emitter<AppEvents> {
     };
   }
 
-  liveJoint(id: string): { value: number; speed: number; force: number; broken: boolean } | null {
+  /** JT-B: when an open joint inspector last asked for live load estimates (ms). */
+  loadWatchStamp = 0;
+
+  liveJoint(id: string): {
+    value: number;
+    speed: number;
+    force: number;
+    broken: boolean;
+    load: number;
+    torque: number;
+    ratio: number;
+    damage: number;
+    exact: boolean;
+  } | null {
     const arr = this.sim.client.jointOf(id);
     if (!arr) return null;
-    return { value: arr[0], speed: arr[1], force: arr[2], broken: arr[3] > 0 };
+    return {
+      value: arr[0],
+      speed: arr[1],
+      force: arr[2],
+      broken: arr[3] > 0,
+      load: arr[4],
+      torque: arr[5],
+      ratio: arr[6],
+      damage: arr[7],
+      exact: arr[8] > 0,
+    };
   }
 }

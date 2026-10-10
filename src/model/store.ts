@@ -2,6 +2,7 @@ import { Emitter } from '../core/events';
 import { qangle, vadd, veq, type Vec3 } from '../core/math';
 import { newDocument, uid } from './factory';
 import { addAssetTo, countAssetRefs, remapAssetRefs } from './assets';
+import { emptyCameras } from './sanitize/cameras'; // -- CM-A --
 import { cloneComponents, releaseComponentRefs } from './componentRegistry';
 import { childIndex, descendantIds, groupTransformPatches, withDescendants, type Pose } from './groups';
 import { SCENE_FORMAT, SCENE_VERSION } from './migrations';
@@ -14,6 +15,7 @@ import type {
   JointEntity,
   LightEntity,
   PathEntity,
+  SceneCameras,
   SceneDocument,
   SceneSettings,
   SoftEntity,
@@ -39,6 +41,7 @@ interface Snapshot {
   entities: Map<string, Entity>;
   settings: SceneSettings;
   assets: Record<string, Asset>;
+  cameras: SceneCameras; // -- CM-A --
   name: string;
   selection: string[];
   label: string;
@@ -66,6 +69,8 @@ export class SceneStore extends Emitter<StoreEvents> {
   /** Binary payloads (see the asset store section of types.ts); replaced, never mutated, so history can share it. */
   assets: Record<string, Asset> = {};
   name = 'Untitled scene';
+  /** -- CM-A: bookmarks, cinematic shots, split / picture-in-picture setups; replaced, never mutated -- */
+  cameras: SceneCameras = emptyCameras();
   selection: string[] = [];
   /** Increments on every document mutation (used for autosave / dirty tracking). */
   revision = 0;
@@ -75,6 +80,9 @@ export class SceneStore extends Emitter<StoreEvents> {
   private batchDepth = 0;
   private batchBase: Snapshot | null = null;
   private batchChanged = false;
+  // -- ED-A symmetry: edits folded into the undo step that is already open (see `amend`) --
+  private amendDepth = 0;
+  private restoring = false;
 
   // ---- reads --------------------------------------------------------------------------------
 
@@ -154,6 +162,7 @@ export class SceneStore extends Emitter<StoreEvents> {
       settings: this.settings,
       entities: this.all(),
       assets: this.assets,
+      cameras: this.cameras, // -- CM-A --
     };
   }
 
@@ -164,6 +173,7 @@ export class SceneStore extends Emitter<StoreEvents> {
       entities: new Map(this.entities),
       settings: this.settings,
       assets: this.assets,
+      cameras: this.cameras, // -- CM-A --
       name: this.name,
       selection: [...this.selection],
       label,
@@ -196,7 +206,7 @@ export class SceneStore extends Emitter<StoreEvents> {
 
   private pushHistory(base: Snapshot): void {
     this.past.push(base);
-    if (this.past.length > HISTORY_LIMIT) this.past.shift();
+    if (this.past.length > this._historyLimit) this.past.splice(0, this.past.length - this._historyLimit);
     this.future = [];
     this.emit('history', undefined);
   }
@@ -204,11 +214,31 @@ export class SceneStore extends Emitter<StoreEvents> {
   /** Called before every mutation. */
   private touch(label: string): void {
     this.revision++;
+    if (this.amendDepth > 0) return;
     if (this.batchDepth > 0) {
       this.batchChanged = true;
     } else {
       this.pushHistory(this.snapshot(label));
     }
+  }
+
+  // -- ED-A symmetry: follow-up edits made from a 'change' listener belong to the edit that triggered them --
+  /**
+   * Run `fn` so that the mutations it makes join the undo step of the edit being reported right now (a listener
+   * to 'change' uses it to apply a mirrored follow-up edit). Inside a `begin`/`end` batch that already happens.
+   */
+  amend<T>(fn: () => T): T {
+    this.amendDepth++;
+    try {
+      return fn();
+    } finally {
+      this.amendDepth--;
+    }
+  }
+
+  /** True while an undo / redo is being applied (listeners that react to edits must not react to history). */
+  get replaying(): boolean {
+    return this.restoring;
   }
 
   get canUndo(): boolean {
@@ -242,7 +272,65 @@ export class SceneStore extends Emitter<StoreEvents> {
     return next.label;
   }
 
+  // -- ED-B: history panel API --
+  private _historyLimit = HISTORY_LIMIT;
+
+  /** Maximum number of undo steps kept (older ones are dropped). */
+  get historyLimit(): number {
+    return this._historyLimit;
+  }
+  set historyLimit(n: number) {
+    this._historyLimit = Math.max(1, Math.floor(n));
+    if (this.past.length > this._historyLimit) {
+      this.past.splice(0, this.past.length - this._historyLimit);
+      this.emit('history', undefined);
+    }
+  }
+
+  /** Command labels: `done` in the order applied, `undone` in redo order (the next redo first). */
+  historyEntries(): { done: string[]; undone: string[] } {
+    return {
+      done: this.past.map((s) => s.label),
+      undone: this.future.map((s) => s.label).reverse(),
+    };
+  }
+
+  /** Undo / redo until exactly `doneCount` commands are applied (clamped). One 'history' event at the end. */
+  jumpTo(doneCount: number): void {
+    const total = this.past.length + this.future.length;
+    const target = Math.max(0, Math.min(total, Math.floor(doneCount)));
+    if (target === this.past.length) return;
+    while (this.past.length > target) {
+      const prev = this.past.pop()!;
+      this.future.push(this.snapshot(prev.label));
+      this.restore(prev);
+    }
+    while (this.past.length < target) {
+      const next = this.future.pop()!;
+      this.past.push(this.snapshot(next.label));
+      this.restore(next);
+    }
+    this.emit('history', undefined);
+  }
+
+  /** Forget all undo and redo steps (the document is untouched). */
+  clearHistory(): void {
+    this.past = [];
+    this.future = [];
+    this.emit('history', undefined);
+  }
+  // -- end ED-B --
+
   private restore(s: Snapshot): void {
+    this.restoring = true;
+    try {
+      this.applySnapshot(s);
+    } finally {
+      this.restoring = false;
+    }
+  }
+
+  private applySnapshot(s: Snapshot): void {
     const old = this.entities;
     const removed: Entity[] = [];
     const added: string[] = [];
@@ -271,6 +359,7 @@ export class SceneStore extends Emitter<StoreEvents> {
     this.entities = new Map(s.entities);
     this.settings = s.settings;
     this.assets = s.assets;
+    this.cameras = s.cameras; // -- CM-A --
     this.name = s.name;
     if (removed.length) this.emit('change', { type: 'remove', ids: removed.map((e) => e.id), removed });
     if (added.length) this.emit('change', { type: 'add', ids: added });
@@ -292,6 +381,7 @@ export class SceneStore extends Emitter<StoreEvents> {
     for (const e of doc.entities) this.entities.set(e.id, e);
     this.settings = doc.settings;
     this.assets = doc.assets;
+    this.cameras = doc.cameras ?? emptyCameras(); // -- CM-A --
     this.name = doc.name;
     this.selection = [];
     this.past = [];
@@ -397,6 +487,14 @@ export class SceneStore extends Emitter<StoreEvents> {
     const pose: Pose = { position: to.position ?? g.position, rotation: to.rotation ?? g.rotation };
     if (veq(pose.position, g.position) && qangle(pose.rotation, g.rotation) < 1e-9) return; // already there
     this.updateMany(groupTransformPatches(this.all(), id, pose), label);
+  }
+
+  /** -- CM-A: replace the saved cameras (undoable); listeners get the `meta` event. -- */
+  setCameras(next: SceneCameras, label = 'Change cameras'): void {
+    if (next === this.cameras) return;
+    this.touch(label);
+    this.cameras = next;
+    this.emit('meta', undefined);
   }
 
   updateSettings(patch: Partial<SceneSettings>, label = 'Change settings'): void {
@@ -532,7 +630,13 @@ const ID_PREFIX = { body: 'b', soft: 's', group: 'g', light: 'l', path: 'p' } as
  * that copy (otherwise they stay in the original group). Joints are cloned only when every body they connect is part
  * of the clone set (or the joint attaches to the world), so duplicated assemblies keep their mechanisms.
  */
-export function cloneEntities(all: Entity[], ids: string[], offset: Vec3 = [0, 0, 0]): Entity[] {
+export function cloneEntities(
+  all: Entity[],
+  ids: string[],
+  offset: Vec3 = [0, 0, 0],
+  // -- ED-A: optional out-parameter receiving old id -> new id for every cloned entity (joints included) --
+  idMap?: Map<string, string>,
+): Entity[] {
   const idSet = withDescendants(all, ids);
   const bodyIds = new Set<string>();
   const map = new Map<string, string>();
@@ -544,11 +648,20 @@ export function cloneEntities(all: Entity[], ids: string[], offset: Vec3 = [0, 0
     if (isBody(e)) bodyIds.add(e.id);
     out.push({ ...e, id: nid, position: vadd(e.position, offset) });
   }
+  if (idMap) for (const [k, v] of map) idMap.set(k, v);
   for (const c of out) {
     const parent = isPosed(c) ? c.parent : undefined;
     if (isPosed(c) && parent !== undefined && map.has(parent)) c.parent = map.get(parent);
     // New component ids; references to bodies cloned together follow the copies.
     if (isBody(c)) c.components = cloneComponents(c.components, map);
+    // -- ED-A array: a copied linked-array group stays linked only if its sources are copied with it --
+    if (isGroup(c) && c.array) {
+      if (c.array.sourceIds.every((s) => map.has(s))) {
+        c.array = { ...c.array, sourceIds: c.array.sourceIds.map((s) => map.get(s)!) };
+      } else {
+        delete c.array;
+      }
+    }
   }
   for (const j of all) {
     if (!isJoint(j)) continue;
@@ -557,9 +670,11 @@ export function cloneEntities(all: Entity[], ids: string[], offset: Vec3 = [0, 0
     const touches = bodyIds.has(j.bodyA ?? '') || bodyIds.has(j.bodyB ?? '');
     if (!(aOk && bOk && (idSet.has(j.id) || touches))) continue;
     // World-anchored sides carry world coordinates — shift them with the copy.
+    const nj = uid('j');
+    idMap?.set(j.id, nj);
     out.push({
       ...j,
-      id: uid('j'),
+      id: nj,
       bodyA: j.bodyA ? map.get(j.bodyA)! : null,
       bodyB: j.bodyB ? map.get(j.bodyB)! : null,
       anchorA: j.bodyA ? j.anchorA : vadd(j.anchorA, offset),

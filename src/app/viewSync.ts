@@ -4,12 +4,14 @@
  */
 import type { Object3D, Box3 } from 'three';
 import { Vector3 } from 'three';
+import { linkedBodyIds } from '../render/highlight';
 import { childIndex, descendantIds } from '../model/groups';
 import { isBody, isGroup, isJoint, isLight, isPath, isSoft } from '../model/types';
 import type { SceneChange } from '../model/store';
 import type { Entity } from '../model/types';
 import type { SimClient } from '../physics/client';
 import type { App } from './app';
+import { applyWeather } from './weatherSync'; // -- VZ-B: weather --
 
 export class ViewSync {
   private lastLayout = -1;
@@ -32,6 +34,7 @@ export class ViewSync {
     }
     for (const e of app.store.all()) if (isJoint(e)) app.joints.add(e);
     app.viewport.setGround(app.store.settings.ground);
+    applyWeather(app); // -- VZ-B: weather --
     this.onSelectionChanged();
     app.emit('scene', undefined);
   }
@@ -80,6 +83,7 @@ export class ViewSync {
         break;
       case 'settings':
         if (c.keys.has('ground')) app.viewport.setGround(app.store.settings.ground);
+        if (c.keys.has('weather') || c.keys.has('seed')) applyWeather(app); // -- VZ-B: weather --
         break;
       case 'assets':
         break; // nothing is drawn from assets yet
@@ -199,7 +203,26 @@ export class ViewSync {
       const sm = app.softs.meshOf(id);
       if (sm) meshes.push(sm);
     }
-    app.viewport.setOutlineTargets(meshes);
+    // -- VZ-B: hover and linked-entity outlines (VZ-40) --
+    const hover: Object3D[] = [];
+    const hid = app.hoverId;
+    if (hid && !app.store.selection.includes(hid)) {
+      const hv = app.bodies.get(hid);
+      if (hv) hover.push(hv.mesh);
+    }
+    const linked: Object3D[] = [];
+    app.bodies.linkedIds.clear();
+    if (app.prefs.value.highlight.linked) {
+      for (const id of linkedBodyIds(app.store.selection, (jid) => {
+        const j = app.store.joint(jid);
+        return j ? [j.bodyA, j.bodyB] : undefined;
+      })) {
+        const lv = app.bodies.get(id);
+        if (lv) linked.push(lv.mesh);
+        app.bodies.linkedIds.add(id);
+      }
+    }
+    app.viewport.setOutlineTargets(meshes, hover, linked);
   }
 
   /** Per frame: the simulation announced a new set of bodies / joints → reconcile the views. */
