@@ -65,6 +65,10 @@ export async function ensureServer() {
     stdio: 'ignore',
   });
   const stop = () => server.kill();
+  // Whatever ends the runner (an uncaught error such as a failed browser launch, process.exit, SIGINT / SIGTERM)
+  // must not leave the server behind holding the port for the next run.
+  process.once('exit', stop);
+  for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => process.exit(1));
   for (let i = 0; i < 60; i++) {
     try {
       const r = await fetch(`http://127.0.0.1:${port}/`);

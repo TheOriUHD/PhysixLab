@@ -122,7 +122,7 @@ export function updateJoint(s: WorldState, next: JointEntity): void {
   addJoint(s, next);
 }
 
-export function configureUnitJoint(s: WorldState, rec: JointRec, initial: boolean): void {
+function configureUnitJoint(s: WorldState, rec: JointRec, initial: boolean): void {
   const { def, joint } = rec;
   if (!joint || (def.type !== 'hinge' && def.type !== 'slider')) return;
   const u = joint as RAPIER.UnitImpulseJoint;
