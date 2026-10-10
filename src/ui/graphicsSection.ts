@@ -14,6 +14,7 @@ import {
   type GraphicsOptions,
   type QualityChoice,
 } from '../render/graphics';
+import type { HighlightOptions } from '../render/highlight';
 import { button, row, section, selectField, sliderField, toggleField, type Field } from './controls';
 import { h } from './dom';
 
@@ -263,6 +264,34 @@ export function buildGraphicsSection(app: App): GraphicsSection {
     effectRows.push(el);
   }
 
+  // ---- selection highlight (VZ-40) ---------------------------------------------------------------------------
+  const hl = (): HighlightOptions => app.prefs.value.highlight;
+  const setHl = (patch: Partial<HighlightOptions>) => app.prefs.set({ highlight: { ...hl(), ...patch } });
+  const palette = selectField<HighlightOptions['palette']>({
+    options: [
+      { value: 'default', label: 'Default' },
+      { value: 'colorblind', label: 'Colour-blind safe' },
+    ],
+    onChange: (v) => setHl({ palette: v }),
+  });
+  upd.push(() => palette.set(hl().palette));
+  const toggles = (
+    [
+      ['pulse', 'Pulse the selection outline', 'The outline breathes slowly'],
+      ['bbox', 'Bounding box', 'Box around every selected body'],
+      ['axes', 'Axis triad', 'Local axes of every selected body'],
+      ['linked', 'Highlight linked bodies', 'Select a joint and the bodies it connects glow'],
+    ] as const
+  ).map(([key, label, title]) => {
+    const t = toggleField({ label, title, onChange: (v) => setHl({ [key]: v }) });
+    upd.push(() => t.set(hl()[key]));
+    return t.el;
+  });
+  const highlight = section('Selection highlight', [row('Palette', palette.el), ...toggles], {
+    id: 'gfx-highlight',
+    open: false,
+  });
+
   const el = section(
     'Graphics',
     [
@@ -279,6 +308,7 @@ export function buildGraphicsSection(app: App): GraphicsSection {
       row('Soft edges', softness.el),
       instancing.el,
       ...effectRows,
+      highlight,
       h('div', { class: 'row' }, reset),
     ],
     { id: 'world-graphics' },

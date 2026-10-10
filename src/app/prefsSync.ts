@@ -17,6 +17,7 @@ export class PrefsSync {
     const urlTier = QUALITY_CHOICES.find((q) => q === urlQ);
     app.viewport.setQuality(urlTier ?? p.quality);
     app.viewport.setGraphics(p.graphics); // -- VZ-B --
+    app.viewport.setHighlightStyle(p.highlight);
     app.bodies.setInstancing(p.graphics.instancing && !URL_NO_INSTANCING);
     app.bodies.mode = p.colorMode;
     app.joints.visible = p.showJoints;
@@ -38,6 +39,10 @@ export class PrefsSync {
       switch (k) {
         case 'quality':
           app.viewport.setQuality(p.quality);
+          break;
+        case 'highlight':
+          app.viewport.setHighlightStyle(p.highlight);
+          app.viewSync.refreshOutline();
           break;
         case 'graphics':
           app.viewport.setGraphics(p.graphics);

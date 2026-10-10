@@ -72,7 +72,7 @@ export class PostStack {
     private renderer: WebGLRenderer,
     private scene: Scene,
     private camera: PerspectiveCamera,
-    private outline: OutlinePass,
+    private outlines: OutlinePass[],
   ) {
     this.renderPass = new RenderPass(scene, camera);
     this.composer = new EffectComposer(renderer, this.makeTarget(0, false));
@@ -152,7 +152,7 @@ export class PostStack {
       this.bloom ??= new UnrealBloomPass(new Vector2(this.width, this.height), 0.35, 0.5, 1);
       c.addPass(this.bloom);
     }
-    c.addPass(this.outline);
+    for (const o of this.outlines) c.addPass(o);
     if (g.vignette || g.aberration || g.grain || g.grading) {
       this.finish ??= new FinishPass();
       c.addPass(this.finish);

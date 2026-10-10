@@ -46,6 +46,7 @@ import {
   type QualityTier,
 } from './graphics';
 import { Governor } from './governor';
+import { DEFAULT_HIGHLIGHT, PALETTES, SelectionDecor, type HighlightOptions } from './highlight';
 import { PostStack } from './postStack';
 
 export type Quality = QualityChoice;
@@ -131,7 +132,13 @@ export class Viewport {
 
   // -- VZ-B: post stack (src/render/postStack.ts) --
   readonly post: PostStack;
-  private outline: OutlinePass;
+  readonly outline: OutlinePass;
+  readonly outlineHover: OutlinePass;
+  readonly outlineLinked: OutlinePass;
+  // -- VZ-B: highlight (VZ-40) --
+  private highlight: HighlightOptions = DEFAULT_HIGHLIGHT;
+  private multiSelect = false;
+  readonly decor = new SelectionDecor();
   private graphics: GraphicsOptions = DEFAULT_GRAPHICS;
   private governor: Governor | null = null;
   private probedTier: QualityTier = 'high';
@@ -279,7 +286,24 @@ export class Viewport {
     this.outline.edgeThickness = 1.6;
     this.outline.visibleEdgeColor.set('#5ec8ff');
     this.outline.hiddenEdgeColor.set('#1e5f8a');
-    this.post = new PostStack(this.renderer, this.scene, this.camera, this.outline);
+    const mk = () => {
+      const p = new OutlinePass(new Vector2(1, 1), this.scene, this.camera);
+      p.edgeStrength = 4.5;
+      p.edgeGlow = 0;
+      p.edgeThickness = 1.6;
+      return p;
+    };
+    this.outlineHover = mk();
+    this.outlineLinked = mk();
+    this.outlineHover.edgeStrength = 3.5;
+    this.outlineLinked.edgeStrength = 3.2;
+    this.post = new PostStack(this.renderer, this.scene, this.camera, [
+      this.outline,
+      this.outlineHover,
+      this.outlineLinked,
+    ]);
+    this.helpers.add(this.decor.group);
+    this.setHighlightStyle(DEFAULT_HIGHLIGHT);
     this.post.sun = this.sun;
     this.post.velocityHidden = [
       this.overlays,
@@ -430,9 +454,42 @@ export class Viewport {
     return this.quality;
   }
 
-  setOutlineTargets(objects: Object3D[], hover: Object3D[] = []): void {
-    this.outline.selectedObjects = objects.concat(hover);
+  /**
+   * Selection outline (colour by selection kind), hover outline and linked-entity outline are three passes, each
+   * only doing work while it has objects (VZ-40).
+   */
+  setOutlineTargets(objects: Object3D[], hover: Object3D[] = [], linked: Object3D[] = []): void {
+    this.multiSelect = objects.length > 1;
+    this.outline.selectedObjects = objects;
+    this.outlineHover.selectedObjects = hover;
+    this.outlineLinked.selectedObjects = linked;
+    this.outline.enabled = objects.length > 0;
+    this.outlineHover.enabled = hover.length > 0;
+    this.outlineLinked.enabled = linked.length > 0;
+    this.paintOutlines();
+    this.decor.update(objects, this.highlight.bbox, this.highlight.axes);
     this.needsRender = true;
+  }
+
+  /** Palette, pulse, bounding box / axes options. */
+  setHighlightStyle(o: HighlightOptions): void {
+    this.highlight = o;
+    this.paintOutlines();
+    this.outline.pulsePeriod = o.pulse ? 1.6 : 0;
+    this.decor.update(this.outline.selectedObjects, o.bbox, o.axes);
+    this.needsRender = true;
+  }
+
+  private paintOutlines(): void {
+    const pal = PALETTES[this.highlight.palette];
+    const paint = (p: OutlinePass, css: string) => {
+      p.visibleEdgeColor.set(css);
+      p.hiddenEdgeColor.set(css).multiplyScalar(pal.hiddenFactor);
+    };
+    paint(this.outline, this.multiSelect ? pal.multi : pal.selected);
+    paint(this.outlineHover, pal.hover);
+    paint(this.outlineLinked, pal.linked);
+    this.decor.setColor(this.multiSelect ? pal.multi : pal.selected);
   }
 
   resize(): void {

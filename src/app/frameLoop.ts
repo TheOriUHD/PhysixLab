@@ -47,7 +47,12 @@ export class FrameLoop {
     app.viewSync.syncSoftLayout(client);
     for (const id of app.softs.views.keys()) app.softs.tint(id, app.store.selection.includes(id));
 
-    if (app.bodies.hoverId !== app.hoverId) this.colorsDirty = true; // -- VZ-B: hover highlight (and promotion) follows the pointer --
+    if (app.bodies.hoverId !== app.hoverId) {
+      // -- VZ-B: the hover outline (and instance promotion) follows the pointer --
+      this.colorsDirty = true;
+      app.bodies.hoverId = app.hoverId;
+      app.viewSync.refreshOutline();
+    }
     app.bodies.hoverId = app.hoverId;
     if (live || this.colorsDirty || app.bodies.mode !== 'material') {
       const sel = new Set(app.store.selection);

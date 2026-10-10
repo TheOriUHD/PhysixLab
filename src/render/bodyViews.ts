@@ -275,6 +275,8 @@ export class BodyViews {
   };
   mode: ColorMode = 'material';
   hoverId: string | null = null;
+  /** Bodies outlined as linked to the selection (VZ-40): drawn through their own mesh like selected ones. */
+  readonly linkedIds = new Set<string>();
   /** Auto-ranging scale for the analytic colour modes. */
   private scaleMax: Record<string, number> = { speed: 3, energy: 50, force: 100 };
 
@@ -560,7 +562,7 @@ export class BodyViews {
     for (const v of this.views.values()) {
       const d = v.def;
       const sel = selected.has(d.id);
-      if (v.pool) v.promoted = sel || d.id === this.hoverId;
+      if (v.pool) v.promoted = sel || d.id === this.hoverId || this.linkedIds.has(d.id);
       // Colour the whole body for the analytic modes; in 'material' mode each part keeps its own colour.
       let flat: string | null = null;
       const heat = this.tmpColor;
