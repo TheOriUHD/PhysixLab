@@ -31,8 +31,9 @@ export const BUILTIN_TOOLS: readonly ToolDef[] = [
       app.sim.active
         ? // -- CM-A touch: there are no Q / E / R / F / scroll wheel under a finger --
           isTouchDevice()
-          ? '<b>Drag</b> a body to throw it · two fingers orbit and zoom · three fingers pan · <b>long-press</b> for the menu'
-          : '<b>Drag</b> a body to throw it · <b>Scroll</b> pushes / pulls it · <kbd>Q</kbd><kbd>E</kbd> spin · <kbd>R</kbd>+drag turn · <kbd>F</kbd> freeze'
+          ? '<b>Drag</b> a body to throw it · pinch with a second finger pushes / pulls it · one finger orbits · two fingers pan · <b>long-press</b> for the menu'
+          : // -- NAV: every hold-and-scroll action has a key (W S / ↑ ↓ / [ ] depth, A D / Q E turn in steps, F freeze) --
+            '<b>Drag</b> a body to throw it · <kbd>W</kbd><kbd>S</kbd> or scroll push / pull · <kbd>A</kbd><kbd>D</kbd> / <kbd>Q</kbd><kbd>E</kbd> turn · <kbd>R</kbd>+drag spin · <kbd>F</kbd> freeze'
         : null,
   },
   {

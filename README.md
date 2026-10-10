@@ -45,7 +45,14 @@ Requires a modern desktop browser with WebGL 2 and WebAssembly (Chrome, Edge, Fi
 | **Interact** | while running, drag a body to throw it · `B` blast · `T` fire projectiles |
 | **Measure** | `M`, click two points |
 | **Sound** | `Shift+M` mute / unmute (the speaker in the top bar) · volumes and test sounds in the *Effects* panel |
-| **Camera** | right-drag orbit · middle-drag pan · scroll zoom · `F` frame selection · `Home` frame all · `C` follow selection |
+| **Camera, mouse** | right-drag orbit · middle-drag pan · wheel zoom towards the cursor · `Alt`-drag orbit · `Space`-drag pan · double-click an object to focus it, empty space to frame all |
+| **Camera, trackpad** | two-finger swipe orbit · `Shift` / `Cmd` + swipe pan · pinch zoom towards the cursor · `Option` + swipe zoom · `Option`-drag orbit · `Space`-drag pan (Settings › Navigation: swipe = pan, speeds, inversions; the device is detected, or choose it) |
+| **Camera, touch** | one finger on empty space orbits · two fingers pan, pinch zooms, twisting turns · double-tap focuses |
+| **Camera, keyboard** | `←` `↑` `↓` `→` orbit (with a selection: `Alt` / `Option` + arrows) · `Shift` + arrows pan · `+` `−` zoom · `F` frame selection · `Home` frame all · `Alt` / `Option` + `1 3 7 9` front / side / top / iso (or the numpad) · `C` follow selection |
+| **Hold a body** (while running) | drag to hold · `W` `S` / `↑` `↓` / `[` `]` push / pull (or scroll; touch: pinch) · `A` `D` / `Q` `E` turn in 15° steps (`Shift` 5°) · `F` freeze · `R` + drag turn freely |
+| **Drive** | `V` drives the selected vehicle (or the only one): a chase camera, only the vehicle's keys, no editor. `C` chase / cockpit / orbit · `B` look behind · drag to look · `R` reset or flip upright · `P` pause · `Esc` / `Tab` leave |
+| **Play mode** | `Shift+V` (or the eye button next to Drive): run the scene and fly through it with `W A S D Q E`, grab and throw things, `Esc` / `Tab` leave |
+| **Which keys work now** | the pill at the bottom-left of the viewport names the input context (Edit · Simulating · Holding · Fly camera · Placing · Drive · Play); open it for the legend: what each key does *right now*, and which ones are paused and why |
 | **Undo** | `Ctrl+Z` / `Ctrl+Shift+Z` |
 | **Search** | `Ctrl+K` (`⌘K`) opens the command palette: every command, setting, example scene, saved scene, prefab and map in one fuzzy search box |
 

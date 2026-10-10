@@ -792,6 +792,39 @@ builds, saves, loads and runs a zone of every action):
 A behaviour that is not "something happens to the bodies that enter" — a force field with its own visuals, a fluid, a
 surface — is a **component** (above), not a zone action.
 
+## How to make something drivable (a vehicle detector, NAV)
+
+Drive mode (`V`) asks every registered *vehicle detector* what can be driven in the scene. The built-in `joints`
+detector finds bodies joined by joints that carry key-bound motors or powered components; a package with another kind
+of vehicle (a raycast vehicle, a character) registers its own and returns `VehicleAdapter`s — the chassis, the bodies that
+belong to it, the driven wheels, the controls as `{ code, label }` (the legend prints the labels) and the start pose:
+
+```typescript
+import { registerVehicleDetector } from '../../app/drive/vehicle';
+
+registerVehicleDetector({
+  id: 'raycast',
+  order: 5, // before the joint-built detector (10): its vehicles are offered first
+  detect: ({ entities, selection }) =>
+    entities.filter(isRaycastVehicle).map((e) => ({
+      source: 'raycast',
+      name: e.name,
+      chassisId: e.id,
+      bodyIds: [e.id],
+      drivenIds: [],
+      controls: [{ code: 'KeyW', label: 'Throttle' }, { code: 'KeyA', label: 'Steer left' }],
+      axes: ['drive', 'steer'],
+      componentOwners: [e.id],
+      startPose: (id) => (id === e.id ? { position: e.position, rotation: e.rotation } : null),
+    })),
+});
+```
+
+The vehicle's own keys always win over drive mode's utility keys (camera, look behind, reset, pause move to the next free
+key; `Esc` / `Tab` always leave), and `tests/vehicle.test.ts` shows the registration and the selection rules.
+Input contexts (`src/app/input/contexts.ts`) decide who owns a key at any moment; add a legend row or a context claim there
+rather than a new key handler.
+
 ---
 
 ## How to make a tile placeable (ghost placement)
@@ -856,6 +889,7 @@ if the load can take a moment. `lazy()` runs the loader once, shares the promise
 | tours / hints | `src/ui/tour` | `registerTour`, `startTour`, `stopTour`, `isTourRunning`, `registerHint` |
 | shapes | `src/model/shapeRegistry` | `registerShape`, `getShape`, `listShapes`, `shapeDef` … |
 | components | `src/model/componentRegistry` + `src/physics/components` | `registerComponent`, `registerRuntime`, `componentDef`, `listComponents` |
+| vehicle detectors (drive mode) | `src/app/drive/vehicle` | `registerVehicleDetector`, `findVehicle` |
 
 Every registry is built on `Registry<T>` (`src/core/registry.ts`): `register` (returns the unregister function),
 `unregister`, `get`, `has`, `list` (sorted by `order`, then registration order), `onChange`, `revision`.

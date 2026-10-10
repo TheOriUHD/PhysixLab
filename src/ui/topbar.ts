@@ -9,6 +9,7 @@ import { openMenu } from './menu';
 import { createImportInput } from './sceneActions';
 import { buildSoundButton } from './soundButton'; // ── FX ──
 import { appearanceButton } from './appearance';
+import { fitTransport } from './topbarFit'; // -- NAV --
 
 const TIME_SCALES = [0.1, 0.25, 0.5, 1, 2, 4];
 
@@ -88,6 +89,33 @@ export function buildTopbar(app: App): HTMLElement {
   );
   const clock = h('div', { class: 'sim-clock', title: 'Simulated time' }, '0.00 s');
   const run = (id: string) => runCommand(id, app, 'button');
+  // -- NAV: Drive (immersive vehicle mode) and Play (be in the scene) next to Simulate --
+  const driveBtn = h(
+    'button',
+    {
+      class: 'tbtn drive',
+      type: 'button',
+      'aria-label': 'Drive',
+      title: withShortcut(
+        'Drive the selected vehicle — a chase camera and only the vehicle’s controls',
+        'drive.toggle',
+      ),
+    },
+    icon('car'),
+    h('span', null, 'Drive'),
+  );
+  const playModeBtn = h(
+    'button',
+    {
+      class: 'tbtn play-mode',
+      type: 'button',
+      title: withShortcut('Play mode — fly through the running scene and grab things, no editor', 'play.toggle'),
+      'aria-label': 'Play mode',
+    },
+    icon('eye'),
+  );
+  driveBtn.addEventListener('click', () => run('drive.toggle'));
+  playModeBtn.addEventListener('click', () => run('play.toggle'));
   playBtn.addEventListener('click', () => run('sim.toggle'));
   stepBtn.addEventListener('click', () => run('sim.step'));
   resetBtn.addEventListener('click', () => run('sim.reset'));
@@ -132,6 +160,9 @@ export function buildTopbar(app: App): HTMLElement {
     playBtn,
     stepBtn,
     resetBtn,
+    // -- NAV: after Stop, so the positions the tour and the tests address (`.tbtn:nth-child(3)` = Stop) stay put --
+    driveBtn,
+    playModeBtn,
     h('div', { class: 'timescale' }, ts.el),
     clock,
   );
@@ -188,7 +219,7 @@ export function buildTopbar(app: App): HTMLElement {
     help,
     appearanceButton(app), // -- VZ-50 --
   );
-  return h(
+  const header = h(
     'header',
     { class: 'topbar' },
     brand,
@@ -200,4 +231,6 @@ export function buildTopbar(app: App): HTMLElement {
     transport,
     createImportInput(app),
   );
+  fitTransport(app, header); // -- NAV: the transport grew (Drive, Play) --
+  return header;
 }

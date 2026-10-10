@@ -16,6 +16,7 @@ import {
   shrinkSelectionCmd,
 } from '../../app/edit/selectTools';
 import type { App } from '../../app/app';
+import { platform } from '../../app/input/platform'; // -- NAV --
 import { registerCommand, registerMenuEntry, registerPanel, registerTool } from '../../app/registry';
 import type { SimilarCriteria } from '../../model/edit/selection';
 import { isGroup } from '../../model/types';
@@ -30,8 +31,7 @@ const ICON_SIMILAR =
   '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M15 6h6M18 3v6M3 15h6M6 12v6"/>';
 const ICON_INVERT = '<path d="M12 3a9 9 0 1 0 0 18z" fill="currentColor"/><circle cx="12" cy="12" r="9"/>';
 
-const MODIFIER_HINT =
-  '<kbd>Shift</kbd> adds · <kbd>Ctrl</kbd>/<kbd>⌘</kbd> subtracts · <kbd>Esc</kbd> cancels · <kbd>Alt</kbd>-drag orbits';
+const MODIFIER_HINT = `<kbd>Shift</kbd> adds · <kbd>Ctrl</kbd>/<kbd>⌘</kbd> subtracts · <kbd>Esc</kbd> cancels · <kbd>${platform().mod.alt}</kbd>-drag orbits`; // -- NAV: Option on a Mac
 
 registerTool({
   id: 'lasso',

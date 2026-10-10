@@ -303,14 +303,8 @@ export class Viewport {
     this.controls.mouseButtons = { LEFT: null, MIDDLE: MOUSE.PAN, RIGHT: MOUSE.ROTATE };
     this.controls.target.set(0, 1.2, 0);
     this.controls.addEventListener('change', () => (this.needsRender = true));
-    // Alt + left drag also orbits (trackpads without a right button).
-    this.dom.addEventListener(
-      'pointerdown',
-      (e) => {
-        this.controls.mouseButtons.LEFT = e.altKey ? MOUSE.ROTATE : null;
-      },
-      true,
-    );
+    // -- NAV: Alt / Option + left drag orbits and Space + left drag pans (trackpads without buttons): the navigation
+    // controller (src/app/input/navController.ts) picks the left-button mapping on every press. --
     this.dom.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // ---- post-processing --------------------------------------------------------------------

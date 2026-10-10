@@ -15,6 +15,7 @@ import { COLOR_MODE_LABELS, type ColorMode } from '../../render/bodyViews';
 import type { Quality } from '../../render/viewport';
 import type { App } from '../app';
 import { JOINT_ITEMS, LIGHT_ITEMS, SOFT_ITEMS } from '../addCatalog';
+import { fillMods, platform } from '../input/platform'; // -- NAV --
 import { pasteClaimedSince } from '../pasteClaim';
 import { lightPlaceable, pathPlaceable, shapePlaceable, softPlaceable } from '../placeables'; // -- ghost placement
 import type { CommandDef } from '../registry/commands';
@@ -585,7 +586,7 @@ export function registerBuiltinHelp(): (() => void)[] {
     ['gesture.placeClick', 'Add', 'After a number key or a tile click: place at the pointer', 'Click · Enter'],
     ['gesture.placeKeys', 'Add', 'While placing: turn · lower / raise · align · no snap', 'Q E R · [ ] · X · Alt'],
     ['gesture.placeMany', 'Add', 'Place several in a row', 'Shift Click'],
-    ['gesture.orbit', 'Camera', 'Orbit', 'Right drag · Alt drag'],
+    ['gesture.orbit', 'Camera', 'Orbit', fillMods('Right drag · {alt} drag', platform().os)], // -- NAV: Option on a Mac
     ['gesture.pan', 'Camera', 'Pan', 'Middle drag · Shift Right drag'],
     ['gesture.zoom', 'Camera', 'Zoom', 'Scroll'],
     ['gesture.frame', 'Camera', 'Frame the object under the pointer', 'Double-click'],

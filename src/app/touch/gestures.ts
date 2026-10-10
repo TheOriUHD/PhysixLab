@@ -47,6 +47,11 @@ export class FingerSet {
     this.pts.clear();
   }
 
+  /** The fingers in the order they touched down. */
+  points(): readonly TouchPoint[] {
+    return [...this.pts.values()];
+  }
+
   /** Mean position of all fingers (0, 0 when there are none). Pass `out` to avoid an allocation. */
   centroid(out: { x: number; y: number } = { x: 0, y: 0 }): { x: number; y: number } {
     let sx = 0,
@@ -69,6 +74,21 @@ export class FingerSet {
     for (const p of this.pts.values()) s += Math.hypot(p.x - c.x, p.y - c.y);
     return (2 * s) / this.pts.size;
   }
+}
+
+// -- NAV: the twist of two fingers --
+/** Angle (radians) of the line from the first finger to the second; null unless exactly two fingers are down. */
+export function twoFingerAngle(f: FingerSet): number | null {
+  const pts = f.points();
+  return pts.length === 2 ? Math.atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x) : null;
+}
+
+/** Signed difference `to − from` wrapped into (−π, π]. */
+export function angleStep(from: number, to: number): number {
+  let d = to - from;
+  while (d > Math.PI) d -= 2 * Math.PI;
+  while (d <= -Math.PI) d += 2 * Math.PI;
+  return d;
 }
 
 export type TwoFingerKind = 'undecided' | 'drag' | 'pinch';

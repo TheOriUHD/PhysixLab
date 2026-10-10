@@ -3,7 +3,7 @@
  * running simulation and the pointer behaviour of the joint / measure / blast / shoot tools. Which tool receives the
  * pointer, and what every key does, is decided by the registries (`./registry`), not here.
  */
-import { Plane, Vector3, type Camera } from 'three';
+import { Plane, Quaternion, Vector3, type Camera } from 'three';
 import { edTools } from './edTools';
 import { vadd, type Vec3 } from '../core/math';
 import { topLevel } from '../model/groups';
@@ -14,13 +14,26 @@ import { jointToolOf } from './jointTool';
 import { runCommand } from './registry/commands';
 import { keymap, shouldPreventDefault } from './registry/keymap';
 import { toolForMode } from './registry/tools';
+// -- NAV: input contexts, platform-aware navigation --
+import { GRAB_KEYS } from './input/contexts';
+import { placementGhost } from './input/contextManager';
 // -- ED-A snap --
 import { applyObjectSnap, endObjectSnap, showGridSnap } from './edit/snapDrag';
 import { effectiveModes, invertKey } from './edit/snapScene';
 
 type Gesture =
   | { kind: 'none' }
-  | { kind: 'marquee'; x0: number; y0: number; additive: boolean; moved: boolean }
+  | {
+      kind: 'marquee';
+      x0: number;
+      y0: number;
+      additive: boolean;
+      moved: boolean;
+      // -- NAV: a touch drag on empty space orbits the camera instead of drawing a rectangle --
+      orbit?: boolean;
+      lx?: number;
+      ly?: number;
+    }
   | {
       kind: 'dragMove';
       ids: string[];
@@ -70,14 +83,19 @@ export class InputController {
     });
     dom.addEventListener('dblclick', (e) => this.onDouble(e));
     // -- ED-B: scroll depth and held-body keys; capture phase so the camera and the tool shortcuts never see them --
+    // -- NAV: the navigation controller steps aside while a body is held; every key goes through the input contexts --
     window.addEventListener('wheel', (e) => this.onWheel(e), { capture: true, passive: false });
-    window.addEventListener('keydown', (e) => this.onGrabKey(e, true), true);
-    window.addEventListener('keyup', (e) => this.onGrabKey(e, false), true);
+    window.addEventListener('keydown', (e) => this.onKeyRoute(e, true), true);
+    window.addEventListener('keyup', (e) => this.onKeyRoute(e, false), true);
+    app.nav.blockWheel = () => this.g.kind === 'grab';
+    app.contexts.grabProbe = () => this.g.kind === 'grab' && !this.g.soft;
+    app.on('frame', ({ dt }) => this.tickGrab(dt));
     // Capture phase for the shortcuts that work inside text fields (see `onKeyDownCapture`).
     window.addEventListener('keydown', (e) => this.onKeyDownCapture(e), true);
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
     window.addEventListener('keyup', (e) => this.onKeyUp(e));
     window.addEventListener('blur', () => {
+      this.grabHeld.clear();
       this.app.input.clearKeys();
       if (this.g.kind === 'custom') {
         this.g.cancel?.();
@@ -104,6 +122,17 @@ export class InputController {
       this.setHover(null);
       return;
     }
+    // -- NAV: drive mode has no pointer tools; play mode only shows the grab cursor, no outlines --
+    const imm = this.app.immersive.kind;
+    if (imm === 'drive') return;
+    if (imm === 'play') {
+      const hit = this.app.pickEntity(e, { joints: false });
+      this.app.viewport.dom.classList.toggle(
+        'can-grab',
+        !!hit && this.app.store.body(hit.entityId)?.bodyType === 'dynamic',
+      );
+      return;
+    }
     const tool = this.app.prefs.value.tool;
     if (tool === 'joint') return; // the joint tool sets its own hover (jointTool.hover)
     if (tool !== 'select') {
@@ -126,20 +155,28 @@ export class InputController {
     dom.focus({ preventScroll: true });
     // -- CM-A touch: a second finger belongs to the camera (pinch / orbit / pan), never to a one-finger tool --
     if (e.pointerType === 'touch') {
-      if (e.isPrimary) this.touchIds.clear(); // a new touch sequence: ids left over from a lost pointer-up are stale
+      if (e.isPrimary) {
+        this.touchIds.clear(); // a new touch sequence: ids left over from a lost pointer-up are stale
+        this.multiTouch = false;
+      }
       this.touchIds.add(e.pointerId);
       if (this.touchIds.size > 1) {
+        this.multiTouch = true; // -- NAV: a pinch / pan is never a tap --
+        // -- NAV: a second finger while a body is held pinches its depth instead of dropping it --
+        if (this.g.kind === 'grab' && !this.g.soft) return;
         this.cancelGesture();
         return;
       }
     }
+    // -- NAV: drive mode: the pointer only looks around (the camera rig handles it); nothing is picked --
+    if (app.immersive.kind === 'drive') return;
     if (e.button === 2) {
       this.rightDown = [e.clientX, e.clientY];
       return;
     }
     if (e.button !== 0) return;
     if (app.viewport.handleViewHelperClick(e)) return;
-    if (e.altKey) return; // orbit emulation
+    if (app.nav.claimsDrag(e)) return; // -- NAV: Alt / Option + drag orbits, Space + drag pans (the orbit controls do it) --
     if (app.gizmo.controls.enabled && app.gizmo.hovering) return;
 
     dom.setPointerCapture(e.pointerId);
@@ -166,14 +203,29 @@ export class InputController {
     }
     const hit = app.pickEntity(e);
     const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+    // -- NAV: play mode grabs without ever selecting --
+    const play = app.immersive.kind === 'play';
     if (!hit) {
-      this.g = { kind: 'marquee', x0: e.clientX, y0: e.clientY, additive, moved: false };
+      if (play) return;
+      const orbit = e.pointerType === 'touch' && app.input.settings.nav.touchOneFinger === 'orbit';
+      this.g = {
+        kind: 'marquee',
+        x0: e.clientX,
+        y0: e.clientY,
+        additive,
+        moved: false,
+        orbit,
+        lx: e.clientX,
+        ly: e.clientY,
+      };
       return;
     }
     const id = hit.entityId;
-    if (hit.end) app.setJointEnd(hit.end);
-    if (additive) store.toggleSelection(id);
-    else if (!store.selection.includes(id)) store.setSelection([id]);
+    if (!play) {
+      if (hit.end) app.setJointEnd(hit.end);
+      if (additive) store.toggleSelection(id);
+      else if (!store.selection.includes(id)) store.setSelection([id]);
+    }
     const soft = store.soft(id);
     if (soft) {
       if (app.sim.active) {
@@ -299,7 +351,8 @@ export class InputController {
 
   private onMove(e: PointerEvent): void {
     const app = this.app;
-    if (e.pointerType === 'touch' && this.touchIds.size > 1) return; // -- CM-A touch: camera gesture in progress --
+    // -- CM-A touch: camera gesture in progress (-- NAV: except the finger that holds a body, whose depth the others pinch) --
+    if (e.pointerType === 'touch' && this.touchIds.size > 1 && !(this.g.kind === 'grab' && e.isPrimary)) return;
     this.pointer = { x: e.clientX, y: e.clientY, inside: true };
     const g = this.g;
 
@@ -390,7 +443,12 @@ export class InputController {
     e.stopImmediatePropagation();
     const point = g.plane.coplanarPoint(new Vector3());
     const dist = point.distanceTo(this.cam.position);
-    const away = -Math.sign(e.deltaY) * Math.max(0.15, dist * 0.08);
+    this.moveDepth(g, -Math.sign(e.deltaY) * Math.max(0.15, dist * 0.08));
+  }
+
+  /** Move the held body's depth plane `away` metres from the camera (negative = closer), within the scene's limits. */
+  private moveDepth(g: Extract<Gesture, { kind: 'grab' }>, away: number): void {
+    const point = g.plane.coplanarPoint(new Vector3());
     const toCamera = g.plane.normal.clone();
     // Never pull the plane through the camera, never push it out of the scene.
     const next = point.clone().addScaledVector(toCamera, -away);
@@ -400,25 +458,168 @@ export class InputController {
     this.moveGrabTarget({ clientX: this.pointer.x, clientY: this.pointer.y }, g);
   }
 
-  /** Keys while holding a body: Q / E spin it, R + drag turns it, F freezes / unfreezes it in place. */
-  private onGrabKey(e: KeyboardEvent, down: boolean): void {
+  /** Touch: two fingers pinching while a body is held push / pull it (fingers apart = closer, like zooming in). */
+  grabPinch(scale: number): void {
     const g = this.g;
-    if (g.kind !== 'grab' || g.soft || isTyping(e.target)) {
-      if (!down && e.code === 'KeyR') this.rHeld = false;
+    if (g.kind !== 'grab' || !(scale > 0)) return;
+    const dist = g.plane.coplanarPoint(new Vector3()).distanceTo(this.cam.position);
+    this.moveDepth(g, (1 - scale) * dist);
+  }
+
+  /** Is a rigid body held with the pointer right now? (The touch controller turns a pinch into depth then.) */
+  get holding(): boolean {
+    return this.g.kind === 'grab' && !this.g.soft;
+  }
+
+  /** Keys held for the depth of a held body (W S ↑ ↓ [ ]); tracked here because the grab context swallows them. */
+  private grabHeld = new Set<string>();
+  private lastTurnAt = 0;
+  private grabT = 0;
+  /** The command Space would run (play / pause), kept until its release decides between that and a pan. */
+  private spaceCommand: string | null = null;
+
+  /** Per frame: held depth keys push / pull the held body at a speed that scales with its distance. */
+  private tickGrab(dt: number): void {
+    const g = this.g;
+    if (g.kind !== 'grab' || g.soft || !this.grabHeld.size) {
+      this.grabT = 0;
       return;
     }
-    if (e.code === 'KeyR') {
-      this.rHeld = down;
-    } else if (e.code === 'KeyQ' || e.code === 'KeyE') {
-      if (down) g.spinKeys.add(e.code);
-      else g.spinKeys.delete(e.code);
-      this.app.sim.client.op({ op: 'grabSpin', angvel: this.spinFrom(g.spinKeys) });
-    } else if (e.code === 'KeyF' && down && !e.repeat) {
+    // Real elapsed time: slow frames must not slow the push down (the app clamps `dt`).
+    const now = performance.now();
+    if (this.grabT) dt = Math.min(0.25, (now - this.grabT) / 1000);
+    this.grabT = now;
+    let dir = 0;
+    for (const c of GRAB_KEYS.away) if (this.grabHeld.has(c)) dir += 1;
+    for (const c of GRAB_KEYS.toward) if (this.grabHeld.has(c)) dir -= 1;
+    if (dir === 0) return;
+    const dist = g.plane.coplanarPoint(new Vector3()).distanceTo(this.cam.position);
+    this.moveDepth(g, Math.sign(dir) * Math.max(0.6, dist * 0.9) * dt);
+  }
+
+  /** Turn the held body about the view's vertical axis in 15° steps (5° with Shift), around the point it is held at. */
+  private turnHeld(code: string, fine: boolean): void {
+    const g = this.g;
+    if (g.kind !== 'grab' || g.soft) return;
+    const pose = this.app.sim.poseOf(g.id);
+    if (!pose) return;
+    const left = (GRAB_KEYS.turnLeft as readonly string[]).includes(code);
+    const angle = (((fine ? 5 : 15) * Math.PI) / 180) * (left ? 1 : -1);
+    const dq = new Quaternion().setFromAxisAngle(this.cam.up, angle);
+    const pivot = g.plane.coplanarPoint(new Vector3());
+    const p = new Vector3(...pose.position).sub(pivot).applyQuaternion(dq).add(pivot);
+    const q = new Quaternion(...pose.rotation).premultiply(dq);
+    this.app.sim.client.op({
+      op: 'teleport',
+      id: g.id,
+      position: [p.x, p.y, p.z],
+      rotation: [q.x, q.y, q.z, q.w],
+      keepVelocity: true,
+    });
+  }
+
+  /**
+   * Every key goes through the input contexts (src/app/input/contexts.ts) first, in the capture phase: the context
+   * says who owns it — the held body, the placement ghost, drive / play mode, the camera, the simulation or an
+   * editor command — and everything not owned here carries on to the usual handlers.
+   */
+  private onKeyRoute(e: KeyboardEvent, down: boolean): void {
+    const app = this.app;
+    // A released key is released whatever has the focus now (a field may have taken it since the press).
+    if (!down) {
+      app.input.down.delete(e.code);
+      if (this.grabHeld.has(e.code)) {
+        this.tickGrab(0); // a tap shorter than a frame (slow machine) still moves the body for as long as the key was down
+        this.grabHeld.delete(e.code);
+      }
+      app.nav.keyUp(e);
+      if (e.code === 'KeyR') this.rHeld = false;
+    }
+    if (isTyping(e.target)) return;
+    const consume = () => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+    // The legend lights keys that are down, including the ones consumed below (they never reach the hub).
+    if (down) app.input.down.add(e.code);
+    const ctx = app.contexts.update();
+    if (e.code === 'Space' && this.spaceRoute(e, down)) return;
+    if (!down) return;
+    // The placement ghost sees keys before anything else (its own keys, Esc to cancel …).
+    if (ctx === 'placing' && placementGhost(app)?.handleKey(e)) return consume();
+    switch (app.contexts.ownerOf(e)) {
+      case 'grab':
+        this.grabKeyDown(e);
+        consume();
+        break;
+      case 'nav':
+        if (this.focusFree(e) && app.nav.keyDown(e, app.contexts.keyState().nudgeOwnsArrows)) consume();
+        break;
+      default:
+        break;
+    }
+  }
+
+  /** Key events aimed at a button, list or panel belong to it; only the page / canvas lets the camera use arrows. */
+  private focusFree(e: KeyboardEvent): boolean {
+    const t = e.target;
+    return t === document.body || t === document.documentElement || t === this.app.viewport.dom || t === document;
+  }
+
+  /** Space + drag pans, so Space waits for its release to decide whether it was a pan or a play / pause. */
+  private spaceRoute(e: KeyboardEvent, down: boolean): boolean {
+    const app = this.app;
+    const nav = app.nav;
+    if (down) {
+      if (nav.spaceHeld) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return true;
+      }
+      if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || !this.pointer.inside || this.g.kind !== 'none')
+        return false;
+      if (!this.focusFree(e)) return false;
+      // Space belongs to the editor (play / pause unless rebound) or to nobody; the scene, the placement ghost and the
+      // immersive modes keep it for themselves.
+      const owner = app.contexts.ownerOf(e);
+      if (owner !== 'command' && owner !== 'none') return false;
+      this.spaceCommand = keymap.find(e)?.id ?? null;
+      nav.spaceDown();
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return true;
+    }
+    if (!nav.spaceHeld) return false;
+    const used = nav.spaceUp();
+    if (!used && this.spaceCommand) runCommand(this.spaceCommand, app, 'shortcut', e);
+    this.spaceCommand = null;
+    e.preventDefault();
+    return true;
+  }
+
+  /** Keys while holding a body: W S ↑ ↓ [ ] push / pull, A D Q E turn in steps, F freezes, R + drag turns freely. */
+  private grabKeyDown(e: KeyboardEvent): void {
+    const g = this.g;
+    if (g.kind !== 'grab' || g.soft) return;
+    const code = e.code;
+    if (code === 'KeyR') {
+      this.rHeld = true;
+    } else if (code === 'KeyF') {
+      if (e.repeat) return;
       this.app.sim.client.op({ op: 'grabFreeze' });
       this.app.toast('Toggled freeze on the held body — grab it and press F again to release it', 'info');
-    } else return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
+    } else if (
+      (GRAB_KEYS.turnLeft as readonly string[]).includes(code) ||
+      (GRAB_KEYS.turnRight as readonly string[]).includes(code)
+    ) {
+      const now = performance.now();
+      if (e.repeat && now - this.lastTurnAt < 110) return;
+      this.lastTurnAt = now;
+      this.turnHeld(code, e.shiftKey);
+    } else {
+      if (!this.grabHeld.size) this.grabT = performance.now(); // time starts at the press, not at the next frame
+      this.grabHeld.add(code);
+    }
   }
 
   private moveMarquee(e: PointerEvent, g: Extract<Gesture, { kind: 'marquee' }>): void {
@@ -426,6 +627,13 @@ export class InputController {
       dy = e.clientY - g.y0;
     if (!g.moved && Math.hypot(dx, dy) < (e.pointerType === 'touch' ? 10 : 4)) return;
     g.moved = true;
+    // -- NAV: one finger on empty space orbits the view (Settings › Navigation › Touch: one finger) --
+    if (g.orbit) {
+      this.app.nav.dragOrbit(e.clientX - (g.lx ?? e.clientX), e.clientY - (g.ly ?? e.clientY));
+      g.lx = e.clientX;
+      g.ly = e.clientY;
+      return;
+    }
     const r = this.app.shell.stage.getBoundingClientRect();
     const x = Math.min(e.clientX, g.x0) - r.left,
       y = Math.min(e.clientY, g.y0) - r.top;
@@ -488,8 +696,23 @@ export class InputController {
     if (e.button === 2 && this.rightDown) {
       const moved = Math.hypot(e.clientX - this.rightDown[0], e.clientY - this.rightDown[1]) > 4;
       this.rightDown = null;
-      if (!moved) this.onContextMenu?.(e);
+      if (!moved && app.immersive.kind === 'none') this.onContextMenu?.(e); // -- NAV: no editor menus in drive / play --
       return;
+    }
+    // -- NAV: two quick taps on touch = double-click (focus the object / frame everything) --
+    if (
+      e.pointerType === 'touch' &&
+      e.type === 'pointerup' &&
+      !this.multiTouch &&
+      ((g.kind === 'marquee' && !g.moved) || g.kind === 'none' || (g.kind === 'dragMove' && !g.moved))
+    ) {
+      const now = e.timeStamp; // the event's own time: a slow frame must not turn two quick taps into two single ones
+      const t = this.lastTap;
+      if (t && now - t.t < 350 && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 32) {
+        this.lastTap = null;
+        this.lastDoubleAt = performance.now();
+        this.onDouble(e);
+      } else this.lastTap = { t: now, x: e.clientX, y: e.clientY };
     }
 
     switch (g.kind) {
@@ -503,6 +726,7 @@ export class InputController {
       case 'grab':
         app.sim.client.op({ op: 'release', throwScale: app.prefs.value.grabThrow });
         this.rHeld = false;
+        this.grabHeld.clear(); // -- NAV --
         break;
       case 'custom':
         g.up(e);
@@ -535,6 +759,7 @@ export class InputController {
     } else if (g.kind === 'grab') {
       app.sim.client.op({ op: 'release' });
       this.rHeld = false;
+      this.grabHeld.clear(); // -- NAV --
     } else if (g.kind === 'custom') g.cancel?.();
   }
 
@@ -549,6 +774,7 @@ export class InputController {
       if (!g.additive) app.store.setSelection([]);
       return;
     }
+    if (g.orbit) return; // -- NAV: it was a camera drag, not a selection rectangle --
     const rect = app.viewport.dom.getBoundingClientRect();
     const x0 = Math.min(e.clientX, g.x0),
       x1 = Math.max(e.clientX, g.x0);
@@ -584,7 +810,15 @@ export class InputController {
     app.store.setSelection([...new Set([...base, ...picked])]);
   }
 
+  private lastTap: { t: number; x: number; y: number } | null = null;
+  /** More than one finger was down during this touch sequence. */
+  private multiTouch = false;
+  private lastDoubleAt = -1e9;
+
   private onDouble(e: MouseEvent): void {
+    // -- NAV: a double-tap already handled this one; drive / play mode do not frame or select --
+    if (e.type === 'dblclick' && performance.now() - this.lastDoubleAt < 450) return;
+    if (this.app.immersive.kind !== 'none') return;
     // -- CM-A: in the orbit-point camera a double-click picks the new centre --
     if (this.app.cameraRig.mode === 'point') {
       const p = this.app.pickEntity(e)?.point ?? this.app.picker.groundPoint(e, 0);
@@ -631,6 +865,9 @@ export class InputController {
       return;
     }
     if (forward && (e.code.startsWith('Arrow') || e.code === 'Space')) e.preventDefault();
+    // -- NAV: a key the scene's motors / components listen to belongs to the world while it simulates: the editor
+    // shortcut on the same key (Q / E / W / R gizmo keys, C, L …) steps aside; the legend says so --
+    if (!typing && forward && app.contexts.ownerOf(e) === 'sim') return;
     // Enter ends the joint chain being drawn.
     if (!typing && e.key === 'Enter' && app.prefs.value.tool === 'joint' && jointToolOf(app).finish()) {
       e.preventDefault();

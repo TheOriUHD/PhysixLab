@@ -100,8 +100,10 @@ export class FrameLoop {
 
     app.effects.update(dt);
     app.componentFx.update(dt); // -- CP
+    app.nav.update(dt); // -- NAV: queued wheel / swipe / key camera moves --
     app.cameraControl.updateFollow(dt);
     app.cameraRig.update(dt); // -- CM-A --
+    app.contexts.update(); // -- NAV: the active input context (pill, legend) --
     app.fxDirector.update(dt); // ── FX: particles, trails, skid marks ──
     app.audioDirector.update(dt); // ── FX: impact, rolling, engine and wind sound ──
     app.measureTool.updateLabel();

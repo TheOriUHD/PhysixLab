@@ -1,6 +1,7 @@
 /** Persisted input settings (a field of `Prefs`): key bindings, vehicle profile, axis tuning, gamepad and touch options. */
 import type { AxisCfg } from './axes';
 import { DEFAULT_TOUCH, sanitizeTouch, type TouchSettings } from '../touch/settings'; // -- CM-A touch --
+import { DEFAULT_NAV, sanitizeNav, type NavSettings } from './navSettings'; // -- NAV --
 
 export interface InputSettings {
   /** Rebinding overrides: command / action id → the complete list of shortcuts (empty list = unbound). */
@@ -19,6 +20,8 @@ export interface InputSettings {
   touchControls: 'auto' | 'on' | 'off';
   /** Layout and gesture options of the touch controls (`src/app/touch/settings.ts`). */
   touch: TouchSettings;
+  /** -- NAV: pointing device, trackpad / mouse / touch navigation scheme, speeds and inversions -- */
+  nav: NavSettings;
 }
 
 export const DEFAULT_INPUT: InputSettings = {
@@ -30,6 +33,7 @@ export const DEFAULT_INPUT: InputSettings = {
   gamepad: true,
   touchControls: 'auto',
   touch: DEFAULT_TOUCH,
+  nav: DEFAULT_NAV,
 };
 
 const isRec = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -41,6 +45,7 @@ export function sanitizeInput(raw: unknown): InputSettings {
     bindings: {},
     axisTuning: {},
     touch: sanitizeTouch(undefined), // -- CM-A touch: a fresh object, never the shared default --
+    nav: sanitizeNav(undefined), // -- NAV --
   };
   if (!isRec(raw)) return out;
   if (isRec(raw.bindings))
@@ -68,5 +73,6 @@ export function sanitizeInput(raw: unknown): InputSettings {
   if (raw.touchControls === 'on' || raw.touchControls === 'off' || raw.touchControls === 'auto')
     out.touchControls = raw.touchControls;
   out.touch = sanitizeTouch(raw.touch);
+  out.nav = sanitizeNav(raw.nav); // -- NAV --
   return out;
 }

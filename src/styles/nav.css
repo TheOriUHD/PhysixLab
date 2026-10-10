@@ -1,0 +1,115 @@
+/* NAV: platform-aware navigation, the controls legend + context pill, drive HUD and the immersive modes. */
+
+/* The browser must never page-zoom, history-swipe or rubber-band from the viewport. */
+html, body { overscroll-behavior: none; }
+.viewport-canvas { touch-action: none; overscroll-behavior: none; }
+.viewport-canvas.nav-pan { cursor: grab; }
+.viewport-canvas.nav-pan:active { cursor: grabbing; }
+
+/* ── context pill + controls legend ── */
+.ctl-legend {
+  position: absolute; left: 64px; bottom: 12px; z-index: 6; /* clear of the toolbox column */
+  display: flex; flex-direction: column-reverse; align-items: flex-start; gap: 6px;
+  max-width: min(380px, calc(100% - 24px)); max-height: calc(100% - 150px);
+  pointer-events: none;
+}
+.ctl-pill {
+  pointer-events: auto; display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px 5px 10px;
+  border: 1px solid var(--border-2); border-radius: 999px; background: var(--glass); backdrop-filter: blur(12px);
+  box-shadow: var(--shadow); color: var(--text-2); font: 600 11.5px var(--font); cursor: pointer;
+}
+.ctl-pill:hover { border-color: var(--accent-line); }
+.ctl-pill:disabled { cursor: default; }
+.ctl-pill:disabled:hover { border-color: var(--border-2); }
+.ctl-pill .ctl-ctx { color: var(--text); letter-spacing: 0.02em; }
+.ctl-pill .ctl-caret { color: var(--text-3); font-weight: 500; }
+.ctl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px currentColor; color: var(--accent); }
+.ctl-legend[data-ctx='simulating'] .ctl-dot, .ctl-legend[data-ctx='drive'] .ctl-dot { background: var(--run); color: var(--run); }
+.ctl-legend[data-ctx='grab'] .ctl-dot, .ctl-legend[data-ctx='placing'] .ctl-dot { background: var(--pause); color: var(--pause); }
+.ctl-legend[data-ctx='fly'] .ctl-dot, .ctl-legend[data-ctx='play'] .ctl-dot { background: #a78bfa; color: #a78bfa; }
+
+.ctl-body {
+  pointer-events: auto; overflow: auto; min-width: 270px; max-width: 100%; padding: 10px 12px 8px;
+  border: 1px solid var(--border-2); border-radius: 12px; background: var(--glass); backdrop-filter: blur(14px);
+  box-shadow: var(--shadow); font-size: 12px; color: var(--text-2);
+}
+.ctl-body[hidden] { display: none; }
+.ctl-blurb { margin: 0 0 6px; color: var(--text-3); font-size: 11.5px; line-height: 1.35; }
+.ctl-sec h4 { margin: 8px 0 3px; font: 650 10.5px var(--font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.ctl-list { display: flex; flex-direction: column; }
+.ctl-row { display: flex; align-items: baseline; column-gap: 10px; row-gap: 0; padding: 2px 4px; border-radius: 6px; transition: background 0.08s; }
+.ctl-keys { flex: none; min-width: 92px; display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 3px; }
+.ctl-keys kbd { min-width: 17px; text-align: center; }
+.ctl-gesture { color: var(--text); font-weight: 600; font-size: 11.5px; }
+.ctl-act { flex: 1; min-width: 0; color: var(--text-2); }
+.ctl-why { flex-basis: 100%; margin: 0 0 3px 102px; color: var(--warn); font-size: 11px; font-style: normal; line-height: 1.3; }
+.ctl-row.off { opacity: 0.78; flex-wrap: wrap; }
+.ctl-row.off .ctl-act { text-decoration: line-through; text-decoration-color: var(--text-3); }
+.ctl-row.off kbd { opacity: 0.55; }
+.ctl-row.down { background: var(--accent-bg); }
+.ctl-row.down kbd { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.ctl-row.down .ctl-act { color: var(--text); }
+.stage.has-touch-controls .ctl-legend { display: none; }
+@media (max-width: 900px) { .ctl-legend { display: none; } }
+
+/* Settings › Navigation */
+.nav-tab { display: flex; flex-direction: column; gap: 8px; }
+.nav-status { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-2); }
+.nav-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.nav-sheet { border: 1px solid var(--border); border-radius: 10px; padding: 6px 8px; background: var(--bg); }
+.nav-sheet .ctl-keys { min-width: 150px; }
+
+/* ── drive HUD ── */
+.drv-hud { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
+.drv-hud[hidden] { display: none; }
+.drv-top {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); pointer-events: auto;
+  display: inline-flex; align-items: center; gap: 12px; padding: 6px 8px 6px 16px;
+  border: 1px solid var(--border-2); border-radius: 999px; background: var(--glass); backdrop-filter: blur(12px); box-shadow: var(--shadow);
+}
+.drv-name { font-weight: 650; color: var(--text); }
+.drv-cam { color: var(--text-3); font-size: 11.5px; }
+.drv-exit {
+  padding: 5px 14px; border-radius: 999px; border: 1px solid var(--accent-line); background: var(--accent-bg);
+  color: var(--accent); font: 650 12px var(--font); cursor: pointer;
+}
+.drv-exit:hover { background: var(--accent); color: var(--accent-ink); }
+.drv-exit:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.drv-gauge { position: absolute; right: 22px; bottom: 22px; width: 156px; height: 156px; }
+.drv-gauge[hidden] { display: none; }
+.drv-arc { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45)); }
+.drv-arc circle { fill: none; stroke-width: 7; stroke-linecap: round; }
+.drv-arc .bg { stroke: rgba(255, 255, 255, 0.16); }
+.drv-arc .fg { stroke: var(--accent); transition: stroke-dasharray 0.12s linear; }
+.drv-gauge-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 6px; color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); }
+.drv-speed-n { font: 700 40px var(--mono); line-height: 1; font-variant-numeric: tabular-nums; }
+.drv-gauge-text small { font: 600 11px var(--font); letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.8; }
+.drv-aux { margin-top: 4px; font: 600 11px var(--mono); opacity: 0.9; min-height: 14px; display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+.drv-note {
+  position: absolute; left: 50%; top: 64px; transform: translateX(-50%); padding: 4px 12px; border-radius: 999px;
+  background: var(--glass); border: 1px solid var(--border-2); color: var(--text-2); font-size: 12px;
+}
+.drv-note:empty { display: none; }
+.drv-note.warn { color: var(--warn); border-color: rgba(255, 179, 71, 0.5); }
+.drv-hud.play .drv-gauge, .drv-hud.play .drv-note { display: none; }
+
+/* The compact top bar keeps play / step / stop and undo / redo; Drive and Play are in the View menu and the palette there. */
+@media (max-width: 900px) { .topbar .tbtn.drive, .topbar .tbtn.play-mode { display: none; } }
+
+/* The centred transport slides right and sheds parts when the window is narrow (src/ui/topbarFit.ts). */
+@media (min-width: 901px) {
+  .topbar .transport { margin-left: var(--tb-shift, 0px); }
+  .topbar.fit-drive .tbtn.drive > span { display: none; }
+  .topbar.fit-drive .tbtn.drive { padding: 0; }
+  .topbar.fit-chip .mode-chip { display: none; }
+  .topbar.fit-clock .sim-clock { display: none; }
+  .topbar.fit-scale .transport .timescale { display: none; }
+}
+
+/* ── the immersive modes: the viewport and its overlays are all that is left ── */
+.imm-hidden { display: none !important; }
+body.immersive #app .workspace { grid-template-columns: minmax(0, 1fr) !important; }
+body.immersive .stage { position: fixed; inset: 0; z-index: 4; }
+body.immersive .viewport-canvas { cursor: crosshair; }
+body.immersive-drive .viewport-canvas { cursor: grab; }
+body.immersive .ctl-legend { z-index: 8; left: 12px; }

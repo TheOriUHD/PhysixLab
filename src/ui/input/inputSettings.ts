@@ -13,6 +13,9 @@ import {
   type TouchSticks,
   type TwoFingerDrag,
 } from '../../app/touch/settings'; // -- CM-A touch --
+import { legendFor } from '../../app/input/contexts'; // -- NAV --
+import { NAV_PRESETS, type NavSettings } from '../../app/input/navSettings'; // -- NAV --
+import { platform } from '../../app/input/platform'; // -- NAV --
 import { COMMAND_CATEGORY_ORDER } from '../../app/registry/commands';
 import { formatShortcut } from '../../app/registry/shortcuts';
 import { button, selectField, sliderField, toggleField, row } from '../controls';
@@ -21,7 +24,7 @@ import { emptyState } from '../emptyState'; // -- UI-B: empty states --
 import { icon } from '../icons';
 import { openModal } from '../modal';
 
-type TabId = 'keyboard' | 'gamepad' | 'touch';
+type TabId = 'navigation' | 'keyboard' | 'gamepad' | 'touch';
 
 export function showInputSettings(app: App, tab: TabId = 'keyboard'): void {
   const body = h('div', { class: 'input-settings' });
@@ -33,14 +36,17 @@ export function showInputSettings(app: App, tab: TabId = 'keyboard'): void {
     stopLive = null;
     for (const b of tabs.querySelectorAll('button')) b.classList.toggle('on', b.dataset.tab === current);
     body.replaceChildren(
-      current === 'keyboard'
-        ? keyboardTab()
-        : current === 'gamepad'
-          ? gamepadTab(app, (s) => (stopLive = s))
-          : touchTab(app),
+      current === 'navigation'
+        ? navigationTab(app, (s) => (stopLive = s))
+        : current === 'keyboard'
+          ? keyboardTab()
+          : current === 'gamepad'
+            ? gamepadTab(app, (s) => (stopLive = s))
+            : touchTab(app),
     );
   };
   for (const [id, label] of [
+    ['navigation', 'Navigation'],
     ['keyboard', 'Keyboard'],
     ['gamepad', 'Gamepad & axes'],
     ['touch', 'Touch'],
@@ -60,6 +66,170 @@ export function showInputSettings(app: App, tab: TabId = 'keyboard'): void {
   });
   m.el.classList.add('input-modal');
   render();
+}
+
+// ---- navigation (NAV) ----------------------------------------------------------------------------
+
+/** Settings › Navigation: the pointing device, the scheme presets, speeds and inversions, with a cheat sheet that follows. */
+function navigationTab(app: App, onStop: (stop: () => void) => void): HTMLElement {
+  const hub = app.input;
+  const n = (): NavSettings => hub.settings.nav;
+  const patch = (p: Partial<NavSettings>) => hub.update_settings({ nav: { ...n(), ...p, preset: 'custom' } });
+  const status = h('div', { class: 'nav-status' });
+  const sheet = h('div', { class: 'nav-sheet' });
+  const presets = h('div', { class: 'nav-presets' });
+  const renderStatus = () => {
+    status.textContent = `This computer: ${platform().describe(n().device)}`;
+  };
+  const renderSheet = () => {
+    const st = app.contexts.keyState();
+    const sec = legendFor('edit', st, { os: platform().os, device: platform().pointer(n().device) }).find(
+      (x) => x.id === 'nav',
+    );
+    sheet.replaceChildren(
+      ...(sec?.entries ?? []).map((e) =>
+        h(
+          'div',
+          { class: 'ctl-row' },
+          h(
+            'span',
+            { class: 'ctl-keys' },
+            e.keys.map((k) => h('kbd', null, k)),
+            e.with ? h('span', { class: 'ctl-gesture' }, e.with) : null,
+          ),
+          h('span', { class: 'ctl-act' }, e.action),
+        ),
+      ),
+    );
+  };
+  const renderPresets = () => {
+    presets.replaceChildren(
+      ...NAV_PRESETS.map((p) => {
+        const b = h(
+          'button',
+          {
+            class: `chip${n().preset === p.id ? ' on' : ''}`,
+            type: 'button',
+            title: p.blurb,
+            dataset: { preset: p.id },
+          },
+          p.label,
+        );
+        b.addEventListener('click', () => {
+          hub.update_settings({ nav: { ...n(), ...p.patch, preset: p.id } });
+          refresh();
+        });
+        return b;
+      }),
+    );
+  };
+  const refresh = () => {
+    renderStatus();
+    renderSheet();
+    renderPresets();
+  };
+  const device = selectField({
+    options: [
+      { value: 'auto', label: 'Automatic' },
+      { value: 'mouse', label: 'Mouse' },
+      { value: 'trackpad', label: 'Trackpad' },
+      { value: 'touch', label: 'Touch screen' },
+    ],
+    value: n().device,
+    onChange: (v) => {
+      patch({ device: v });
+      refresh();
+    },
+  });
+  const swipe = selectField({
+    options: [
+      { value: 'orbit', label: 'Orbit (Shift / Cmd + swipe pans)' },
+      { value: 'pan', label: 'Pan (Shift / Cmd + swipe orbits)' },
+    ],
+    value: n().swipe,
+    onChange: (v) => {
+      patch({ swipe: v });
+      refresh();
+    },
+  });
+  const speed = (key: 'orbitSpeed' | 'panSpeed' | 'zoomSpeed') =>
+    sliderField({
+      min: 0.25,
+      max: 3,
+      step: 0.05,
+      digits: 2,
+      value: n()[key],
+      unit: '×',
+      onChange: (v) => patch({ [key]: v }),
+    });
+  const flag = (key: keyof NavSettings, title?: string) =>
+    toggleField({ value: n()[key] as boolean, onChange: (v) => patch({ [key]: v }), title });
+  const one = selectField({
+    options: [
+      { value: 'orbit', label: 'Orbit the view (on empty space)' },
+      { value: 'select', label: 'Draw a selection rectangle' },
+    ],
+    value: n().touchOneFinger,
+    onChange: (v) => patch({ touchOneFinger: v }),
+  });
+  const reset = button(
+    'Reset navigation',
+    () => {
+      hub.update_settings({ nav: { ...NAV_PRESETS[0].patch, ...{ preset: 'auto' } } as NavSettings });
+      showInputSettings(app, 'navigation');
+    },
+    { title: 'Back to automatic detection and default speeds' },
+  );
+  refresh();
+  const timer = window.setInterval(renderStatus, 700); // the detected device settles as wheel events arrive
+  onStop(() => window.clearInterval(timer));
+  return h(
+    'div',
+    { class: 'nav-tab' },
+    status,
+    h('div', { class: 'cm-group' }, 'Scheme'),
+    presets,
+    row(
+      'Pointing device',
+      device.el,
+      'Automatic watches the wheel events: a mouse notch, a trackpad swipe or pinch, a finger. Override it if the guess is wrong.',
+    ),
+    row(
+      'Trackpad swipe',
+      swipe.el,
+      'What a two-finger swipe does. Pinch always zooms towards the cursor; Option / Alt + swipe also zooms.',
+    ),
+    h('div', { class: 'cm-group' }, 'Feel'),
+    row('Orbit speed', speed('orbitSpeed').el),
+    row('Pan speed', speed('panSpeed').el),
+    row('Zoom speed', speed('zoomSpeed').el),
+    row(
+      'Smooth motion',
+      flag('smooth', 'Ease camera moves in instead of jumping').el,
+      'Moves glide for a moment instead of jumping',
+    ),
+    row('Zoom towards the cursor', flag('zoomToCursor').el, 'The point under the cursor stays under it while zooming'),
+    row(
+      'Keyboard navigation',
+      flag('keyboardNav').el,
+      'Arrow keys orbit, Shift + arrows pan, + / − zoom (with a selection, hold Option / Alt for the arrows)',
+    ),
+    h('div', { class: 'cm-group' }, 'Invert'),
+    row('Orbit left / right', flag('invertOrbitX').el),
+    row('Orbit up / down', flag('invertOrbitY').el),
+    row('Pan', flag('invertPan').el),
+    row('Zoom', flag('invertZoom').el, 'Swap which way a pinch / wheel zooms'),
+    h('div', { class: 'cm-group' }, 'Touch screen'),
+    row(
+      'One finger',
+      one.el,
+      'Two fingers pan, pinch zooms and twisting turns the view (Settings › Touch has the rest)',
+    ),
+    row('Twist to turn', flag('touchTwist').el),
+    h('div', { class: 'cm-group' }, 'How to move the camera with these settings'),
+    sheet,
+    h('div', { class: 'cm-actions' }, reset),
+  );
 }
 
 // ---- keyboard ----------------------------------------------------------------------------------
