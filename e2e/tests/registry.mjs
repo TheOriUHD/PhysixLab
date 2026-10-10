@@ -341,7 +341,9 @@ test('keyboard shortcuts generated from the command registry keep working exactl
     prevented['Ctrl+d'] === true && prevented['Ctrl+y'] === true,
     `Ctrl+D / Ctrl+Y are swallowed with nothing to do (${JSON.stringify(prevented)})`,
   );
-  assert(prevented.ArrowUp === false, 'an arrow key with nothing to nudge is left alone');
+  // -- NAV: with nothing selected an arrow key orbits the camera (the input contexts take it before this listener runs);
+  // inside panels and fields it is still left alone (see "a focused panel tab leaves the arrow keys …")
+  assert(prevented.ArrowUp !== true, 'an arrow key with nothing to nudge is not swallowed as a nudge');
 
   // Hide, lock, nudge, delete on one body.
   const id = await page.evaluate(() => window.physicslab.store.bodies()[0].id);

@@ -93,6 +93,9 @@ html, body { overscroll-behavior: none; }
 .drv-note.warn { color: var(--warn); border-color: rgba(255, 179, 71, 0.5); }
 .drv-hud.play .drv-gauge, .drv-hud.play .drv-note { display: none; }
 
+/* The compact top bar keeps play / step / stop and undo / redo; Drive and Play are in the View menu and the palette there. */
+@media (max-width: 900px) { .topbar .tbtn.drive, .topbar .tbtn.play-mode { display: none; } }
+
 /* ── the immersive modes: the viewport and its overlays are all that is left ── */
 .imm-hidden { display: none !important; }
 body.immersive #app .workspace { grid-template-columns: minmax(0, 1fr) !important; }
