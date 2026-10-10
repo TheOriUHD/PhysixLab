@@ -643,7 +643,7 @@ The first load is budgeted (`npm run size`, `scripts/check-size.mjs`, limits in 
 in CI). Anything heavy that most sessions never touch — exporters, importers, CSG, the GIF encoder, the circuit
 editor, the plugin host, education content, locales — belongs in its own chunk that is fetched on first use:
 
-```ts
+```typescript
 import { lazy } from '../../core/lazy';
 
 const exporters = lazy(() => import('../../export/gltf')); // a separate chunk; nothing is fetched until first call
