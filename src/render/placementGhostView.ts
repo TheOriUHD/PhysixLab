@@ -9,7 +9,6 @@
  * carry an entity id, so it takes no part in picking, and nothing here is known to the physics.
  */
 import {
-  BufferGeometry,
   CircleGeometry,
   DoubleSide,
   Group,
@@ -23,6 +22,7 @@ import {
   RingGeometry,
   ShaderMaterial,
   Vector3,
+  type BufferGeometry,
   type InterleavedBufferAttribute,
   type Object3D,
 } from 'three';

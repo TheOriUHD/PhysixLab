@@ -181,7 +181,7 @@ function addSoft(acc: Acc, s: SoftEntity): void {
   }
   if (parts.lines) {
     parts.lines.applyMatrix4(world);
-    pushSegments(acc.edges, parts.lines);
+    pushSegments(acc.faint, parts.lines); // the lattice is a texture of the surface, not its outline
     parts.lines.dispose();
   }
   if (parts.cable) {

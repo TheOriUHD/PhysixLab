@@ -396,8 +396,16 @@ rendered waveform; the browser tests render the very same graphs offline and mea
 * **`App`** (`app/app.ts`, exposed as `window.physicslab`) is the façade the UI talks to. It owns the long-lived objects
   (store, simulation controller, editor, viewport, views, gizmo) and forwards commands to small collaborators: `prefsSync`
   (preferences → renderer / simulation / gizmo, tool hints), `viewSync`, `gizmoController`, `measureTool`, `placement`
-  (picking, where new objects go), `cameraControl`, `sceneCommands` (add shape / soft body / prefab, load scene / template /
-  map), `projectiles`, `frameLoop`.
+  (picking, where new objects go; `placement.ghost` is the ghost-placement controller, see below), `cameraControl`,
+  `sceneCommands` (add shape / soft body / prefab, load scene / template / map), `projectiles`, `frameLoop`.
+* **Ghost placement** (`app/placementGhost.ts`): a library tile dragged into the viewport (or armed by a click or a number
+  key) shows a translucent ghost that rests on the surface under the pointer (`surfaceDropPose`, plus the user's turn and
+  height); the real object is created only on release / click through the tile's `Placeable` (`app/placeables.ts`: shape,
+  soft body, prefab, user prefab, zone, light, path), as one undo step. The maths (stepping, bounds, overlap, labels) is pure
+  in `model/edit/placeMath.ts`; the ghost's geometry (`render/ghostGeometry.ts`, three merged geometries however many
+  bodies) and marks (`render/placementGhostView.ts`: landing ring, drop line, contact shadow) never enter picking or the
+  physics; `ui/placementTiles.ts` turns pointer events on a tile into `arm()` / `beginDrag()` and `ui/placementHud.ts` shows
+  the hint bar. All its keys go through `placement.ghost.handleKey(e)`; `legendEntries()` lists them for a legend.
 * **`SimController`** owns the **edit / running / paused** state machine. *Edit* has no simulated world; *Simulate* builds a
   worker world from the document; *Reset* discards it. While a world exists, document changes are mirrored into it as ops:
   structural and property edits apply to **both** the document and the live world; *pose* edits made while simulating apply

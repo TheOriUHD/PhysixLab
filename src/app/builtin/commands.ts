@@ -579,9 +579,10 @@ export function registerBuiltinHelp(): (() => void)[] {
     ['gesture.box', 'Edit', 'Box select', 'Drag on empty space'],
     ['gesture.vertical', 'Edit', 'Vertical drag-move', 'Shift drag'],
     ['gesture.nudge', 'Edit', 'Nudge selection (1 m with Shift)', 'Arrow keys'],
-    ['gesture.addAtView', 'Add', 'Pick a shape, then click where it goes', `1 – ${n}`],
+    ['gesture.addAtView', 'Add', 'Add shape at view', `1 – ${n}`],
     // -- ghost placement --
     ['gesture.placeDrag', 'Add', 'Drag a tile into the scene (a ghost shows where it lands)', 'Drag · Esc cancels'],
+    ['gesture.placeClick', 'Add', 'After a number key or a tile click: place at the pointer', 'Click · Enter'],
     ['gesture.placeKeys', 'Add', 'While placing: turn · lower / raise · align · no snap', 'Q E R · [ ] · X · Alt'],
     ['gesture.placeMany', 'Add', 'Place several in a row', 'Shift Click'],
     ['gesture.orbit', 'Camera', 'Orbit', 'Right drag · Alt drag'],

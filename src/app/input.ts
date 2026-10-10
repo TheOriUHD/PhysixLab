@@ -99,6 +99,11 @@ export class InputController {
 
   private updateHover(e: PointerEvent): void {
     if (this.g.kind !== 'none' || this.app.gizmo.isDragging) return;
+    // -- ghost placement: the surface under a ghost is not "hovered" (the glow would hide the ghost) --
+    if (this.app.placement.ghost.active) {
+      this.setHover(null);
+      return;
+    }
     const tool = this.app.prefs.value.tool;
     if (tool === 'joint') return; // the joint tool sets its own hover (jointTool.hover)
     if (tool !== 'select') {

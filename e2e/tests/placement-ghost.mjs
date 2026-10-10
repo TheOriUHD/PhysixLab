@@ -42,12 +42,6 @@ async function fresh(page, prefs = {}) {
   await nextFrame(page);
 }
 
-const viewRect = (page) =>
-  page.evaluate(() => {
-    const r = window.physicslab.viewport.dom.getBoundingClientRect();
-    return { x: r.left, y: r.top, w: r.width, h: r.height };
-  });
-
 /** Client position of a ground point (the pointer that lands the ghost there). */
 const screenOfPoint = (page, p) =>
   page.evaluate((p) => {

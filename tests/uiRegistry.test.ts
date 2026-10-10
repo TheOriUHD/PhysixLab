@@ -405,7 +405,8 @@ describe('built-in commands behave as the hard-wired code did', () => {
     const { app, raw } = fakeApp();
     runCommand(`add.shape.${listShapes()[1].id}`, app, 'shortcut');
     expect(raw.placement.ghost.arm).toHaveBeenCalledTimes(1);
-    expect(raw.placement.ghost.arm.mock.calls[0][0].id).toBe(`shape:${listShapes()[1].id}`);
+    const armed = raw.placement.ghost.arm.mock.calls[0][0] as { id: string };
+    expect(armed.id).toBe(`shape:${listShapes()[1].id}`);
     expect(raw.addShape).not.toHaveBeenCalled();
     runCommand(`add.shape.${listShapes()[1].id}`, app);
     expect(raw.addShape).toHaveBeenCalledWith(listShapes()[1].id);

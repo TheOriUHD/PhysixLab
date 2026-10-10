@@ -434,7 +434,7 @@ describe('placeables', () => {
     const dir = qrot(rot, [0, 0, -1]);
     expect(dir[1]).toBeCloseTo(-1, 6);
     expect(
-      lightPlaceable('point').blocked?.({ store: { lights: () => new Array(64).fill(0) } } as unknown as App),
+      lightPlaceable('point').blocked?.({ store: { lights: () => new Array<number>(64).fill(0) } } as unknown as App),
     ).toMatch(/lights fit/);
   });
 });

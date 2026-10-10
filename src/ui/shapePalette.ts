@@ -253,7 +253,9 @@ export function buildShapePalette(app: App): HTMLElement {
     } else if (e.key === 'Enter') {
       const first = searchShapes(defs, state.query)[0];
       if (first && state.query.trim()) {
-        app.placement.ghost.arm(shapePlaceable(first.def.id)); // -- ghost placement --
+        // -- ghost placement: arm it and hand the keyboard to the scene (Enter there places it, Esc cancels) --
+        app.placement.ghost.arm(shapePlaceable(first.def.id));
+        input.blur();
         e.preventDefault();
       }
     }
