@@ -17,7 +17,11 @@ async function hangingWeld(page, massDensity) {
       material: { preset: 'custom', density },
       linearDamping: 0,
     });
-    const j = a.editor.addJoint('fixed', { body: ceiling.id, point: [0, 5.5, 0] }, { body: block.id, point: [0, 5.5, 0] });
+    const j = a.editor.addJoint(
+      'fixed',
+      { body: ceiling.id, point: [0, 5.5, 0] },
+      { body: block.id, point: [0, 5.5, 0] },
+    );
     a.store.setSelection([j.id]);
     a.viewport.setView({ position: [0, 5, 9], target: [0, 5, 0] });
     return { joint: j.id, block: block.id };
@@ -70,7 +74,11 @@ test('breakage: stress overlay colours a loaded joint and the live readout shows
   const { joint } = await hangingWeld(page, 100); // ≈ 100 kg → 981 N
   await page.evaluate((id) => {
     const a = window.physicslab;
-    a.store.update(id, { breakage: { force: 1500, torque: 0, fatigue: { enabled: false, start: 0.6, life: 2 } } }, 'test');
+    a.store.update(
+      id,
+      { breakage: { force: 1500, torque: 0, fatigue: { enabled: false, start: 0.6, life: 2 } } },
+      'test',
+    );
     a.sim.play();
   }, joint);
   await simTime(page, 1);
