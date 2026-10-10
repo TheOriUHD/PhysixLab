@@ -67,6 +67,11 @@ function attachTo(app: App, e: PointerEvent, p: Pending, body: BodyEntity, joint
 
 function pointerDown(app: App, e: PointerEvent): void {
   hook(app);
+  if (app.sim.active) {
+    // Fastenings are authored against the document poses; live poses differ once bodies have moved or the soft body deformed.
+    app.toast('Stop the simulation to fasten soft bodies (press Esc, or reset), then attach.', 'info');
+    return;
+  }
   const hit = app.pickEntity(e, { joints: true });
   if (!hit) return;
   const store = app.store;

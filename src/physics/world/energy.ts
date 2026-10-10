@@ -67,6 +67,7 @@ export function springElasticEnergy(joints: JointRec[]): number {
 /** Per-engine-body cache for the elastic energy: rest lengths, which edges are bend edges, and the two spring rates. */
 export interface SoftEdgeCache {
   topo: number;
+  edges: Uint32Array;
   len: Float32Array;
   bend: Uint8Array;
   /** Natural angular frequencies (rad/s) of the stretch and bend softness. */
@@ -127,14 +128,15 @@ export class SoftEnergy {
 
 /** Σ ½·k·(l − l₀)² over the edges of one engine soft body (see `SoftEnergy`). */
 export function softElastic(b: RAPIER.SoftBody, cache: Map<number, SoftEdgeCache>): number {
-  const edges = b.edges();
-  const ne = edges.length >> 1;
   const np = Math.max(1, b.numParticles());
   let c = cache.get(b.handle);
-  if (!c || c.topo !== b.topologyVersion() || c.len.length !== ne) {
+  if (!c || c.topo !== b.topologyVersion()) {
+    const edges = b.edges();
+    const ne = edges.length >> 1;
     const mat = b.material();
     c = {
       topo: b.topologyVersion(),
+      edges,
       len: new Float32Array(ne),
       bend: new Uint8Array(ne),
       wStretch: 2 * Math.PI * mat.edgeSoftness.naturalFrequency,
@@ -146,6 +148,10 @@ export function softElastic(b: RAPIER.SoftBody, cache: Map<number, SoftEdgeCache
     }
     cache.set(b.handle, c);
   }
+  const edges = c.edges;
+  const ne = edges.length >> 1;
+  // permanent set moves the rest lengths: re-read them while the material is plastic
+  if (b.material().edgePlasticYield > 0) for (let e = 0; e < ne; e++) c.len[e] = b.edgeRestLength(e);
   const pos = b.particlePositions();
   const mEff = b.mass() / np / 2;
   let sum = 0;

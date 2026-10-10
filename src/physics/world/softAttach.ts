@@ -7,6 +7,7 @@
 import { qrot, vadd, vlen, vsub, type Vec3 } from '../../core/math';
 import { tyreGeometry } from '../../model/softMesh';
 import type { SoftAttachment } from '../../model/types';
+import { piecesOf } from './soft';
 import type { SoftRec, WorldState } from './state';
 import { rv } from './util';
 
@@ -21,7 +22,8 @@ function bodyPoint(s: WorldState, bodyId: string, local: Vec3): { world: Vec3; h
 
 /** World-space position of particle `i` as built (current position when the build pose is unknown). */
 function restWorld(rec: SoftRec, i: number): Vec3 {
-  if (rec.rest) return [rec.rest[3 * i], rec.rest[3 * i + 1], rec.rest[3 * i + 2]];
+  if (rec.rest && rec.rest.length === rec.root.numParticles() * 3)
+    return [rec.rest[3 * i], rec.rest[3 * i + 1], rec.rest[3 * i + 2]];
   const p = rec.root.particlePosition(i);
   return [p.x, p.y, p.z];
 }
@@ -64,6 +66,15 @@ export function particlesOfAttachment(rec: SoftRec, att: SoftAttachment): number
   return out;
 }
 
+/** Detach every particle (of any tear piece) that is fastened to `bodyHandle`; indices of earlier cuts do not matter. */
+function detachAllFrom(s: WorldState, rec: SoftRec, bodyHandle: number): void {
+  for (const sb of piecesOf(s, rec)) {
+    if (!sb.isValid()) continue;
+    for (let k = sb.numAttachments() - 1; k >= 0; k--)
+      if (sb.attachmentBody(k).handle === bodyHandle) sb.detachParticle(sb.attachmentParticle(k));
+  }
+}
+
 function fasten(s: WorldState, rec: SoftRec, att: SoftAttachment): boolean {
   const b = s.bodies.get(att.body);
   if (!b || rec.released.has(att.id)) return false;
@@ -75,7 +86,8 @@ function fasten(s: WorldState, rec: SoftRec, att: SoftAttachment): boolean {
   // Move the region so its centre meets the stored offset on the body (the document wins over the lattice pose).
   const centre = vadd(def.position, qrot(def.rotation, att.center));
   const delta = vsub(target.world, centre);
-  const shift = vlen(delta) > 1e-4;
+  // The document pose wins only while the lattice is still as built; later (re-fastening) particles stay where they are.
+  const shift = s.stepCount === rec.builtAt && vlen(delta) > 1e-4;
   for (const i of particles) {
     if (shift) {
       const p = rec.root.particlePosition(i);
@@ -96,9 +108,8 @@ export function resolveAttachments(s: WorldState, rec: SoftRec): void {
   }
 }
 
-export function releaseAttachment(rec: SoftRec, id: string): void {
-  for (const a of rec.attached)
-    if (a.att.id === id && rec.root.isValid()) for (const i of a.particles) rec.root.detachParticle(i);
+export function releaseAttachment(s: WorldState, rec: SoftRec, id: string): void {
+  for (const a of rec.attached) if (a.att.id === id) detachAllFrom(s, rec, a.bodyHandle);
   rec.attached = rec.attached.filter((a) => a.att.id !== id);
   rec.released.add(id);
 }
@@ -108,7 +119,7 @@ export function releaseSoftAttachments(s: WorldState, id: string, attachmentId?:
   const rec = s.softs.get(id);
   if (!rec) return;
   const ids = attachmentId ? [attachmentId] : rec.def.attachments.map((a) => a.id);
-  for (const a of ids) releaseAttachment(rec, a);
+  for (const a of ids) releaseAttachment(s, rec, a);
 }
 
 /** Per-step upkeep: broken joints and removed / rebuilt bodies release their fastenings; late bodies get fastened. */
@@ -119,12 +130,11 @@ export function updateAttachments(s: WorldState): void {
     for (const a of [...rec.attached]) {
       const body = s.bodies.get(a.att.body);
       const jointBroken = a.att.joint ? (s.joints.get(a.att.joint)?.broken ?? true) : false;
-      if (jointBroken) releaseAttachment(rec, a.att.id);
+      if (jointBroken) releaseAttachment(s, rec, a.att.id);
       else if (!body || body.rb.handle !== a.bodyHandle) {
-        // body removed → release for good; body rebuilt by an edit → fasten again to the new one
-        for (const i of a.particles) if (rec.root.isValid()) rec.root.detachParticle(i);
+        // body removed or rebuilt by an edit: let go, and fasten again if a body with that id exists
+        detachAllFrom(s, rec, a.bodyHandle);
         rec.attached = rec.attached.filter((x) => x !== a);
-        if (!body) rec.released.add(a.att.id);
       }
     }
     if (rec.attached.length < atts.length) resolveAttachments(s, rec);
@@ -136,8 +146,8 @@ export function detachBody(s: WorldState, bodyId: string): void {
   for (const rec of s.softOrder)
     for (const a of [...rec.attached])
       if (a.att.body === bodyId) {
-        for (const i of a.particles) if (rec.root.isValid()) rec.root.detachParticle(i);
+        // not marked released: when the removal is a rebuild (an edit), the next step fastens to the new body
+        detachAllFrom(s, rec, a.bodyHandle);
         rec.attached = rec.attached.filter((x) => x !== a);
-        rec.released.add(a.att.id);
       }
 }

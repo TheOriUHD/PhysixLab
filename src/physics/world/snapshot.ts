@@ -203,6 +203,7 @@ export function restoreSnapshot(s: WorldState, snap: WorldSnapshot): void {
       released: new Set(sb.released ?? []),
       volumeFactor: sb.volumeFactor ?? sb.def.volumeFactor,
       restLen: new Map(),
+      builtAt: -1,
     };
     for (const a of sb.attached ?? []) {
       const att = sb.def.attachments.find((x) => x.id === a.id);

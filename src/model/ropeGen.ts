@@ -147,7 +147,7 @@ export function generateChain(spec: ChainSpec): ChainResult {
       bodyA: body ?? null,
       bodyB: link.id,
       anchorA: body ? (anchor ?? [0, 0, 0]) : world,
-      anchorB: [0, first ? half : -half, 0],
+      anchorB: [0, first ? -half : half, 0], // link axis +Y runs from the start end to the far end
     });
   };
   joints.push(endJoint(true)); // the start is always fastened (to a body, or to the world point)

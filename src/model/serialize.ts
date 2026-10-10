@@ -40,6 +40,7 @@ import {
   vec3,
 } from './sanitize/primitives';
 import { sanitizeShapeSpec } from './shapeRegistry';
+import { softParticleCount } from './softBudget';
 import type {
   BodyEntity,
   BoundsSettings,
@@ -220,8 +221,10 @@ function sanitizeAttachments(raw: any): SoftAttachment[] {
   const out: SoftAttachment[] = [];
   for (const a of raw.slice(0, 64)) {
     if (!a || typeof a !== 'object' || typeof a.body !== 'string' || !a.body) continue;
+    let id = idStr(a.id, `a${out.length + 1}`);
+    while (out.some((x) => x.id === id)) id += '_';
     const att: SoftAttachment = {
-      id: idStr(a.id, `a${out.length + 1}`),
+      id,
       body: idStr(a.body, ''),
       kind: a.kind === 'rim' ? 'rim' : 'region',
       center: vec3(a.center, [0, 0, 0]),
@@ -245,7 +248,13 @@ function sanitizeSoft(raw: any, report?: LoadReport): SoftEntity {
     size[1] = clamp(size[1], 0.08, 2);
     size[2] = clamp(size[2], 0.06, 1);
   }
-  const cell = clamp(num(raw?.cell, d.cell), Math.max(0.04, Math.max(...size) / 40), 1);
+  if (type === 'mesh') for (let i = 0; i < 3; i++) size[i] = Math.min(size[i], 20);
+  let cell = clamp(num(raw?.cell, d.cell), Math.min(1, Math.max(0.04, Math.max(...size) / 40)), 1);
+  if (type === 'mesh') {
+    // hard cap on the voxel lattice a document may ask for
+    while (cell < 1 && softParticleCount({ type, size, resolution: 5, cell, pneumatic: true }) > 20000)
+      cell = Math.min(1, cell * 1.15);
+  }
   const maxRes =
     type === 'jelly'
       ? 10
