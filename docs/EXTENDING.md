@@ -98,7 +98,11 @@ unknown shape as a box.
 
 Helpers for the common cases live in `src/model/shapes/helpers.ts` (`hullCollider` / `hullGeometry` for convex
 shapes given as points, `single` for a one-collider shape, size fields, `clampDims` …). A compound shape returns
-several colliders from `colliders()`. `tests/shapeRegistry.test.ts` runs every registered shape against the engine
+several colliders from `colliders()`. Hollow and concave shapes are built from several
+convex parts that tile the solid without overlapping (so the engine's mass is exactly `density × volume`): `parts.ts`
+has `boxPart` / `hullPart`, `meshKit.ts` the mesh side (`MeshBuilder` with crease-angle normals, `lathe`,
+`extrudeOutline`) — `torus.ts` and `arch.ts` are worked examples, and `tests/primitiveShapes.test.ts` shows how to
+prove a compound shape (mesh volume = analytic volume = engine mass, a ball through the hole). `tests/shapeRegistry.test.ts` runs every registered shape against the engine
 (volume × density = integrated mass, bounding radius, mesh bounds); the example's own test also checks the centre
 of mass of a real pyramid.
 
