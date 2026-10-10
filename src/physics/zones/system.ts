@@ -536,6 +536,8 @@ export class ZoneSystem {
         else if (r.lifetime > 0 && t - r.born >= r.lifetime) this.removeBody(id, 'lifetime');
       }
     }
+    // Teleport immunity entries expire on their own; drop the old ones so a long run with many teleports stays small.
+    if (this.immune.size > 64) for (const [id, until] of [...this.immune]) if (t >= until) this.immune.delete(id);
   }
 
   /** Write the state for the page if anything changed since the last step. */
