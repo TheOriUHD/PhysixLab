@@ -25,3 +25,6 @@
 .ed-sel-actions .btn { flex: 1; justify-content: center; }
 .ed-sel-actions .btn:disabled { opacity: 0.45; pointer-events: none; }
 .ed-sel-note { color: var(--text-3); font-size: 11.5px; margin: 6px 0 0; line-height: 1.45; }
+
+/* ED-A: the toolbox grew past the stage height at 1280x720 and 1600x900; scroll instead of clipping the new tools. */
+.stage .toolbox { max-height: calc(100% - 24px); overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }

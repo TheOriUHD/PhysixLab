@@ -1,4 +1,4 @@
-// ── ED-A path (ED-23): the Path tool (P), the Path commands (reverse, close, respace, subdivide, simplify, flatten,
+// ── ED-A path (ED-23): the Path tool (D), the Path commands (reverse, close, respace, subdivide, simplify, flatten,
 //    snap, remove point, path through selection), their Edit-menu entries and the "Path tools" inspector section ──
 import {
   registerCommand,
@@ -205,7 +205,7 @@ registerInspectorSection({
         [
           rowStack(
             'Draw',
-            button('Path tool (P)', () => activatePathTool(app), {
+            button('Path tool (D)', () => activatePathTool(app), {
               icon: 'path',
               title: 'Draw new paths, insert points by clicking the curve, move handles',
             }),
