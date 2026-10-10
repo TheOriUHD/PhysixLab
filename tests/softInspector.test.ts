@@ -58,7 +58,7 @@ describe('tyre hints', () => {
     const base = createSoft('tyre', { pneumatic: true });
     for (const [vf, k] of [
       [1.0, 400],
-      [1.3, 100],
+      [1.3, 60],
       [1.3, 400],
       [1.8, 400],
     ] as const) {
