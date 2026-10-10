@@ -29,6 +29,8 @@ import {
   Vector2,
   Vector3,
   WebGLRenderer,
+  type WebGLRenderTarget,
+  type Camera,
   type Object3D,
 } from 'three';
 import type { Material } from 'three';
@@ -178,6 +180,8 @@ export class Viewport {
   private resizeObserver: ResizeObserver;
   // -- CM-A: a camera rig drives `camera` itself (fly, first person …): the tween and orbit controls stand aside --
   externalCamera = false;
+  /** Hidden while a shot is recorded so the video holds the scene only. */
+  viewHelperVisible = true;
   readonly viewGrid = new ViewGrid();
   private viewPlane: ViewPlane = null;
   private thumbRequests: { w: number; h: number; done: (url: string | null) => void }[] = [];
@@ -662,7 +666,7 @@ export class Viewport {
     this.weather.update(dt, this.camera, this.controls.target, this.activeTier); // -- VZ-B: weather --
     this.post.render(dt);
     this.renderer.autoClear = false;
-    this.viewHelper.render(this.renderer);
+    if (this.viewHelperVisible) this.viewHelper.render(this.renderer);
     this.renderer.autoClear = true;
     profiler.mark(RENDER); // -- UI-B: frame timing --
     profiler.end(); // -- UI-B: frame timing --
@@ -707,6 +711,23 @@ export class Viewport {
         r.done(null);
       }
     }
+  }
+
+  // ---- CM-A: extra views ------------------------------------------------------------------------
+
+  /** Render the scene from another camera into an off-screen target (split-screen panes, picture-in-picture). */
+  renderView(cam: Camera, target: WebGLRenderTarget): void {
+    // The sky dome and the ground grid are placed relative to the camera that looks at them.
+    this.skyMesh.position.copy(cam.position);
+    (this.gridMat.uniforms.uCamPos.value as Vector3).copy(cam.position);
+    this.renderer.setRenderTarget(target);
+    this.renderer.clear();
+    this.renderer.render(this.scene, cam);
+    this.renderer.setRenderTarget(null);
+    this.skyMesh.position.copy(this.camera.position);
+    (this.gridMat.uniforms.uCamPos.value as Vector3).copy(
+      this.camera.ortho ? this.controls.target : this.camera.position,
+    );
   }
 
   // ---- CM-A: projection -------------------------------------------------------------------------

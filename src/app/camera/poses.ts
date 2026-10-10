@@ -250,3 +250,37 @@ export function aimAt(eye: Vector3, target: Vector3, out: Quaternion): Quaternio
 
 /** Smooth 0…1 easing (ease-in-out cubic). */
 export const easeInOut = (k: number): number => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+
+// ---- mounted (dashcam, drone) ---------------------------------------------------------------------
+
+/**
+ * A camera fixed to a body: `offset` is in the body's own frame turned so that its −Z is the forward axis (x right,
+ * y up, z back), `yaw` / `pitch` turn the view from there (degrees, yaw to the left).
+ */
+export function mountPose(
+  subject: Subject,
+  axis: ForwardAxis,
+  offset: readonly [number, number, number],
+  yawDeg: number,
+  pitchDeg: number,
+  fov: number,
+  out: Pose,
+): Pose {
+  _q.setFromAxisAngle(_v.set(0, 1, 0), ALIGN_YAW[axis]);
+  out.quaternion.copy(subject.quaternion).multiply(_q);
+  _v.set(offset[0], offset[1], offset[2]).applyQuaternion(out.quaternion);
+  out.position.copy(subject.position).add(_v);
+  _e.set((pitchDeg * Math.PI) / 180, (yawDeg * Math.PI) / 180, 0, 'YXZ');
+  out.quaternion.multiply(_q.setFromEuler(_e));
+  out.fov = fov;
+  return out;
+}
+
+/** Straight down from `height` metres above the subject, screen-up = −Z. */
+export function topDownPose(subject: Subject, height: number, fov: number, out: Pose): Pose {
+  out.position.copy(subject.position);
+  out.position.y += height;
+  lookQuaternion(Math.PI, -Math.PI / 2, out.quaternion);
+  out.fov = fov;
+  return out;
+}

@@ -14,6 +14,9 @@ import type { CameraBookmark } from '../../model/types';
 import type { App } from '../app';
 import { inputMap } from '../input/inputMap';
 import { cameraModes } from './modes';
+import { ViewManager } from './views';
+import { Minimap } from './minimap';
+import { ShotPlayer, registerShotRecorder, shotRecorders, webmRecorder } from './shotPlayer';
 import {
   chasePose,
   easeInOut,
@@ -83,11 +86,21 @@ export class CameraRig extends Emitter<RigEvents> {
   private tmpV = new Vector3();
   private tmpQ = new Quaternion();
   private tmpE = new Euler();
+  /** -- shots: preview, scrub, loop, record -- */
+  readonly player: ShotPlayer;
+  /** -- split screen and picture-in-picture -- */
+  readonly views: ViewManager;
+  /** -- the minimap overlay -- */
+  readonly minimap: Minimap;
   /** An externally supplied pose (cinematic playback, bookmarks played back) overrides the mode while set. */
   override: ((dt: number, out: Pose) => boolean) | null = null;
 
   constructor(readonly app: App) {
     super();
+    this.player = new ShotPlayer(app, this);
+    this.views = new ViewManager(app, this);
+    this.minimap = new Minimap(app);
+    if (!shotRecorders.has('webm')) registerShotRecorder(webmRecorder);
     const dom = app.viewport.dom;
     dom.addEventListener('pointerdown', (e) => this.onPointerDown(e));
     dom.addEventListener('pointermove', (e) => this.onPointerMove(e));
@@ -172,6 +185,11 @@ export class CameraRig extends Emitter<RigEvents> {
     return s;
   }
 
+  /** The state of any body (for the split-screen and picture-in-picture cameras); valid until the next call. */
+  subjectState(id: string): Subject | null {
+    return this.readSubject(id);
+  }
+
   /** Subject of a driven mode for this frame, or null when there is none. */
   currentSubject(): Subject | null {
     const id = this.subjectId();
@@ -224,11 +242,11 @@ export class CameraRig extends Emitter<RigEvents> {
     return !!cameraModes.get(this.mode)?.driven;
   }
 
-  private syncControls(): void {
+  syncControls(): void {
     const vp = this.app.viewport;
     const c = vp.controls;
-    const driven = this.driven;
-    vp.externalCamera = driven || !!this.override;
+    const driven = this.driven || !!this.override;
+    vp.externalCamera = driven;
     c.enabled = !driven;
     if (!driven) {
       c.enableRotate = true;
@@ -285,6 +303,8 @@ export class CameraRig extends Emitter<RigEvents> {
     this.autoNearFar();
     this.applyShake(dt);
     cam.updateMatrixWorld();
+    this.views.update(dt);
+    this.minimap.update();
   }
 
   /** Write a pose to the camera, blended from where the camera was when the mode started (`k` 0…1). */
