@@ -16,7 +16,7 @@ import { keymap, shouldPreventDefault } from './registry/keymap';
 import { toolForMode } from './registry/tools';
 // -- ED-A snap --
 import { applyObjectSnap, endObjectSnap, showGridSnap } from './edit/snapDrag';
-import { invertKey } from './edit/snapScene';
+import { effectiveModes, invertKey } from './edit/snapScene';
 
 type Gesture =
   | { kind: 'none' }
@@ -455,8 +455,9 @@ export class InputController {
     if (applyObjectSnap(app, e, { ids: g.ids, starts: g.starts, primary: g.primary, delta, vertical })) return;
     // -- /ED-A snap --
     let d = delta;
-    // -- ED-A snap: holding Ctrl inverts the grid switch as well --
-    if (app.prefs.value.snap !== invertKey(e)) {
+    // -- ED-A snap: Ctrl suspends the grid too (or turns it on when all snapping is off) --
+    const gridOn = effectiveModes(app, invertKey(e)).grid;
+    if (gridOn) {
       const s = app.prefs.value.snapGrid;
       const snapped = vadd(base, delta).map((v) => Math.round(v / s) * s) as Vec3;
       d = [
@@ -467,7 +468,7 @@ export class InputController {
     }
     app.editor.moveTo(new Map(g.ids.map((id) => [id, vadd(g.starts.get(id)!, d)])));
     // -- ED-A snap: marker for the grid snap --
-    if (app.prefs.value.snap !== invertKey(e)) showGridSnap(app, vadd(base, d));
+    if (gridOn) showGridSnap(app, vadd(base, d));
   }
 
   private onUp(e: PointerEvent): void {

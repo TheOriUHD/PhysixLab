@@ -109,7 +109,7 @@ registerTool({
   order: 5,
   icon: 'magnet',
   label: 'Snap options',
-  title: 'Snap modes: grid, vertices, edges, faces, bounds, surfaces (hold Ctrl while dragging to invert)',
+  title: 'Snap modes: grid, vertices, edges, faces, bounds, surfaces (hold Ctrl while dragging to suspend them)',
   shortcut: 'Shift+G',
   category: 'View',
   keywords: ['snap', 'vertex', 'surface', 'magnet'],

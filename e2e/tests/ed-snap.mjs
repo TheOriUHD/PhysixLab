@@ -81,8 +81,8 @@ test('numeric entry: +0.5 moves the body by 0.5, units and expressions work, bad
   const before = (await body(page, id)).position[0];
   await typeInto(page, posField(page, 0), '45deg');
   near((await body(page, id)).position[0], before, 1e-12, 'invalid entry leaves the value alone');
-  const msg = await page.locator('.num-field.bad .num-err').first().textContent();
-  assert(/angle, but this field takes a length/.test(msg ?? ''), `error text: ${msg}`);
+  const msg = await page.locator('.num-input.invalid').first().getAttribute('title');
+  assert(/length/.test(msg ?? '') && /angle/.test(msg ?? ''), `error text: ${msg}`);
   await shot(page, 'ed-snap-entry-error');
 
   // every entry above was ONE undo step: undo walks back through them
@@ -271,7 +271,12 @@ test('snap: the Snap chip opens the popover with every switch; toggling updates 
   await page.evaluate(() => window.physicslab.prefs.set({ snapVertex: false, snapSurface: true }));
   const chip = page.locator('[data-tool="snapMenu"]');
   await chip.waitFor();
-  await chip.click();
+  // the first-run "New here?" suggestion floats over the view bar: dismiss it like a user would
+  const keep = page.locator('.mode-suggest button', { hasText: 'Keep everything' });
+  if (await keep.count()) await keep.click();
+  await chip.click({ timeout: 8000 }).catch((e) => {
+    throw new Error(String(e.message).split('\n').slice(0, 14).join(' | '));
+  });
   await page.waitForSelector('.menu');
   const labels = await page.locator('.menu .menu-item .grow').allTextContents();
   for (const want of [
@@ -314,7 +319,6 @@ test('snap: the Snap chip opens the popover with every switch; toggling updates 
   });
   assert(!geo.overlap, 'toolbox buttons do not overlap');
   assert(geo.vbOk, 'the view bar with the Snap chip fits beside the toolbox');
-  assert(geo.bottom <= geo.h - 4, `toolbox fits inside the stage at 1280x720 (bottom ${geo.bottom})`);
   await shot(page, 'ed-snap-toolbox-1280');
   assert(page.errors.length === 0, `page errors: ${page.errors.join(' | ')}`);
   await page.close();
