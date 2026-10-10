@@ -901,3 +901,63 @@ test('extension examples from docs/EXTENDING.md run in the real app: command, to
   await shot(page, 'fb-example-three-ramps');
   assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
 });
+
+test('keyboard: Ctrl+K works inside text fields; a focused panel tab leaves the arrow keys to the simulation; tooltips follow the keymap', async () => {
+  const page = await newPage();
+  await page.evaluate(() => window.physicslab.newScene());
+  const id = await page.evaluate(() => window.physicslab.addShape('box', [0, 0.5, 0]).id);
+  await page.evaluate((id) => window.physicslab.store.setSelection([id]), id);
+
+  // The palette key is handled before a field can swallow it (the scene name, number fields and filters stop their
+  // key events from bubbling so typing never reaches the shortcuts).
+  const fields = [
+    ['the scene name', '.scene-name'],
+    ['an inspector field', '.panel.right input[type=text], .panel.right input:not([type])'],
+  ];
+  for (const [what, selector] of fields) {
+    await page.locator(selector).first().click();
+    await page.keyboard.press('Control+k');
+    assert(!(await paletteClosed(page)), `Ctrl+K opens the palette from ${what}`);
+    await page.keyboard.press('Escape');
+    assert(await paletteClosed(page), `and Escape closes it again (${what})`);
+  }
+  await page.click('.panel.left .tab:has-text("Maps")');
+  await page.click('.panel.left .search input');
+  await page.keyboard.press('Control+k');
+  assert(!(await paletteClosed(page)), 'Ctrl+K opens the palette from the Maps filter');
+  await page.keyboard.press('Control+k');
+  assert(await paletteClosed(page), 'and toggles it shut again');
+  // The text typed into a field still stays in the field.
+  await page.click('.panel.left .search input');
+  await page.keyboard.type('blocks');
+  assert((await page.locator('.map-card').count()) === 1, 'typing in the filter still filters');
+  await page.fill('.panel.left .search input', '');
+
+  // Arrow keys: on a focused tab they switch tabs while editing, but while a simulation runs they belong to the
+  // motors and thrusters (the tab used to swallow them if it still had focus from a click).
+  await page.click('.panel.right .tab:has-text("Outliner")');
+  await page.keyboard.press('ArrowRight');
+  assert((await prefs(page)).rightTab === 'world', 'ArrowRight on a focused tab selects the next tab while editing');
+  await page.keyboard.press('Space');
+  await simTime(page, 0.1);
+  await page.click('.panel.right .tab:has-text("Outliner")');
+  await page.keyboard.down('ArrowRight');
+  const held = await page.evaluate(() => [...window.physicslab.sim.keys]);
+  await page.keyboard.up('ArrowRight');
+  assert(held.includes('ArrowRight'), `the simulation sees the arrow key (${held})`);
+  assert((await prefs(page)).rightTab === 'outliner', 'and the tab stays put');
+  await page.keyboard.press('Shift+Space');
+
+  // Topbar tooltips are generated from the commands' shortcuts.
+  const titles = await page.evaluate(() => ({
+    play: document.querySelector('.tbtn.play, .tbtn.pause').title,
+    step: document.querySelector('.tbtn[title^="Advance"]').title,
+    reset: document.querySelector('.tbtn[title^="Stop"]').title,
+    undo: document.querySelector('.topbar-right button[title^="Undo"]').title,
+  }));
+  assert(titles.play === 'Start / pause (Space)', titles.play);
+  assert(titles.step === 'Advance one physics step (.)', titles.step);
+  assert(titles.reset === 'Stop and return to the editable layout (Shift+Space)', titles.reset);
+  assert(/^Undo Add .* \(Ctrl\+Z\)$/.test(titles.undo), titles.undo);
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});

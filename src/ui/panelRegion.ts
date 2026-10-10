@@ -123,6 +123,9 @@ export function buildPanelRegion(app: App, o: RegionOptions): HTMLElement {
   // Arrow keys move between tabs, as in any tab list.
   head.addEventListener('keydown', (e) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    // While a simulation runs the arrow keys may be bound to motors and thrusters, and a tab that still has focus from
+    // a click must not take them (they reach the shortcuts and the simulation instead).
+    if (app.sim.active) return;
     const defs = listPanels(o.region);
     const i = defs.findIndex((d) => d.id === currentId());
     const next = defs[(i + (e.key === 'ArrowRight' ? 1 : -1) + defs.length) % defs.length];

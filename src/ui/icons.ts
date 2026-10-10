@@ -2,7 +2,7 @@
 import { svg } from './dom';
 
 const wrap = (body: string, extra = '') =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" ${extra}>${body}</svg>`;
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" ${extra}>${body}</svg>`;
 
 const PATHS: Record<string, string> = {
   play: '<path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none"/>',

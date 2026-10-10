@@ -1,5 +1,5 @@
 import type { App } from '../app/app';
-import { runCommand } from '../app/registry/commands';
+import { runCommand, withShortcut } from '../app/registry/commands';
 import { listBarMenus, menuRegistry, resolveMenu } from '../app/registry/menus';
 import { formatShortcut } from '../app/registry/shortcuts';
 import { iconButton, segmented } from './controls';
@@ -64,11 +64,24 @@ export function buildTopbar(app: App): HTMLElement {
   renderMenubar();
 
   // ---- transport -------------------------------------------------------------------------------
-  const playBtn = h('button', { class: 'tbtn play', type: 'button', title: 'Start / pause (Space)' });
-  const stepBtn = h('button', { class: 'tbtn', type: 'button', title: 'Advance one physics step (.)' }, icon('step'));
+  // Tooltips take the shortcut from the command, so they can never disagree with the keymap.
+  const playBtn = h('button', {
+    class: 'tbtn play',
+    type: 'button',
+    title: withShortcut('Start / pause', 'sim.toggle'),
+  });
+  const stepBtn = h(
+    'button',
+    { class: 'tbtn', type: 'button', title: withShortcut('Advance one physics step', 'sim.step') },
+    icon('step'),
+  );
   const resetBtn = h(
     'button',
-    { class: 'tbtn', type: 'button', title: 'Stop and return to the editable layout (Shift+Space)' },
+    {
+      class: 'tbtn',
+      type: 'button',
+      title: withShortcut('Stop and return to the editable layout', 'sim.reset'),
+    },
     icon('reset'),
   );
   const clock = h('div', { class: 'sim-clock', title: 'Simulated time' }, '0.00 s');
@@ -122,13 +135,13 @@ export function buildTopbar(app: App): HTMLElement {
   );
 
   // ---- right cluster ---------------------------------------------------------------------------
-  const undo = iconButton('undo', 'Undo (Ctrl+Z)', () => run('edit.undo'));
-  const redo = iconButton('redo', 'Redo (Ctrl+Shift+Z)', () => run('edit.redo'));
+  const undo = iconButton('undo', withShortcut('Undo', 'edit.undo'), () => run('edit.undo'));
+  const redo = iconButton('redo', withShortcut('Redo', 'edit.redo'), () => run('edit.redo'));
   const syncHistory = () => {
     undo.disabled = !store.canUndo;
     redo.disabled = !store.canRedo;
-    undo.title = store.canUndo ? `Undo ${store.undoLabel} (Ctrl+Z)` : 'Undo';
-    redo.title = store.canRedo ? `Redo ${store.redoLabel} (Ctrl+Shift+Z)` : 'Redo';
+    undo.title = store.canUndo ? withShortcut(`Undo ${store.undoLabel}`, 'edit.undo') : 'Undo';
+    redo.title = store.canRedo ? withShortcut(`Redo ${store.redoLabel}`, 'edit.redo') : 'Redo';
   };
   store.on('history', syncHistory);
   syncHistory();

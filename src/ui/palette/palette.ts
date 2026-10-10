@@ -20,8 +20,6 @@ interface OpenPalette {
 }
 let current: OpenPalette | null = null;
 
-export const isPaletteOpen = (): boolean => current !== null;
-
 export function togglePalette(app: App): void {
   if (current) current.close();
   else openPalette(app);

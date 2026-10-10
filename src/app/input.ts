@@ -54,6 +54,8 @@ export class InputController {
       this.setHover(null);
     });
     dom.addEventListener('dblclick', (e) => this.onDouble(e));
+    // Capture phase for the shortcuts that work inside text fields (see `onKeyDownCapture`).
+    window.addEventListener('keydown', (e) => this.onKeyDownCapture(e), true);
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
     window.addEventListener('keyup', (e) => this.onKeyUp(e));
     window.addEventListener('blur', () => this.app.sim.keys.clear());
@@ -450,6 +452,18 @@ export class InputController {
     this.app.sim.keys.delete(e.code);
   }
 
+  /**
+   * Shortcuts that must work while a text field has focus (`CommandDef.allowWhileTyping`: the palette key). Many fields
+   * (scene name, number fields, filters) stop their key events from bubbling so that typing never reaches the
+   * shortcuts, so these are handled on the way down, before any field sees the event.
+   */
+  private onKeyDownCapture(e: KeyboardEvent): void {
+    const cmd = keymap.find(e);
+    if (!cmd?.allowWhileTyping) return;
+    const ran = runCommand(cmd.id, this.app, 'shortcut', e);
+    if (shouldPreventDefault(cmd, ran)) e.preventDefault();
+  }
+
   private onKeyDown(e: KeyboardEvent): void {
     const app = this.app;
     const typing = isTyping(e.target);
@@ -460,7 +474,7 @@ export class InputController {
     }
     // Every other key is a command's shortcut (src/app/registry/commands.ts); nothing here binds keys.
     const cmd = keymap.find(e);
-    if (!cmd || (typing && !cmd.allowWhileTyping)) return;
+    if (!cmd || cmd.allowWhileTyping || typing) return; // allowWhileTyping ones already ran in the capture phase
     const ran = runCommand(cmd.id, app, 'shortcut', e);
     if (shouldPreventDefault(cmd, ran)) e.preventDefault();
   }

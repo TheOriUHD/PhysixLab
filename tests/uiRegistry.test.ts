@@ -15,6 +15,7 @@ import {
   listCommands,
   registerCommand,
   runCommand,
+  withShortcut,
   type CommandDef,
 } from '../src/app/registry/commands';
 import { helpSections, registerHelp } from '../src/app/registry/help';
@@ -213,6 +214,14 @@ describe('command registry', () => {
     runCommand('test.cmd', app, 'shortcut', ev);
     expect(run).toHaveBeenCalledWith({ app, source: 'shortcut', event: ev });
     off();
+  });
+
+  it('tooltips take the shortcut from the command: "Undo (Ctrl+Z)", nothing appended without one', () => {
+    expect(withShortcut('Undo', 'edit.undo')).toBe(`Undo (${formatShortcut('Mod+Z')})`);
+    expect(withShortcut('Redo Move', 'edit.redo')).toBe(`Redo Move (${formatShortcut('Mod+Shift+Z')})`);
+    expect(withShortcut('Stop', 'sim.reset')).toBe(`Stop (${formatShortcut('Shift+Space')})`);
+    expect(withShortcut('Anything', 'edit.rotate90')).toBe('Anything'); // a command without a shortcut
+    expect(withShortcut('Anything', 'no.such.command')).toBe('Anything');
   });
 
   it('every built-in command and tool uses an icon of the icon set', () => {
@@ -685,6 +694,33 @@ describe('menus resolve from the registry', () => {
     c = resolveMenu(app, 'context');
     expect(find(c, 'Reset simulation').kbd).toBe('Shift+Space');
     expect(find(c, 'Reset simulation').icon).toBe('reset');
+  });
+
+  it('an entry with `when` is only listed while the condition holds', () => {
+    const offMenu = registerMenu({ id: 'cond', label: 'Cond', order: 60, bar: false });
+    let show = false;
+    const offEntry = registerMenuEntry({
+      id: 'menu.cond.sim',
+      menu: 'cond',
+      group: 'g',
+      order: 1,
+      command: 'sim.toggle',
+      when: () => show,
+    });
+    const offKeep = registerMenuEntry({
+      id: 'menu.cond.step',
+      menu: 'cond',
+      group: 'g',
+      order: 2,
+      command: 'sim.step',
+    });
+    const { app } = fakeApp();
+    expect(labels(resolveMenu(app, 'cond'))).toEqual(['Advance one physics step']);
+    show = true;
+    expect(labels(resolveMenu(app, 'cond'))).toEqual(['Simulate', 'Advance one physics step']);
+    offKeep();
+    offEntry();
+    offMenu();
   });
 
   it('a package adds a menu and an entry; unknown menus and missing commands are refused or skipped', () => {

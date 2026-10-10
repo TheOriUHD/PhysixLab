@@ -15,7 +15,7 @@
  */
 import { Registry } from '../../core/registry';
 import type { App } from '../app';
-import { chordId, parseShortcut, shortcutList, type Chord } from './shortcuts';
+import { chordId, formatShortcut, parseShortcut, shortcutList, type Chord } from './shortcuts';
 
 /** Where a command was invoked from — a command may behave a little differently (e.g. only a shortcut toasts). */
 export type CommandSource = 'shortcut' | 'menu' | 'palette' | 'button' | 'api';
@@ -123,6 +123,13 @@ export function commandChecked(def: CommandDef, app: App): boolean | undefined {
 /** The shortcut to display (the first one), or undefined. */
 export function primaryShortcut(def: CommandDef): string | undefined {
   return shortcutList(def.shortcut)[0];
+}
+
+/** "Undo (Ctrl+Z)": a tooltip with the command's current shortcut for this platform (just `text` without one). */
+export function withShortcut(text: string, commandId: string): string {
+  const def = commandRegistry.get(commandId);
+  const shortcut = def && primaryShortcut(def);
+  return shortcut ? `${text} (${formatShortcut(shortcut)})` : text;
 }
 
 /**
