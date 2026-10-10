@@ -1,0 +1,4 @@
+/* UI-A: docking, floating inspector, simple/advanced, inspector upgrades, outliner. Sub-files per area. */
+@import './ui-a-dock.css';
+@import './ui-a-inspector.css';
+@import './ui-a-outliner.css';
