@@ -10,10 +10,152 @@
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
     <title>PhysixLab — 3D physics sandbox</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f1620'/%3E%3Cpath d='M7 22c3-1 5-6 8-11s6-4 10-1' stroke='%235eead4' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='15' cy='11' r='3.2' fill='%2338bdf8'/%3E%3C/svg%3E" />
+    <noscript><style>#boot { display: none; }</style></noscript>
+    <style>
+      /* Start-up splash: inline so it paints before any script or stylesheet arrives. */
+      #boot { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center; background: #0b0e14; color: #e8eef9; font: 500 14px/1.4 Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; transition: opacity 0.35s ease; }
+      #boot.done { opacity: 0; pointer-events: none; }
+      .boot-card { display: flex; flex-direction: column; align-items: center; gap: 18px; width: min(320px, 80vw); }
+      .boot-logo { width: 76px; height: 76px; }
+      .boot-word { font-size: 26px; font-weight: 300; letter-spacing: -0.01em; }
+      .boot-word b { font-weight: 800; background: linear-gradient(90deg, #6df0dc, #38bdf8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .boot-track { width: 100%; height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+      .boot-track i { display: block; height: 100%; width: 100%; border-radius: 99px; transform-origin: 0 50%; transform: scaleX(0); background: linear-gradient(90deg, #6df0dc, #38bdf8); transition: transform 0.2s ease-out; }
+      .boot-label { min-height: 1.4em; font-size: 12px; color: #8b9bb4; font-variant-numeric: tabular-nums; text-align: center; }
+      .boot-label a { color: #6df0dc; }
+      #boot.failed .boot-track i { background: #f87171; }
+      @media (prefers-reduced-motion: reduce) { #boot, .boot-track i { transition: none; } }
+    </style>
   </head>
   <body>
+    <div id="boot" role="progressbar" aria-label="Loading PhysixLab" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="boot-card">
+        <svg class="boot-logo" viewBox="0 0 256 256" aria-hidden="true">
+          <defs>
+            <linearGradient id="boot-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#171f2e" /><stop offset="1" stop-color="#0b0f17" /></linearGradient>
+            <linearGradient id="boot-track" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6df0dc" /><stop offset="1" stop-color="#38bdf8" /></linearGradient>
+            <radialGradient id="boot-ball" cx="0.35" cy="0.3" r="0.85"><stop offset="0" stop-color="#fff" /><stop offset="0.5" stop-color="#a5ecff" /><stop offset="1" stop-color="#38bdf8" /></radialGradient>
+          </defs>
+          <rect width="256" height="256" rx="60" fill="url(#boot-bg)" />
+          <rect x="1.5" y="1.5" width="253" height="253" rx="58.5" fill="none" stroke="#fff" stroke-opacity="0.08" stroke-width="3" />
+          <g transform="translate(0 -6)">
+            <path d="M52 186C80 96 120 74 152 96s36 56 52 78" fill="none" stroke="url(#boot-track)" stroke-width="22" stroke-linecap="round" />
+            <circle cx="128.4" cy="88.1" r="25" fill="url(#boot-ball)" />
+          </g>
+        </svg>
+        <div class="boot-word">Physix<b>Lab</b></div>
+        <div class="boot-track"><i id="boot-fill"></i></div>
+        <div class="boot-label" id="boot-label" aria-live="polite">Starting…</div>
+      </div>
+    </div>
     <div id="app"></div>
     <noscript>PhysixLab needs JavaScript.</noscript>
+    <!--boot-manifest-->
+    <script>
+      /* Start-up loader. Every number on the bar is real:
+         - download: bytes streamed so far / bytes the build recorded for the files the first paint needs
+           (only in production builds; `window.__BOOT` is written by scripts/vite/bootSplash.ts);
+         - start-up: milestones the app reports through `window.__boot.step()` (see src/app/bootProgress.ts).
+         The bar never goes backwards, and it ends only when the first frame has been drawn. */
+      (function () {
+        var root = document.getElementById('boot');
+        if (!root) return;
+        var fill = document.getElementById('boot-fill');
+        var label = document.getElementById('boot-label');
+        var B = window.__BOOT;
+        var W = { download: 0.78, boot: 0.04, engine: 0.08, ui: 0.04, scene: 0.04, frame: 0.02 };
+        var TEXT = {
+          boot: 'Starting the editor…',
+          engine: 'Starting the physics engine…',
+          ui: 'Building the interface…',
+          scene: 'Loading your scene…',
+          frame: 'Ready',
+        };
+        var done = {};
+        var last = '';
+        var dl = { loaded: 0, total: 0 };
+        var best = 0;
+        var gone = false;
+
+        function mb(n) { return (n / 1048576).toFixed(1); }
+        function progress() {
+          var have = 0, all = 0, k;
+          if (dl.total) { all += W.download; have += W.download * Math.min(1, dl.loaded / dl.total); }
+          for (k in TEXT) { all += W[k]; if (done[k]) have += W[k]; }
+          return all ? have / all : 0;
+        }
+        function render() {
+          if (gone) return;
+          best = Math.max(best, progress());
+          fill.style.transform = 'scaleX(' + best.toFixed(4) + ')';
+          root.setAttribute('aria-valuenow', String(Math.round(best * 100)));
+          label.textContent = last || (dl.total && dl.loaded < dl.total ? 'Downloading ' + mb(dl.loaded) + ' of ' + mb(dl.total) + ' MB' : 'Starting…');
+        }
+        function hide() {
+          if (gone) return;
+          gone = true;
+          fill.style.transform = 'scaleX(1)';
+          root.setAttribute('aria-valuenow', '100');
+          root.classList.add('done');
+          setTimeout(function () { if (root.parentNode) root.parentNode.removeChild(root); }, 450);
+        }
+        function fail(text) {
+          if (gone) return;
+          root.classList.add('failed');
+          label.innerHTML = '';
+          label.appendChild(document.createTextNode(text + ' '));
+          var a = document.createElement('a');
+          a.href = '';
+          a.textContent = 'Reload';
+          label.appendChild(a);
+        }
+
+        window.__boot = {
+          step: function (id) {
+            if (!(id in TEXT)) return;
+            done[id] = 1;
+            last = TEXT[id];
+            if (id === 'frame') { render(); hide(); } else render();
+          },
+          hide: hide,
+        };
+        // Never trap the user behind the splash: whatever the reason, it goes after a while.
+        setTimeout(hide, 120000);
+
+        function start() {
+          dl.loaded = dl.total;
+          render();
+          var s = document.createElement('script');
+          s.type = 'module';
+          s.crossOrigin = '';
+          s.src = B.entry;
+          s.onerror = function () { fail('PhysixLab could not be loaded. Check your connection and'); };
+          document.head.appendChild(s);
+        }
+
+        if (!B || !B.files || !window.fetch || !window.ReadableStream) { render(); return; }
+        for (var i = 0; i < B.files.length; i++) dl.total += B.files[i].b;
+        render();
+        Promise.all(
+          B.files.map(function (f) {
+            return fetch(f.u)
+              .then(function (r) {
+                if (!r.ok || !r.body) throw new Error(r.status);
+                var rd = r.body.getReader();
+                return (function pump() {
+                  return rd.read().then(function (x) {
+                    if (x.done) return;
+                    dl.loaded += x.value.length;
+                    render();
+                    return pump();
+                  });
+                })();
+              })
+              .catch(function () { /* the module graph below reports a file that really is missing */ });
+          })
+        ).then(start, start);
+      })();
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

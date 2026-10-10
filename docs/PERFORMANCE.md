@@ -21,3 +21,11 @@ extensions are separate chunks fetched on first use (`scripts/check-size.mjs` li
 named in DT-42 that other packages own (exporters, importers, CSG, GIF encoder, circuit editor, education content,
 locales) must adopt `lazy()` when they land; the budget script fails the build if the first-load JavaScript grows past
 its limit, which is the pressure to do so.
+
+## The start-up splash
+
+`index.html` paints a splash with a progress bar before any script has arrived, and every number on that bar is real:
+
+* **Download (78 % of the bar, production builds).** `scripts/vite/bootSplash.ts` records the decoded size of everything the first paint needs — the entry chunk, the chunks it imports, the physics worker and the Rapier wasm. The inline loader streams those files, counts the bytes it receives against those sizes (so host compression does not matter), and only then adds the entry script. The files are by then in the HTTP cache, so nothing is downloaded twice.
+* **Start-up (22 %).** The app reports milestones through `src/app/bootProgress.ts`: the code is running, the physics worker finished initialising, the interface is built, the first scene is loaded, and finally the first frame has been drawn — which is what removes the splash.
+* The bar never moves backwards. In `vite dev` there is no download phase, so the bar follows the milestones only. If the app cannot start, the failure screens remove the splash so their explanation is visible, and the splash gives up on its own after two minutes rather than trapping anyone behind it.

@@ -66,9 +66,14 @@ import { mountNavUi } from './ui/input/navUi'; // -- NAV --
 
 installDiagnostics(); // -- UI-B: error boundary --
 import { readEmbedOptions } from './app/embed/options'; // -- DT-22 --
+import { bootHide, bootStep } from './app/bootProgress'; // start-up splash milestones
 
 async function boot(): Promise<void> {
-  if (!preflight()) return; // -- UI-B: capability check --
+  bootStep('boot');
+  if (!preflight()) {
+    bootHide(); // the capability screen explains what is missing
+    return; // -- UI-B: capability check --
+  }
   // -- VZ-50: paint the stored theme before anything is built (no flash of the default theme) --
   const early = new PrefsStore().value;
   applyTheme(early.theme, early.accent);
@@ -78,6 +83,9 @@ async function boot(): Promise<void> {
   const root = document.getElementById('app')!;
   const shell = createShell(root);
   const app = new App(shell);
+  // The physics worker reports back once its wasm is compiled (it may already have, on a warm cache).
+  if (app.sim.client.workerProtocol !== null) bootStep('engine');
+  else app.sim.client.on('ready', () => bootStep('engine'));
   attachDiagnostics(app); // -- UI-B --
   // -- DT-22: `?embed=1` boots the minimal-chrome viewer instead of the editor --
   const embedOptions = readEmbedOptions(location.search);
@@ -87,6 +95,7 @@ async function boot(): Promise<void> {
     app.start();
     (window as unknown as { physixlab: App }).physixlab = app;
     bridge.announceReady();
+    bootHide(); // the embed shows its own loading state
     return;
   }
   // -- end DT-22 --
@@ -138,6 +147,7 @@ async function boot(): Promise<void> {
   });
 
   mountNavUi(app, shell.stage); // -- NAV: controls legend + context pill, drive HUD --
+  bootStep('ui');
   input.onContextMenu = (ev) => {
     if (app.immersive.active) return; // -- NAV: no editor menus in drive / play mode --
     const hit = app.pickEntity(ev);
@@ -203,6 +213,7 @@ async function boot(): Promise<void> {
   if (tv) app.viewport.setView(tv);
   else if (!viewSet) app.frameAll(false);
   app.updateToolHint();
+  bootStep('scene');
   data.announceRecovery(restoredFrom); // -- DT-12
 
   // Drag & drop of files (scenes …) is installed by installQol(app) below, with its drop overlay.
@@ -211,6 +222,8 @@ async function boot(): Promise<void> {
   initPwa(app); // -- DT-40: service worker (production only), update banner, file / share intake --
   installTimeTravel(app); // -- TM: timeline, rewind, replays, ghosts --
   app.start();
+  // Two animation frames after the render loop starts: the first real frame has been drawn and shown.
+  requestAnimationFrame(() => requestAnimationFrame(() => bootStep('frame')));
   installTour(app); // -- UI-B: guided tours, context hints, tips --
   installQol(app); // UI-B: presentation mode, recents, drop overlay, clipboard paste
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.

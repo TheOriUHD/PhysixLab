@@ -8,6 +8,7 @@
  *   showBootFailure(error)    what `boot().catch` shows instead of a bare message
  */
 import type { App } from '../../app/app';
+import { bootHide } from '../../app/bootProgress';
 import { h } from '../dom';
 import { capabilityReport, collectReport } from './collect';
 import { showBootScreen, showRuntimeCard, type CardHandle } from './errorCard';
@@ -123,6 +124,7 @@ export function attachDiagnostics(app: App): void {
 /** Replace the app with the "can't start" screen (what `boot().catch` calls). */
 export function showBootFailure(error: unknown): void {
   console.error(error);
+  bootHide(); // the splash would cover the explanation
   bootScreenShown = true;
   card?.close();
   try {

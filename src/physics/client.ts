@@ -32,6 +32,8 @@ export interface TickOptions {
 
 interface ClientEvents extends Record<string, unknown> {
   frame: undefined;
+  /** The worker finished starting (physics engine initialised); the payload is its protocol version. */
+  ready: number;
   event: SimEvent;
   /** A reply on a custom channel (protocol v2). */
   custom: { channel: string; data: unknown };
@@ -196,6 +198,7 @@ export class SimClient extends Emitter<ClientEvents> {
         if (m.protocol !== PROTOCOL_VERSION) {
           this.emit('error', `physics worker speaks protocol v${m.protocol}, this page expects v${PROTOCOL_VERSION}`);
         }
+        this.emit('ready', m.protocol);
         break;
     }
   }
