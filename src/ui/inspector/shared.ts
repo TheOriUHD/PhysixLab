@@ -16,11 +16,16 @@ export type Updater = () => void;
 export class InspectorContext {
   updaters: Updater[] = [];
   live: Updater[] = [];
+  /** Run once when the current build is thrown away (cancel timers, remove listeners). */
+  disposers: Updater[] = [];
 
   constructor(readonly app: App) {}
 
   /** Forget the callbacks of the previous build. */
   reset(): void {
+    const old = this.disposers;
+    this.disposers = [];
+    for (const d of old) d();
     this.updaters = [];
     this.live = [];
   }
@@ -36,6 +41,8 @@ export class InspectorContext {
     const nameInput = h('input', {
       class: 'plain',
       type: 'text',
+      'aria-label': 'Name', // -- UI-B --
+      title: 'Name of the selected object',
       value: sel.length > 1 ? `${sel.length} objects` : first.name,
       spellcheck: false,
       disabled: sel.length > 1,

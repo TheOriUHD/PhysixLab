@@ -77,7 +77,9 @@ export function applyObjectSnap(app: App, e: PointerEvent, ctx: DragContext): bo
     }
     const hit = featureSnapFor(app, moving, modes, movingIds);
     if (hit) {
-      commit(app, ctx, vadd(ctx.delta, hit.delta), null);
+      // A vertical (Shift) drag only moves along Y: a feature snap must not slide the object sideways.
+      const snapDelta: Vec3 = ctx.vertical ? [0, hit.delta[1], 0] : hit.delta;
+      commit(app, ctx, vadd(ctx.delta, snapDelta), null);
       showSnap(app, hit.kind, hit.point);
       return true;
     }

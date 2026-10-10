@@ -8,6 +8,7 @@
  */
 import type { App } from '../../app/app';
 import { padLabel, type PadButton } from '../../app/input/gamepad';
+import { isTouchDevice } from '../../app/touch/device';
 import {
   clearPad,
   setPadButton,
@@ -19,16 +20,7 @@ import {
 import { TOUCH_BUTTON_CHOICES, type TouchSettings } from '../../app/touch/settings';
 import { h } from '../dom';
 
-/** Is this a device whose primary input is touch? (`auto` mode.) */
-export function isTouchDevice(): boolean {
-  try {
-    return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
-  } catch {
-    return false;
-  }
-}
-
-const STICK_PX = 128;
+export { isTouchDevice };
 
 export interface TouchOverlay {
   readonly el: HTMLElement;
@@ -39,7 +31,7 @@ export interface TouchOverlay {
 
 export function mountTouchOverlay(app: App): TouchOverlay {
   const hub = app.input;
-  const root = h('div', { class: 'tc-overlay', hidden: true, 'aria-label': 'Touch controls' });
+  const root = h('div', { class: 'tc-overlay', role: 'group', hidden: true, 'aria-label': 'Touch controls' });
   app.shell.stage.appendChild(root);
   /** Pointers currently holding a control. */
   const held = new Set<number>();
@@ -55,7 +47,7 @@ export function mountTouchOverlay(app: App): TouchOverlay {
   };
 
   // ---- stick -----------------------------------------------------------------------------------
-  const makeStick = (which: StickId, scale: number): HTMLElement => {
+  const makeStick = (which: StickId): HTMLElement => {
     const thumb = h('div', { class: 'tc-thumb' });
     const el = h(
       'div',
@@ -71,7 +63,7 @@ export function mountTouchOverlay(app: App): TouchOverlay {
     const v: StickVector = { x: 0, y: 0, mag: 0, thumbX: 0, thumbY: 0 };
     const update = (e: PointerEvent) => {
       const r = el.getBoundingClientRect();
-      stickVector(r.left + r.width / 2, r.top + r.height / 2, e.clientX, e.clientY, (STICK_PX * scale) / 2, v);
+      stickVector(r.left + r.width / 2, r.top + r.height / 2, e.clientX, e.clientY, r.width / 2, v);
       thumb.style.transform = `translate(${v.thumbX}px, ${v.thumbY}px)`;
       setStick(hub.touch, which, v.x, v.y);
     };
@@ -130,14 +122,22 @@ export function mountTouchOverlay(app: App): TouchOverlay {
     });
     for (const t of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) el.addEventListener(t, end);
     el.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Keyboard / assistive technology: Enter and Space produce a click without a pointer; pulse the button.
+    el.addEventListener('click', (e) => {
+      if (e.detail !== 0 || id !== -1) return;
+      setPadButton(hub.touch, b, true);
+      el.classList.add('pressed');
+      window.setTimeout(() => {
+        setPadButton(hub.touch, b, false);
+        el.classList.remove('pressed');
+      }, 160);
+    });
     return el;
   };
 
   // ---- layout ----------------------------------------------------------------------------------
   const build = (cfg: TouchSettings) => {
     releaseAll();
-    root.style.setProperty('--tc-s', String(cfg.size));
-    root.style.setProperty('--tc-o', String(cfg.opacity));
     const zone = (logical: 'left' | 'right'): HTMLElement => {
       const stickId: StickId = logical === 'left' ? 'L' : 'R';
       const showStick = cfg.sticks === 'both' || cfg.sticks === logical;
@@ -153,7 +153,7 @@ export function mountTouchOverlay(app: App): TouchOverlay {
               btns.map((c) => makeButton(c.id, c.label, `${c.title} · ${padLabel(c.id)}`)),
             )
           : null,
-        showStick ? makeStick(stickId, cfg.size) : null,
+        showStick ? makeStick(stickId) : null,
       );
     };
     root.replaceChildren(zone('left'), zone('right'));
@@ -164,7 +164,10 @@ export function mountTouchOverlay(app: App): TouchOverlay {
   const refresh = () => {
     const s = hub.settings;
     const wanted = s.touchControls === 'on' || (s.touchControls === 'auto' && isTouchDevice() && app.sim.active);
-    const key = JSON.stringify(s.touch);
+    // Size and opacity are CSS variables; only the layout (sides, sticks, buttons) needs a rebuild.
+    root.style.setProperty('--tc-s', String(s.touch.size));
+    root.style.setProperty('--tc-o', String(s.touch.opacity));
+    const key = JSON.stringify([s.touch.leftHanded, s.touch.sticks, s.touch.buttons]);
     if (key !== builtFor) {
       builtFor = key;
       build(s.touch);
@@ -173,8 +176,9 @@ export function mountTouchOverlay(app: App): TouchOverlay {
       shown = wanted;
       if (!wanted) releaseAll();
       root.hidden = !wanted;
-      app.shell.stage.classList.toggle('has-touch-controls', wanted);
     }
+    // The corner layout rules (hint bar, tool options, selection bar) only matter while the controls are in use.
+    app.shell.stage.classList.toggle('has-touch-controls', wanted && app.sim.active);
   };
 
   const offs = [

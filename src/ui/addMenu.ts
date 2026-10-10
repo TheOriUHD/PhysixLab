@@ -4,6 +4,7 @@ import type { Vec3 } from '../core/math';
 import { fuzzyMatch } from './palette/fuzzy';
 import { JOINT_ENTRIES, listAddEntries, type AddEntry } from './addEntries';
 import { h } from './dom';
+import { emptyState } from './emptyState'; // -- UI-B: empty states --
 import { icon } from './icons';
 
 interface Row {
@@ -142,7 +143,15 @@ export function openAddMenu(app: App): void {
       el.addEventListener('click', () => choose(row));
       out.push(el);
     });
-    if (!shown.length) out.push(h('div', { class: 'addmenu-empty' }, `Nothing matches “${q}”`));
+    if (!shown.length)
+      out.push(
+        emptyState({
+          art: 'search',
+          title: 'Nothing matches',
+          hint: `“${q}” is not in the Add menu.`,
+          class: 'compact',
+        }),
+      );
     list.replaceChildren(...out);
     setActive(0);
   };

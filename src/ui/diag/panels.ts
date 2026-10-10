@@ -156,7 +156,7 @@ export const profilerPanel: PanelDef = {
     const workerTable = h(
       'table',
       { class: 'prof-table' },
-      h('thead', null, h('tr', null, h('th', null, 'Physics worker (other thread)'), h('th', null, 'ms'))),
+      h('thead', null, h('tr', null, h('th', null, 'Worker thread'), h('th', null, 'ms'))),
       h(
         'tbody',
         null,

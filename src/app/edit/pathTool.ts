@@ -3,7 +3,8 @@
  * of the selected path, pick control points (the gizmo moves the active one), remove them with Delete.
  *
  * Drawing is held in a *draft* (a view-only `PathView` that is not in the document), so the whole session is exactly
- * one undo step: `store.add` at the end. Escape or leaving the tool with fewer than two points leaves no trace.
+ * one undo step: `store.add` at the end. Enter or a double-click finishes the path; Escape cancels the draft and leaves no trace.
+ * (Leaving the tool or starting a simulation finishes a draft that has two points.)
  *
  * The tool listens to the viewport by itself (pointer move, double click, keys) because the shared input controller
  * only forwards the primary press. Listeners are installed once per app, on first use.
@@ -105,7 +106,7 @@ export function pathToolHint(app: App): string {
   const s = stateOf(app);
   if (app.sim.active) return 'Stop the simulation to edit paths';
   if (s.placed.length) {
-    return `<b>Click</b> to add points (${s.placed.length}) · <b>Shift</b> raise · <kbd>Backspace</kbd> undo point · <kbd>Enter</kbd> / double-click finish`;
+    return `<b>Click</b> to add points (${s.placed.length}) · <b>Shift</b> raise · <kbd>Backspace</kbd> undo point · <kbd>Enter</kbd> / double-click finish · <kbd>Esc</kbd> cancel`;
   }
   return '<b>Click</b> to start a path · click the curve to insert a point · <kbd>Del</kbd> removes a point · <kbd>Shift+C</kbd> loop';
 }
@@ -378,8 +379,7 @@ function onKey(app: App, e: KeyboardEvent): void {
     case 'Escape':
       if (s.placed.length) {
         swallow();
-        if (s.placed.length >= 2) finishDraft(app);
-        else cancelDraft(app);
+        cancelDraft(app);
       }
       break;
     case 'Backspace':

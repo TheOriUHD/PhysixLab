@@ -209,7 +209,7 @@ export function driveMotor(s: WorldState, rec: JointRec, dt: number): void {
   let input = 1;
   if (hasKeys) {
     input = (s.keys.has(m.keyPos) && m.keyPos ? 1 : 0) - (s.keys.has(m.keyNeg) && m.keyNeg ? 1 : 0);
-    if (m.axis) input = clamp(input + (s.axes[m.axis] ?? 0), -1, 1);
+    if (m.axis) input = clamp(input + (Object.hasOwn(s.axes, m.axis) ? s.axes[m.axis] : 0), -1, 1);
   }
   if (m.mode === 'velocity') {
     const target = m.targetVelocity * input;

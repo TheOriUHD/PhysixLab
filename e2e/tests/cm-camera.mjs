@@ -2,7 +2,7 @@
  * CM-A cameras: modes and transitions, orthographic views, lens, bookmarks, cinematic shots, split screen / PiP,
  * minimap — driven through the real UI and the camera rig.
  */
-import { assert, near, newPage, nextFrame, shot, simTime } from '../helpers.mjs';
+import { assert, near, newPage, nextFrame, shot } from '../helpers.mjs';
 
 export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
@@ -12,15 +12,6 @@ const noErrors = (page) => {
   const own = page.errors.filter((e) => !/\[extension \.\.\/extensions\/(?!camera)/.test(e));
   assert(own.length === 0, own.join('\n'));
 };
-
-const rig = (page, fn, arg) =>
-  page.evaluate(
-    new Function(
-      'arg',
-      `const r = window.physicslab.cameraRig; const app = window.physicslab; return (${fn.toString()})(r, app, arg);`,
-    ),
-    arg,
-  );
 
 test('camera: panel lists the modes; fly mode moves with W and right-drag looks', async () => {
   const page = await newPage('&scene=car');

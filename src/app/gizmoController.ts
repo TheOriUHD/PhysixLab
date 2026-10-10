@@ -11,7 +11,7 @@ import type { App } from './app';
 import type { PathPointRef } from './appTypes';
 import { ComHandle } from './comHandle'; // -- JT-B
 // -- ED-A hierarchy: scale gizmo on groups --
-import { endScaleGroupDrag } from './edit/groupOps';
+import { endScaleGroupDrag, lockedSkipNote, takeScaleGroupSkipped } from './edit/groupOps';
 import { jointWorldFrame } from './jointHandles';
 // -- ED-A arrange: pivot modes for the gizmo --
 import { gizmoPivotPolicy, groupPivotOf } from './edit/gizmoPivot';
@@ -234,6 +234,8 @@ export class GizmoController {
         'warn',
       );
     }
+    const skipped = takeScaleGroupSkipped();
+    if (skipped) this.app.toast(lockedSkipNote(skipped), 'info');
     hideSnap(this.app); // -- ED-A snap --
     if (this.undoOpen) {
       this.app.store.end();

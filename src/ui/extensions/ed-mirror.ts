@@ -239,8 +239,8 @@ registerTool({
   order: 120,
   icon: MIRROR_ICON,
   command: 'edit.symmetry.toggle',
-  title: 'Symmetry mode — mirror every edit to the partner object',
-  text: () => 'Sym',
+  title: 'Symmetry mode — mirror every edit to the partner object (paused while the simulation is running)',
+  text: (app) => (app.sim.active && getSymmetry(app).enabled ? 'Sym (paused)' : 'Sym'),
 });
 registerTool({
   id: 'symmetryAxis',

@@ -44,10 +44,13 @@ function parseView(raw: string | null): EmbedOptions['view'] {
 export function readEmbedOptions(search: string): EmbedOptions | null {
   const q = new URLSearchParams(search);
   if (!truthy(q.get('embed'))) return null;
-  const origins = (q.get('origin') ?? '')
+  const originParam = q.get('origin');
+  let origins = (originParam ?? '')
     .split(',')
     .map(normalizeOrigin)
     .filter((o): o is string => o !== null);
+  // `origin=` was given but nothing in it is a valid http(s) origin: lock everybody out instead of silently allowing all.
+  if (originParam !== null && originParam !== '' && !origins.length) origins = ['about:deny-all'];
   return {
     scene: q.get('scene'),
     autoplay: truthy(q.get('autoplay')),

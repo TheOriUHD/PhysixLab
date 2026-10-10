@@ -32,7 +32,7 @@ export class InputHub {
   /** Lower-cased `key`s and `code`s currently held (for held camera actions). */
   readonly down = new Set<string>();
   private axes = new Map<string, AxisState>();
-  private axisKeys = new Map<string, { axis: string; sign: number }>();
+  private axisKeys = new Map<string, { axis: string; sign: number }[]>();
   private axisNames = new Set<string>();
   private axisDirs = new Map<string, number>();
   private dirty = true;
@@ -136,7 +136,10 @@ export class InputHub {
   private cfgFor(axis: string): AxisCfg {
     const s = this.settings;
     const p = this.profile;
-    return { ...DEFAULT_AXIS, ...p.tuning[axis], ...s.axisTuning[p.id]?.[axis] };
+    const own = <T>(o: Record<string, T> | undefined): T | undefined =>
+      o && Object.hasOwn(o, axis) ? o[axis] : undefined;
+    const user = Object.hasOwn(s.axisTuning, p.id) ? s.axisTuning[p.id] : undefined;
+    return { ...DEFAULT_AXIS, ...own(p.tuning), ...own(user) };
   }
 
   /** Tuning currently in force for an axis (profile defaults + the user's edits). */
@@ -155,8 +158,15 @@ export class InputHub {
       const m = e.motor;
       if (!m.axis || m.mode === 'off') continue;
       this.axisNames.add(m.axis);
-      if (m.keyPos) this.axisKeys.set(m.keyPos, { axis: m.axis, sign: 1 });
-      if (m.keyNeg) this.axisKeys.set(m.keyNeg, { axis: m.axis, sign: -1 });
+      for (const [code, sign] of [
+        [m.keyPos, 1],
+        [m.keyNeg, -1],
+      ] as const) {
+        if (!code) continue;
+        const l = this.axisKeys.get(code);
+        if (l) l.push({ axis: m.axis, sign });
+        else this.axisKeys.set(code, [{ axis: m.axis, sign }]);
+      }
     }
     for (const a of sceneControls(this.app.store.all()).axes) this.axisNames.add(a.name);
     for (const n of this.axes.keys()) if (!this.axisNames.has(n)) this.axes.delete(n);
@@ -242,8 +252,8 @@ export class InputHub {
     this.axisDirs.clear();
     if (ramp)
       for (const code of this.physical) {
-        const ak = this.axisKeys.get(code);
-        if (ak) this.axisDirs.set(ak.axis, (this.axisDirs.get(ak.axis) ?? 0) + ak.sign);
+        for (const ak of this.axisKeys.get(code) ?? [])
+          this.axisDirs.set(ak.axis, (this.axisDirs.get(ak.axis) ?? 0) + ak.sign);
       }
     const padPresent = !!real || this.touchActive;
     for (const name of this.axisNames) {
@@ -252,7 +262,9 @@ export class InputHub {
       const cfg = this.cfgFor(name);
       st.stepKey(clamp(this.axisDirs.get(name) ?? 0, -1, 1), dt, cfg);
       let raw = 0;
-      if (padPresent) for (const src of this.profile.pad[name] ?? []) raw += this.sourceValue(src, c);
+      if (padPresent)
+        for (const src of Object.hasOwn(this.profile.pad, name) ? this.profile.pad[name] : [])
+          raw += this.sourceValue(src, c);
       st.stepAnalog(shapeAnalog(clamp(raw, -1, 1), cfg), dt, cfg);
       const v = st.value;
       if ((this.lastAxisSent.get(name) ?? 0) !== v) {

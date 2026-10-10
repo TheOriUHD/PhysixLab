@@ -1,4 +1,5 @@
 import { dataPlatform } from '../../app/data/platform';
+import { captureThumbnail } from '../../app/data/thumbnail';
 import type { App } from '../../app/app';
 import type { RestorePointMeta } from '../../app/storage/restorePoints';
 import { diffDocuments } from '../../app/storage/docDiff';
@@ -106,6 +107,7 @@ export function showRestorePoints(app: App): void {
           dp.restore.startAuto(
             () => app.store.toDocument(),
             () => app.store.revision,
+            () => captureThumbnail(app.viewport),
           );
         }),
       ),

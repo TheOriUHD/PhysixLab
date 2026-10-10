@@ -18,6 +18,16 @@ export const ARRAY_KIND_LABELS: Record<ArrayKind, string> = {
 /** The most instances one array may generate (per source set), to keep a typo from freezing the editor. */
 export const MAX_ARRAY_INSTANCES = 2000;
 
+/** Cumulative size factor of a linear array's last copy must stay within [1/MAX_ARRAY_SCALE, MAX_ARRAY_SCALE]. */
+export const MAX_ARRAY_SCALE = 1e3;
+
+/** `stepScale` pulled toward 1 just far enough that `stepScale^(count-1)` stays within the allowed range. */
+export function clampStepScale(stepScale: number, count: number): number {
+  const n = Math.max(1, count - 1);
+  const lim = MAX_ARRAY_SCALE * 0.999; // a hair inside, so rounding never lands on the rejected side
+  return clamp(stepScale, Math.pow(1 / lim, 1 / n), Math.pow(lim, 1 / n));
+}
+
 export interface LinearSpec {
   kind: 'linear';
   /** Total number of copies INCLUDING the original (>= 2 makes sense; 1 = just the original). */
@@ -102,14 +112,16 @@ export function sanitizeArraySpec(input: unknown): ArraySpec {
   const kind = oneOf(raw.kind, ARRAY_KINDS, 'linear');
   const d = defaultSpec(kind);
   switch (d.kind) {
-    case 'linear':
+    case 'linear': {
+      const count = cnt(raw.count, d.count);
       return {
         kind: 'linear',
-        count: cnt(raw.count, d.count),
+        count,
         offset: vec(raw.offset, d.offset),
         stepRotation: vec(raw.stepRotation, d.stepRotation, 36000),
-        stepScale: clamp(num(raw.stepScale, 1), 0.05, 20),
+        stepScale: clampStepScale(clamp(num(raw.stepScale, 1), 0.05, 20), count),
       };
+    }
     case 'grid': {
       const c = isFiniteVec(raw.counts, 3) ? raw.counts : d.counts;
       let counts: [number, number, number] = [cnt(c[0], 1), cnt(c[1], 1), cnt(c[2], 1)];

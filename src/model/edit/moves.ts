@@ -12,11 +12,13 @@
  *  - a size factor resizes the entity through the shape registry (`normalizeSize`), scales a compound's parts, a soft
  *    body's size and a path's points.
  */
-import { qmul, qnorm, qrot, qrotInv, vadd, type Quat, type Vec3 } from '../../core/math';
+import { qmul, qnorm, qrot, qrotInv, vadd, vnorm, type Quat, type Vec3 } from '../../core/math';
 import { scaleParts } from '../compound';
 import { childIndex, descendantIds, topLevel } from '../groups';
 import { normalizeSize } from '../shapes';
-import type { BodyEntity, Entity, PosedEntity } from '../types';
+import { shapeVolume } from '../shapeRegistry';
+import { localFactor } from './groupScale';
+import type { BodyEntity, Entity, JointEntity, PosedEntity } from '../types';
 import { isBody, isGroup, isJoint, isPath, isPosed, isSoft } from '../types';
 
 export type Patch = [string, Partial<Entity>];
@@ -58,10 +60,12 @@ function resizePatch(e: PosedEntity, f: Vec3): Partial<Entity> {
       e.shape.params,
     );
     const patch: Partial<BodyEntity> = { shape: { ...e.shape, size } };
-    if (e.parts?.length) {
-      const k = size.map((v, i) => (e.shape.size[i] > 0 ? v / e.shape.size[i] : 1)) as Vec3;
-      patch.parts = scaleParts(e.parts, k);
-    }
+    const k = size.map((v, i) => (e.shape.size[i] > 0 ? v / e.shape.size[i] : 1)) as Vec3;
+    if (e.parts?.length) patch.parts = scaleParts(e.parts, k);
+    const vol = shapeVolume(e.shape);
+    if (e.massOverride !== undefined && vol > 0)
+      patch.massOverride = (e.massOverride * shapeVolume(patch.shape!)) / vol;
+    if (e.comOverride) patch.comOverride = [e.comOverride[0] * k[0], e.comOverride[1] * k[1], e.comOverride[2] * k[2]];
     return patch;
   }
   if (isSoft(e)) {
@@ -105,6 +109,13 @@ export function movePatches(entities: readonly Entity[], moves: readonly RootMov
   const out: Patch[] = [];
   /** body id → how a world point attached to it moves. */
   const bodyMap = new Map<string, Mapper>();
+  /** body id → per-local-axis factor its size actually took (so body-local joint anchors can follow). */
+  const resized = new Map<string, Vec3>();
+  const noteResize = (e: PosedEntity, patch: Partial<Entity>) => {
+    const shape = (patch as Partial<BodyEntity>).shape;
+    if (!isBody(e) || !shape) return;
+    resized.set(e.id, shape.size.map((v, i) => (e.shape.size[i] > 1e-12 ? v / e.shape.size[i] : 1)) as Vec3);
+  };
 
   for (const m of moves) {
     if (!roots.has(m.id)) continue;
@@ -129,10 +140,13 @@ export function movePatches(entities: readonly Entity[], moves: readonly RootMov
       for (const id of descendantIds(index, e.id)) {
         const d = byId.get(id);
         if (!d || !isPosed(d)) continue;
+        // `f` is along world axes: a member turned against them takes the length each of its own axes takes.
+        const rp = scaled && !isGroup(d) ? resizePatch(d, localFactor(d.rotation, f).f) : {};
+        noteResize(d, rp);
         const patch: Partial<Entity> = {
           position: point(d.position),
           rotation: qnorm(qmul(rot, d.rotation)),
-          ...(scaled && !isGroup(d) ? resizePatch(d, f) : {}),
+          ...rp,
         };
         if (isBody(d) && turns)
           Object.assign(patch, { velocity: mapper.dir(d.velocity), angularVelocity: mapper.dir(d.angularVelocity) });
@@ -140,7 +154,11 @@ export function movePatches(entities: readonly Entity[], moves: readonly RootMov
         if (isBody(d)) bodyMap.set(id, mapper);
       }
     } else {
-      if (scaled) Object.assign(rootPatch, resizePatch(e, f));
+      if (scaled) {
+        const rp = resizePatch(e, f);
+        noteResize(e, rp);
+        Object.assign(rootPatch, rp);
+      }
       if (isBody(e) && turns)
         Object.assign(rootPatch, { velocity: qrot(rot, e.velocity), angularVelocity: qrot(rot, e.angularVelocity) });
       out.push([e.id, rootPatch]);
@@ -156,20 +174,33 @@ export function movePatches(entities: readonly Entity[], moves: readonly RootMov
     }
   }
 
-  // Joints anchored to the world on one side follow the one body they hold.
+  // Joints: world-frame ends follow the one body they hold; body-local anchors follow their body's resize.
   for (const j of entities) {
     if (!isJoint(j)) continue;
-    if ((j.bodyA === null) === (j.bodyB === null)) continue; // both world, or both bodies (local anchors follow)
-    const mapper = bodyMap.get((j.bodyA ?? j.bodyB) as string);
-    if (!mapper) continue;
-    const patch: Record<string, Vec3> = {};
-    if (j.bodyA === null) {
-      patch.anchorA = mapper.point(j.anchorA);
-      patch.axis = mapper.dir(j.axis);
-    } else {
-      patch.anchorB = mapper.point(j.anchorB);
+    const effA = j.bodyA !== null ? resized.get(j.bodyA) : undefined;
+    const effB = j.bodyB !== null ? resized.get(j.bodyB) : undefined;
+    const patch: Partial<JointEntity> = {};
+    if (effA) {
+      patch.anchorA = [j.anchorA[0] * effA[0], j.anchorA[1] * effA[1], j.anchorA[2] * effA[2]];
+      patch.axis = vnorm([j.axis[0] * effA[0], j.axis[1] * effA[1], j.axis[2] * effA[2]], j.axis);
     }
-    out.push([j.id, patch]);
+    if (effB) patch.anchorB = [j.anchorB[0] * effB[0], j.anchorB[1] * effB[1], j.anchorB[2] * effB[2]];
+    if (effA && effB) {
+      const k = effA[0];
+      const same = [...effA, ...effB].every((v) => Math.abs(v - k) < 1e-9);
+      if (same && j.type === 'spring') patch.spring = { ...j.spring, restLength: j.spring.restLength * k };
+      if (same && j.type === 'rope') patch.ropeLength = j.ropeLength * k;
+    }
+    if ((j.bodyA === null) !== (j.bodyB === null)) {
+      const mapper = bodyMap.get((j.bodyA ?? j.bodyB) as string);
+      if (mapper) {
+        if (j.bodyA === null) {
+          patch.anchorA = mapper.point(j.anchorA);
+          patch.axis = mapper.dir(j.axis);
+        } else patch.anchorB = mapper.point(j.anchorB);
+      }
+    }
+    if (Object.keys(patch).length) out.push([j.id, patch]);
   }
   return out;
 }

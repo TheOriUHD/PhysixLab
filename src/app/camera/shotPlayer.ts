@@ -70,6 +70,7 @@ export class ShotPlayer extends Emitter<PlayerEvents> {
   t = 0;
   playing = false;
   recording = false;
+  private starting = false;
   speed = 1;
   private saved: ReturnType<CameraRig['currentView']> | null = null;
   private curves = new WeakMap<object, PathCurve>();
@@ -152,17 +153,25 @@ export class ShotPlayer extends Emitter<PlayerEvents> {
     this.emit('change', undefined);
   }
 
+  /** The shot or its path vanished: release everything the session held. */
+  private endSession(): void {
+    void this.stopRecord();
+    this.shotId = null;
+    this.playing = false;
+    this.saved = null;
+    this.emit('change', undefined);
+  }
+
   private step(dt: number, out: Pose): boolean {
     const s = this.shot;
     if (!s) {
-      this.shotId = null;
-      this.emit('change', undefined);
+      this.endSession();
       return false;
     }
     if (this.playing) {
       this.t += dt * this.speed;
       if (this.t >= s.duration) {
-        if (s.loop) this.t %= s.duration;
+        if (s.loop && !this.recording) this.t %= s.duration;
         else {
           this.t = s.duration;
           this.playing = false;
@@ -173,8 +182,7 @@ export class ShotPlayer extends Emitter<PlayerEvents> {
     }
     if (!shotPose(s, this.t, this.env, this.pose)) {
       this.app.toast(`The path of “${s.name}” is gone`, 'warn');
-      this.shotId = null;
-      this.emit('change', undefined);
+      this.endSession();
       return false;
     }
     out.position.copy(this.pose.position);
@@ -194,8 +202,23 @@ export class ShotPlayer extends Emitter<PlayerEvents> {
       this.app.toast('Video recording is not available in this browser', 'warn');
       return false;
     }
+    if (this.recording || this.starting) return false;
+    this.starting = true;
     this.app.viewport.viewHelperVisible = false;
-    this.stopRecording = await rec.start(this.app, shot);
+    try {
+      const stop = await rec.start(this.app, shot);
+      if (this.shotId !== shot.id) {
+        await stop(); // the session ended while the recorder was starting
+        return false;
+      }
+      this.stopRecording = stop;
+    } catch (e) {
+      this.app.toast(`Recording failed: ${e instanceof Error ? e.message : String(e)}`, 'error');
+      return false;
+    } finally {
+      this.starting = false;
+      if (!this.stopRecording) this.app.viewport.viewHelperVisible = true;
+    }
     this.recording = true;
     this.t = 0;
     this.playing = true;

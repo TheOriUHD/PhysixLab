@@ -68,6 +68,9 @@ export class FolderSync {
   /** What we last wrote or read per file: the content hash and the modification time the disk reported. */
   private known = new Map<string, { hash: string; modified: number }>();
   private timer: ReturnType<typeof setInterval> | null = null;
+  private polling = false;
+  /** Disk hash per file that was already reported as a conflict, so a poll does not repeat it. */
+  private reported = new Map<string, string>();
   onEvent: ((e: SyncEvent) => void) | null = null;
   autoSave = true;
 
@@ -98,6 +101,7 @@ export class FolderSync {
     if (!opts.overwrite) {
       const disk = await this.peek(file);
       if (disk && (!prior || disk.hash !== prior.hash) && disk.hash !== hash(text)) {
+        this.reported.set(file, disk.hash);
         this.onEvent?.({ kind: 'conflict', file, diskText: disk.text, diskModified: disk.modified });
         return 'conflict';
       }
@@ -136,20 +140,30 @@ export class FolderSync {
   startWatching(intervalMs = 3000): void {
     this.stopWatching();
     this.timer = setInterval(() => {
+      if (this.polling) return; // slow cloud-backed disks: never overlap polls
+      this.polling = true;
       void (async () => {
         try {
           for (const file of await this.externalChanges()) {
             const disk = await this.peek(file);
-            if (!disk) continue;
-            // Remember it so the prompt appears once per change, not every poll.
-            this.known.set(file, { hash: disk.hash, modified: disk.modified });
+            if (!disk || this.reported.get(file) === disk.hash) continue;
+            // `known` stays as it was until the user decides (`acknowledge`), so a later save cannot overwrite silently.
+            this.reported.set(file, disk.hash);
             this.onEvent?.({ kind: 'conflict', file, diskText: disk.text, diskModified: disk.modified });
           }
         } catch (e) {
           this.onEvent?.({ kind: 'error', message: (e as Error).message });
+        } finally {
+          this.polling = false;
         }
       })();
     }, intervalMs);
+  }
+
+  /** The user took the version on disk (or decided to keep going without it): treat it as the known state. */
+  acknowledge(file: string, diskText: string): void {
+    this.known.set(file, { hash: hash(diskText), modified: Date.now() });
+    this.reported.delete(file);
   }
 
   stopWatching(): void {

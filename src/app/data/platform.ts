@@ -53,7 +53,9 @@ export async function initDataPlatform(app: App): Promise<DataPlatform> {
   };
   setRiskyOperationHook((label) => {
     // Synchronous capture of the document now; the thumbnail is skipped here because the scene is about to change.
-    void restore.create(app.store.toDocument(), label, 'before');
+    restore.create(app.store.toDocument(), label, 'before').catch(() => {
+      app.toast('Could not keep a restore point of the current scene (browser storage is full?).', 'warn');
+    });
   });
   restore.startAuto(
     () => app.store.toDocument(),

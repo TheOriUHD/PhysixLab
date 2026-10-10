@@ -150,6 +150,7 @@ describe('DualCamera', () => {
     expect(near.y).toBeCloseTo(1, 9);
     expect(far.y).toBeCloseTo(1, 9);
     expect(new Vector3(10, 0, 0).project(c).x).toBeCloseTo(1, 9); // aspect 2 → half width 10
+    expect(c.top).toBe(5); // unzoomed extents: OrbitControls divides by zoom itself when panning
     c.zoom = 2;
     c.updateProjectionMatrix();
     expect(new Vector3(0, 2.5, 0).project(c).y).toBeCloseTo(1, 9);

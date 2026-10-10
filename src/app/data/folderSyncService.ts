@@ -131,8 +131,13 @@ export class FolderSyncService {
 
   private conflictOpen = false;
 
+  private queued: Extract<SyncEvent, { kind: 'conflict' }>[] = [];
+
   private async resolveConflict(e: Extract<SyncEvent, { kind: 'conflict' }>): Promise<void> {
-    if (this.conflictOpen) return;
+    if (this.conflictOpen) {
+      this.queued.push(e); // never drop a conflict: it would be overwritten by the next autosave
+      return;
+    }
     this.conflictOpen = true;
     try {
       const { chooseConflict } = await import('../../ui/data/conflictDialog');
@@ -140,6 +145,7 @@ export class FolderSyncService {
       const sync = this.sync;
       if (!sync) return;
       if (choice === 'disk') {
+        sync.acknowledge(e.file, e.diskText);
         this.app.loadDocument(parseDocument(e.diskText), 'frame');
         this.app.toast(`Loaded “${e.file}” from the folder`, 'success');
       } else if (choice === 'both') {
@@ -156,6 +162,8 @@ export class FolderSyncService {
       this.app.toast(`Folder sync: ${(err as Error).message}`, 'error');
     } finally {
       this.conflictOpen = false;
+      const next = this.queued.shift();
+      if (next) void this.resolveConflict(next);
     }
   }
 }

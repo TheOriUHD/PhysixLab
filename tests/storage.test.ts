@@ -52,7 +52,7 @@ describe('storage layer (DT-10)', async () => {
       getItem: (k: string) => data[k] ?? null,
       removeItem: (k: string) => void delete data[k],
     };
-    const m = new MemoryBackend();
+    const m = await IdbBackend.open(new IDBFactory(), 'migration');
     const r = await migrateLocalStorage(m, ls);
     expect(r).toEqual({ ran: true, autosave: true, scenes: 1 });
     expect(await m.get('meta', 'autosave')).toBe('{"v":1}');

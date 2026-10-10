@@ -319,3 +319,30 @@ test('mobile: wide layouts (1600x900, 1280x720) keep the docked panels; narrowin
     await page.close();
   }
 });
+
+test('mobile: a touch tablet in landscape (1180x820) keeps the docked layout and nothing is clipped', async () => {
+  const page = await newTouchPage('&scene=car', { width: 1180, height: 820 });
+  assert(!(await shown(page, '.m-nav')), 'no bottom navigation above 900px');
+  const m = await page.evaluate(() => {
+    const r = (sel) => document.querySelector(sel).getBoundingClientRect();
+    const tool = r('.toolbox');
+    const head = document.querySelector('.dock .dock-ghead, .dock .dock-head');
+    const tabs = [...document.querySelectorAll('.dock .tab')].map((t) => t.getBoundingClientRect().height);
+    return {
+      left: getComputedStyle(document.querySelector('.panel.left')).position,
+      toolBtn: document.querySelector('.toolbox .icon-btn').getBoundingClientRect().height,
+      toolbox: tool.height,
+      headH: head ? head.getBoundingClientRect().height : 0,
+      tabH: Math.max(0, ...tabs),
+      dw: document.documentElement.scrollWidth,
+      iw: innerWidth,
+    };
+  });
+  assert(m.left !== 'fixed', `panels docked: ${JSON.stringify(m)}`);
+  assert(m.toolBtn <= 36, `desktop-width toolbox buttons keep their size on a touch tablet: ${JSON.stringify(m)}`);
+  assert(m.tabH <= m.headH + 2, `dock tabs are not taller than their strip: ${JSON.stringify(m)}`);
+  assert(m.dw <= m.iw, `no horizontal overflow: ${JSON.stringify(m)}`);
+  await shot(page, 'cm-mobile-tablet-landscape');
+  assert(page.errors.length === 0, page.errors.join('\n'));
+  await page.closeAll();
+});

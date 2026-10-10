@@ -51,8 +51,8 @@ interface Piece {
   opacity: number;
 }
 
-function piecesOf(entities: readonly Entity[]): Piece[] {
-  const out: Piece[] = [];
+/** Collect the drawable pieces into `out` (filled as it goes, so a throw leaves the geometries made so far to dispose). */
+function piecesOf(entities: readonly Entity[], out: Piece[] = []): Piece[] {
   const spec = (
     s: ShapeSpec,
     p: [number, number, number],
@@ -112,15 +112,15 @@ function piecesOf(entities: readonly Entity[]): Piece[] {
  */
 export function renderThumbnail(entities: readonly Entity[], px = THUMBNAIL_PX): string | null {
   if (typeof document === 'undefined') return null;
-  const pieces = piecesOf(entities);
-  if (!pieces.length) return null;
-
+  const pieces: Piece[] = [];
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = px;
   let renderer: WebGLRenderer | null = null;
   const scene = new Scene();
   const materials: MeshStandardMaterial[] = [];
   try {
+    piecesOf(entities, pieces);
+    if (!pieces.length) return null;
     renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(1);
     renderer.setSize(px, px, false);

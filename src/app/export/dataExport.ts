@@ -41,7 +41,9 @@ export const listDataSources = (): DataSource[] => [...sources.values()];
 function csvCell(v: number | string | boolean | null): string {
   if (v === null) return '';
   if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '';
-  const s = String(v);
+  let s = String(v);
+  // spreadsheets run cells that start with = + - @ as formulas; names can come from a shared link
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\r\n]/.test(s) || /^\s|\s$/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

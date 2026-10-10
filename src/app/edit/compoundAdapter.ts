@@ -15,7 +15,8 @@ export function mergeCommand(): CommandDef | undefined {
     const c = getCommand(id);
     if (c) return c;
   }
-  return listCommands().find((c) => /compound/i.test(c.id) && /merge|combine/i.test(`${c.id} ${c.label}`));
+  // Only a command that is plainly the shapes package's merge-into-compound (never a fuzzy match on other ids).
+  return listCommands().find((c) => /^shape\.(merge|combine).*compound/i.test(c.id));
 }
 
 export const MERGE_NEEDS = 'Needs the “Merge into compound” command from the shapes package';
@@ -33,9 +34,13 @@ export function mergeGroupIntoCompound(app: App, groupId: string): boolean {
   const bodies = groupBodies(store, groupId);
   if (bodies.length < 2) return false;
   let ran = false;
+  const previous = [...store.selection];
   store.transact('Merge group into compound', () => {
     store.setSelection(bodies.map((b) => b.id));
-    if (!commandEnabled(cmd, app)) return;
+    if (!commandEnabled(cmd, app)) {
+      store.setSelection(previous); // refused: leave the user's selection as it was
+      return;
+    }
     ran = runCommand(cmd.id, app, 'api');
     if (!ran || !store.group(groupId)) return;
     const rest = store.descendants(groupId).filter((e) => e.kind !== 'joint');

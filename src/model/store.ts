@@ -195,6 +195,26 @@ export class SceneStore extends Emitter<StoreEvents> {
     }
   }
 
+  // -- CM-A touch: abandon an open edit group (a drag cancelled by a second finger) --
+  /**
+   * Abandon the open `begin()` group: the document goes back to how it was when the group began and no undo or redo
+   * step is recorded (unlike `end()` followed by `undo()`, which would leave a redo entry). A nested group is simply
+   * closed. No-op outside a group.
+   */
+  cancelBatch(): void {
+    if (this.batchDepth === 0) return;
+    if (this.batchDepth > 1 || !this.batchBase) {
+      this.end();
+      return;
+    }
+    const base = this.batchBase;
+    const changed = this.batchChanged;
+    this.batchDepth = 0;
+    this.batchBase = null;
+    this.batchChanged = false;
+    if (changed) this.restore(base);
+  }
+
   transact<T>(label: string, fn: () => T): T {
     this.begin(label);
     try {

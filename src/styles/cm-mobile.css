@@ -21,7 +21,7 @@
   .topbar .transport .timescale, .topbar .transport .sim-clock { display: none; }
   .topbar .spacer { order: 2; flex: 1; min-width: 0; }
   .topbar .topbar-right { order: 3; flex: none; gap: 2px; }
-  .topbar .topbar-right > :not([title^="Undo"]):not([title^="Redo"]) { display: none; }
+  .topbar .topbar-right > :not(.tb-history) { display: none; }
   .tbtn, .topbar .icon-btn { min-height: 44px; }
   .tbtn { min-width: 44px; }
   .tbtn.play, .tbtn.pause { min-width: 0; padding: 0 12px; }
@@ -58,8 +58,12 @@
 
   /* ---- floating bars over the viewport: shown on demand ---- */
   .stage .toolbox, .stage .viewbar { display: none; }
-  #app.m-tools .stage .toolbox { display: flex; flex-direction: column; flex-wrap: wrap; align-content: flex-start; top: 8px; left: 8px; max-height: calc(100% - 16px); max-width: calc(100% - 16px); overflow: auto; z-index: 9; }
-  #app.m-tools .stage .toolbox hr { display: none; }
+  #app.m-tools .stage .toolbox { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; top: 8px; left: 8px; width: min(340px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow: auto; z-index: 9; padding: 6px; }
+  #app.m-tools .stage .toolbox hr { grid-column: 1 / -1; width: auto; margin: 2px 4px; }
+  #app.m-tools .stage .toolbox .icon-btn { width: auto; height: 44px; display: flex; justify-content: flex-start; gap: 10px; padding: 0 10px; font: 600 12.5px var(--font); color: var(--text); text-align: left; }
+  #app.m-tools .stage .toolbox .icon-btn:not(.opt-btn)::after { content: attr(data-label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #app.m-tools .stage .toolbox .opt-btn { font: 600 11.5px var(--mono); color: var(--text-2); justify-content: center; }
+  #app.m-tools .stage .toolbox .icon-btn.on { color: var(--accent); }
   #app.m-view .stage .viewbar { display: flex; flex-wrap: wrap; justify-content: center; top: 8px; left: 8px; right: 8px; max-width: calc(100% - 16px); z-index: 9; }
   #app.m-view .stage .viewbar .sep { display: none; }
 
@@ -69,7 +73,19 @@
   .stage .mode-suggest { left: 8px; right: 8px; transform: none; flex-wrap: wrap; justify-content: center; max-width: none; }
   .menu { max-width: calc(100vw - 16px); max-height: calc(100dvh - var(--m-top) - var(--m-nav) - 8px); }
   .menu-item { min-height: 44px; }
+  .toasts { bottom: calc(var(--m-nav) + 10px); max-width: calc(100vw - 16px); }
+  .toast { max-width: calc(100vw - 16px); }
   .modal { max-width: calc(100vw - 16px) !important; max-height: calc(100dvh - 16px); }
+}
+
+/* landscape phones: a slimmer bottom bar (icons only) leaves the viewport its height */
+@media (max-width: 900px) and (max-height: 520px) {
+  :root { --m-nav: calc(46px + env(safe-area-inset-bottom, 0px)); --m-dock-h: min(60vh, 420px); }
+  .m-nav-btn { min-height: 44px; }
+  .m-nav-label { display: none; }
+  .tc-zone { gap: 6px; }
+  /* a 390 px tall screen cannot spare the onboarding card or the hint pill */
+  .stage .mode-suggest, .stage .hint-bar { display: none; }
 }
 
 /* phones: even the tablet scene name goes */
@@ -78,11 +94,19 @@
   .topbar .transport .sim-clock { display: block; }
 }
 
-/* touch hardware, any width: finger-sized controls */
-@media (pointer: coarse) {
+/* touch hardware: finger-sized controls where the layout has room (the sheet layout), and no iOS focus zoom anywhere */
+@media (max-width: 900px) and (pointer: coarse) {
   .icon-btn, .tbtn, .tab, .menu-btn, .menu-item, .seg-btn { min-height: 44px; }
   .icon-btn { min-width: 44px; }
-  .btn, .chip, .select, .num-field, .num-input, .hex-input { min-height: 36px; }
-  input, select, textarea { font-size: 16px; } /* iOS zooms into smaller inputs */
-  .num-input { font-size: 14px; }
+  .btn { min-height: 44px; }
+  .chip, .select, .num-field, .hex-input { min-height: 36px; }
+}
+@media (pointer: coarse) {
+  input, select, textarea { font-size: 16px; }
+}
+
+/* the telemetry sheet's header: the note next to the tabs stays on one line instead of wrapping into a sliver */
+@media (max-width: 900px) {
+  .dock .tab-toolbar { min-width: 0; overflow: hidden; flex-wrap: nowrap; white-space: nowrap; }
+  .dock .tab-toolbar > * { flex: none; max-width: 60vw; overflow: hidden; text-overflow: ellipsis; }
 }

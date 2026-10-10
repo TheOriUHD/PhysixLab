@@ -11,6 +11,7 @@ import { TAG_COLORS, TAG_COLOR_KEYS } from '../../model/outlinerMeta';
 import type { Entity } from '../../model/types';
 import { isBody, isGroup, isJoint, isLight, isPath, isPosed, isSoft } from '../../model/types';
 import { clear, h } from '../dom';
+import { emptyState } from '../emptyState'; // -- UI-B: empty states --
 import { icon } from '../icons';
 import { openMenu, type MenuItem } from '../menu';
 import { promptText } from '../modal';
@@ -171,7 +172,7 @@ export class Outliner {
     this.setsBar = h('div', { class: 'o-sets' });
     this.tagBar = h('div', { class: 'o-tags' });
     this.footer = h('div', { class: 'o-footer' });
-    this.empty = h('div', { class: 'empty-state o-empty' });
+    this.empty = h('div', { class: 'o-empty' });
     this.list = new VirtualList({ rowHeight: ROW_HEIGHT, render: (i, el) => this.renderRow(i, el) });
     this.list.el.classList.add('outliner');
     this.list.el.tabIndex = 0;
@@ -271,8 +272,16 @@ export class Outliner {
     this.list.el.style.display = shown ? '' : 'none';
     if (!shown) {
       clear(this.empty);
+      // -- UI-B: empty state with an illustration --
       this.empty.appendChild(
-        h('p', null, this.entities.length ? 'No matches. Clear the filter to see everything.' : 'The scene is empty.'),
+        emptyState({
+          art: this.entities.length ? 'search' : 'tree',
+          title: this.entities.length ? 'No matches' : 'The scene is empty',
+          hint: this.entities.length
+            ? 'Clear the filter to see everything.'
+            : 'Objects you add appear here as a tree: group them, hide them, lock them.',
+          class: 'compact',
+        }),
       );
     }
     this.list.setCount(this.rows.length);

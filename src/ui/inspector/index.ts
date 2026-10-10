@@ -13,7 +13,7 @@ import { inspectorSectionRegistry, sectionsFor } from '../../app/registry/inspec
 import type { Entity } from '../../model/types';
 import { isJoint } from '../../model/types';
 import { clear, h } from '../dom';
-import { icon } from '../icons';
+import { emptyState } from '../emptyState'; // -- UI-B: empty states --
 import { InspectorContext } from './shared';
 // -- UI-A: inspector upgrades (toolbar, filter, resets, label scrubbing) --
 import { onUiModeChange } from '../uiMode';
@@ -85,18 +85,13 @@ export class Inspector {
 
   private empty(): HTMLElement {
     const n = this.app.store.size;
-    return h(
-      'div',
-      { class: 'empty-state' },
-      icon('select', 'icon big'),
-      h('h4', null, n ? 'Nothing selected' : 'An empty lab'),
-      h(
-        'p',
-        null,
-        n
-          ? 'Click an object in the scene or the outliner to inspect and edit it. Drag on empty space to box-select.'
-          : 'Add a shape from the library on the left (or press 1–8), then press Space to simulate.',
-      ),
-    );
+    // -- UI-B: empty state with an illustration --
+    return emptyState({
+      art: n ? 'select' : 'scene',
+      title: n ? 'Nothing selected' : 'An empty lab',
+      hint: n
+        ? 'Click an object in the scene or the outliner to inspect and edit it. Drag on empty space to box-select.'
+        : 'Add a shape from the library on the left (or press 1–8), then press Space to simulate.',
+    });
   }
 }
