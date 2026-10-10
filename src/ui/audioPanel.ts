@@ -14,6 +14,15 @@ import { h } from './dom';
 
 const pct = (v: number): number => Math.round(v * 100);
 
+/** A volume slider (percent). After a mouse drag it gives the focus back, so Shift+M keeps working right after. */
+function volumeSlider(onChange: (fraction: number) => void) {
+  const f = sliderField({ min: 0, max: 100, step: 1, digits: 0, unit: '%', onChange: (v) => onChange(v / 100) });
+  f.el
+    .querySelector('input[type=range]')
+    ?.addEventListener('pointerup', (e) => (e.currentTarget as HTMLElement).blur());
+  return f;
+}
+
 /** Dim a block and take it out of the tab order and the accessibility tree while sound is off. */
 function setDisabled(block: Element | null, off: boolean): void {
   block?.classList.toggle('fx-disabled-block', off);
@@ -35,29 +44,15 @@ function soundSection(app: App) {
     onChange: (v) => d.setSettings(v ? { enabled: true, muted: false } : { enabled: false }),
   });
   const mute = toggleField({
-    label: 'Mute',
-    title: 'Silence everything without losing your volume settings (Shift+M)',
+    label: 'Mute  (Shift+M)',
+    title: 'Silence everything without losing your volume settings',
     onChange: (v) => d.setSettings({ muted: v }),
   });
   const note = h('p', { class: 'hint-text audio-note' });
-  const master = sliderField({
-    min: 0,
-    max: 100,
-    step: 1,
-    digits: 0,
-    unit: '%',
-    onChange: (v) => d.setSettings({ master: v / 100 }),
-  });
+  const master = volumeSlider((v) => d.setSettings({ master: v }));
   const cats = AUDIO_CATEGORIES.map((c) => {
-    const f = sliderField({
-      min: 0,
-      max: 100,
-      step: 1,
-      digits: 0,
-      unit: '%',
-      onChange: (v) => d.setSettings({ volume: { [c.id]: v / 100 } }),
-    });
-    return { c, f, el: row(c.label, f.el, c.hint) };
+    const f = volumeSlider((v) => d.setSettings({ volume: { [c.id]: v } }));
+    return { c, f, el: row(c.short, f.el, `${c.label}: ${c.hint}`) };
   });
   const spatial = toggleField({
     label: '3D positioning',

@@ -27,6 +27,8 @@ const SLOW = 0.08;
 
 export interface LoopVoice {
   readonly out: GainNode;
+  /** The live values of the voice's audio parameters (for the status panel and the tests). */
+  inspect(): Record<string, number>;
   /** Fade out over `fade` seconds and stop the sources. */
   stop(fade: number): void;
   /** Disconnect everything (after `stop`). */
@@ -38,6 +40,8 @@ abstract class BaseLoop implements LoopVoice {
   protected readonly sources: (AudioScheduledSourceNode | AudioBufferSourceNode)[] = [];
   protected readonly nodes: AudioNode[] = [];
   private stopped = false;
+
+  abstract inspect(): Record<string, number>;
 
   constructor(protected readonly ctx: BaseAudioContext) {
     this.out = ctx.createGain();
@@ -113,11 +117,22 @@ export class RollingVoice extends BaseLoop {
     this.out.gain.value = 1;
   }
 
+  inspect(): Record<string, number> {
+    return {
+      rumbleGain: this.rumble.gain.value,
+      rumbleCutoff: this.rumbleLp.frequency.value,
+      scrapeGain: this.scrape.gain.value,
+      scrapeFreq: this.scrapeBp.frequency.value,
+      scrapeQ: this.scrapeBp.Q.value,
+      rate: this.rumbleSrc.playbackRate.value,
+    };
+  }
+
   /** `first`: jump to the parameters instead of approaching them (a voice that has just been given to a body). */
   update(p: RollParams, t: number, pitch = 1, first = false): void {
     const tau = first ? 0 : FAST;
-    // Brown noise has most of its energy at the bottom; the rumble gain is scaled up to compensate.
-    ramp(this.rumble.gain, p.rumbleGain * 3.2, t, tau);
+    // Levels are balanced against the impacts: a rolling ball is a background texture, not the loudest thing in the mix.
+    ramp(this.rumble.gain, p.rumbleGain * 0.95, t, tau);
     ramp(this.rumbleLp.frequency, clamp(p.rumbleCutoff * pitch, 40, 8000), t, tau);
     ramp(this.scrape.gain, p.scrapeGain * 1.6, t, tau);
     ramp(this.scrapeBp.frequency, clamp(p.scrapeFreq * pitch, 100, 12000), t, tau);
@@ -184,9 +199,8 @@ export class MotorVoice extends BaseLoop {
     this.osc2.connect(this.g2);
     this.g1.connect(this.lp);
     this.g2.connect(this.lp);
-    this.lp.connect(this.out);
 
-    // The noise layer, chopped by the blade-pass oscillator (depth 0 leaves it steady).
+    // The noise layer; the blade-pass oscillator chops the sum (depth 0 leaves it steady).
     this.noiseSrc = this.noise(bank, kind === 'jet' ? 'white' : 'pink');
     this.noiseBp = this.track(ctx.createBiquadFilter());
     this.noiseBp.type = kind === 'jet' ? 'lowpass' : 'bandpass';
@@ -206,11 +220,26 @@ export class MotorVoice extends BaseLoop {
     this.noiseSrc.connect(this.noiseBp);
     this.noiseBp.connect(this.noiseGain);
     this.noiseGain.connect(this.chop);
+    // The chop acts on the whole voice, oscillators and noise: a slow rotor goes "wop wop wop".
+    this.lp.connect(this.chop);
     this.chop.connect(this.out);
 
     this.osc1.start();
     this.osc2.start();
     this.lfo.start();
+  }
+
+  inspect(): Record<string, number> {
+    return {
+      f1: this.osc1.frequency.value,
+      f2: this.osc2.frequency.value,
+      cutoff: this.lp.frequency.value,
+      q: this.lp.Q.value,
+      noiseGain: this.noiseGain.gain.value,
+      lfoRate: this.lfo.frequency.value,
+      lfoDepth: this.lfoDepth.gain.value * 2,
+      gain: this.out.gain.value,
+    };
   }
 
   update(p: MotorParams, t: number, pitch = 1, first = false): void {
@@ -228,7 +257,7 @@ export class MotorVoice extends BaseLoop {
     ramp(this.lfoDepth.gain, p.lfoDepth / 2, t, tau);
     ramp(this.lfo.frequency, clamp(p.lfoRate * pitch, 0.1, 400), t, tau);
     ramp(this.noiseSrc.playbackRate, pitch, t, SLOW);
-    ramp(this.out.gain, p.gain, t, tau);
+    ramp(this.out.gain, p.gain * 0.25, t, tau);
   }
 }
 
@@ -262,6 +291,15 @@ export class WindVoice extends BaseLoop {
     this.lfo.start();
   }
 
+  inspect(): Record<string, number> {
+    return {
+      cutoff: this.bp.frequency.value,
+      q: this.bp.Q.value,
+      gustRate: this.lfo.frequency.value,
+      gain: this.out.gain.value,
+    };
+  }
+
   update(p: WindParams, t: number, first = false): void {
     const tau = first ? 0 : SLOW;
     ramp(this.bp.frequency, p.cutoff, t, tau);
@@ -270,7 +308,7 @@ export class WindVoice extends BaseLoop {
     ramp(this.gust.gain, 1 - p.gustDepth / 2, t, tau);
     ramp(this.lfoDepth.gain, p.gustDepth / 2, t, tau);
     // Pink noise through a band-pass is quiet: bring it up to a usable level.
-    ramp(this.out.gain, p.gain * 2.4, t, tau);
+    ramp(this.out.gain, p.gain * 1.6, t, tau);
   }
 }
 
@@ -301,6 +339,10 @@ export class BedVoice extends BaseLoop {
     this.breathDepth.connect(this.level.gain);
     this.level.connect(this.out);
     this.breath.start();
+  }
+
+  inspect(): Record<string, number> {
+    return { cutoff: this.lp.frequency.value, gain: this.out.gain.value };
   }
 
   update(p: BedParams, t: number, first = false): void {

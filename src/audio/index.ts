@@ -5,7 +5,14 @@
  * plays a registered sound event; a package adds its own with `registerSoundEvent`, and describes how a new material
  * sounds with `registerSoundMaterial`. Everything is procedural — see `dsp.ts` for the recipe format.
  */
-export { AudioEngine, LoopHandle, type EngineState, type EngineStats, type OneShotRequest } from './engine';
+export {
+  AudioEngine,
+  LoopHandle,
+  type EngineState,
+  type EngineStats,
+  type OneShotRequest,
+  type PlayedSound,
+} from './engine';
 export {
   AUDIO_CATEGORIES,
   AUDIO_CATEGORY_IDS,

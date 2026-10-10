@@ -14,6 +14,8 @@ export type AudioCategory = 'impacts' | 'rolling' | 'engines' | 'ambience' | 'ui
 export interface AudioCategoryInfo {
   id: AudioCategory;
   label: string;
+  /** One word for narrow places (the volume rows of the panel). */
+  short: string;
   hint: string;
   /** Most voices of this category sounding at once; the quietest is stolen for a louder newcomer. */
   maxVoices: number;
@@ -25,6 +27,7 @@ export const AUDIO_CATEGORIES: readonly AudioCategoryInfo[] = [
   {
     id: 'impacts',
     label: 'Impacts & events',
+    short: 'Impacts',
     hint: 'Collisions by material, explosions, things breaking, joints snapping, trampolines, launches and spawns',
     maxVoices: 24,
     volume: 1,
@@ -32,6 +35,7 @@ export const AUDIO_CATEGORIES: readonly AudioCategoryInfo[] = [
   {
     id: 'rolling',
     label: 'Rolling & sliding',
+    short: 'Rolling',
     hint: 'Rumble of rolling bodies and the scrape of sliding ones, following speed and load',
     maxVoices: 6,
     volume: 0.8,
@@ -39,6 +43,7 @@ export const AUDIO_CATEGORIES: readonly AudioCategoryInfo[] = [
   {
     id: 'engines',
     label: 'Engines & motors',
+    short: 'Engines',
     hint: 'Pitch and timbre follow the motor speed and load of motorised joints and engine components',
     maxVoices: 4,
     volume: 0.8,
@@ -46,6 +51,7 @@ export const AUDIO_CATEGORIES: readonly AudioCategoryInfo[] = [
   {
     id: 'ambience',
     label: 'Ambience & wind',
+    short: 'Ambience',
     hint: 'A quiet air bed and the wind that rushes past a camera following a fast body',
     maxVoices: 3,
     volume: 0.5,
@@ -53,6 +59,7 @@ export const AUDIO_CATEGORIES: readonly AudioCategoryInfo[] = [
   {
     id: 'ui',
     label: 'Interface',
+    short: 'Interface',
     hint: 'Subtle sounds for select, place, delete, errors and success',
     maxVoices: 6,
     volume: 0.6,

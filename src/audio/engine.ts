@@ -54,7 +54,7 @@ const RENDER_BUDGET_MS = 5;
 const MAX_BUFFERS = 280;
 const MAX_BUFFER_BYTES = 40 * 1024 * 1024;
 /** A request waiting for its buffer is dropped after this long, seconds. */
-const MAX_WAIT = 0.25;
+const MAX_WAIT = 1;
 const MAX_DEFERRED = 24;
 /** A voice quieter than this (linear, final) is not worth starting. */
 const INAUDIBLE = 0.0012;
@@ -116,9 +116,27 @@ export interface EngineStats {
   stolen: number;
   deferred: number;
   dropped: number;
+  /** Common sounds still being prepared in idle frames. */
+  warming: number;
   /** Output level (RMS, 0 … 1) measured at the master output over the last block. */
   level: number;
 }
+
+/** One sound that started, as the engine heard the request (kept for the status panel and the tests). */
+export interface PlayedSound {
+  key: string;
+  category: AudioCategory;
+  /** The request's gain times the distance gain. */
+  gain: number;
+  /** Playback rate after the Doppler and time-scale factors. */
+  rate: number;
+  pan: number;
+  cutoff: number;
+  /** Audio-clock time it started. */
+  at: number;
+}
+
+const RECENT = 64;
 
 export interface EngineOptions {
   /** Create the real-time context (tests substitute their own). Default: `new AudioContext()`. */
@@ -157,7 +175,10 @@ export class AudioEngine extends Emitter<{ state: EngineState }> {
   private disarm: (() => void) | null = null;
   private userGesture = false;
   private suspendTimer: ReturnType<typeof setTimeout> | null = null;
-  private lastListenerPos: Vec3 | null = null;
+  private hasListener = false;
+
+  /** The last sounds that started, newest last. */
+  readonly recent: PlayedSound[] = [];
 
   private n = { renders: 0, started: 0, rejected: 0, stolen: 0, dropped: 0 };
   private readonly scratch = newSpatialResult();
@@ -350,8 +371,8 @@ export class AudioEngine extends Emitter<{ state: EngineState }> {
         else this.playOneShot(w.req, w.at);
       }
     }
-    // Idle frames prepare the common sounds, one at a time.
-    if (this.renderMs === 0 && this.warm.length) {
+    // Idle frames prepare the common sounds, as many as fit in half the render budget.
+    while (this.warm.length && this.renderMs < RENDER_BUDGET_MS / 2) {
       const w = this.warm.shift() as { key: string; recipe: () => Recipe };
       this.bufferFor(w.key, w.recipe);
     }
@@ -366,6 +387,17 @@ export class AudioEngine extends Emitter<{ state: EngineState }> {
       const def = soundEvent(id);
       if (def) this.warm.push({ key: def.key({}), recipe: () => def.recipe({}) });
     }
+    // The event sounds at their usual strength (the explosion is the one expensive render: do it last).
+    for (const [id, params] of [
+      ['launch', { level: 0.6 }],
+      ['spawn', { size: 0.5 }],
+      ['snap', { level: 0.5 }],
+      ['trampoline', { level: 0.5 }],
+      ['explosion', { size: 7, level: 0.5 }],
+    ] as [string, SoundEventParams][]) {
+      const def = soundEvent(id);
+      if (def) this.warm.push({ key: def.key(params), recipe: () => def.recipe(params) });
+    }
   }
 
   /** Set the listener from the camera's world matrix (column-major, three.js `matrixWorld.elements`). */
@@ -374,7 +406,7 @@ export class AudioEngine extends Emitter<{ state: EngineState }> {
     const px = l.x;
     const py = l.y;
     const pz = l.z;
-    const had = this.lastListenerPos !== null;
+    const had = this.hasListener;
     listenerFromMatrix(matrix, l);
     if (had && dt > 1e-4) {
       // Smooth and bound the velocity: a camera jump (framing the scene) must not become a supersonic Doppler shift.
@@ -384,7 +416,7 @@ export class AudioEngine extends Emitter<{ state: EngineState }> {
       l.vy += (clamp((l.y - py) / dt, -cap, cap) - l.vy) * k;
       l.vz += (clamp((l.z - pz) / dt, -cap, cap) - l.vz) * k;
     } else l.vx = l.vy = l.vz = 0;
-    this.lastListenerPos = [l.x, l.y, l.z];
+    this.hasListener = true;
   }
 
   /** Spatial state of a source at a position (centred and full level when spatialisation is off). */
@@ -464,6 +496,16 @@ export class AudioEngine extends Emitter<{ state: EngineState }> {
     };
     this.pool.add(voice);
     this.n.started++;
+    this.recent.push({
+      key: req.key,
+      category: req.category,
+      gain: req.gain * req.distanceGain,
+      rate,
+      pan: req.pan,
+      cutoff: req.cutoff,
+      at: ctx.currentTime,
+    });
+    if (this.recent.length > RECENT) this.recent.shift();
     shot.source.onended = () => {
       voice.dead = true;
       this.pool.remove(voice);
@@ -582,6 +624,11 @@ export class AudioEngine extends Emitter<{ state: EngineState }> {
     this.deferred.length = 0;
   }
 
+  /** Keys of the buffers rendered so far (`i|…` impacts, `e|…` events, `u|…` interface sounds). */
+  cachedKeys(): string[] {
+    return [...this.cache.keys()];
+  }
+
   // -- measurement and status ------------------------------------------------------------------------------------------
 
   /** RMS level (0 … 1) of the last block at the master output; 0 when the engine is not running. */
@@ -611,6 +658,7 @@ export class AudioEngine extends Emitter<{ state: EngineState }> {
       stolen: this.n.stolen,
       deferred: this.deferred.length,
       dropped: this.n.dropped,
+      warming: this.warm.length,
       level: this.level(),
     };
   }

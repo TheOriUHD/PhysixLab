@@ -46,7 +46,7 @@ import type { App } from '../app';
 import type { SimMode } from '../simController';
 import { ContactQueue } from '../fx/contactQueue';
 import { audioBodyInfo, type AudioBodyInfo } from './bodyAudio';
-import { LoopSet } from './loopSet';
+import { LoopSet, type HandleLike } from './loopSet';
 import { scanSources, readSource, type MotorReading, type MotorSource } from './motorSources';
 import { UiSoundGate, type UiSoundKind } from './uiGate';
 
@@ -114,7 +114,6 @@ export class AudioDirector {
   private readonly sp = newSpatialResult();
   private readonly topRoll = new TopN<number>(MAX_ROLLING);
   private readonly topMotor = new TopN<number>(MAX_MOTORS);
-  private motorScores = new Float64Array(0);
 
   constructor(private readonly app: App) {
     this.engine = new AudioEngine();
@@ -470,7 +469,6 @@ export class AudioDirector {
     if (!this.sources) {
       const { store, sim } = this.app;
       this.sources = scanSources([...store.bodies(), ...store.joints(), ...sim.ephemeral.values()]);
-      if (this.motorScores.length < this.sources.length) this.motorScores = new Float64Array(this.sources.length + 8);
     }
     return this.sources;
   }
@@ -668,6 +666,23 @@ export class AudioDirector {
       }
       this.rolling.finish(0.2);
     }
+  }
+
+  /** The live parameters of every sustained voice, keyed by what it follows (for the status panel and the tests). */
+  describeLoops(): {
+    rolling: Record<string, Record<string, number>>;
+    motors: Record<string, Record<string, number>>;
+    wind: Record<string, number> | null;
+    bed: Record<string, number> | null;
+  } {
+    const dump = <H extends HandleLike & { voice: { inspect(): Record<string, number> } }>(set: LoopSet<H>) =>
+      Object.fromEntries([...set.handles].map(([k, h]) => [k, h.voice.inspect()]));
+    return {
+      rolling: dump(this.rolling),
+      motors: dump(this.motors),
+      wind: this.wind.handles.get('wind')?.voice.inspect() ?? null,
+      bed: this.bed.handles.get('bed')?.voice.inspect() ?? null,
+    };
   }
 
   get stats(): AudioDirectorStats {

@@ -73,9 +73,9 @@ describe('impact loudness (FX-11: velocity / impulse scaled)', () => {
     }
   });
 
-  it('maps the level to a gain from −44 dB to −6 dB, monotonically', () => {
-    expect(gainToDb(levelToGain(0))).toBeCloseTo(-44, 3);
-    expect(gainToDb(levelToGain(1))).toBeCloseTo(-6, 3);
+  it('maps the level to a gain from −50 dB to 0 dB, monotonically', () => {
+    expect(gainToDb(levelToGain(0))).toBeCloseTo(-50, 3);
+    expect(gainToDb(levelToGain(1))).toBeCloseTo(0, 3);
     let prev = 0;
     for (let l = 0; l <= 1.0001; l += 0.1) {
       expect(levelToGain(l)).toBeGreaterThan(prev);

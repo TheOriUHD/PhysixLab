@@ -40,9 +40,13 @@ export function soundLevel(energy: number): number {
   return clamp01((Math.log10(energy) - E_LOW) / (E_HIGH - E_LOW));
 }
 
-/** The loudness level (0 … 1) to a linear gain: −44 dB for the faintest tick up to −6 dB for the biggest crash. */
+/**
+ * The loudness level (0 … 1) to a linear gain: −50 dB for the faintest tick up to 0 dB for the biggest crash, on a
+ * compressive curve (`L^0.6`) so that everyday hits (a 10 kg ball dropped from a metre, level ≈ 0.55) sit around −12 dB
+ * rather than disappearing next to the rare huge one.
+ */
 export function levelToGain(level: number): number {
-  return dbToGain(-44 + 38 * Math.pow(clamp01(level), 0.9));
+  return dbToGain(-50 + 50 * Math.pow(clamp01(level), 0.6));
 }
 
 /** Frequency factor of an object of `size` metres relative to the 0.5 m reference: smaller is higher. */
