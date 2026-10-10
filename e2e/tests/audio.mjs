@@ -313,8 +313,11 @@ test('audio: collisions play material sounds scaled by the impact, measured at t
   assert(hasKey(keys, 'i|ground|'), 'the ground thumps under them');
   assert(
     keys.some((k) => k.startsWith('i|glass|') && k.endsWith('|x')),
-    'the glass bomb shatters into fragments',
+    'the glass bomb breaks: its ring is cut short',
   );
+  await page.waitForFunction(() => window.physicslab.audio.cachedKeys().some((k) => k.startsWith('e|b|glass|')), null, {
+    timeout: 30000,
+  });
   const levels = await recent(page);
   assert(
     levels.every((r) => r.category === 'impacts' || r.category === 'ui' || r.category === 'rolling'),

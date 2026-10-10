@@ -11,7 +11,8 @@
  *     little longer.
  *   - **What rings.** Each body rings with its own material's modes; a light body hitting a heavy one rings loudly
  *     and the heavy one barely; a soft partner (foam, rubber) damps the ring. The ground adds a dull thump.
- *   - **Brittle materials** hit very hard burst into a spray of fragments (glass shatters, stone crumbles).
+ *   - **Brittle materials** hit very hard break: the voice is flagged `shatter`, its ring is cut short (a broken glass no
+ *     longer chimes as a whole) and the director adds the `break` event sound (the spray of fragments, `events.ts`).
  *
  * A voice names a *buffer* by a quantised key (material, pitch in sixths of an octave, timbre level, damping,
  * shatter), so the engine renders each distinct sound once and plays it with a gain and a fine pitch rate.
@@ -19,7 +20,7 @@
  */
 import { hashString, clamp, clamp01, dbToGain, smoothstep } from './mapping';
 import { Rng } from '../core/rng';
-import type { GrainSpec, ModeSpec, NoiseSpec, Recipe } from './dsp';
+import type { ModeSpec, NoiseSpec, Recipe } from './dsp';
 import { soundProfileFor, GROUND_SOUND, type SoundProfile } from './materials';
 
 /** Size, metres, of the object whose fundamental is the profile's `pitch`. */
@@ -97,7 +98,7 @@ export interface ImpactSpec {
   level: number;
   /** Damping from a soft partner, bucket 0 … 3. */
   damp: number;
-  /** A spray of fragments follows the strike. */
+  /** The object breaks: its ring is cut short (the `break` event supplies the fragments). */
   shatter: boolean;
 }
 
@@ -113,6 +114,8 @@ export interface ImpactVoice {
   rate: number;
   /** Which body of the contact rings. */
   role: 'a' | 'b' | 'ground';
+  /** The loudness level 0 … 1 of the contact (before the gain curve): what the `break` event is scaled by. */
+  level: number;
 }
 
 export interface ImpactInput {
@@ -162,7 +165,14 @@ export function planImpact(i: ImpactInput): ImpactVoice[] {
       damp: Math.round(softness * DAMP_BUCKETS),
       shatter: profile.brittle * smoothstep(0.55, 0.85, gainLevel) > 0.35,
     };
-    out.push({ spec, key: impactKey(spec), gain: base * profile.gain * share, rate: f0 / bucketPitch(pb), role });
+    out.push({
+      spec,
+      key: impactKey(spec),
+      gain: base * profile.gain * share,
+      rate: f0 / bucketPitch(pb),
+      role,
+      level: gainLevel,
+    });
   };
   side(pA, i.matA, i.sizeA, ground ? GROUND_SOUND : pB, ringShare(i.massA, ground ? Infinity : i.massB), 'a');
   if (ground) {
@@ -170,7 +180,14 @@ export function planImpact(i: ImpactInput): ImpactVoice[] {
     const f0 = GROUND_SOUND.pitch * clamp(Math.pow(REF_SIZE / Math.max(0.05, i.sizeA), 0.3), 0.55, 1.5);
     const pb = pitchBucket(f0);
     const spec: ImpactSpec = { preset: 'ground', pitch: pb, level: levelBucket(timbre), damp: 0, shatter: false };
-    out.push({ spec, key: impactKey(spec), gain: base * 0.85, rate: f0 / bucketPitch(pb), role: 'ground' });
+    out.push({
+      spec,
+      key: impactKey(spec),
+      gain: base * 0.85,
+      rate: f0 / bucketPitch(pb),
+      role: 'ground',
+      level: gainLevel,
+    });
   } else {
     side(pB, i.matB, i.sizeB, pA, ringShare(i.massB, i.massA), 'b');
   }
@@ -240,16 +257,7 @@ export function impactRecipe(spec: ImpactSpec): Recipe {
     });
   }
 
-  const grains: GrainSpec[] = [];
-  let tail = 0;
-  if (spec.shatter) {
-    const [fMin, fMax] =
-      p.cls === 'glass' ? [1800, 9000] : p.cls === 'ice' ? [2500, 10000] : p.cls === 'wood' ? [600, 3000] : [500, 3500];
-    grains.push({ count: 34, start: 0.012, spread: 0.34, fMin, fMax, gain: 0.7, t60: 0.05 });
-    tail = 0.5;
-  }
-
   const t60max = modes.reduce((m, x) => Math.max(m, x.t60), 0.04);
-  const duration = clamp(Math.max(t60max * 1.15, tail, 0.07), 0.07, 1.9);
-  return { duration, modes, noise, grains };
+  const duration = clamp(Math.max(t60max * 1.15, 0.07), 0.07, 1.9);
+  return { duration, modes, noise };
 }

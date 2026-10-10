@@ -54,6 +54,8 @@ in the page, in the worker and in the Node unit tests.
 | `src/render/` | three.js: viewport, body / soft / joint / light / path / group views, overlays, gizmo, picking |
 | `src/render/fx/` | the effects system (§8a): particle types, pooled simulation, instanced renderer, impact surfaces, ground-contact slip, skid marks, explosions |
 | `src/app/fx/` | the glue to the app: `FxDirector`, effects clock, per-body facts, contact queue, physical debris |
+| `src/audio/` | the sound system (§8b): procedural synthesis, material / impact / event sounds, spatialisation, voice pool, the WebAudio engine and loop voices; pure where it can be |
+| `src/app/audio/` | the glue to the app: `AudioDirector`, per-body sound facts, engine / motor sources, the keyed loop set, the interface-sound gate |
 | `src/app/` | orchestration: `App`, `SimController`, `Editor`, `InputController`, persistence, prefs, scene commands |
 | `src/app/registry/` | **the UI registries** (§6): commands, tools, panels, inspector sections, menus, help, keymap, shortcuts |
 | `src/app/builtin/` | the built-in commands and tools that need no DOM, registered through those registries |
@@ -296,6 +298,27 @@ scuffs, debris). Each frame it scans the simulation's bodies for **ground contac
 the shape, `v_c = v + ω × r`) and turns that into tyre smoke, dust trails, grinding sparks and **skid marks**
 (`trails.ts`, `skidBuffer.ts`: a ring buffer of strip segments, drawn by one mesh that fades them by age in the shader).
 Settings are `Prefs.fx` (validated on load); the Effects panel (`ui/fxPanel.ts`) is a registry of sections.
+
+### 8b. Sound (`audio/`, `app/audio/`)
+
+`app.audio` (class `AudioEngine`) is the one audio engine every package shares; `app.audioDirector` feeds it from the
+simulation. **Nothing is sampled**: a sound is a *recipe* (decaying sinusoidal modes, filtered noise layers, grains —
+`dsp.ts`) rendered to samples by pure code and cached as an `AudioBuffer` under a quantised key; sustained sounds are small
+live node graphs (`loops.ts`) whose parameters are moved from pure mappings. The engine is a graph
+`voices → spatial chain (pan, distance gain, air low-pass) → category bus → master → limiter → destination`, with an
+analyser tapped off the limiter for the measured output level. It is created lazily, inside the first user gesture, and
+suspended when muted, off or hidden (`engine.ts`); a `VoicePool` enforces the per-category and total voice budgets (a louder
+newcomer steals the quietest voice, a quieter one is rejected).
+
+The director subscribes to the **contact feed** (`app.contacts`, shared with the effects) and turns each strongest-first
+contact into voices (`impact.ts`: energy `½·J·v` → loudness and timbre, the two materials' modes, sizes → pitch, masses →
+who rings, a soft partner damps, the ground thumps, brittle hits break); scans the bodies each 30 Hz tick for **ground
+contact and slip** (`render/fx/slip.ts`) → rolling rumble and sliding scrape (`rolling.ts`); finds **motor sources** in the
+document (`motorSources.ts`: motorised hinges / sliders, and components whose published state has a speed) → engine voices
+(`motor.ts`); follows the camera's body for **wind** (`ambience.ts`); and plays event sounds (`events.ts`: explosion, spawn,
+break, joint snap, trampoline, launch, the interface sounds) for the Blast and Fire tools, spawned bodies, broken joints
+and component events. Everything that can be decided without the app is a pure function with a Node test that measures the
+rendered waveform; the browser tests render the very same graphs offline and measure those (`offline.ts`).
 
 ## 9. Orchestration (`app/`)
 

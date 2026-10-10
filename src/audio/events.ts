@@ -9,6 +9,7 @@
  * measure it: a bigger blast is lower and longer, a harder launch brighter, the error buzz lower than the success
  * chime.
  */
+import { Registry } from '../core/registry';
 import type { GrainSpec, ModeSpec, NoiseSpec, Recipe } from './dsp';
 import { clamp, clamp01, dbToGain } from './mapping';
 import type { AudioCategory } from './settings';
@@ -41,22 +42,20 @@ export interface SoundEventDef {
   rate?(p: SoundEventParams): number;
 }
 
-const events = new Map<string, SoundEventDef>();
+/** The sound events, in the same `Registry<T>` every other extension point uses (ids, `onChange`, `revision`). */
+export const soundEvents = new Registry<SoundEventDef>({
+  kind: 'sound event',
+  validate(def) {
+    if (typeof def.recipe !== 'function' || typeof def.key !== 'function' || typeof def.gain !== 'function')
+      throw new Error(`sound event "${def.id}" needs key(), recipe() and gain()`);
+  },
+});
 
 /** Register a sound event. Throws on a malformed or duplicate definition. Returns the unregister function. */
-export function registerSoundEvent(def: SoundEventDef): () => void {
-  if (!/^[a-z][a-z0-9]*([.\-_][a-z0-9]+)*$/.test(def.id)) throw new Error(`sound event id "${def.id}" is malformed`);
-  if (events.has(def.id)) throw new Error(`sound event "${def.id}" is already registered`);
-  if (typeof def.recipe !== 'function' || typeof def.key !== 'function' || typeof def.gain !== 'function')
-    throw new Error(`sound event "${def.id}" needs key(), recipe() and gain()`);
-  events.set(def.id, def);
-  return () => {
-    if (events.get(def.id) === def) events.delete(def.id);
-  };
-}
+export const registerSoundEvent = (def: SoundEventDef): (() => void) => soundEvents.register(def);
 
-export const soundEvent = (id: string): SoundEventDef | undefined => events.get(id);
-export const listSoundEvents = (): SoundEventDef[] => [...events.values()];
+export const soundEvent = (id: string): SoundEventDef | undefined => soundEvents.get(id);
+export const listSoundEvents = (): SoundEventDef[] => [...soundEvents.list()];
 
 // -- parameter quantisation ----------------------------------------------------------------------------------------------
 

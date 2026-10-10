@@ -260,7 +260,7 @@ describe('impact voices (FX-11: material classes, size-aware)', () => {
     expect(onFoam.spec.damp).toBeGreaterThan(onSteel.spec.damp);
   });
 
-  it('brittle materials burst into fragments when hit very hard, others do not', () => {
+  it('brittle materials break when hit very hard (the voice is cut short, the break event adds the fragments), others do not', () => {
     const gentle = planImpact(hit({ matA: 'glass', speed: 2, impulse: 8 }))[0];
     const smash = planImpact(hit({ matA: 'glass', speed: 14, impulse: 9000 }))[0];
     expect(gentle.spec.shatter).toBe(false);
@@ -268,11 +268,15 @@ describe('impact voices (FX-11: material classes, size-aware)', () => {
     expect(planImpact(hit({ matA: 'steel', speed: 14, impulse: 9000 }))[0].spec.shatter).toBe(false);
     expect(planImpact(hit({ matA: 'rubber', speed: 14, impulse: 9000 }))[0].spec.shatter).toBe(false);
     expect(planImpact(hit({ matA: 'concrete', speed: 14, impulse: 9000 }))[0].spec.shatter).toBe(true);
-    // The spray is audible in the tail, long after the strike: bright, scattered energy where the plain chime has faded.
+    // The object no longer chimes as a whole: the shattered voice rings for a shorter time…
     const plain = render({ ...smash.spec, shatter: false });
-    const spray = render(smash.spec);
+    const broken = render(smash.spec);
+    expect(ringTime(broken, SR)).toBeLessThan(ringTime(plain, SR) * 0.7);
+    // …and the fragments are the break event of the same material class (`soundProfileFor(...).cls`).
+    expect(soundProfileFor('glass').cls).toBe('glass');
+    expect(soundProfileFor('concrete').cls).toBe('stone');
+    const spray = renderRecipe(soundEvent('break')!.recipe({ material: 'glass', size: 0.4, level: 0.9 }), SR, 1);
     const window = (b: Float32Array) => b.subarray(Math.floor(0.15 * SR), Math.floor(0.4 * SR));
-    expect(spectralCentroid(window(spray), SR)).toBeGreaterThan(spectralCentroid(window(plain), SR) * 1.05);
     const highShare = (b: Float32Array) => {
       const m = spectrum(b, 16384);
       const cut = Math.round((4000 * 16384) / SR);
@@ -284,8 +288,9 @@ describe('impact voices (FX-11: material classes, size-aware)', () => {
       }
       return hi / all;
     };
-    expect(highShare(window(spray))).toBeGreaterThan(highShare(window(plain)));
-    expect(spray.length).toBeGreaterThanOrEqual(Math.floor(0.45 * SR));
+    expect(rms(window(spray))).toBeGreaterThan(0.02); // fragments are still falling long after the strike
+    expect(highShare(window(spray))).toBeGreaterThan(highShare(window(broken)));
+    expect(planImpact(hit({ matA: 'glass', speed: 14, impulse: 9000 }))[0].level).toBeGreaterThan(0.6);
   });
 
   it('is deterministic: a spec always renders the same samples', () => {
@@ -460,7 +465,7 @@ describe('event sounds (FX-15)', () => {
     const off = registerSoundEvent(mk('test.beep'));
     expect(soundEvent('test.beep')).toBeDefined();
     expect(() => registerSoundEvent(mk('test.beep'))).toThrow(/already registered/);
-    expect(() => registerSoundEvent(mk('Bad Id'))).toThrow(/malformed/);
+    expect(() => registerSoundEvent(mk('Bad Id'))).toThrow(/Invalid sound event id/);
     expect(() =>
       registerSoundEvent({ ...mk('test.nokey'), key: undefined as unknown as SoundEventDef['key'] }),
     ).toThrow(/needs key/);

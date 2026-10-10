@@ -18,6 +18,7 @@ import type { Vec3 } from '../../core/math';
 import { AudioEngine, type EngineStats, type LoopHandle } from '../../audio/engine';
 import { soundEvent } from '../../audio/events';
 import { planImpact } from '../../audio/impact';
+import { soundProfileFor } from '../../audio/materials';
 import { MotorVoice, RollingVoice, BedVoice, WindVoice } from '../../audio/loops';
 import { clamp01, pitchForTimeScale } from '../../audio/mapping';
 import {
@@ -53,7 +54,7 @@ import { UiSoundGate, type UiSoundKind } from './uiGate';
 /** A contact counts as touching the ground when the lowest point is within this of the floor, metres. */
 const CONTACT_TOLERANCE = 0.06;
 /** Impact sounds handled per rendered frame (the strongest contacts win). */
-const IMPACTS_PER_FRAME = 14;
+const IMPACTS_PER_FRAME = 8;
 /** Rate of the sustained-voice updates, seconds between them. */
 const LOOP_STEP = 1 / 30;
 const MAX_ROLLING = 6;
@@ -356,6 +357,14 @@ export class AudioDirector {
       massB: ground ? 0 : (client.info.mass[ev.b] ?? 0),
     });
     let played = voices.length > 0 && engine.playImpact(voices, ev.point, this.velocityOf(ev.a)) > 0;
+    // A brittle body hit hard breaks: the fragments are the `break` event, in the material's own voice.
+    for (const v of voices) {
+      if (!v.spec.shatter) continue;
+      const size = v.role === 'b' ? (b?.size ?? 0.5) : (a?.size ?? 0.5);
+      played =
+        engine.playEvent('break', ev.point, { material: soundProfileFor(v.spec.preset).cls, size, level: v.level }) ||
+        played;
+    }
     if ((a?.trampoline || b?.trampoline) && ev.speed >= 1.2)
       played = engine.playEvent('trampoline', ev.point, { level: clamp01(ev.speed / 14) }) || played;
     return played;
