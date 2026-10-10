@@ -116,6 +116,29 @@ export interface BodyEntity {
   parts?: ColliderPart[];
   /** Id of a mesh in `doc.assets` that is this body's visual (collision comes from the shape or the parts). */
   meshId?: string;
+
+  // ── FB-7: components ───────────────────────────────────────────────────────────────────────────
+  /** Behaviours attached to the body (forces, movers, sensors …), run by the physics worker in array order. */
+  components: ComponentSpec[];
+}
+
+// ── FB-7: component system ─────────────────────────────────────────────────────────────────────────────
+// A component is a registered behaviour (`model/componentRegistry.ts`) attached to a body or joint: its `type`
+// names the registry entry, `params` are the values of that entry's declared fields. The physics worker runs the
+// matching runtime (`physics/components/`) every fixed step.
+
+/** One component parameter: a number / flag / string (enum, key, entity id …), a vec3, or a list of [x, y] points. */
+export type ComponentValue = number | boolean | string | number[] | number[][];
+export type ComponentParams = Record<string, ComponentValue>;
+
+export interface ComponentSpec {
+  /** Unique across the whole scene (live readouts and events are addressed by it). */
+  id: string;
+  /** Id of a registered component type. */
+  type: string;
+  /** A disabled component keeps its parameters but does nothing. */
+  enabled: boolean;
+  params: ComponentParams;
 }
 
 /** Surface overrides of one collider part; anything left out is inherited from the body's material. */
@@ -218,6 +241,8 @@ export interface JointEntity {
   /** Collide the two connected bodies with each other. */
   collideConnected: boolean;
   hidden: boolean;
+  /** Behaviours attached to the joint (FB-7); same mechanism as `BodyEntity.components`. */
+  components: ComponentSpec[];
 }
 
 /**

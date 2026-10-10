@@ -2,6 +2,7 @@ import { Emitter } from '../core/events';
 import { qangle, vadd, veq, type Vec3 } from '../core/math';
 import { newDocument, uid } from './factory';
 import { addAssetTo, countAssetRefs, remapAssetRefs } from './assets';
+import { cloneComponents, releaseComponentRefs } from './componentRegistry';
 import { childIndex, descendantIds, groupTransformPatches, withDescendants, type Pose } from './groups';
 import { SCENE_FORMAT, SCENE_VERSION } from './migrations';
 import type {
@@ -343,8 +344,14 @@ export class SceneStore extends Emitter<StoreEvents> {
       this.entities.set(e.id, rest);
       released.push(e.id);
     }
+    // …and components that pointed at a removed entity (a follow target, a path) lose the reference, in this undo step.
+    const unlinked = releaseComponentRefs(this.entities.values(), set);
+    for (const [id, patch] of unlinked) this.entities.set(id, { ...this.entities.get(id)!, ...patch } as Entity);
     this.emit('change', { type: 'remove', ids: [...set], removed });
     if (released.length) this.emit('change', { type: 'update', ids: released, keys: new Set(['parent']) });
+    if (unlinked.length) {
+      this.emit('change', { type: 'update', ids: unlinked.map(([id]) => id), keys: new Set(['components']) });
+    }
     const sel = this.selection.filter((id) => !set.has(id));
     if (sel.length !== this.selection.length) this.setSelection(sel);
   }
@@ -540,6 +547,8 @@ export function cloneEntities(all: Entity[], ids: string[], offset: Vec3 = [0, 0
   for (const c of out) {
     const parent = isPosed(c) ? c.parent : undefined;
     if (isPosed(c) && parent !== undefined && map.has(parent)) c.parent = map.get(parent);
+    // New component ids; references to bodies cloned together follow the copies.
+    if (isBody(c)) c.components = cloneComponents(c.components, map);
   }
   for (const j of all) {
     if (!isJoint(j)) continue;
@@ -555,6 +564,7 @@ export function cloneEntities(all: Entity[], ids: string[], offset: Vec3 = [0, 0
       bodyB: j.bodyB ? map.get(j.bodyB)! : null,
       anchorA: j.bodyA ? j.anchorA : vadd(j.anchorA, offset),
       anchorB: j.bodyB ? j.anchorB : vadd(j.anchorB, offset),
+      components: cloneComponents(j.components, map),
     });
   }
   return out;

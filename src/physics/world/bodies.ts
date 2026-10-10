@@ -5,10 +5,16 @@ import { bodyBoundingRadius } from '../../model/compound';
 import type { BodyEntity } from '../../model/types';
 import { applyMassOverrides } from './bodyFields';
 import { makeColliders } from './colliders';
+import { registerColliders } from './events';
 import type { BodyRec, WorldState } from './state';
 import { rq, rv } from './util';
 
-export function addBody(s: WorldState, def: BodyEntity, ephemeral: boolean): BodyRec {
+/**
+ * Build one rigid body. `def` is what the engine is built from; `docDef` (default: `def`) is the definition the
+ * world remembers for the body — they differ when a body is rebuilt in place and `def` carries its current live pose.
+ * The body's components are attached at the end, from the remembered definition.
+ */
+export function addBody(s: WorldState, def: BodyEntity, ephemeral: boolean, docDef: BodyEntity = def): BodyRec {
   const isDyn = def.bodyType === 'dynamic';
   let desc =
     def.bodyType === 'static'
@@ -38,7 +44,8 @@ export function addBody(s: WorldState, def: BodyEntity, ephemeral: boolean): Bod
   if (isDyn) applyMassOverrides(rb, cols, def);
   const rec: BodyRec = {
     id: def.id,
-    def,
+    seq: s.bodySeq++,
+    def: docDef,
     rb,
     col: cols[0],
     cols,
@@ -58,6 +65,9 @@ export function addBody(s: WorldState, def: BodyEntity, ephemeral: boolean): Bod
   s.order.push(rec);
   if (rec.dragged) s.draggers.push(rec);
   if (rec.sleep) s.sleepers.push(rec);
+  registerColliders(s, rec);
+  s.queriesDirty = true;
+  s.host.sync('body', rec.id, docDef.components);
   s.layoutVersion++;
   return rec;
 }

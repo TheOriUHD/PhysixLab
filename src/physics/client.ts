@@ -1,15 +1,22 @@
 import { Emitter } from '../core/events';
+import type { Vec3 } from '../core/math';
 import type { SceneDocument } from '../model/types';
 import {
   BODY_STRIDE,
   JOINT_STRIDE,
+  PROTOCOL_VERSION,
   type BuiltInfo,
+  type ComponentStateEntry,
+  type EventConfig,
   type FromWorker,
+  type RayHit,
+  type RaycastOptions,
   type SimEvent,
   type SimOp,
   type SimStats,
   type SoftLayoutEntry,
   type ToWorker,
+  type WorldSnapshot,
 } from './protocol';
 
 export interface TickOptions {
@@ -18,12 +25,16 @@ export interface TickOptions {
   running: boolean;
   stepCount?: number;
   keys: string[];
+  /** Analog inputs by name; defaults to the client's own (`setAxis`). */
+  axes?: Record<string, number>;
   wantContacts: boolean;
 }
 
 interface ClientEvents extends Record<string, unknown> {
   frame: undefined;
   event: SimEvent;
+  /** A reply on a custom channel (protocol v2). */
+  custom: { channel: string; data: unknown };
   error: string;
 }
 
@@ -61,6 +72,13 @@ export class SimClient extends Emitter<ClientEvents> {
   /** Increments whenever bodyIds / jointIds change. */
   layoutNo = 0;
   broken = new Set<string>();
+  /** Analog inputs by name, sent with every tick (`setAxis`). */
+  readonly axes: Record<string, number> = {};
+  /** The latest state each component published, by component id (`stateOf`). */
+  readonly componentState = new Map<string, ComponentStateEntry>();
+  private nextRequest = 1;
+  private rayRequests = new Map<number, (hit: RayHit | null) => void>();
+  private snapshotRequests = new Map<number, (s: WorldSnapshot) => void>();
 
   constructor() {
     super();
@@ -77,6 +95,9 @@ export class SimClient extends Emitter<ClientEvents> {
     switch (m.type) {
       case 'built':
         this.info = m.info;
+        break;
+      case 'custom':
+        this.emit('custom', { channel: m.channel, data: m.data });
         break;
       case 'frame': {
         this.inflight = false;
@@ -108,6 +129,16 @@ export class SimClient extends Emitter<ClientEvents> {
         this.joints = m.joints;
         this.contacts = m.contacts ?? new Float32Array(0);
         this.stats = m.stats;
+        for (const id of m.componentStateRemoved ?? []) this.componentState.delete(id);
+        if (m.componentState) for (const [id, e] of Object.entries(m.componentState)) this.componentState.set(id, e);
+        for (const r of m.raycasts ?? []) {
+          this.rayRequests.get(r.id)?.(r.hit);
+          this.rayRequests.delete(r.id);
+        }
+        for (const r of m.snapshots ?? []) {
+          this.snapshotRequests.get(r.id)?.(r.snapshot);
+          this.snapshotRequests.delete(r.id);
+        }
         this.frameNo++;
         for (const ev of m.events) {
           if (ev.kind === 'jointBroken') this.broken.add(ev.id);
@@ -121,6 +152,9 @@ export class SimClient extends Emitter<ClientEvents> {
         this.emit('error', m.message);
         break;
       case 'ready':
+        if (m.protocol !== PROTOCOL_VERSION) {
+          this.emit('error', `physics worker speaks protocol v${m.protocol}, this page expects v${PROTOCOL_VERSION}`);
+        }
         break;
     }
   }
@@ -137,6 +171,8 @@ export class SimClient extends Emitter<ClientEvents> {
     this.jointIds = [];
     this.jointIndex.clear();
     this.broken.clear();
+    this.componentState.clear();
+    this.cancelRequests();
     this.softLayout = [];
     this.softOffsets = [];
     this.softIndex.clear();
@@ -152,6 +188,8 @@ export class SimClient extends Emitter<ClientEvents> {
   dispose(): void {
     this.active = false;
     this.opQueue = [];
+    this.componentState.clear();
+    this.cancelRequests();
     this.send({ type: 'dispose' });
     this.poses = new Float32Array(0);
     this.softLayout = [];
@@ -160,12 +198,79 @@ export class SimClient extends Emitter<ClientEvents> {
   }
 
   destroy(): void {
+    this.cancelRequests();
     this.worker.terminate();
+  }
+
+  /** Pending ray casts resolve to "no hit"; pending snapshots are abandoned (their promises never settle). */
+  private cancelRequests(): void {
+    for (const resolve of this.rayRequests.values()) resolve(null);
+    this.rayRequests.clear();
+    this.snapshotRequests.clear();
   }
 
   op(op: SimOp): void {
     if (!this.active) return;
     this.opQueue.push(op);
+  }
+
+  // ---- protocol v2 --------------------------------------------------------------------------
+
+  /** Set an analog input (usually −1 … 1); components read it as `ctx.input.axis(name)`. `0` removes it. */
+  setAxis(name: string, value: number): void {
+    if (value === 0) delete this.axes[name];
+    else this.axes[name] = value;
+  }
+
+  /** The latest numbers a component published (`ctx.state.set`), or null. */
+  stateOf(componentId: string): Float32Array | null {
+    return this.componentState.get(componentId)?.values ?? null;
+  }
+
+  /** The latest JSON a component published (`ctx.state.setJson`), or undefined. */
+  jsonOf(componentId: string): unknown {
+    return this.componentState.get(componentId)?.json;
+  }
+
+  setSeed(seed: number): void {
+    this.op({ op: 'setSeed', seed });
+  }
+
+  /** Switch contact events on / off or tune them (`EventConfig`). */
+  configureEvents(config: Partial<EventConfig>): void {
+    this.op({ op: 'events', config });
+  }
+
+  /**
+   * Cast a ray in the simulated world. Resolves with the nearest hit (or null) once the worker has answered — a
+   * frame or two later — and with null if the simulation is reset first.
+   */
+  raycast(origin: Vec3, dir: Vec3, maxDist: number, options?: RaycastOptions): Promise<RayHit | null> {
+    if (!this.active) return Promise.resolve(null);
+    const id = this.nextRequest++;
+    return new Promise((resolve) => {
+      this.rayRequests.set(id, resolve);
+      this.op({ op: 'raycast', id, origin, dir, maxDist, options });
+    });
+  }
+
+  /** Capture the complete simulation state (see `WorldSnapshot`). */
+  snapshot(): Promise<WorldSnapshot> {
+    const id = this.nextRequest++;
+    return new Promise((resolve) => {
+      this.snapshotRequests.set(id, resolve);
+      this.op({ op: 'snapshot', id });
+    });
+  }
+
+  /** Bring a snapshot back; the next frame announces the restored set of bodies. */
+  restore(snapshot: WorldSnapshot): void {
+    this.op({ op: 'restore', snapshot });
+  }
+
+  /** Send a message to a handler registered with `registerCustomChannel`; replies arrive as the `'custom'` event. */
+  sendCustom(channel: string, data: unknown): void {
+    if (this.active) this.send({ type: 'custom', channel, data });
   }
 
   /** Drive the simulation. Safe to call every animation frame. */
@@ -187,6 +292,7 @@ export class SimClient extends Emitter<ClientEvents> {
       running: o.running,
       stepCount: this.pendingSteps,
       keys: o.keys,
+      axes: o.axes ?? this.axes,
       wantContacts: o.wantContacts,
     });
     this.pendingDt = 0;

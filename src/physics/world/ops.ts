@@ -1,7 +1,11 @@
 /** Dispatch of the live-edit protocol ops (`SimOp`) onto the world modules. */
+import { pathCurveOf } from '../../model/path';
 import type { SimOp } from '../protocol';
 import { addBody } from './bodies';
 import { removeEntities, setVelocity, teleport, updateBody } from './edits';
+import { configureEvents } from './events';
+import { raycast } from './queries';
+import { restoreSnapshot, takeSnapshot } from './snapshot';
 import { beginGrab, explode, impulse } from './forces';
 import { addJoint, updateJoint } from './joints';
 import { applySettings } from './settings';
@@ -63,6 +67,24 @@ export function applyOp(s: WorldState, op: SimOp): void {
       break;
     case 'wakeAll':
       for (const r of s.order) r.rb.wakeUp();
+      break;
+    case 'setSeed':
+      s.rng.seed(op.seed);
+      break;
+    case 'raycast':
+      s.raycasts.push({ id: op.id, hit: raycast(s, op.origin, op.dir, op.maxDist, op.options) });
+      break;
+    case 'snapshot':
+      s.snapshots.push({ id: op.id, snapshot: takeSnapshot(s) });
+      break;
+    case 'restore':
+      restoreSnapshot(s, op.snapshot);
+      break;
+    case 'events':
+      configureEvents(s, op.config);
+      break;
+    case 'setPath':
+      s.paths.set(op.path.id, { def: op.path, curve: pathCurveOf(op.path) });
       break;
   }
 }

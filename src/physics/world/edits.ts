@@ -4,18 +4,23 @@ import type { BodyEntity } from '../../model/types';
 import { addBody } from './bodies';
 import { interactionGroups } from './bodyFields';
 import { colliderSurface } from './colliders';
+import { unregisterColliders } from './events';
 import { addJoint, dropJoint } from './joints';
 import { removeSoft } from './soft';
 import type { BodyRec, WorldState } from './state';
 import { pos, rot, rq, rv, ZERO } from './util';
 
 export function removeEntities(s: WorldState, ids: string[]): void {
-  for (const id of ids) removeSoft(s, id);
+  for (const id of ids) {
+    removeSoft(s, id);
+    s.paths.delete(id);
+  }
   for (const id of ids) {
     const j = s.joints.get(id);
     if (j) {
       if (j.joint && j.joint.isValid()) s.world.removeImpulseJoint(j.joint, true);
       dropJoint(s, id);
+      s.host.detach(id);
     }
   }
   for (const id of ids) {
@@ -23,7 +28,14 @@ export function removeEntities(s: WorldState, ids: string[]): void {
     if (!b) continue;
     if (s.grab?.rec === b) s.grab = null;
     // Rapier deletes attached joints with the body; mirror that in our bookkeeping.
-    for (const jr of [...s.jointOrder]) if (jr.A === b || jr.B === b) dropJoint(s, jr.id);
+    for (const jr of [...s.jointOrder]) {
+      if (jr.A !== b && jr.B !== b) continue;
+      dropJoint(s, jr.id);
+      s.host.detach(jr.id);
+    }
+    s.host.detach(id);
+    unregisterColliders(s, b);
+    s.queriesDirty = true;
     s.world.removeRigidBody(b.rb);
     s.bodies.delete(id);
     s.order = s.order.filter((r) => r !== b);
@@ -59,6 +71,7 @@ export function updateBody(s: WorldState, next: BodyEntity): void {
     return;
   }
   rec.def = next;
+  if (old.components !== next.components) s.host.sync('body', next.id, next.components);
   if (next.bodyType === 'dynamic') {
     rec.rb.setLinearDamping(next.linearDamping + s.settings.airDrag);
     rec.rb.setAngularDamping(next.angularDamping);
@@ -100,9 +113,8 @@ function rebuildBody(s: WorldState, rec: BodyRec, next: BodyEntity): void {
     velocity: [lv.x, lv.y, lv.z],
     angularVelocity: [av.x, av.y, av.z],
   };
-  // Keep the original initial-velocity fields on the stored definition.
-  const nr = addBody(s, moved, ephemeral);
-  nr.def = next;
+  // The world keeps the authored definition (`next`), the engine body is built at the live pose (`moved`).
+  addBody(s, moved, ephemeral, next);
   for (const jd of attached) addJoint(s, jd);
 }
 
@@ -117,6 +129,7 @@ export function teleport(s: WorldState, id: string, position: Vec3, rotation: Qu
     rec.vPrev = [0, 0, 0];
   }
   rec.hasPrev = false;
+  s.queriesDirty = true;
   if (rec.disabled) {
     rec.disabled = false;
     rec.rb.setEnabled(true);

@@ -12,14 +12,33 @@
  */
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { Quat, Vec3 } from '../../core/math';
+import { pathCurveOf } from '../../model/path';
 import type { BodyEntity, JointEntity, SceneDocument, SceneSettings, SoftEntity } from '../../model/types';
-import type { BuiltInfo, SimEvent, SimOp, SimStats, SoftLayoutEntry } from '../protocol';
+import '../components'; // registers the built-in component runtimes
+import { ComponentHost } from '../components/host';
+import { dispatchCustom } from '../custom';
+import type {
+  BuiltInfo,
+  ComponentStateEntry,
+  EventConfig,
+  RayHit,
+  RaycastOptions,
+  RaycastResult,
+  SimEvent,
+  SimOp,
+  SimStats,
+  SoftLayoutEntry,
+  WorldSnapshot,
+} from '../protocol';
 import { addBody } from './bodies';
 import { removeEntities, setVelocity, teleport, updateBody } from './edits';
+import { configureEvents } from './events';
 import { addJoint, updateJoint } from './joints';
 import { applyOp } from './ops';
+import { raycast } from './queries';
 import { initRapier } from './rapier';
 import { drainEvents, readContacts, readJoints, readPoses } from './readback';
+import { restoreSnapshot, takeSnapshot } from './snapshot';
 import { applySettings } from './settings';
 import { addSoft, readSoft } from './soft';
 import { WorldState, type BodyRec, type JointRec } from './state';
@@ -40,7 +59,11 @@ export class PhysicsWorld {
     const world = new RAPIER.World(rv(doc.settings.gravity));
     const worldBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
     this.s = new WorldState(world, worldBody, doc.settings);
+    this.s.eventQueue = new RAPIER.EventQueue(true);
+    this.s.host = new ComponentHost(this.s);
+    this.s.rng.seed(doc.settings.seed);
     applySettings(this.s, doc.settings, true);
+    for (const e of doc.entities) if (e.kind === 'path') this.s.paths.set(e.id, { def: e, curve: pathCurveOf(e) });
     for (const e of doc.entities) if (e.kind === 'body') addBody(this.s, e, false);
     for (const e of doc.entities) if (e.kind === 'joint') addJoint(this.s, e);
     for (const e of doc.entities) if (e.kind === 'soft') addSoft(this.s, e);
@@ -48,6 +71,8 @@ export class PhysicsWorld {
   }
 
   dispose(): void {
+    this.s.host.disposeAll();
+    this.s.eventQueue.free();
     this.s.world.free();
   }
 
@@ -132,6 +157,10 @@ export class PhysicsWorld {
   setKeys(keys: Iterable<string>): void {
     this.s.keys = new Set(keys);
   }
+  /** Analog inputs by name (replaces the previous set). */
+  setAxes(axes: Record<string, number>): void {
+    this.s.axes = axes;
+  }
   /** Advance the simulation by exactly one fixed step. */
   stepOnce(): void {
     stepOnce(this.s);
@@ -171,6 +200,60 @@ export class PhysicsWorld {
   drainEvents(): SimEvent[] {
     return drainEvents(this.s);
   }
+  // protocol v2 --------------------------------------------------------------------------------
+
+  /** Uniform [0, 1) from the world's seeded generator (`settings.seed`, `setSeed`). */
+  random(): number {
+    return this.s.rng.next();
+  }
+  setSeed(seed: number): void {
+    this.s.rng.seed(seed);
+  }
+  /** The generator state, for tests and snapshots. */
+  get rngState(): number {
+    return this.s.rng.state;
+  }
+  raycast(origin: Vec3, dir: Vec3, maxDist: number, options?: RaycastOptions): RayHit | null {
+    return raycast(this.s, origin, dir, maxDist, options);
+  }
+  configureEvents(patch: Partial<EventConfig>): void {
+    configureEvents(this.s, patch);
+  }
+  /** Capture the complete simulation state (see `WorldSnapshot`). */
+  snapshot(): WorldSnapshot {
+    return takeSnapshot(this.s);
+  }
+  /** Replace the world's contents by a snapshot. */
+  restore(snapshot: WorldSnapshot): void {
+    restoreSnapshot(this.s, snapshot);
+  }
+  /** Run the handler of a custom channel; returns its replies. */
+  custom(channel: string, data: unknown): { channel: string; data: unknown }[] {
+    return dispatchCustom(this, channel, data);
+  }
+  /** Ids of the components that exist in the world (running or not), per owner. */
+  componentsOf(ownerId: string): string[] {
+    return this.s.host.componentsOf(ownerId);
+  }
+  isComponentRunning(componentId: string): boolean {
+    return this.s.host.isRunning(componentId);
+  }
+  /** The component state published since the last call, and the ids of components that went away. */
+  drainComponentState(): { changed: Record<string, ComponentStateEntry>; removed: string[] } {
+    return this.s.host.drainState();
+  }
+  /** Answers to `raycast` ops and `snapshot` ops since the last call. */
+  drainReplies(): { raycasts: RaycastResult[]; snapshots: { id: number; snapshot: WorldSnapshot }[] } {
+    const r = { raycasts: this.s.raycasts, snapshots: this.s.snapshots };
+    this.s.raycasts = [];
+    this.s.snapshots = [];
+    return r;
+  }
+  /** Component ids that have a definition in the model but no runtime in this worker (should be empty). */
+  missingRuntimes(): string[] {
+    return this.s.host.missingRuntimes();
+  }
+
   builtInfo(): BuiltInfo {
     return builtInfo(this.s);
   }

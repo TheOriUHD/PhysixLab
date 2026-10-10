@@ -8,6 +8,7 @@
 import { qslerp } from '../../core/math';
 import { BODY_STRIDE, CONTACT_STRIDE, J, JOINT_STRIDE, type SimEvent } from '../protocol';
 import { springElasticEnergy } from './energy';
+import { flushContacts } from './events';
 import { engineDt } from './stepping';
 import { measureJoint } from './joints';
 import type { WorldState } from './state';
@@ -136,8 +137,12 @@ export function readContacts(s: WorldState, max = 800): Float32Array {
   return new Float32Array(out);
 }
 
-/** Events raised since the last call (e.g. a spring breaking); the queue is emptied. */
+/**
+ * Events raised since the last call (a spring breaking, sensors entered / left, contacts, component events); the
+ * queue is emptied. Pending contacts are finalised first: aggregated, filtered and rate-limited.
+ */
 export function drainEvents(s: WorldState): SimEvent[] {
+  flushContacts(s);
   const e = s.events;
   s.events = [];
   return e;

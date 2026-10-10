@@ -123,6 +123,7 @@ export function createBody(init: BodyInit): BodyEntity {
     inertiaScale: 1,
     tags: [],
     layer: DEFAULT_LAYER,
+    components: [],
     ...(rest as Partial<BodyEntity>),
   };
 }
@@ -181,6 +182,7 @@ export function createJoint(init: JointInit): JointEntity {
     ropeLength: 2,
     collideConnected: false,
     hidden: false,
+    components: [],
     ...(rest as Partial<JointEntity>),
   };
 }

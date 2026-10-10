@@ -5,6 +5,7 @@
  */
 import { clamp } from '../../core/math';
 import { applyDrag, emulateSleep } from './dynamics';
+import { collectEvents, stepPending } from './events';
 import { applyGrab, applyThrusters } from './forces';
 import { driveMotor, measureJoint, measureSpring } from './joints';
 import { applySoftGrab } from './soft';
@@ -33,10 +34,14 @@ function preStep(s: WorldState, dt: number): void {
   applyThrusters(s);
   applySoftGrab(s);
   applyGrab(s);
+  // Components run after the built-in forces, bodies first, then joints, each owner in array order.
+  s.host.prestep(dt);
 }
 
 function postStep(s: WorldState, dt: number): void {
   emulateSleep(s, dt);
+  stepPending(s);
+  s.host.poststep(dt);
   for (const r of s.order) {
     if (r.disabled || r.def.bodyType === 'static') continue;
     if (r.rb.translation().y < KILL_Y) {
@@ -60,10 +65,13 @@ export function stepOnce(s: WorldState): void {
   const dt = fixedDt(s);
   preStep(s, dt);
   const n = substepCount(s);
+  const tEnd = s.simTime + dt;
   for (let i = n; i > 0; i--) {
     applyDrag(s, dt / n);
-    s.world.step();
+    s.world.step(s.eventQueue);
+    collectEvents(s, tEnd);
   }
+  s.queriesDirty = false; // the step rebuilt the engine's query structures
   s.simTime += dt;
   s.simSinceRead += dt;
   s.stepCount++;

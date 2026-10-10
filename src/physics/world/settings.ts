@@ -2,6 +2,7 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { SceneSettings } from '../../model/types';
 import { GROUND_GROUPS } from './bodyFields';
+import { registerGround, unregisterGround } from './events';
 import { piecesOf } from './soft';
 import type { WorldState } from './state';
 import { engineDt } from './stepping';
@@ -22,6 +23,8 @@ export function applySettings(s: WorldState, next: SceneSettings, initial = fals
   s.world.integrationParameters.dt = engineDt(s);
   s.world.integrationParameters.numSolverIterations = next.solverIterations;
   if (initial || prev.ground !== next.ground) buildGround(s);
+  // A new seed in the settings restarts the random stream (the initial seed is applied by the constructor).
+  if (!initial && prev.seed !== next.seed) s.rng.seed(next.seed);
   if (prev.airDrag !== next.airDrag) {
     for (const r of s.order)
       if (r.def.bodyType === 'dynamic') r.rb.setLinearDamping(r.def.linearDamping + next.airDrag);
@@ -30,8 +33,10 @@ export function applySettings(s: WorldState, next: SceneSettings, initial = fals
 
 function buildGround(s: WorldState): void {
   if (s.ground) {
+    unregisterGround(s);
     s.world.removeRigidBody(s.ground.body);
     s.ground = null;
+    s.queriesDirty = true;
   }
   const g = s.settings.ground;
   if (!g.enabled) return;
@@ -46,4 +51,6 @@ function buildGround(s: WorldState): void {
     body,
   );
   s.ground = { body, col };
+  registerGround(s);
+  s.queriesDirty = true;
 }

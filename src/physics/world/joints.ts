@@ -102,6 +102,7 @@ export function addJoint(s: WorldState, def: JointEntity): JointRec | null {
   configureUnitJoint(s, rec, true);
   s.joints.set(def.id, rec);
   s.jointOrder.push(rec);
+  s.host.sync('joint', def.id, def.components);
   s.layoutVersion++;
   return rec;
 }

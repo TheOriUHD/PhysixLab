@@ -15,7 +15,7 @@ import { Emitter } from '../core/events';
 import type { Quat, Vec3 } from '../core/math';
 import type { SceneChange, SceneStore } from '../model/store';
 import type { BodyEntity } from '../model/types';
-import { isBody, isJoint, isSoft } from '../model/types';
+import { isBody, isJoint, isPath, isSoft } from '../model/types';
 import { SimClient } from '../physics/client';
 import { B, BODY_STRIDE } from '../physics/protocol';
 
@@ -116,8 +116,14 @@ export class SimController extends Emitter<Events> {
       running: this.mode === 'running',
       stepCount: steps,
       keys: [...this.keys],
+      axes: this.client.axes,
       wantContacts: this.wantContacts,
     });
+  }
+
+  /** Set an analog input for components (`ctx.input.axis(name)`); 0 clears it. */
+  setAxis(name: string, value: number): void {
+    this.client.setAxis(name, value);
   }
 
   // ---- pose access (live frame when simulating, document otherwise) -------------------------
@@ -184,6 +190,7 @@ export class SimController extends Emitter<Events> {
           const e = this.store.get(id);
           if (isJoint(e)) this.client.op({ op: 'addJoint', joint: e });
           else if (isSoft(e)) this.client.op({ op: 'addSoft', soft: e });
+          else if (isPath(e)) this.client.op({ op: 'setPath', path: e });
         }
         break;
       case 'remove':
@@ -198,7 +205,8 @@ export class SimController extends Emitter<Events> {
             // Pure pose edits are not applied to a live world (Reset restores them).
             const onlyPose = [...c.keys].every((k) => EDITOR_ONLY.has(k) || k === 'position' || k === 'rotation');
             if (!onlyPose) this.client.op({ op: 'updateBody', body: e });
-          } else if (isJoint(e)) this.client.op({ op: 'updateJoint', joint: e });
+          } else if (isPath(e)) this.client.op({ op: 'setPath', path: e });
+          else if (isJoint(e)) this.client.op({ op: 'updateJoint', joint: e });
           else if (isSoft(e)) {
             const onlyPose = [...c.keys].every((k) => EDITOR_ONLY.has(k) || k === 'position' || k === 'rotation');
             if (!onlyPose) this.client.op({ op: 'updateSoft', soft: e });

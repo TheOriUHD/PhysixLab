@@ -1,0 +1,12 @@
+/**
+ * The built-in component runtimes. To add one: create `<type>.ts` next to this file exporting a `ComponentRuntime`
+ * and add it to the list below (its `ComponentDef` goes in `src/model/components/`).
+ */
+import { constantForce } from './constantForce';
+import { registerRuntime, runtimeOf } from './registry';
+import { sineMover } from './sineMover';
+
+for (const rt of [constantForce, sineMover]) if (!runtimeOf(rt.type)) registerRuntime(rt);
+
+export { registerRuntime, unregisterRuntime, runtimeOf, listRuntimes, type ComponentRuntime } from './registry';
+export type { BodyHandle, ComponentContext, ContactPoint, JointHandle } from './context';

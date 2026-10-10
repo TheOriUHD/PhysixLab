@@ -14,6 +14,7 @@ import { LIMITS, formatBytes, formatCount } from './limits';
 import { pruneAssets, remapAssetRefs } from './assets';
 import { sanitizeAssetMap } from './sanitize/assets';
 import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
+import { dedupeComponentIds, repairComponentRefs, sanitizeComponents } from './componentRegistry';
 import { parentField, sanitizeGroup, sanitizeLight, sanitizePath } from './sanitize/kinds';
 import { sanitizeParts } from './sanitize/parts';
 import { SCENE_FORMAT, SCENE_VERSION, migrateDocument } from './migrations';
@@ -102,6 +103,7 @@ function sanitizeBody(raw: any, report?: LoadReport): BodyEntity {
     hidden: bool(raw?.hidden, false),
     ...sanitizeBodyFields(raw ?? {}),
     ...sanitizeCompound(raw ?? {}, report, name ? `"${name}"` : 'an object'),
+    components: sanitizeComponents(raw?.components, 'body', report, name ? `"${name}"` : 'an object'),
   };
 }
 
@@ -118,7 +120,7 @@ function sanitizeCompound(
   return out;
 }
 
-function sanitizeJoint(raw: any): JointEntity {
+function sanitizeJoint(raw: any, report?: LoadReport): JointEntity {
   const type: JointType = JOINTS.includes(raw?.type) ? raw.type : 'ball';
   const anchorA = vec3(raw?.anchorA, [0, 0, 0]);
   const base = createJoint({ type, bodyA: null, bodyB: null, anchorA });
@@ -161,6 +163,7 @@ function sanitizeJoint(raw: any): JointEntity {
     ropeLength: Math.max(0.01, num(raw?.ropeLength, base.ropeLength)),
     collideConnected: bool(raw?.collideConnected, false),
     hidden: bool(raw?.hidden, false),
+    components: sanitizeComponents(raw?.components, 'joint', report, 'a joint'),
   };
 }
 
@@ -202,7 +205,7 @@ function sanitizeEntity(r: any, report: LoadReport | undefined): Entity | null {
     case 'body':
       return sanitizeBody(r, report);
     case 'joint':
-      return sanitizeJoint(r);
+      return sanitizeJoint(r, report);
     case 'soft':
       return sanitizeSoft(r);
     case 'group':
@@ -313,6 +316,8 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
   }
   // Drop group links that point nowhere (or loop).
   const parentsFixed = repairParents(entities.filter(isPosed));
+  // Component ids are unique across the scene, and references between entities must point at something.
+  dedupeComponentIds(entities);
   if (parentsFixed) warn(report, `${parentsFixed} grouping link(s) pointed at missing objects and were removed.`);
   // Drop joints that reference bodies that do not exist.
   const bodyIds = new Set(entities.filter((e) => e.kind === 'body').map((e) => e.id));
@@ -320,6 +325,8 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
     (e) =>
       e.kind !== 'joint' || ((e.bodyA === null || bodyIds.has(e.bodyA)) && (e.bodyB === null || bodyIds.has(e.bodyB))),
   );
+  const refsCleared = repairComponentRefs(clean);
+  if (refsCleared) warn(report, `${refsCleared} component reference(s) pointed at missing objects and were cleared.`);
   // Assets: validated, de-duplicated, and every entity reference repaired to match (merged twins follow the
   // kept asset; references to missing or wrong-kind assets are dropped).
   const { assets, remap } = sanitizeAssetMap(raw.assets, report);
