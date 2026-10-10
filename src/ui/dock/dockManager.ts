@@ -16,6 +16,7 @@ import {
   type PanelDef,
   type PanelView,
 } from '../../app/registry/panels';
+import { Vector3 } from 'three';
 import { h } from '../dom';
 import { icon } from '../icons';
 import { openMenu } from '../menu';
@@ -100,7 +101,7 @@ const setChildren = (parent: HTMLElement, kids: readonly Node[]): void => {
   parent.replaceChildren(...kids);
 };
 
-function glyph(kind: 'float' | 'dock' | 'max' | 'restore' | 'collapse' | 'expand'): SVGSVGElement {
+function glyph(kind: 'float' | 'dock' | 'max' | 'restore' | 'collapse' | 'expand' | 'pin' | 'follow'): SVGSVGElement {
   const paths: Record<string, string> = {
     float: 'M5 3h8v8M13 3L6 10M3 6v7h7',
     dock: 'M3 3h10v10H3zM3 9h10',
@@ -108,6 +109,8 @@ function glyph(kind: 'float' | 'dock' | 'max' | 'restore' | 'collapse' | 'expand
     restore: 'M5 3h8v8M3 5h8v8H3z',
     collapse: 'M4 10l4-4 4 4',
     expand: 'M4 6l4 4 4-4',
+    pin: 'M9 2l5 5-2 1-2 3-1-1-3 3-1-1 3-3-1-1 3-2zM3 13l3-3',
+    follow: 'M8 2v3M8 11v3M2 8h3M11 8h3M8 6.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z',
   };
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 16 16');
@@ -139,6 +142,9 @@ export class DockManager {
   private saveTimer = 0;
   private dragging = false;
   private readonly listeners = new Set<() => void>();
+  /** Floating panels that follow the selection (UI-2): `pinned` freezes them where they are. */
+  private readonly follow = new Map<string, { pinned: boolean }>();
+  private readonly tmp = new Vector3();
 
   constructor(private readonly app: App) {
     const raw = this.readStore();
@@ -161,6 +167,7 @@ export class DockManager {
       }
     });
     window.addEventListener('resize', () => this.clampFloats());
+    app.on('frame', ({ dt }) => this.followTick(dt));
   }
 
   // ------------------------------------------------------------------------------------------ public API
@@ -234,6 +241,69 @@ export class DockManager {
     if (this.isFloating(id)) this.dockPanel(id);
     else this.floatPanel(id);
     this.reveal(id);
+  }
+
+  /** A floating panel that stays next to the selected object (until pinned). */
+  enableFollow(id: string): void {
+    this.follow.set(id, { pinned: false });
+    this.render();
+  }
+
+  disableFollow(id: string): void {
+    this.follow.delete(id);
+    this.render();
+  }
+
+  isFollowing(id: string): boolean {
+    return this.follow.has(id);
+  }
+
+  isPinned(id: string): boolean {
+    return this.follow.get(id)?.pinned ?? false;
+  }
+
+  /** Move the followed floating windows next to the selection's screen position. */
+  private followTick(dt: number): void {
+    if (!this.follow.size || this.dragging) return;
+    const { store, viewport } = this.app;
+    let n = 0;
+    let sx = 0;
+    let sy = 0;
+    const rect = viewport.dom.getBoundingClientRect();
+    for (const id of store.selection) {
+      const view = this.app.bodies.get(id);
+      const pos = (store.get(id) as { position?: readonly number[] } | undefined)?.position;
+      if (view) this.tmp.copy(view.position);
+      else if (pos) this.tmp.set(pos[0], pos[1], pos[2]);
+      else continue;
+      this.tmp.project(viewport.camera);
+      if (this.tmp.z > 1) continue;
+      sx += rect.left + ((this.tmp.x + 1) / 2) * rect.width;
+      sy += rect.top + ((1 - this.tmp.y) / 2) * rect.height;
+      n++;
+    }
+    if (!n) return;
+    sx /= n;
+    sy /= n;
+    for (const [id, st] of this.follow) {
+      if (st.pinned) continue;
+      const loc = locate(this.layout, id);
+      const ui = loc && !loc.region ? this.groupUis.get(loc.group.id) : undefined;
+      if (!loc || !ui || this.layout.maximised === loc.group.id) continue;
+      const f = loc.group as FloatGroup;
+      let x = sx + 40;
+      if (x + f.w > rect.right - 8) x = sx - 40 - f.w;
+      x = Math.max(rect.left + 8, Math.min(rect.right - f.w - 8, x));
+      const y = Math.max(rect.top + 8, Math.min(rect.bottom - Math.min(f.h, rect.height - 16) - 8, sy - 60));
+      // Ease towards the target so the window glides instead of jittering with the camera.
+      if (Math.abs(x - f.x) < 0.5 && Math.abs(y - f.y) < 0.5) continue;
+      const k = 1 - Math.exp(-Math.min(dt, 0.5) * 14);
+      f.x += (x - f.x) * k;
+      f.y += (y - f.y) * k;
+      ui.root.style.left = `${f.x}px`;
+      ui.root.style.top = `${f.y}px`;
+      this.persist();
+    }
   }
 
   /** Maximise / restore the group holding `id` (default: the panel used last). */
@@ -529,6 +599,20 @@ export class DockManager {
         isFloat ? this.setLayout(dockFloat(this.layout, g.id, this.refs())) : this.floatPanel(g.active || first),
       ),
     );
+    if (isFloat && this.follow.has(g.active)) {
+      const pinned = this.isPinned(g.active);
+      const pin = mk(
+        pinned ? 'Pinned here — click to follow the selection again' : 'Following the selection — click to pin here',
+        glyph(pinned ? 'pin' : 'follow'),
+        () => {
+          const st = this.follow.get(g.active);
+          if (st) st.pinned = !st.pinned;
+          this.render();
+        },
+      );
+      pin.classList.toggle('on', pinned);
+      btns.unshift(pin);
+    }
     const max = this.layout.maximised === g.id;
     btns.push(
       mk(max ? 'Restore (Esc)' : 'Maximise', glyph(max ? 'restore' : 'max'), () =>
@@ -773,6 +857,8 @@ export class DockManager {
     const up = () => {
       ui.head.removeEventListener('pointermove', move);
       ui.head.removeEventListener('pointerup', up);
+      const st = this.follow.get(f.active);
+      if (st && (x !== ox || y !== oy)) st.pinned = true;
       this.setLayout(setFloatRect(this.layout, f.id, { x, y }));
     };
     ui.head.addEventListener('pointermove', move);

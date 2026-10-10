@@ -26,6 +26,8 @@ export interface InspectorSectionDef {
   build: (ctx: InspectorContext, selection: Entity[]) => HTMLElement[];
   /** Only shown when no non-fallback section applies. */
   fallback?: boolean;
+  /** Hidden in Simple mode (UI-3): what the section builds is tagged `data-adv`. */
+  advanced?: boolean;
 }
 
 export const inspectorSectionRegistry = new Registry<InspectorSectionDef>({
@@ -39,7 +41,19 @@ export const inspectorSectionRegistry = new Registry<InspectorSectionDef>({
 });
 
 export const registerInspectorSection = (def: InspectorSectionDef): (() => void) =>
-  inspectorSectionRegistry.register(def);
+  inspectorSectionRegistry.register(
+    // -- UI-A: an `advanced` section's elements carry `data-adv`, which Simple mode hides --
+    def.advanced
+      ? {
+          ...def,
+          build: (ctx, sel) =>
+            def.build(ctx, sel).map((el) => {
+              el.dataset.adv = '1';
+              return el;
+            }),
+        }
+      : def,
+  );
 export const unregisterInspectorSection = (id: string): boolean => inspectorSectionRegistry.unregister(id);
 export const listInspectorSections = (): readonly InspectorSectionDef[] => inspectorSectionRegistry.list();
 
