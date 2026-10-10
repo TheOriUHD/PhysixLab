@@ -24,6 +24,10 @@ import { stairs } from './stairs';
 import { tBeam } from './tBeam';
 import { torus } from './torus';
 import { tube } from './tube';
+// -- SH: primitive shapes II (ellipsoid, regular solids) --
+import { ellipsoid } from './ellipsoid';
+import { pyramid, tetrahedron } from './pyramid';
+import { dodecahedron, octahedron } from './platonicShapes';
 
 export const BUILTIN_SHAPES: readonly ShapeDef[] = [
   box,
@@ -47,4 +51,10 @@ export const BUILTIN_SHAPES: readonly ShapeDef[] = [
   iBeam,
   lBeam,
   tBeam,
+  // -- SH: primitive shapes II --
+  ellipsoid,
+  pyramid,
+  tetrahedron,
+  octahedron,
+  dodecahedron,
 ];

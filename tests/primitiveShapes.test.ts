@@ -131,17 +131,12 @@ const yOf = (w: Awaited<ReturnType<typeof worldOf>>, id: string) => w.getPose(id
 
 describe('every new shape: analytic volume, mesh and engine mass agree', () => {
   it('registers exactly these twelve shapes after the original eight, in this order', () => {
-    expect(listShapes().map((d) => d.id)).toEqual([
-      'box',
-      'sphere',
-      'cylinder',
-      'capsule',
-      'cone',
-      'wedge',
-      'prism',
-      'icosahedron',
-      ...NEW_SHAPES,
-    ]);
+    // later chunks append further shapes after these (the palette order is the registry order)
+    expect(
+      listShapes()
+        .slice(0, 8 + NEW_SHAPES.length)
+        .map((d) => d.id),
+    ).toEqual(['box', 'sphere', 'cylinder', 'capsule', 'cone', 'wedge', 'prism', 'icosahedron', ...NEW_SHAPES]);
   });
 
   describe.each(NEW_SHAPES)('%s', (id) => {
