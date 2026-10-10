@@ -220,6 +220,31 @@ describe('contact events', () => {
     expect(c2.normal[1]).toBeCloseTo(1, 3);
   });
 
+  it('one body landing on two others reports two separate events, also after engine handles were recycled', async () => {
+    // Engine handles carry a generation in their raw bits; recycled slots must not make distinct pairs look equal
+    const w = await worldOf([], NO_GROUND);
+    const dummies = Array.from({ length: 6 }, (_, i) => ball({ position: [30 + i, 9, 0] }));
+    for (const d of dummies) w.addBody(d, false);
+    w.removeEntities(dummies.map((d) => d.id)); // frees six slots; the next bodies reuse them with generation 1
+    const padA = createBody({ shape: { type: 'box', size: [1, 0.2, 1] }, bodyType: 'static', position: [-1, 0.1, 0] });
+    const padB = createBody({ shape: { type: 'box', size: [1, 0.2, 1] }, bodyType: 'static', position: [1, 0.1, 0] });
+    const padC = createBody({ shape: { type: 'box', size: [1, 0.2, 1] }, bodyType: 'static', position: [3, 0.1, 0] });
+    const hub = createBody({
+      shape: { type: 'box', size: [6, 0.4, 1] },
+      position: [1, 1.2, 0],
+      material: { preset: 'custom', density: 500, restitution: 0.3 },
+    });
+    for (const b of [padA, padB, padC, hub]) w.addBody(b, false);
+    w.configureEvents({ contacts: true, pairInterval: 0, minImpulse: 0 });
+    const ev = contacts(frames(w, 0.6, 200)); // the whole fall in one frame: aggregation is at its most aggressive
+    const partners = ev.filter(
+      (e) =>
+        e.a === padA.id || e.a === padB.id || e.a === padC.id || e.b === padA.id || e.b === padB.id || e.b === padC.id,
+    );
+    const names = partners.map((e) => (e.a === hub.id ? e.b : e.a)).sort();
+    expect(names).toEqual([padA.id, padB.id, padC.id].sort());
+  });
+
   it('the strongest events win when more than maxPerFrame occur in one frame', async () => {
     const balls = Array.from({ length: 6 }, (_, i) => drop({ position: [i * 2, 1 + i * 0.5, 0], name: `b${i}` }));
     const w = await worldOf(balls);

@@ -177,14 +177,18 @@ export class GroupViews {
 
   /**
    * Per frame: show / hide the helpers and, when the document changed, recompute the boxes.
-   * `boundsOf(id, box)` grows `box` by what the entity with that id occupies (called for every descendant).
-   * `descendants(id)` lists the ids below a group.
+   * `descendants(id)` lists the ids below a group (it is only called when the boxes are rebuilt, so it may be
+   * expensive); `boundsOf(id, box)` grows `box` by what the entity with that id occupies.
    */
   tick(
     simulating: boolean,
     descendants: (groupId: string) => string[],
     boundsOf: (id: string, box: Box3) => void,
   ): void {
+    if (!this.views.size) {
+      this.dirty = false;
+      return;
+    }
     for (const v of this.views.values()) v.root.visible = this.visible && !simulating && !v.def.hidden;
     if (!this.dirty || simulating) return;
     this.dirty = false;

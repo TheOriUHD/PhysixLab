@@ -99,6 +99,7 @@ export function restoreSnapshot(s: WorldState, snap: WorldSnapshot): void {
   s.retired = new Map();
   s.pendingContacts = new Map();
   s.freshContacts = [];
+  s.eventQueue.clear(); // events of the old world name handles that no longer exist
   s.lastContactAt = new Map();
   s.paths = new Map();
   s.componentState = new Map();

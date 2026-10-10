@@ -166,7 +166,7 @@ export class Editor {
     }
     const roots = new Set(
       topLevel(
-        this.store.all(),
+        (id) => this.store.get(id),
         updates.map((u) => u.id),
       ),
     );
@@ -220,7 +220,7 @@ export class Editor {
    * just moves. Entries whose ancestor group is moving too are ignored.
    */
   moveTo(targets: Map<string, Vec3>, label = 'Move'): void {
-    const roots = new Set(topLevel(this.store.all(), [...targets.keys()]));
+    const roots = new Set(topLevel((id) => this.store.get(id), [...targets.keys()]));
     const patches: [string, Partial<Entity>][] = [];
     for (const [id, position] of targets) {
       if (!roots.has(id)) continue;
@@ -262,7 +262,7 @@ export class Editor {
     // Select the copies that are not inside another copy (a copied group brings its members).
     this.store.setSelection(
       topLevel(
-        this.store.all(),
+        (id) => this.store.get(id),
         renamed.map((c) => c.id),
       ),
     );
@@ -343,7 +343,7 @@ export class Editor {
   /** Rotate the selection 90° about world Y around its centre (quick alignment helper). */
   rotateSelection90(): void {
     const q: Quat = [0, Math.SQRT1_2, 0, Math.SQRT1_2];
-    const roots = topLevel(this.store.all(), this.store.selection)
+    const roots = topLevel((id) => this.store.get(id), this.store.selection)
       .map((id) => this.store.get(id))
       .filter((e): e is PosedEntity => isPosed(e) && !e.locked);
     if (!roots.length) return;
@@ -393,7 +393,7 @@ export class Editor {
    * Returns the group, or null when nothing groupable is selected.
    */
   groupSelection(ids: string[] = this.store.selection): GroupEntity | null {
-    const members = topLevel(this.store.all(), ids)
+    const members = topLevel((id) => this.store.get(id), ids)
       .map((id) => this.store.get(id))
       .filter((e): e is PosedEntity => isPosed(e));
     if (!members.length) return null;

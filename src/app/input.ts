@@ -187,7 +187,7 @@ export class InputController {
       return isPosed(x) && !x.locked ? x : undefined;
     };
     const ids = topLevel(
-      store.all(),
+      (id) => store.get(id),
       store.selection.filter((s) => movable(s)),
     );
     const starts = new Map<string, Vec3>(ids.map((s) => [s, movable(s)!.position]));

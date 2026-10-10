@@ -96,9 +96,8 @@ export class Outliner {
     if (this.dirty) this.render();
   }
 
-  private hasGroups(): boolean {
-    return this.app.store.groups().length > 0;
-  }
+  /** Computed once per render (a per-row scan of the scene would make the outliner quadratic). */
+  private anyGroups = false;
 
   /** Drag rows onto a group to put them in it, onto empty space to take them out of their group. */
   private wireDrag(row: HTMLElement, e: Entity): void {
@@ -144,6 +143,7 @@ export class Outliner {
     const all = store.all().filter((e) => !this.filter || e.name.toLowerCase().includes(this.filter));
     const objects = all.filter((e) => !isJoint(e));
     const joints = all.filter(isJoint);
+    this.anyGroups = objects.some(isGroup);
     if (!all.length) {
       this.list.appendChild(
         h('div', { class: 'empty-state' }, h('p', null, this.filter ? 'No matches.' : 'The scene is empty.')),
@@ -163,8 +163,11 @@ export class Outliner {
         const roots: Entity[] = [];
         for (const o of objects) {
           const p = parentOf(o);
-          if (p !== undefined && present.has(p)) kids.set(p, [...(kids.get(p) ?? []), o]);
-          else roots.push(o);
+          if (p !== undefined && present.has(p)) {
+            const list = kids.get(p);
+            if (list) list.push(o);
+            else kids.set(p, [o]);
+          } else roots.push(o);
         }
         const walk = (e: Entity, depth: number, trail: Set<string>) => {
           const children = trail.has(e.id) ? [] : (kids.get(e.id) ?? []);
@@ -213,7 +216,7 @@ export class Outliner {
         else this.folded.delete(e.id);
         this.render();
       });
-    } else if (depth > 0 || this.hasGroups()) caret = h('span', { class: 'o-caret spacer' });
+    } else if (depth > 0 || this.anyGroups) caret = h('span', { class: 'o-caret spacer' });
     const tools = h('span', { class: `o-tools ${e.hidden || (lockable && e.locked) ? 'has' : ''}` });
     if (lockable) {
       const lock = h(

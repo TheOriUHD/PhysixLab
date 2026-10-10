@@ -122,13 +122,14 @@ export class ComponentHost {
 
   /** Dispose every component of an owner that is leaving the world. */
   detach(ownerId: string): void {
+    // handles are handed out for any body or joint (`ctx.bodyById`), so forget them whether or not it had components
+    this.bodyHandles.delete(ownerId);
+    this.jointHandles.delete(ownerId);
     const list = this.byOwner.get(ownerId);
     if (!list) return;
     for (const c of list) this.stop(c);
     this.byOwner.delete(ownerId);
     this.ownerSeq.delete(ownerId);
-    this.bodyHandles.delete(ownerId);
-    this.jointHandles.delete(ownerId);
     this.dirtyOrder = true;
   }
 

@@ -157,11 +157,11 @@ export class WorldState {
   eventCfg: EventConfig = { ...DEFAULT_EVENT_CONFIG };
   /** Components that asked for contact events (`ctx.watchContacts`). */
   contactWatchers = 0;
-  pendingContacts = new Map<number, PendingContact>();
+  pendingContacts = new Map<string, PendingContact>();
   /** Contacts that started in the current fixed step (offered to watching components at its end). */
   freshContacts: PendingContact[] = [];
   /** Simulation time of the last event reported for a collider pair. */
-  lastContactAt = new Map<number, number>();
+  lastContactAt = new Map<string, number>();
   /** Bodies were added / removed / moved since the last step: the engine's query structures are stale. */
   queriesDirty = false;
   raycasts: RaycastResult[] = [];

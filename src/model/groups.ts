@@ -57,18 +57,20 @@ export function withDescendants(entities: readonly Entity[], ids: Iterable<strin
   return set;
 }
 
-/** The ids of `ids` that are not below another member of `ids` — what a move or duplicate should act on. */
-export function topLevel(entities: readonly Entity[], ids: readonly string[]): string[] {
-  const byId = new Map(entities.map((e) => [e.id, e]));
+/**
+ * The ids of `ids` that are not below another member of `ids` — what a move or duplicate should act on.
+ * `lookup` finds an entity by id (`store.get`), so no index of the whole scene is built.
+ */
+export function topLevel(lookup: (id: string) => Entity | undefined, ids: readonly string[]): string[] {
   const set = new Set(ids);
   return ids.filter((id) => {
     const seen = new Set<string>([id]);
-    const self = byId.get(id);
+    const self = lookup(id);
     let p = self ? parentOf(self) : undefined;
     while (p !== undefined && !seen.has(p)) {
       if (set.has(p)) return false;
       seen.add(p);
-      const up = byId.get(p);
+      const up = lookup(p);
       p = up ? parentOf(up) : undefined;
     }
     return true;

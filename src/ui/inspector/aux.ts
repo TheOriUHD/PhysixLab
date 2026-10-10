@@ -87,39 +87,28 @@ export function membershipRow(ctx: InspectorContext, ids: string[]): HTMLElement
     onChange: (v) => app.editor.setParent(ids, v || null),
   });
   const select = sel.el.querySelector('select')!;
+  // The option list (every group except the entities themselves and what is inside them) is built when the list is
+  // about to open — not on every document change.
   const fill = () => {
-    // A group cannot go inside itself or anything below it.
     const index = childIndex(store.all());
     const banned = new Set(ids.flatMap((id) => [id, ...descendantIds(index, id)]));
-    const want = [
-      '',
-      ...store
-        .groups()
-        .filter((g) => !banned.has(g.id))
-        .map((g) => g.id),
-    ];
-    const have = [...select.options].map((o) => o.value);
-    if (
-      want.join('|') === have.join('|') &&
-      select.dataset.names ===
-        store
-          .groups()
-          .map((g) => g.name)
-          .join('|')
-    )
-      return;
+    const groups = store.groups().filter((g) => !banned.has(g.id));
+    const sig = groups.map((g) => `${g.id}=${g.name}`).join('|');
+    if (select.dataset.sig === sig) return;
+    select.dataset.sig = sig;
     select.replaceChildren(
-      ...want.map((v) => h('option', { value: v }, v ? (store.group(v)?.name ?? v) : '— none (scene root) —')),
+      h('option', { value: '' }, '— none (scene root) —'),
+      ...groups.map((g) => h('option', { value: g.id }, g.name)),
     );
-    select.dataset.names = store
-      .groups()
-      .map((g) => g.name)
-      .join('|');
   };
+  select.addEventListener('pointerdown', fill);
+  select.addEventListener('focus', fill);
+  fill();
   ctx.updaters.push(() => {
-    fill();
     const parents = new Set(ids.map((id) => parentOf(store.get(id) as Entity)));
-    if (parents.size === 1) sel.set([...parents][0] ?? '');
+    const only = parents.size === 1 ? [...parents][0] : undefined;
+    if (only !== undefined && ![...select.options].some((o) => o.value === only)) fill(); // a group created since
+    if (parents.size === 1) sel.set(only ?? '');
     else sel.set('', true);
   });
   return row('Group', sel.el, 'Members of a group move with it; delete the group and they stay where they are');

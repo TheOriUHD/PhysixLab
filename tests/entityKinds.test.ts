@@ -203,8 +203,8 @@ describe('hierarchy helpers', () => {
     expect(descendantIds(index, g.id).sort()).toEqual([h.id, a.id, b.id].sort());
     expect(descendantIds(index, c.id)).toEqual([]);
     expect([...withDescendants(all, [g.id, c.id])].sort()).toEqual([g.id, h.id, a.id, b.id, c.id].sort());
-    expect(topLevel(all, [g.id, a.id, b.id, c.id])).toEqual([g.id, c.id]);
-    expect(topLevel(all, [a.id, b.id])).toEqual([a.id, b.id]);
+    expect(topLevel((id) => all.find((e) => e.id === id), [g.id, a.id, b.id, c.id])).toEqual([g.id, c.id]);
+    expect(topLevel((id) => all.find((e) => e.id === id), [a.id, b.id])).toEqual([a.id, b.id]);
     // a hand-made loop terminates
     const x = createGroup({ parent: 'y' });
     const y = createGroup({ parent: x.id });
@@ -214,7 +214,7 @@ describe('hierarchy helpers', () => {
     ] as Entity[];
     (loop[0] as GroupEntity).parent = 'y';
     expect(descendantIds(childIndex(loop), 'x').length).toBeLessThanOrEqual(2);
-    expect(topLevel(loop, ['x', 'y']).length).toBeLessThanOrEqual(2);
+    expect(topLevel((id) => loop.find((e) => e.id === id), ['x', 'y']).length).toBeLessThanOrEqual(2);
   });
 
   it('store.children / descendants follow the parent links', () => {

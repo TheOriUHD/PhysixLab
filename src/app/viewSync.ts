@@ -128,10 +128,11 @@ export class ViewSync {
   frameAux(width: number, height: number): void {
     const { app } = this;
     app.pathViews.setResolution(width, height);
-    const index = childIndex(app.store.all());
+    // The hierarchy index is built only when the group boxes are actually rebuilt (after a document change).
+    let index: Map<string, string[]> | null = null;
     app.groupViews.tick(
       app.sim.active,
-      (id) => descendantIds(index, id),
+      (id) => descendantIds((index ??= childIndex(app.store.all())), id),
       (id, box) => this.expandBounds(id, box),
     );
   }

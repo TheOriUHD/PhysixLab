@@ -95,7 +95,11 @@ export function watchContacts(s: WorldState, on: boolean): void {
   }
 }
 
-const pairKey = (a: number, b: number): number => (a < b ? a * 4294967296 + b : b * 4294967296 + a);
+/**
+ * Unordered pair of collider handles as a map key. Engine handles are doubles that carry an index and a generation
+ * in their raw bits (denormal numbers: 0, 5e-324, …), so arithmetic on them is not exact — compare and print them only.
+ */
+const pairKey = (a: number, b: number): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
 
 /**
  * Drain the engine's event queue after an engine step. `t` is the simulation time at the end of the step.

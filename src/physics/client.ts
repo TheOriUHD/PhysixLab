@@ -78,7 +78,7 @@ export class SimClient extends Emitter<ClientEvents> {
   readonly componentState = new Map<string, ComponentStateEntry>();
   private nextRequest = 1;
   private rayRequests = new Map<number, (hit: RayHit | null) => void>();
-  private snapshotRequests = new Map<number, (s: WorldSnapshot) => void>();
+  private snapshotRequests = new Map<number, { resolve: (s: WorldSnapshot) => void; reject: (e: Error) => void }>();
 
   constructor() {
     super();
@@ -136,7 +136,7 @@ export class SimClient extends Emitter<ClientEvents> {
           this.rayRequests.delete(r.id);
         }
         for (const r of m.snapshots ?? []) {
-          this.snapshotRequests.get(r.id)?.(r.snapshot);
+          this.snapshotRequests.get(r.id)?.resolve(r.snapshot);
           this.snapshotRequests.delete(r.id);
         }
         this.frameNo++;
@@ -202,10 +202,12 @@ export class SimClient extends Emitter<ClientEvents> {
     this.worker.terminate();
   }
 
-  /** Pending ray casts resolve to "no hit"; pending snapshots are abandoned (their promises never settle). */
+  /** Pending ray casts resolve to "no hit"; pending snapshots are rejected (the simulation they were asked of is gone). */
   private cancelRequests(): void {
     for (const resolve of this.rayRequests.values()) resolve(null);
     this.rayRequests.clear();
+    for (const { reject } of this.snapshotRequests.values())
+      reject(new Error('The simulation was reset before the snapshot arrived.'));
     this.snapshotRequests.clear();
   }
 
@@ -254,11 +256,15 @@ export class SimClient extends Emitter<ClientEvents> {
     });
   }
 
-  /** Capture the complete simulation state (see `WorldSnapshot`). */
+  /**
+   * Capture the complete simulation state (see `WorldSnapshot`). Resolves a frame or two later; rejects when there is
+   * no simulation, or when it is reset before the answer arrives.
+   */
   snapshot(): Promise<WorldSnapshot> {
+    if (!this.active) return Promise.reject(new Error('There is no running simulation to take a snapshot of.'));
     const id = this.nextRequest++;
-    return new Promise((resolve) => {
-      this.snapshotRequests.set(id, resolve);
+    return new Promise((resolve, reject) => {
+      this.snapshotRequests.set(id, { resolve, reject });
       this.op({ op: 'snapshot', id });
     });
   }

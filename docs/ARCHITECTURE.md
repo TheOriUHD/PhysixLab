@@ -69,6 +69,7 @@ The two reference components are `constantForce` (steady force / torque, world o
 * `SoftViews` — in edit mode a light *proxy* (box / sphere / plane / line) at the document pose; while simulating, a *dynamic* mesh built on the engine's particles (normals recomputed each frame, line segments for cables) replaces it, including torn pieces.
 * `BodyViews` — one mesh per body; geometries are shared unit shapes scaled by the body size (capsules/hulls cached by shape key). **Colour modes** (material, body type, speed, kinetic energy, net force, sleep state) turn the simulation into a heat map.
 * `JointViews` — gizmos drawn on top of geometry: hinge rings + axis, slider rails with limit stops and a live carriage, ball spheres, weld cubes, spring coils (colour = tension/compression) and sagging ropes.
+* `GroupViews` / `LightViews` / `PathViews` (FB-6) — editor-level objects: dashed bounds + pivot diamond for groups (rebuilt lazily after document changes, hidden while simulating), a real three.js light plus an icon sprite and wire sketch per light (render budget: 8 real lights, 3 shadow casters), the exact spline with control-point handles and direction arrows for paths. `ViewSync` keeps them in step with the store; `Placement` picks their sprite / line / pivot like bodies.
 * `Overlays` — fat-line velocity / net-force arrows, contact points + normals coloured by force, centres of mass, additive motion trails.
 * `Gizmo` — wraps three's `TransformControls` with a pivot object so any number of bodies can be moved/rotated together, a single body resized, or a joint anchor/axis edited.
 
@@ -83,7 +84,7 @@ The two reference components are `constantForce` (steady force / torque, world o
 
 ### `ui/`
 
-Vanilla TypeScript with a tiny `h()` hyperscript helper — no framework to keep the bundle small and the render loop uncontested. The inspector (`ui/inspector/`: `index.ts` orchestration, `body.ts`, `soft.ts`, `joint.ts` panels, `shared.ts` context with the header and edit / undo-grouping helpers) rebuilds its DOM only when the *kind* of selection changes and otherwise refreshes values in place, so typing and scrubbing never lose focus; live readouts refresh at ~11 Hz from the frame buffer. Number fields scrub by dragging their axis label.
+Vanilla TypeScript with a tiny `h()` hyperscript helper — no framework to keep the bundle small and the render loop uncontested. The inspector (`ui/inspector/`: `index.ts` orchestration, `body.ts`, `soft.ts`, `joint.ts`, `aux.ts` (group / light / path panels and the Group membership row) panels, `components.ts` + `componentFields.ts` (the Components section and the schema-driven field editors), `shared.ts` context with the header and edit / undo-grouping helpers) rebuilds its DOM only when the *kind* of selection changes and otherwise refreshes values in place, so typing and scrubbing never lose focus; live readouts refresh at ~11 Hz from the frame buffer. Number fields scrub by dragging their axis label.
 
 ## Why these choices
 
