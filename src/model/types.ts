@@ -225,7 +225,7 @@ export interface MotorSpec {
   keyNeg: string;
   // -- CM-A: analog input --
   /** Name of an analog input axis (−1 … 1: gamepad, touch stick, ramped keys) added to the key input. Empty = none. */
-  axis: string;
+  axis?: string;
   /** Position mode with keys: how quickly the target slews (units / s). */
   slewRate: number;
   /** Velocity mode with keys: hold the joint (brake) when no key is down. */

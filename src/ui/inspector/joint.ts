@@ -465,7 +465,7 @@ function motorSection(ctx: InspectorContext, id: string, type: string): HTMLElem
     maxF.set(m.maxForce);
     kp.set(m.keyPos);
     kn.set(m.keyNeg);
-    if (document.activeElement !== axisInput) axisInput.value = m.axis;
+    if (document.activeElement !== axisInput) axisInput.value = m.axis ?? '';
     slew.set(m.slewRate);
     brake.set(m.brake);
     const off = m.mode === 'off';
