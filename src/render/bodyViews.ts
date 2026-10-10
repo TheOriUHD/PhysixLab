@@ -12,6 +12,8 @@ import { shapeDef, shapeGeometry, shapeGeometryKey, shapeVisualScale } from '../
 import type { BodyEntity, ColliderPart, MaterialSpec, ShapeSpec } from '../model/types';
 import { B, BODY_STRIDE } from '../physics/protocol';
 import { GEOMETRY_KIT } from './geometryKit';
+import { lodForScreenRadius, lodKit } from './lod';
+import { boundingRadius } from '../model/shapes';
 import { damageKindOf } from './damage';
 import { patchDamage, type DamageHandle } from './damageShader';
 import { getSkin } from './skins/registry';
@@ -39,15 +41,15 @@ interface CachedGeo {
 class GeometryCache {
   private map = new Map<string, CachedGeo>();
 
-  key(shape: ShapeSpec): string {
-    return shapeGeometryKey(shape);
+  key(shape: ShapeSpec, lod = 0): string {
+    return lod ? `${shapeGeometryKey(shape)}@${lod}` : shapeGeometryKey(shape);
   }
 
-  acquire(shape: ShapeSpec): { key: string; geo: BufferGeometry } {
-    const key = this.key(shape);
+  acquire(shape: ShapeSpec, lod = 0): { key: string; geo: BufferGeometry } {
+    const key = this.key(shape, lod);
     let c = this.map.get(key);
     if (!c) {
-      c = { geo: this.build(shape), refs: 0 };
+      c = { geo: this.build(shape, lod), refs: 0 };
       this.map.set(key, c);
     }
     c.refs++;
@@ -63,8 +65,8 @@ class GeometryCache {
     }
   }
 
-  private build(shape: ShapeSpec): BufferGeometry {
-    return shapeGeometry(GEOMETRY_KIT, shape);
+  private build(shape: ShapeSpec, lod: number): BufferGeometry {
+    return shapeGeometry(lod ? lodKit(lod) : GEOMETRY_KIT, shape);
   }
 }
 
@@ -109,11 +111,20 @@ export class BodyView implements PoolMember, SkinBodyPose {
   readonly vel = new Vector3();
   /** Accumulated impact damage 0..1 (VZ-41). */
   damage = 0;
+  /** Level of detail of the mesh (VZ-31): 0 = full. */
+  lod = 0;
   /** Visual skin (VZ-42) drawn in place of the shape, or null. */
   skin: SkinInstance | null = null;
   get id(): string {
     return this.def.id;
   }
+  /** Switch the simple body's mesh to another level of detail. */
+  setLod(level: number): void {
+    if (this.compound || this.skin || level === this.lod) return;
+    this.lod = level;
+    this.applyShape(this.def);
+  }
+
   /** Drive the crack / scorch shader of every piece (instanced bodies read `damage` through the pool). */
   setDamage(d: number): void {
     if (d === this.damage) return;
@@ -213,9 +224,9 @@ export class BodyView implements PoolMember, SkinBodyPose {
   applyShape(def: BodyEntity): void {
     if (this.compound) return; // parts are static meshes: a change of parts rebuilds the whole view
     const piece = this.first;
-    const key = this.cache.key(def.shape);
+    const key = this.cache.key(def.shape, this.lod);
     if (key !== piece.geoKey) {
-      const { geo } = this.cache.acquire(def.shape);
+      const { geo } = this.cache.acquire(def.shape, this.lod);
       this.cache.release(piece.geoKey);
       piece.geoKey = key;
       piece.mesh.geometry = geo;
@@ -372,7 +383,7 @@ export class BodyViews {
     let pool = this.pools.get(key);
     if (!pool && set.size >= MIN_POOL) {
       const leader = set.values().next().value as BodyView;
-      const { key: geoKey, geo } = this.cache.acquire(leader.def.shape);
+      const { key: geoKey, geo } = this.cache.acquire(leader.def.shape, leader.lod);
       const mat = leader.pieces[0].material.clone();
       delete (mat.userData as { damage?: DamageHandle }).damage; // the clone's shader patch is its own
       patchDamage(mat, damageKindOf(leader.def.material), true);
@@ -412,6 +423,7 @@ export class BodyViews {
       this.pools.delete(key);
       this.cache.release(this.poolGeo.get(key)!);
       this.poolGeo.delete(key);
+      this.lodLevels.delete(key);
     }
   }
 
@@ -471,6 +483,7 @@ export class BodyViews {
     this.candidates.clear();
     for (const k of this.poolGeo.values()) this.cache.release(k);
     this.poolGeo.clear();
+    this.lodLevels.clear();
   }
 
   /**
@@ -506,6 +519,55 @@ export class BodyViews {
     if (old.tags !== def.tags) this.tagIndex.clear();
     if (regroup) this.register(v);
     return false;
+  }
+
+  lodEnabled = true;
+  private lodTick = 0;
+  readonly lodLevels = new Map<string, number>();
+
+  /**
+   * VZ-31: pick a level of detail per body (per pool for instanced bodies) from the on-screen size. Runs every few
+   * frames; `heightPx` is the viewport height in pixels, `fovY` the camera's vertical field of view in radians.
+   */
+  updateLod(cameraPos: Vector3, heightPx: number, fovY: number): void {
+    if (++this.lodTick % 8 !== 1) return;
+    const k = heightPx / (2 * Math.tan(fovY / 2));
+    for (const v of this.views.values()) {
+      if (v.compound || v.skin) continue;
+      const lvl = this.lodEnabled ? this.levelFor(v, cameraPos, k) : 0;
+      if (v.pool) continue; // pooled views follow their pool
+      v.setLod(lvl);
+    }
+    for (const [key, pool] of this.pools) {
+      const set = this.candidates.get(key);
+      if (!set) continue;
+      // A pool draws every instance with one geometry: use the level of its nearest member.
+      let near = Infinity;
+      let rep: BodyView | null = null;
+      for (const v of set) {
+        const d = v.mesh.position.distanceToSquared(cameraPos);
+        if (d < near) {
+          near = d;
+          rep = v;
+        }
+      }
+      if (!rep) continue;
+      const cur = this.lodLevels.get(key) ?? 0;
+      const lvl = this.lodEnabled ? this.levelFor(rep, cameraPos, k, cur) : 0;
+      if (lvl !== cur) {
+        this.lodLevels.set(key, lvl);
+        const { key: gk, geo } = this.cache.acquire(rep.def.shape, lvl);
+        pool.setGeometry(geo);
+        this.cache.release(this.poolGeo.get(key)!);
+        this.poolGeo.set(key, gk);
+      }
+    }
+  }
+
+  private levelFor(v: BodyView, cameraPos: Vector3, k: number, current = v.lod): number {
+    const r = boundingRadius(v.def.shape);
+    const d = Math.max(0.1, v.mesh.position.distanceTo(cameraPos));
+    return lodForScreenRadius((r / d) * k, current);
   }
 
   /** Meshes glossy or metallic enough to show screen-space reflections (VZ-20). */

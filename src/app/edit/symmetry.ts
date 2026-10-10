@@ -179,6 +179,32 @@ export class Symmetry extends Emitter<SymmetryEvents> {
     return this.pairCount;
   }
 
+  /** Run `fn` without the listener reacting to the edits it makes (commands that add or move both halves themselves). */
+  suspended<T>(fn: () => T): T {
+    const was = this.busy;
+    this.busy = true;
+    try {
+      return fn();
+    } finally {
+      this.busy = was;
+    }
+  }
+
+  /** Is `pl` the symmetry plane (so a mirror made about it produces pairs)? */
+  isSymmetryPlane(pl: MirrorPlane): boolean {
+    const mine = this.plane;
+    const parallel =
+      Math.abs(
+        Math.abs(pl.normal[0] * mine.normal[0] + pl.normal[1] * mine.normal[1] + pl.normal[2] * mine.normal[2]) - 1,
+      ) < 1e-9;
+    const dist = Math.abs(
+      (pl.point[0] - mine.point[0]) * mine.normal[0] +
+        (pl.point[1] - mine.point[1]) * mine.normal[1] +
+        (pl.point[2] - mine.point[2]) * mine.normal[2],
+    );
+    return parallel && dist < 1e-6;
+  }
+
   /** Record pairs made elsewhere (a mirror copy): original id → copy id with the local flip axis used. */
   addPairs(idMap: ReadonlyMap<string, string>, axes: ReadonlyMap<string, Axis>): void {
     for (const [orig, copy] of idMap) {

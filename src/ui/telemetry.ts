@@ -258,7 +258,7 @@ function createTelemetry(app: App): Telemetry {
     { id: 'kinetic', label: 'Kinetic (motion)', color: '--chart-1', unit: 'J', on: true },
     { id: 'rot', label: 'Kinetic (spin)', color: '--chart-2', unit: 'J', on: true },
     { id: 'potential', label: 'Gravitational', color: '--chart-3', unit: 'J', on: true },
-    { id: 'elastic', label: 'Spring', color: '--chart-4', unit: 'J', on: true },
+    { id: 'elastic', label: 'Elastic (springs, soft bodies)', color: '--chart-4', unit: 'J', on: true },
   ];
   const energy = new Chart(energyDefs, 'Energy (J)');
   let selDefs = selectionDefs('none');

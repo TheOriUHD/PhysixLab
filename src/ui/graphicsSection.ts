@@ -217,6 +217,13 @@ export function buildGraphicsSection(app: App): GraphicsSection {
   });
   upd.push(() => instancing.set(cur().instancing));
 
+  const lod = toggleField({
+    label: 'Level of detail',
+    title: 'Small or distant spheres, cylinders, cones and capsules use fewer triangles',
+    onChange: (v) => write((g) => (g.lod = v)),
+  });
+  upd.push(() => lod.set(cur().lod));
+
   const reset = button(
     'Reset graphics',
     () => {
@@ -328,6 +335,7 @@ export function buildGraphicsSection(app: App): GraphicsSection {
       row('Shadow map', shadowRes.el),
       row('Soft edges', softness.el),
       instancing.el,
+      lod.el,
       ...effectRows,
       highlight,
       damage,
