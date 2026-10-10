@@ -6,6 +6,8 @@ import type { App } from './app';
 const URL_NO_INSTANCING = new URLSearchParams(location.search).get('instancing') === '0';
 import { hintForMode, toolModes } from './registry/tools';
 import { applyTheme } from '../ui/theme';
+// -- ED-A arrange: pivot modes --
+import { initCursorView } from './edit/cursorView';
 
 export class PrefsSync {
   constructor(private app: App) {}
@@ -30,6 +32,7 @@ export class PrefsSync {
     app.sim.timeScale = p.timeScale;
     app.sim.wantContacts = p.overlays.contacts;
     app.gizmo.setSpace(p.space);
+    initCursorView(app); // -- ED-A arrange: the 3D cursor marker --
     this.applySnaps();
     app.gizmos.updateMode();
     app.viewport.dom.classList.toggle('tool-joint', p.tool === 'joint');
@@ -86,6 +89,9 @@ export class PrefsSync {
           break;
         case 'gizmo':
           app.gizmos.updateMode();
+          break;
+        case 'pivotMode': // -- ED-A arrange --
+          app.gizmos.refresh();
           break;
       }
     }

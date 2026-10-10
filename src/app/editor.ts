@@ -44,6 +44,8 @@ import type { GizmoUpdate } from '../render/gizmo';
 import { copyToClipboard, pasteAnchor, pasteStored } from './edit/clipboard';
 import { scaleGroupDrag } from './edit/groupOps';
 import type { SimController } from './simController';
+// -- ED-A arrange: "edit group pivot only" switch --
+import { pivotState } from './edit/pivotState';
 
 const SPAWN_MATERIALS = ['plastic', 'wood', 'rubber', 'steel', 'ceramic', 'aluminum', 'concrete'];
 
@@ -198,6 +200,11 @@ export class Editor {
       if (!roots.has(u.id)) continue;
       const e = this.store.get(u.id);
       if (isGroup(e)) {
+        // -- ED-A arrange: with "edit group pivot only" the gizmo moves the pivot and leaves the members --
+        if (pivotState.groupPivotOnly) {
+          if (!u.scale) patches.push([u.id, { position: u.position, rotation: u.rotation }]);
+          continue;
+        }
         // -- ED-A hierarchy: the scale gizmo on a group scales its members about the pivot --
         if (u.scale) scaleGroupDrag(this.store, u.id, u.scale);
         else this.store.transformGroup(u.id, { position: u.position, rotation: u.rotation }, 'Move group');

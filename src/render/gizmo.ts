@@ -12,6 +12,8 @@ export interface GizmoItem {
   position: Vector3;
   quaternion: Quaternion;
   size: Vector3;
+  // -- ED-A arrange: pivot this item turns/scales about in individual-pivot mode (default: its own position) --
+  pivot?: Vector3;
 }
 
 export interface GizmoUpdate {
@@ -36,6 +38,9 @@ export class Gizmo {
   private startPivot = { p: new Vector3(), q: new Quaternion() };
   private dragging = false;
   private applying = false;
+  // -- ED-A arrange: pivot policy (handle position override, per-item pivots) --
+  private handleAt: Vector3 | null = null;
+  private individual = false;
   mode: GizmoMode = 'translate';
   space: 'world' | 'local' = 'world';
 
@@ -81,6 +86,13 @@ export class Gizmo {
     this.syncPivot();
   }
 
+  // -- ED-A arrange: where the handle sits and whether items transform about their own pivots --
+  setPivotPolicy(handle: Vector3 | null, individual: boolean): void {
+    this.handleAt = handle;
+    this.individual = individual;
+    this.syncPivot();
+  }
+
   setSnaps(translate: number, rotateDeg: number, scale: number): void {
     this.controls.setTranslationSnap(translate > 0 ? translate : null);
     this.controls.setRotationSnap(rotateDeg > 0 ? (rotateDeg * Math.PI) / 180 : null);
@@ -113,9 +125,10 @@ export class Gizmo {
     const c = new Vector3();
     for (const it of this.items) c.add(it.position);
     c.divideScalar(this.items.length);
-    this.pivot.position.copy(c);
-    const useLocal = this.items.length === 1 && (this.space === 'local' || this.mode === 'scale');
-    if (useLocal) this.pivot.quaternion.copy(this.items[0].quaternion);
+    this.pivot.position.copy(this.handleAt ?? c);
+    // -- ED-A arrange: local space also works for a multi-selection (the active = last item's axes) --
+    const useLocal = this.space === 'local' || this.mode === 'scale';
+    if (useLocal) this.pivot.quaternion.copy(this.items[this.items.length - 1].quaternion);
     else this.pivot.quaternion.identity();
     this.pivot.scale.set(1, 1, 1);
   }
@@ -132,6 +145,7 @@ export class Gizmo {
       position: i.position.clone(),
       quaternion: i.quaternion.clone(),
       size: i.size.clone(),
+      pivot: i.pivot?.clone(),
     }));
     this.startPivot.p.copy(this.pivot.position);
     this.startPivot.q.copy(this.pivot.quaternion);
@@ -152,12 +166,22 @@ export class Gizmo {
     const dp = this.pivot.position.clone().sub(this.startPivot.p);
     for (const s of this.start) {
       let pos: Vector3, rot: Quaternion;
-      if (this.mode === 'rotate' && this.start.length > 1) {
-        pos = s.position.clone().sub(this.startPivot.p).applyQuaternion(dq).add(this.startPivot.p);
+      // -- ED-A arrange: rotation/scale are centred on the shared pivot, or on each item's own pivot --
+      const centre = this.individual ? (s.pivot ?? s.position) : this.startPivot.p;
+      if (this.mode === 'rotate') {
+        pos = s.position.clone().sub(centre).applyQuaternion(dq).add(centre);
         rot = dq.clone().multiply(s.quaternion);
-      } else if (this.mode === 'rotate') {
-        pos = s.position.clone();
-        rot = this.space === 'local' ? this.pivot.quaternion.clone() : dq.clone().multiply(s.quaternion);
+      } else if (this.mode === 'scale') {
+        // Offsets from the pivot grow along the handle's axes; sizes grow below.
+        const q = this.startPivot.q;
+        pos = s.position
+          .clone()
+          .sub(centre)
+          .applyQuaternion(q.clone().invert())
+          .multiply(this.pivot.scale)
+          .applyQuaternion(q)
+          .add(centre);
+        rot = s.quaternion.clone();
       } else {
         pos = s.position.clone().add(dp);
         rot = s.quaternion.clone();
