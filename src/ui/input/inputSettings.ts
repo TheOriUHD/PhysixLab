@@ -91,7 +91,12 @@ function navigationTab(app: App, onStop: (stop: () => void) => void): HTMLElemen
         h(
           'div',
           { class: 'ctl-row' },
-          h('span', { class: 'ctl-keys' }, e.keys.map((k) => h('kbd', null, k)), e.with ? h('span', { class: 'ctl-gesture' }, e.with) : null),
+          h(
+            'span',
+            { class: 'ctl-keys' },
+            e.keys.map((k) => h('kbd', null, k)),
+            e.with ? h('span', { class: 'ctl-gesture' }, e.with) : null,
+          ),
           h('span', { class: 'ctl-act' }, e.action),
         ),
       ),
@@ -100,7 +105,16 @@ function navigationTab(app: App, onStop: (stop: () => void) => void): HTMLElemen
   const renderPresets = () => {
     presets.replaceChildren(
       ...NAV_PRESETS.map((p) => {
-        const b = h('button', { class: `chip${n().preset === p.id ? ' on' : ''}`, type: 'button', title: p.blurb, dataset: { preset: p.id } }, p.label);
+        const b = h(
+          'button',
+          {
+            class: `chip${n().preset === p.id ? ' on' : ''}`,
+            type: 'button',
+            title: p.blurb,
+            dataset: { preset: p.id },
+          },
+          p.label,
+        );
         b.addEventListener('click', () => {
           hub.update_settings({ nav: { ...n(), ...p.patch, preset: p.id } });
           refresh();
@@ -139,7 +153,15 @@ function navigationTab(app: App, onStop: (stop: () => void) => void): HTMLElemen
     },
   });
   const speed = (key: 'orbitSpeed' | 'panSpeed' | 'zoomSpeed') =>
-    sliderField({ min: 0.25, max: 3, step: 0.05, digits: 2, value: n()[key], unit: '×', onChange: (v) => patch({ [key]: v }) });
+    sliderField({
+      min: 0.25,
+      max: 3,
+      step: 0.05,
+      digits: 2,
+      value: n()[key],
+      unit: '×',
+      onChange: (v) => patch({ [key]: v }),
+    });
   const flag = (key: keyof NavSettings, title?: string) =>
     toggleField({ value: n()[key] as boolean, onChange: (v) => patch({ [key]: v }), title });
   const one = selectField({
@@ -167,22 +189,42 @@ function navigationTab(app: App, onStop: (stop: () => void) => void): HTMLElemen
     status,
     h('div', { class: 'cm-group' }, 'Scheme'),
     presets,
-    row('Pointing device', device.el, 'Automatic watches the wheel events: a mouse notch, a trackpad swipe or pinch, a finger. Override it if the guess is wrong.'),
-    row('Trackpad swipe', swipe.el, 'What a two-finger swipe does. Pinch always zooms towards the cursor; Option / Alt + swipe also zooms.'),
+    row(
+      'Pointing device',
+      device.el,
+      'Automatic watches the wheel events: a mouse notch, a trackpad swipe or pinch, a finger. Override it if the guess is wrong.',
+    ),
+    row(
+      'Trackpad swipe',
+      swipe.el,
+      'What a two-finger swipe does. Pinch always zooms towards the cursor; Option / Alt + swipe also zooms.',
+    ),
     h('div', { class: 'cm-group' }, 'Feel'),
     row('Orbit speed', speed('orbitSpeed').el),
     row('Pan speed', speed('panSpeed').el),
     row('Zoom speed', speed('zoomSpeed').el),
-    row('Smooth motion', flag('smooth', 'Ease camera moves in instead of jumping').el, 'Moves glide for a moment instead of jumping'),
+    row(
+      'Smooth motion',
+      flag('smooth', 'Ease camera moves in instead of jumping').el,
+      'Moves glide for a moment instead of jumping',
+    ),
     row('Zoom towards the cursor', flag('zoomToCursor').el, 'The point under the cursor stays under it while zooming'),
-    row('Keyboard navigation', flag('keyboardNav').el, 'Arrow keys orbit, Shift + arrows pan, + / − zoom (with a selection, hold Option / Alt for the arrows)'),
+    row(
+      'Keyboard navigation',
+      flag('keyboardNav').el,
+      'Arrow keys orbit, Shift + arrows pan, + / − zoom (with a selection, hold Option / Alt for the arrows)',
+    ),
     h('div', { class: 'cm-group' }, 'Invert'),
     row('Orbit left / right', flag('invertOrbitX').el),
     row('Orbit up / down', flag('invertOrbitY').el),
     row('Pan', flag('invertPan').el),
     row('Zoom', flag('invertZoom').el, 'Swap which way a pinch / wheel zooms'),
     h('div', { class: 'cm-group' }, 'Touch screen'),
-    row('One finger', one.el, 'Two fingers pan, pinch zooms and twisting turns the view (Settings › Touch has the rest)'),
+    row(
+      'One finger',
+      one.el,
+      'Two fingers pan, pinch zooms and twisting turns the view (Settings › Touch has the rest)',
+    ),
     row('Twist to turn', flag('touchTwist').el),
     h('div', { class: 'cm-group' }, 'How to move the camera with these settings'),
     sheet,

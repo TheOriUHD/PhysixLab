@@ -94,7 +94,10 @@ export function buildTopbar(app: App): HTMLElement {
     {
       class: 'tbtn drive',
       type: 'button',
-      title: withShortcut('Drive the selected vehicle — a chase camera and only the vehicle’s controls', 'drive.toggle'),
+      title: withShortcut(
+        'Drive the selected vehicle — a chase camera and only the vehicle’s controls',
+        'drive.toggle',
+      ),
     },
     icon('car'),
     h('span', null, 'Drive'),
