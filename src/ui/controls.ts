@@ -506,22 +506,40 @@ export function keyLabel(code: string): string {
   return map[code] ?? code;
 }
 
+// -- UI-B: accessible names — a control inside a labelled row is named after the row --
+/** Give every control inside `root` that has no accessible name the row's label (the hex field says so). */
+export function nameControls(root: HTMLElement, label: string): void {
+  let n = 0;
+  for (const el of root.querySelectorAll<HTMLElement>('input:not([type=hidden]), select, textarea, button')) {
+    if (el.getAttribute('aria-label') || el.getAttribute('title')?.trim() || el.textContent?.trim()) continue;
+    if ((el as HTMLInputElement).labels?.length) continue;
+    el.setAttribute(
+      'aria-label',
+      el.classList.contains('hex-input') ? `${label} (hex)` : n++ ? `${label} (${n})` : label,
+    );
+  }
+}
+
 export function row(label: string, control: HTMLElement | HTMLElement[], hint?: string): HTMLElement {
+  const rc = h('div', { class: 'row-control' }, control);
+  nameControls(rc, label); // -- UI-B --
   return h(
     'div',
     { class: 'row' },
     h('div', { class: 'row-label', title: hint ?? '', dataset: { label } }, friendly(label)), // UI-A: dataset.label = the unfriendly name, for resets / unit keys
-    h('div', { class: 'row-control' }, control),
+    rc,
   );
 }
 
 /** Label above a full-width control (for wide controls such as vectors). */
 export function rowStack(label: string, control: HTMLElement | HTMLElement[], hint?: string): HTMLElement {
+  const rc = h('div', { class: 'row-control' }, control);
+  nameControls(rc, label); // -- UI-B --
   return h(
     'div',
     { class: 'row stack' },
     h('div', { class: 'row-label', title: hint ?? '', dataset: { label } }, friendly(label)), // UI-A: dataset.label = the unfriendly name, for resets / unit keys
-    h('div', { class: 'row-control' }, control),
+    rc,
   );
 }
 

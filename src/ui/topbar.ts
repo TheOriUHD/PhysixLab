@@ -142,8 +142,12 @@ export function buildTopbar(app: App): HTMLElement {
   const syncHistory = () => {
     undo.disabled = !store.canUndo;
     redo.disabled = !store.canRedo;
-    undo.title = store.canUndo ? withShortcut(`Undo ${store.undoLabel}`, 'edit.undo') : 'Undo';
-    redo.title = store.canRedo ? withShortcut(`Redo ${store.redoLabel}`, 'edit.redo') : 'Redo';
+    undo.title = store.canUndo
+      ? withShortcut(`Undo ${store.undoLabel}`, 'edit.undo')
+      : withShortcut('Undo', 'edit.undo'); // -- UI-B: tooltip keeps the shortcut --
+    redo.title = store.canRedo
+      ? withShortcut(`Redo ${store.redoLabel}`, 'edit.redo')
+      : withShortcut('Redo', 'edit.redo');
   };
   store.on('history', syncHistory);
   syncHistory();

@@ -7,6 +7,7 @@ import type { PanelDef, PanelView } from '../../app/registry/panels';
 import { timeTravelFor } from '../../app/timeTravel';
 import { button, toggleField } from '../controls';
 import { h } from '../dom';
+import { emptyState } from '../emptyState'; // -- UI-B: empty states --
 
 const COLORS = { a: '#3ddcff', b: '#ffb347' };
 
@@ -55,11 +56,12 @@ function build(app: App, ctx: { active: () => boolean }): PanelView {
     list.replaceChildren();
     if (!gh.runs.length) {
       list.append(
-        h(
-          'div',
-          { class: 'tm-empty-s' },
-          'No runs yet. Run the scene, reset it, and run it again: the first run appears here as a ghost.',
-        ),
+        emptyState({
+          art: 'recent',
+          title: 'No runs yet',
+          hint: 'Run the scene, reset it, and run it again: the first run appears here as a ghost.',
+          class: 'compact',
+        }),
       );
       return;
     }

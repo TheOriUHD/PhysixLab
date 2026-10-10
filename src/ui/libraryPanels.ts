@@ -18,6 +18,7 @@ import {
 import { listShapes } from '../model/shapeRegistry';
 import { button } from './controls';
 import { clear, h } from './dom';
+import { emptyState } from './emptyState'; // -- UI-B: empty states --
 import { icon } from './icons';
 import { confirmReplace, importDocument } from './sceneActions';
 import { zoneTiles } from './zoneTiles'; // -- ZN
@@ -268,19 +269,13 @@ function mapsTab(app: App, query: string): HTMLElement {
   );
   if (!maps.length) {
     root.appendChild(
-      h(
-        'div',
-        { class: 'empty-state' },
-        icon('layers', 'icon big'),
-        h('h4', null, q ? 'No map matches' : 'No maps registered'),
-        h(
-          'p',
-          null,
-          q
-            ? `Nothing matches “${query.trim()}”. Try a category, a tag or a difficulty.`
-            : 'Maps are registered from src/model/content (see docs/EXTENDING.md).',
-        ),
-      ),
+      emptyState({
+        art: q ? 'search' : 'map',
+        title: q ? 'No map matches' : 'No maps registered',
+        hint: q
+          ? `Nothing matches “${query.trim()}”. Try a category, a tag or a difficulty.`
+          : 'Maps are registered from src/model/content (see docs/EXTENDING.md).',
+      }),
     );
     return root;
   }
@@ -380,11 +375,12 @@ function scenesTab(app: App, rerender: () => void): HTMLElement {
   const mine = h('div', { class: 'cards', style: { paddingBottom: '2px' } });
   if (!lib.length)
     mine.appendChild(
-      h(
-        'p',
-        { class: 'hint-text', style: { margin: '0' } },
-        'Nothing saved yet. Use File → Save to library (Ctrl+S). Your current scene is always autosaved.',
-      ),
+      emptyState({
+        art: 'folder',
+        title: 'No saved scenes yet',
+        hint: 'Use File → Save to library (Ctrl+S). Your current scene is always autosaved.',
+        class: 'compact',
+      }),
     );
   for (const e of lib) {
     const open = h(

@@ -28,7 +28,7 @@ registerCommand({
 registerMenuEntry({
   id: 'menu.help.diagnostics',
   menu: 'help',
-  group: 'diag',
+  group: 'help',
   order: 200,
   command: 'panel.diagnostics',
   icon: 'settings',
@@ -36,7 +36,7 @@ registerMenuEntry({
 registerMenuEntry({
   id: 'menu.help.profiler',
   menu: 'help',
-  group: 'diag',
+  group: 'help',
   order: 210,
   command: 'panel.profiler',
   icon: 'wave',
@@ -44,7 +44,7 @@ registerMenuEntry({
 registerMenuEntry({
   id: 'menu.help.copyDiagnostics',
   menu: 'help',
-  group: 'diag',
+  group: 'help',
   order: 220,
   command: 'diag.copy',
   icon: 'copy',

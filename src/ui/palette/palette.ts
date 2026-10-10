@@ -10,6 +10,7 @@
 import type { App } from '../../app/app';
 import { COMMAND_CATEGORY_ORDER } from '../../app/registry/commands';
 import { clear, h } from '../dom';
+import { emptyState } from '../emptyState'; // -- UI-B: empty states --
 import { icon } from '../icons';
 import { paletteHistory } from './history';
 import { buildPaletteItems, type PaletteItem } from './items';
@@ -142,11 +143,12 @@ export function openPalette(app: App): void {
     rows = [];
     if (!ranked.length) {
       list.appendChild(
-        h(
-          'div',
-          { class: 'palette-empty' },
-          `Nothing matches “${query.trim()}”. Try a command, a scene, a prefab or a setting.`,
-        ),
+        emptyState({
+          art: 'search',
+          title: 'Nothing matches',
+          hint: `“${query.trim()}” is not a command, scene, prefab or setting. Try another word.`,
+          class: 'compact palette-empty',
+        }),
       );
       status.textContent = 'No results';
       setActive(0);

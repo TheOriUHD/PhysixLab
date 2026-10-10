@@ -16,6 +16,7 @@ import type { BodyEntity, ComponentSpec, ComponentValue, JointEntity } from '../
 import { isBody, isJoint } from '../../model/types';
 import { fmt, row, rowStack, section } from '../controls';
 import { h } from '../dom';
+import { emptyState } from '../emptyState'; // -- UI-B: empty states --
 import { icon } from '../icons';
 import { closeMenu } from '../menu';
 import { buildFieldEditor } from './componentFields';
@@ -202,11 +203,12 @@ export function componentsSection(ctx: InspectorContext, id: string): HTMLElemen
         ...(all.length
           ? all.map((c, i) => card(c, i, all.length))
           : [
-              h(
-                'p',
-                { class: 'comp-empty' },
-                'No components yet. Components give a body behaviour — a steady push, a moving platform, a sensor.',
-              ),
+              emptyState({
+                art: 'component',
+                title: 'No components yet',
+                hint: 'Components give a body behaviour: a steady push, a moving platform, a sensor.',
+                class: 'compact comp-empty',
+              }),
             ]),
       );
     }
@@ -294,11 +296,12 @@ export function openComponentMenu(anchor: HTMLElement, ctx: InspectorContext, id
     }
     if (!visible.length)
       results.append(
-        h(
-          'p',
-          { class: 'comp-empty' },
-          q ? `Nothing matches “${search.value.trim()}”.` : 'No components apply to this object.',
-        ),
+        emptyState({
+          art: q ? 'search' : 'component',
+          title: q ? 'No component matches' : 'Nothing to add here',
+          hint: q ? `Nothing matches “${search.value.trim()}”.` : 'No components apply to this object.',
+          class: 'compact comp-empty',
+        }),
       );
     active = Math.max(
       0,

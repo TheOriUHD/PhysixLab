@@ -14,6 +14,7 @@ import type { PanelDef, PanelView } from '../app/registry/panels';
 import { formatRaceTime, type RacePublic, type RacerPublic } from '../model/zones';
 import { iconButton } from './controls';
 import { h } from './dom';
+import { emptyState } from './emptyState'; // -- UI-B: empty states --
 import { icon } from './icons';
 
 const clock = (t: number): string => formatRaceTime(t);
@@ -75,11 +76,12 @@ function build(app: App, ctx: { active: () => boolean }): PanelView {
     const entries = showMoves ? bridge.log : bridge.log.filter((e) => !MOVES.has(e.name));
     if (!entries.length) {
       logList.replaceChildren(
-        h(
-          'div',
-          { class: 'zp-empty' },
-          'Nothing has happened yet. Laps, checkpoints, launches, respawns, scores … appear here while the simulation runs (the chip above also lists every enter and exit).',
-        ),
+        emptyState({
+          art: 'chart',
+          title: 'Nothing has happened yet',
+          hint: 'Laps, checkpoints, launches, respawns, scores … appear here while the simulation runs (the chip above also lists every enter and exit).',
+          class: 'compact zp-empty',
+        }),
       );
       return;
     }
@@ -172,13 +174,14 @@ function build(app: App, ctx: { active: () => boolean }): PanelView {
         raceSig = 'empty';
         cells.clear();
         races.replaceChildren(
-          h(
-            'div',
-            { class: 'zp-empty' },
-            live
+          emptyState({
+            art: 'path',
+            title: live ? 'Waiting for a racer' : 'No race yet',
+            hint: live
               ? 'No racer has crossed a start, checkpoint or finish line yet.'
-              : 'No race yet. Add a start / finish line and some checkpoints from the Add tab (Zones & race), give a vehicle or a ball a go, and press Play: laps, splits and the best lap are timed here and on screen.',
-          ),
+              : 'Add a start / finish line and some checkpoints from the Add tab (Zones & race), give a vehicle or a ball a go, and press Play: laps, splits and the best lap are timed here and on screen.',
+            class: 'compact zp-empty',
+          }),
         );
       }
       return;
