@@ -104,9 +104,13 @@ export function buildCar(withTrack = true): SceneDocument {
   const y = 0.62; // chassis centre height
   const chassis = b.body('Chassis', 'box', [2.3, 0.35, 1.2], [0, y, 0], {
     material: { preset: 'steel', density: 1100, color: '#d94a3b', metalness: 0.6, roughness: 0.35 },
+    // -- VZ-42: the detailed car skin draws the shell; the tag lets it follow this body's colour --
+    skin: { id: 'car.body' },
+    tags: ['car-body'],
   });
   const cabin = b.body('Cabin', 'box', [1.1, 0.4, 1.0], [-0.15, y + 0.375, 0], {
     material: { preset: 'glass', density: 120, opacity: 0.55, color: '#8fd3ff' },
+    hidden: true, // VZ-42: still simulates (mass, collider); the car.body skin draws the greenhouse
   });
   b.joint('fixed', chassis, cabin, cabin.position, [0, 1, 0], { name: 'Cabin mount' });
 
@@ -171,6 +175,8 @@ export function buildCar(withTrack = true): SceneDocument {
     const wheel = b.body(`${c.name} wheel`, 'cylinder', [wr * 2, ww, wr * 2], [c.x, wr, c.z], {
       rotation: rotX(90),
       ccd: true,
+      skin: { id: 'car.wheel' },
+      tags: ['car-wheel'],
       material: { preset: 'rubber', density: 420, color: '#24262b', roughness: 0.9, friction: 1.1 },
     });
     // Axle axis is −Z so that a positive motor speed rolls the car toward +X.
