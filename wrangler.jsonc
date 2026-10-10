@@ -1,0 +1,7 @@
+{
+  // Cloudflare Workers static assets: `npm run build` writes dist/, `npx wrangler deploy` uploads it.
+  // "name" must match the Worker's name in the Cloudflare dashboard (Workers Builds fails on a mismatch).
+  "name": "physixlab",
+  "compatibility_date": "2026-09-01",
+  "assets": { "directory": "./dist" }
+}

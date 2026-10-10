@@ -101,7 +101,7 @@ PhysixLab is a **fully static site** — `npm run build` produces `dist/`, which
 <details>
 <summary><b>Hosting options</b></summary>
 
-- **Cloudflare Pages** — *Workers & Pages → Create → Pages → Connect to Git*, pick the repo, build command `npm run build`, output directory `dist` (Node 22 is pinned by `.node-version`). Then *Custom domains → Set up a domain* to attach yours; every push redeploys. `public/_headers` already sets the caching rules.
+- **Cloudflare (Workers Builds)** — *Workers & Pages → Create → Import a repository*, pick the repo, build command `npm run build`, deploy command `npx wrangler deploy`. `wrangler.jsonc` already points at `dist/` (its `name` must match the Worker's name) and Node 22 is pinned by `.node-version`. Attach your domain under the Worker's *Settings → Domains & Routes → Add → Custom domain* (the domain must be a zone on your Cloudflare account); every push to the production branch redeploys. `public/_headers` sets the caching rules.
 - **Netlify / Vercel** — import the repo (build command `npm run build`, output directory `dist`; `netlify.toml` already says so), or drag the built `dist/` folder onto [Netlify Drop](https://app.netlify.com/drop).
 - **GitHub Pages** — `.github/workflows/pages.yml` is a manual workflow (*Settings → Pages → Source → GitHub Actions*, then run it from the Actions tab).
 - **Embed it** — `?embed=1&scene=…` gives a minimal viewer you can put in an `<iframe>`; see [docs/EMBED.md](docs/EMBED.md).
