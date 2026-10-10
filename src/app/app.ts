@@ -18,13 +18,23 @@
 import { Color, Vector3 } from 'three';
 import { Emitter } from '../core/events';
 import type { Vec3 } from '../core/math';
-import type { BodyEntity, Entity, JointType, LightType, SceneDocument, ShapeType, SoftType } from '../model/types';
+import type {
+  BodyEntity,
+  Entity,
+  JointEntity,
+  JointType,
+  LightType,
+  SceneDocument,
+  ShapeType,
+  SoftType,
+} from '../model/types';
 import { isBody } from '../model/types';
 import { componentDef } from '../model/componentRegistry';
 import { SceneStore } from '../model/store';
 import { BodyViews } from '../render/bodyViews';
 import { SoftViews } from '../render/softViews';
 import { Effects } from '../render/effects';
+import { ComponentFx } from '../render/componentFx'; // -- CP: flames, blades and gauges of the powered parts
 import type { Gizmo } from '../render/gizmo';
 import { GroupViews } from '../render/groupViews';
 import { JointViews } from '../render/jointViews';
@@ -85,6 +95,7 @@ export class App extends Emitter<AppEvents> {
   // ── FX: the sound engine (`app.audio.playEvent('explosion', [x, y, z])`) and the director that feeds it ──
   readonly audioDirector: AudioDirector;
   readonly audio: AudioEngine;
+  readonly componentFx: ComponentFx; // -- CP
   readonly labels = new Labels();
   hoverId: string | null = null;
 
@@ -120,6 +131,23 @@ export class App extends Emitter<AppEvents> {
     this.pathViews = new PathViews(this.viewport.paths);
     this.overlays = new Overlays(this.viewport.overlays);
     this.effects = new Effects(this.viewport.helpers);
+    // -- CP: the powered parts' flames, blades and gauges read the document, the live poses and the published numbers
+    // (only the owners that carry components are looked at; the lists are rebuilt after any change of the document)
+    let fxOwners: { bodies: BodyEntity[]; joints: JointEntity[] } | null = null;
+    this.store.on('change', () => (fxOwners = null));
+    const owners = () =>
+      (fxOwners ??= {
+        bodies: this.store.bodies().filter((b) => b.components.length > 0),
+        joints: this.store.joints().filter((j) => j.components.length > 0),
+      });
+    this.componentFx = new ComponentFx(this.viewport.helpers, {
+      bodies: () => owners().bodies,
+      joints: () => owners().joints,
+      pose: (id) => this.sim.poseOf(id),
+      values: (id) => (this.sim.client.active ? this.sim.client.stateOf(id) : null),
+      live: () => this.sim.client.active && this.sim.client.frameNo > 0,
+      selected: (id) => this.store.selection.includes(id),
+    });
     this.picker = new Picker(this.viewport.dom, this.viewport.camera);
 
     this.gizmos = new GizmoController(this);

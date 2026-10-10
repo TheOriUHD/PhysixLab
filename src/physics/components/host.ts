@@ -15,6 +15,8 @@ import { ComponentCtx, BodyHandleImpl, JointHandleImpl, type BodyHandle, type Jo
 import { runtimeOf, type ComponentRuntime } from './registry';
 // -- ZN: zones, races and the respawn machinery shared by the zone components and the world bounds
 import { ZoneSystem } from '../zones/system';
+// -- CP: the shaft / torque graph shared by the powered parts
+import { DriveAccess, DriveNetwork } from './drive/network';
 
 interface CompRec {
   spec: ComponentSpec;
@@ -38,12 +40,20 @@ export class ComponentHost {
   private dirtyOrder = false;
   private bodyHandles = new Map<string, BodyHandleImpl>();
   private jointHandles = new Map<string, JointHandleImpl>();
+  // -- CP: drive network (engines, gearboxes, brakes … register with it every step; solved after the components ran)
+  readonly drive: DriveNetwork;
 
   // -- ZN: the zone system of this world (races, score, respawn points, spawning)
   readonly zones: ZoneSystem;
 
   constructor(private s: WorldState) {
     this.zones = new ZoneSystem(s, this);
+    this.drive = new DriveNetwork(s); // -- CP
+  }
+
+  /** The drive-network access of one component (shafts it acquires are released when it goes away). */
+  driveAccess(ownerKind: 'body' | 'joint', ownerId: string): DriveAccess {
+    return new DriveAccess(this.drive, ownerKind, ownerId);
   }
 
   // ---- handles -----------------------------------------------------------------------------
@@ -148,6 +158,7 @@ export class ComponentHost {
     this.bodyHandles.clear();
     this.jointHandles.clear();
     this.zones.clear(); // -- ZN
+    this.drive.clear(); // -- CP
   }
 
   private make(ownerKind: 'body' | 'joint', ownerId: string, spec: ComponentSpec): CompRec {
@@ -229,10 +240,34 @@ export class ComponentHost {
   }
 
   prestep(dt: number): void {
+    this.drive.begin(dt); // -- CP
     for (const c of this.order()) {
       if (c.running && c.runtime?.prestep) this.guard(c, 'prestep', () => c.runtime!.prestep!(c.state, dt, c.ctx));
     }
+    this.solveDrive(); // -- CP
   }
+
+  // -- CP: solve the shaft network once every component has registered; a failure must not take the world down
+  private solveDrive(): void {
+    try {
+      this.drive.solve();
+    } catch (err) {
+      console.error('[drive network] solve failed:', err);
+      if (!this.driveFaulted) {
+        this.driveFaulted = true;
+        this.s.events.push({
+          kind: 'component',
+          t: this.s.simTime,
+          owner: '',
+          component: '',
+          type: 'drive',
+          name: 'error',
+          data: { phase: 'solve', message: String((err as { message?: unknown } | null)?.message ?? err) },
+        });
+      }
+    }
+  }
+  private driveFaulted = false;
 
   poststep(dt: number): void {
     for (const c of this.order()) {
@@ -335,12 +370,15 @@ export class ComponentHost {
       }
     }
     if (this.zones.hasState()) out['@zones'] = this.zones.save(); // -- ZN: standings, score, respawn points
+    out['@drive'] = this.drive.save(); // -- CP: speeds of the virtual shafts
     return out;
   }
 
   /** Give saved states back to the (re-created) components. */
   loadStates(saved: Record<string, unknown>): void {
     if ('@zones' in saved) this.zones.load(saved['@zones']); // -- ZN
+    const drive = saved['@drive'];
+    if (drive && typeof drive === 'object') this.drive.load(drive as Record<string, number>); // -- CP
     for (const c of this.order()) {
       if (c.running && c.runtime?.loadState && c.spec.id in saved) {
         this.guard(c, 'loadState', () => c.runtime!.loadState!(c.state, saved[c.spec.id], c.ctx));

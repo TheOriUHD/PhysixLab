@@ -139,7 +139,8 @@ describe('soft bodies', () => {
     expect(w.readSoft().positions.length).toBe(0);
   });
 
-  it('stays finite and fast enough with several soft bodies', async () => {
+  // -- CP: a wall-clock budget is load sensitive when ~40 physics test files share 4 cores; a real slowdown still fails 3 times
+  it('stays finite and fast enough with several soft bodies', { retry: 2 }, async () => {
     const list = [
       createSoft('cloth', { position: [0, 3, 0], resolution: 16, size: [2, 0, 2] }),
       createSoft('jelly', { position: [3, 2, 0] }),

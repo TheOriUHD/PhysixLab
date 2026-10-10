@@ -22,6 +22,9 @@ import { watchContacts } from '../world/events';
 import type { ComponentHost } from './host';
 // -- ZN: the zone system (races, score, respawn, spawn)
 import type { ZoneSystem } from '../zones/system';
+// -- CP: the drive network (shafts / torque graph) and the body mass trim
+import { setTotalMass } from '../world/massTrim';
+import type { DriveAccess } from './drive/network';
 
 export type { ContactPoint };
 
@@ -58,6 +61,12 @@ export interface BodyHandle {
   /** Place the body instantly (velocities are kept). */
   teleport(position: Vec3, rotation?: Quat): void;
   wake(): void;
+  // -- CP: variable mass
+  /**
+   * Change the body's total mass to `kg` (dynamic bodies only): the centre of mass stays, the inertia scales in
+   * proportion — fuel burning off, a payload released. The engine keeps the new mass through snapshots.
+   */
+  setMass(kg: number): void;
 }
 
 /** A joint as a component sees it (read-only measurements). */
@@ -69,6 +78,9 @@ export interface JointHandle {
   readonly speed: number;
   readonly force: number;
   readonly broken: boolean;
+  // -- CP: the bodies the joint connects (null = the world)
+  readonly bodyA: string | null;
+  readonly bodyB: string | null;
 }
 
 export interface ComponentContext {
@@ -116,6 +128,8 @@ export interface ComponentContext {
   emit(name: string, data?: unknown): void;
   // -- ZN: races, score, respawn points, spawning and rigid unit moves, shared by every zone and the world bounds
   readonly zones: ZoneSystem;
+  // -- CP: the shaft / torque graph the powered parts register with (see `drive/network.ts`)
+  readonly drive: DriveAccess;
   readonly input: {
     /** Is the key (`KeyboardEvent.code`) held? */
     key(code: string): boolean;
@@ -258,6 +272,10 @@ class BodyHandleImpl implements BodyHandle {
   wake(): void {
     this.rec?.rb.wakeUp();
   }
+  setMass(kg: number): void {
+    const r = this.rec;
+    if (r) setTotalMass(r, kg);
+  }
 }
 
 class JointHandleImpl implements JointHandle {
@@ -283,6 +301,12 @@ class JointHandleImpl implements JointHandle {
   get broken(): boolean {
     return this.rec?.broken ?? false;
   }
+  get bodyA(): string | null {
+    return this.rec?.def.bodyA ?? null;
+  }
+  get bodyB(): string | null {
+    return this.rec?.def.bodyB ?? null;
+  }
 }
 
 /** The context of one component instance (created by the host). */
@@ -290,6 +314,9 @@ export class ComponentCtx implements ComponentContext {
   /** Updated by the host when the user edits the component. */
   spec: ComponentSpec;
   private watching = false;
+
+  // -- CP: per-component access to the drive network
+  readonly drive: DriveAccess;
 
   constructor(
     private readonly s: WorldState,
@@ -299,6 +326,7 @@ export class ComponentCtx implements ComponentContext {
     spec: ComponentSpec,
   ) {
     this.spec = spec;
+    this.drive = host.driveAccess(ownerKind, ownerId);
   }
 
   get componentId(): string {
@@ -398,6 +426,7 @@ export class ComponentCtx implements ComponentContext {
   /** Undo `watchContacts` when the component goes away. */
   release(): void {
     if (this.watching) this.watchContacts(false);
+    this.drive.releaseAll();
   }
 
   emit(name: string, data?: unknown): void {
