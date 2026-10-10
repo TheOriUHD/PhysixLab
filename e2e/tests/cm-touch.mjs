@@ -522,6 +522,15 @@ test('touch settings: choose buttons, sticks, size and left-handed layout; saved
   const page = await newTouchPage('&scene=car');
   await page.evaluate(() => window.physicslab.input.update_settings({ touchControls: 'on' }));
   await page.waitForSelector('.tc-overlay:not([hidden])');
+  // touch-friendly hit areas: bigger gizmo handles on a touch device, every control at least 44 px
+  assert(
+    (await page.evaluate(() => window.physicslab.gizmo.controls.size)) > 0.85,
+    'gizmo handles are enlarged on touch devices',
+  );
+  for (const sel of ['.tc-btn-LT', '.tc-btn-RT', '.tc-btn-South', '.tc-btn-East']) {
+    const b = await centre(page, sel);
+    assert(b.w >= 44 && b.h >= 44, `${sel} is ${b.w}x${b.h}`);
+  }
   // default: left zone on the left
   const leftZoneX = async () => (await centre(page, '.tc-zone[data-zone="left"]')).x;
   assert((await leftZoneX()) < 550, 'left stick on the left');
