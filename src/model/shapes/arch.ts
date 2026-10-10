@@ -6,8 +6,9 @@
  * whose crown sits one `thickness` below the top. If the opening is at least as tall as it is wide the arc is a
  * semicircle stood on short straight walls (a stilted arch); a lower opening gets a segmental (flatter) arc.
  *
- * The collider tiles the solid with convex parts: two full-height legs, and `segments` vertical slabs over the
- * opening whose undersides are the chords of the arc. The slabs and the polygon outline of the mesh are the same
+ * The collider tiles the solid with convex parts: one deck across the whole top (a single flat face to walk or
+ * roll on), two legs under it, and `segments` vertical slabs over the opening whose undersides are the chords of
+ * the arc and whose tops meet the deck. The slabs and the polygon outline of the mesh are the same
  * points, so the mesh encloses exactly the volume the colliders sum to (a unit test checks both against the
  * engine's mass).
  */
@@ -73,16 +74,20 @@ const layoutOf = (spec: ShapeSpec): ArchLayout =>
     Math.round(num(spec, 'segments', 12, 4, 32)),
   );
 
-/** Exact volume of the union of legs and slabs. */
+/** Height of the crown line: the opening's apex, one thickness below the top. */
+const crownOf = (l: ArchLayout): number => l.H - l.t;
+
+/** Exact volume of the union of deck, legs and slabs. */
 export function archVolume(spec: ShapeSpec): number {
-  const { H, D, t, arc } = layoutOf(spec);
-  let area = 2 * t * H; // the legs
-  for (let k = 0; k + 1 < arc.length; k++) {
-    const [x0, y0] = arc[k],
-      [x1, y1] = arc[k + 1];
-    area += 0.5 * (H - y0 + (H - y1)) * (x1 - x0);
+  const l = layoutOf(spec);
+  const s = crownOf(l);
+  let area = l.W * l.t + 2 * l.t * s; // the deck across the top and the two legs below it
+  for (let k = 0; k + 1 < l.arc.length; k++) {
+    const [x0, y0] = l.arc[k],
+      [x1, y1] = l.arc[k + 1];
+    area += 0.5 * (s - y0 + (s - y1)) * (x1 - x0);
   }
-  return area * D;
+  return area * l.D;
 }
 
 /** The mesh's outline in (x, height) coordinates, counter-clockwise, with the opening cut from the base. */
@@ -141,16 +146,20 @@ export const arch: ShapeDef = {
     const l = layoutOf(spec);
     const { W, H, D, t, arc } = l;
     const hz = D / 2;
+    const s = crownOf(l);
+    const dy = -H / 2; // body frame: the base is at −H/2
+    // One deck across the whole top (nothing to catch a rolling ball on), two legs under it, and slabs over the
+    // opening that fill the space between the arc and the crown line.
     const parts = [
-      boxPart(R, [-(W - t) / 2, 0, 0], [t / 2, H / 2, hz]),
-      boxPart(R, [(W - t) / 2, 0, 0], [t / 2, H / 2, hz]),
+      boxPart(R, [0, s + t / 2 + dy, 0], [W / 2, t / 2, hz]),
+      boxPart(R, [-(W - t) / 2, s / 2 + dy, 0], [t / 2, s / 2, hz]),
+      boxPart(R, [(W - t) / 2, s / 2 + dy, 0], [t / 2, s / 2, hz]),
     ];
-    const dy = -H / 2;
     for (let k = 0; k + 1 < arc.length; k++) {
       const [x0, y0] = arc[k],
         [x1, y1] = arc[k + 1];
       const pts: Vec3[] = [];
-      for (const z of [-hz, hz]) pts.push([x0, y0 + dy, z], [x1, y1 + dy, z], [x1, H + dy, z], [x0, H + dy, z]);
+      for (const z of [-hz, hz]) pts.push([x0, y0 + dy, z], [x1, y1 + dy, z], [x1, s + dy, z], [x0, s + dy, z]);
       parts.push(hullPart(R, pts));
     }
     return parts;
