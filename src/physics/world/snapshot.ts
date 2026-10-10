@@ -98,6 +98,7 @@ export function restoreSnapshot(s: WorldState, snap: WorldSnapshot): void {
   s.owners = new Map();
   s.retired = new Map();
   s.pendingContacts = new Map();
+  s.freshContacts = [];
   s.lastContactAt = new Map();
   s.paths = new Map();
   s.componentState = new Map();

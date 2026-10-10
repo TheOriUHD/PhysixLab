@@ -124,12 +124,7 @@ export function collectEvents(s: WorldState, t: number): void {
     }
     if (!started || !contactEventsOn(s)) return;
     const key = pairKey(h1, h2);
-    const p = s.pendingContacts.get(key);
-    if (p) {
-      p.count++;
-      return;
-    }
-    s.pendingContacts.set(key, {
+    const blank = (): PendingContact => ({
       h1,
       h2,
       o1,
@@ -141,6 +136,32 @@ export function collectEvents(s: WorldState, t: number): void {
       point: [0, 0, 0],
       normal: [0, 1, 0],
     });
+    const agg = s.pendingContacts.get(key);
+    if (agg) agg.count++;
+    else s.pendingContacts.set(key, blank());
+    // Watching components see every contact start, un-aggregated (see `stepPending`).
+    if (s.contactWatchers > 0) s.freshContacts.push(blank());
+  });
+}
+
+/** Read the manifold of a contact pair into `p` (impulse, strongest-so-far, point, normal, approach speed). */
+function readContact(s: WorldState, p: PendingContact): void {
+  const c1 = s.world.getCollider(p.h1);
+  const c2 = s.world.getCollider(p.h2);
+  s.world.contactPair(c1, c2, (m, flipped) => {
+    const nc = m.numContacts();
+    let impulse = 0;
+    for (let i = 0; i < nc; i++) impulse += m.contactImpulse(i);
+    if (m.numSolverContacts() === 0 || impulse <= p.impulse) return;
+    const sp = m.solverContactPoint(0);
+    const n = m.normal();
+    // The manifold normal runs from its first collider to its second; `flipped` says our `c1` is the second one.
+    // Store it pointing out of collider 2 toward collider 1.
+    const sgn = flipped ? 1 : -1;
+    p.impulse = impulse;
+    p.normal = [n.x * sgn, n.y * sgn, n.z * sgn];
+    if (sp) p.point = [sp.x, sp.y, sp.z];
+    p.speed = approachSpeed(s, p, impulse);
   });
 }
 
@@ -154,23 +175,7 @@ export function refreshPending(s: WorldState): void {
       s.pendingContacts.delete(key);
       continue;
     }
-    const c1 = s.world.getCollider(p.h1);
-    const c2 = s.world.getCollider(p.h2);
-    s.world.contactPair(c1, c2, (m, flipped) => {
-      const nc = m.numContacts();
-      let impulse = 0;
-      for (let i = 0; i < nc; i++) impulse += m.contactImpulse(i);
-      if (m.numSolverContacts() === 0 || impulse <= p.impulse) return;
-      const sp = m.solverContactPoint(0);
-      const n = m.normal();
-      // The manifold normal runs from its first collider to its second; `flipped` says our `c1` is the second one.
-      // Store it pointing out of collider 2 toward collider 1.
-      const sgn = flipped ? 1 : -1;
-      p.impulse = impulse;
-      p.normal = [n.x * sgn, n.y * sgn, n.z * sgn];
-      if (sp) p.point = [sp.x, sp.y, sp.z];
-      p.speed = approachSpeed(s, p, impulse);
-    });
+    readContact(s, p);
   }
 }
 
@@ -188,14 +193,25 @@ function restitutionOf(s: WorldState, o: ColliderOwner, handle: number): number 
   return o.rec || o.id === GROUND_ID ? s.world.getCollider(handle).restitution() : 0;
 }
 
-/** Called once per fixed step after the engine events were collected. */
+/**
+ * Called once per fixed step after the engine events were collected. Components that watch contacts get theirs
+ * here, at the end of the step the contact started in — step-synchronous, so their behaviour never depends on how
+ * the page's frames happen to fall (the aggregated stream for the page is built per frame in `flushContacts`).
+ */
 export function stepPending(s: WorldState): void {
   refreshPending(s);
+  const fresh = s.freshContacts;
+  if (!fresh.length) return;
+  s.freshContacts = [];
+  for (const p of fresh) {
+    if (!s.owners.has(p.h1) || !s.owners.has(p.h2)) continue;
+    readContact(s, p);
+    s.host.dispatch(toEvent(p));
+  }
 }
 
 /**
- * End of frame: turn the pending contacts into events (strongest first, at most `maxPerFrame`) and hand them to the
- * components of the bodies involved.
+ * End of frame: turn the pending contacts into events for the page (strongest first, at most `maxPerFrame`).
  */
 export function flushContacts(s: WorldState): void {
   s.retired.clear();
@@ -213,10 +229,7 @@ export function flushContacts(s: WorldState): void {
   s.pendingContacts.clear();
   ready.sort((a, b) => b.impulse - a.impulse || a.t - b.t);
   if (ready.length > cfg.maxPerFrame) ready.length = cfg.maxPerFrame;
-  for (const ev of ready) {
-    s.events.push(ev);
-    s.host.dispatch(ev);
-  }
+  for (const ev of ready) s.events.push(ev);
   if (s.lastContactAt.size > 4096) {
     for (const [k, at] of s.lastContactAt) if (s.simTime - at > 5) s.lastContactAt.delete(k);
   }
