@@ -102,8 +102,9 @@ export function restoreSnapshot(s: WorldState, snap: WorldSnapshot): void {
   s.eventQueue.clear(); // events of the old world name handles that no longer exist
   s.lastContactAt = new Map();
   s.paths = new Map();
+  // `disposeAll` queued the ids of every published state for withdrawal; keep that list so the page forgets the
+  // numbers of components that no longer exist (those that do are re-created below and publish again).
   s.componentState = new Map();
-  s.componentStateRemoved = [];
   s.events = [];
   s.settings = snap.settings;
   s.simTime = snap.simTime;

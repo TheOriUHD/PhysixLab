@@ -77,11 +77,20 @@ export function topLevel(lookup: (id: string) => Entity | undefined, ids: readon
   });
 }
 
+export interface FrameDelta {
+  rot: Quat;
+  /** The transform turns things (it is more than a translation). */
+  turns: boolean;
+  point(p: Vec3): Vec3;
+  dir(d: Vec3): Vec3;
+}
+
 /** Rigid transform that carries the frame `from` onto the frame `to`: p ↦ to.position + R·(p − from.position). */
-export function frameDelta(from: Pose, to: Pose): { rot: Quat; point(p: Vec3): Vec3; dir(d: Vec3): Vec3 } {
+export function frameDelta(from: Pose, to: Pose): FrameDelta {
   const rot = qnorm(qmul(to.rotation, qconj(from.rotation)));
   return {
     rot,
+    turns: Math.hypot(rot[0], rot[1], rot[2]) > 1e-9,
     point: (p) => vadd(to.position, qrot(rot, vsub(p, from.position))),
     dir: (d) => qrot(rot, d),
   };
@@ -125,6 +134,11 @@ export function groupTransformPatches(
   return patches;
 }
 
-function posePatch(e: PosedEntity, delta: ReturnType<typeof frameDelta>): Partial<PosedEntity> {
-  return { position: delta.point(e.position), rotation: qnorm(qmul(delta.rot, e.rotation)) };
+function posePatch(e: PosedEntity, delta: FrameDelta): Partial<Entity> {
+  const pose = { position: delta.point(e.position), rotation: qnorm(qmul(delta.rot, e.rotation)) };
+  if (e.kind !== 'body' || !delta.turns) return pose;
+  // A body's initial (or, for kinematic bodies, constant) velocities are world-space vectors: they turn with the
+  // assembly, so a rotated group of cannons still fires along its own barrels and a rotated conveyor still carries
+  // things along its own belt.
+  return { ...pose, velocity: delta.dir(e.velocity), angularVelocity: delta.dir(e.angularVelocity) };
 }

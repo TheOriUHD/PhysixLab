@@ -18,8 +18,6 @@ interface CompRec {
   spec: ComponentSpec;
   ownerKind: 'body' | 'joint';
   ownerId: string;
-  /** Sort key: bodies first, then joints, each in the order the owner joined the world. */
-  rank: number;
   ctx: ComponentCtx;
   runtime: ComponentRuntime | null;
   /** The runtime's own state, present while the component is running. */
@@ -28,6 +26,9 @@ interface CompRec {
   faulted: boolean;
 }
 
+/** Sort offset that puts every joint after every body (body `seq` values stay far below it). */
+const JOINTS_AFTER_BODIES = 1e12;
+
 export class ComponentHost {
   private byOwner = new Map<string, CompRec[]>();
   /** Every component in execution order. */
@@ -35,8 +36,6 @@ export class ComponentHost {
   private dirtyOrder = false;
   private bodyHandles = new Map<string, BodyHandleImpl>();
   private jointHandles = new Map<string, JointHandleImpl>();
-  private ownerSeq = new Map<string, number>();
-  private nextSeq = 0;
 
   constructor(private s: WorldState) {}
 
@@ -57,7 +56,9 @@ export class ComponentHost {
 
   /** Number of components that exist (running or not). */
   get size(): number {
-    return this.ordered.length;
+    let n = 0;
+    for (const list of this.byOwner.values()) n += list.length;
+    return n;
   }
 
   /** Ids of the components attached to an owner, in order. */
@@ -84,13 +85,15 @@ export class ComponentHost {
   sync(ownerKind: 'body' | 'joint', ownerId: string, specs: readonly ComponentSpec[]): void {
     const existing = this.byOwner.get(ownerId) ?? [];
     if (!existing.length && !specs.length) return;
-    if (!this.ownerSeq.has(ownerId)) this.ownerSeq.set(ownerId, this.nextSeq++);
-    const rank = (ownerKind === 'body' ? 0 : 1e9) + (this.ownerSeq.get(ownerId) ?? 0);
     const next: CompRec[] = [];
+    // Components that went away (or changed type) are disposed before their successors are created, so a new
+    // component never has its published state withdrawn by the one it replaces.
+    for (const gone of existing)
+      if (!specs.some((s) => s.id === gone.spec.id && s.type === gone.spec.type)) this.stop(gone);
     for (const spec of specs) {
       const old = existing.find((c) => c.spec.id === spec.id && c.spec.type === spec.type);
       if (!old) {
-        const rec = this.make(ownerKind, ownerId, spec, rank);
+        const rec = this.make(ownerKind, ownerId, spec);
         if (spec.enabled) this.start(rec);
         next.push(rec);
         continue;
@@ -113,10 +116,8 @@ export class ComponentHost {
         }
       }
     }
-    for (const gone of existing) if (!next.includes(gone)) this.stop(gone);
     if (next.length) this.byOwner.set(ownerId, next);
     else this.byOwner.delete(ownerId);
-    next.forEach((c) => (c.rank = rank));
     this.dirtyOrder = true;
   }
 
@@ -129,7 +130,6 @@ export class ComponentHost {
     if (!list) return;
     for (const c of list) this.stop(c);
     this.byOwner.delete(ownerId);
-    this.ownerSeq.delete(ownerId);
     this.dirtyOrder = true;
   }
 
@@ -138,18 +138,15 @@ export class ComponentHost {
     for (const list of this.byOwner.values()) for (const c of list) this.stop(c);
     this.byOwner.clear();
     this.ordered = [];
-    this.ownerSeq.clear();
     this.bodyHandles.clear();
     this.jointHandles.clear();
-    this.nextSeq = 0;
   }
 
-  private make(ownerKind: 'body' | 'joint', ownerId: string, spec: ComponentSpec, rank: number): CompRec {
+  private make(ownerKind: 'body' | 'joint', ownerId: string, spec: ComponentSpec): CompRec {
     return {
       spec,
       ownerKind,
       ownerId,
-      rank,
       ctx: new ComponentCtx(this.s, this, ownerKind, ownerId, spec),
       runtime: runtimeOf(spec.type) ?? null,
       state: undefined,
@@ -201,18 +198,26 @@ export class ComponentHost {
 
   // ---- stepping ----------------------------------------------------------------------------
 
+  /**
+   * Every component in execution order: bodies first, in the order they joined the world (`BodyRec.seq`), then
+   * joints in the order of the world's joint list, each owner's components in array order. The order comes from the
+   * world, not from when a component happened to be added, so it is the same after a restore or a live edit.
+   */
   private order(): CompRec[] {
     if (this.dirtyOrder) {
+      const jointRank = new Map<string, number>();
+      this.s.jointOrder.forEach((j, i) => jointRank.set(j.id, i));
+      const rank = (list: CompRec[]): number =>
+        list[0].ownerKind === 'body'
+          ? (this.s.bodies.get(list[0].ownerId)?.seq ?? 0)
+          : JOINTS_AFTER_BODIES + (jointRank.get(list[0].ownerId) ?? 0);
       this.ordered = [...this.byOwner.values()]
-        .flat()
-        .sort((a, b) => a.rank - b.rank || this.indexIn(a) - this.indexIn(b));
+        .map((list) => ({ rank: rank(list), list }))
+        .sort((a, b) => a.rank - b.rank)
+        .flatMap((o) => o.list);
       this.dirtyOrder = false;
     }
     return this.ordered;
-  }
-
-  private indexIn(rec: CompRec): number {
-    return (this.byOwner.get(rec.ownerId) ?? []).indexOf(rec);
   }
 
   prestep(dt: number): void {

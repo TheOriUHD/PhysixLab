@@ -146,6 +146,10 @@ export function collectEvents(s: WorldState, t: number): void {
     // Watching components see every contact start, un-aggregated (see `stepPending`).
     if (s.contactWatchers > 0) s.freshContacts.push(blank());
   });
+  // Owners of colliders removed since the last drain were only needed to name the events just collected. They are
+  // forgotten here, not at the end of a frame: a frame without a step (paused, or shorter than a fixed step) must not
+  // lose the exit event of a body that was removed while inside a sensor.
+  s.retired.clear();
 }
 
 /** Read the manifold of a contact pair into `p` (impulse, strongest-so-far, point, normal, approach speed). */
@@ -218,7 +222,6 @@ export function stepPending(s: WorldState): void {
  * End of frame: turn the pending contacts into events for the page (strongest first, at most `maxPerFrame`).
  */
 export function flushContacts(s: WorldState): void {
-  s.retired.clear();
   if (!s.pendingContacts.size) return;
   refreshPending(s);
   const cfg = s.eventCfg;

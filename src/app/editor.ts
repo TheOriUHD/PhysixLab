@@ -280,12 +280,14 @@ export class Editor {
   paste(at?: Vec3): void {
     if (!this.clipboard.length) return;
     // Re-clone with new ids on every paste and shift away from the originals.
+    // Centre on the bodies; a clipboard of lights, paths or groups alone is centred on those instead.
     const bodies = this.clipboard.filter(isBody);
-    const center: Vec3 = bodies.length
+    const anchors: PosedEntity[] = bodies.length ? bodies : this.clipboard.filter(isPosed);
+    const center: Vec3 = anchors.length
       ? [
-          bodies.reduce((s, b) => s + b.position[0], 0) / bodies.length,
-          bodies.reduce((s, b) => s + b.position[1], 0) / bodies.length,
-          bodies.reduce((s, b) => s + b.position[2], 0) / bodies.length,
+          anchors.reduce((s, b) => s + b.position[0], 0) / anchors.length,
+          anchors.reduce((s, b) => s + b.position[1], 0) / anchors.length,
+          anchors.reduce((s, b) => s + b.position[2], 0) / anchors.length,
         ]
       : [0, 0, 0];
     const offset: Vec3 = at ? [at[0] - center[0], 0, at[2] - center[2]] : [0.8, 0, 0.8];
@@ -420,14 +422,26 @@ export class Editor {
   ungroup(ids: string[] = this.store.selection): number {
     const groups = ids.map((id) => this.store.group(id)).filter((g): g is GroupEntity => !!g);
     if (!groups.length) return 0;
+    const dissolving = new Set(groups.map((g) => g.id));
+    // Members move up to the nearest ancestor that is not itself being dissolved (none: the top level).
+    const survivor = (g: GroupEntity): string | undefined => {
+      let up = g.parent;
+      const seen = new Set<string>([g.id]);
+      while (up !== undefined && dissolving.has(up) && !seen.has(up)) {
+        seen.add(up);
+        up = this.store.group(up)?.parent;
+      }
+      return up !== undefined && this.store.has(up) && !dissolving.has(up) ? up : undefined;
+    };
     const freed: string[] = [];
     this.store.transact('Ungroup', () => {
       for (const g of groups) {
         const kids = this.store.children(g.id);
-        // Re-parent to the grandparent first; removing the group then releases whatever is left.
-        if (g.parent !== undefined && this.store.has(g.parent) && !groups.some((o) => o.id === g.parent)) {
+        // Re-parent to the surviving ancestor first; removing the group then releases whatever is left.
+        const up = survivor(g);
+        if (up !== undefined) {
           this.store.updateMany(
-            kids.map((k) => [k.id, { parent: g.parent }]),
+            kids.map((k) => [k.id, { parent: up }]),
             'Ungroup',
           );
         }
@@ -447,8 +461,7 @@ export class Editor {
    * pose. Refuses to create a cycle (a group inside itself or one of its descendants). One undo step.
    */
   setParent(ids: string[], parentId: string | null): boolean {
-    const target = parentId === null ? null : this.store.get(parentId);
-    if (parentId !== null && !target) return false;
+    if (parentId !== null && !this.store.group(parentId)) return false;
     const index = childIndex(this.store.all());
     const patches: [string, Partial<Entity>][] = [];
     for (const id of ids) {

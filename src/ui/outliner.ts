@@ -158,12 +158,13 @@ export class Outliner {
         // A filtered list is flat: members of a group are shown wherever they match.
         for (const o of objects) this.list.appendChild(this.item(o, 0, 0));
       } else {
-        const present = new Set(objects.map((o) => o.id));
+        // Only groups hold members in the tree; an object linked to anything else (a hand-edited file) stays at the top.
+        const folders = new Set(objects.filter(isGroup).map((o) => o.id));
         const kids = new Map<string, Entity[]>();
         const roots: Entity[] = [];
         for (const o of objects) {
           const p = parentOf(o);
-          if (p !== undefined && present.has(p)) {
+          if (p !== undefined && folders.has(p)) {
             const list = kids.get(p);
             if (list) list.push(o);
             else kids.set(p, [o]);
