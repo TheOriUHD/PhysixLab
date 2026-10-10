@@ -1,0 +1,66 @@
+/** Picking and placement helpers: what is under the pointer, and where new objects should appear. */
+import { Vector3 } from 'three';
+import type { Vec3 } from '../core/math';
+import { halfHeight } from '../model/shapes';
+import type { ShapeType } from '../model/types';
+import type { PickHit } from '../render/picking';
+import type { App } from './app';
+
+export class Placement {
+  constructor(private app: App) {}
+
+  /** Pick a body or joint under the pointer. */
+  pickEntity(
+    ev: { clientX: number; clientY: number },
+    opts: { bodies?: boolean; joints?: boolean } = {},
+  ): PickHit | null {
+    const { app } = this;
+    const targets = [];
+    if (opts.joints !== false) targets.push(...app.joints.pickables());
+    // Joint gizmos draw on top, so give them priority when they are hit.
+    if (targets.length) {
+      const j = app.picker.pick(ev, targets);
+      if (j) {
+        const b = opts.bodies !== false ? app.picker.pick(ev, app.bodies.pickables()) : null;
+        // Prefer a body only if it is clearly in front of the joint handle.
+        if (!b || b.distance > j.distance - 0.15) return j;
+        return b;
+      }
+    }
+    if (opts.bodies === false) return null;
+    return app.picker.pick(ev, [...app.bodies.pickables(), ...app.softs.pickables()]);
+  }
+
+  /** Point where something new should be placed when the user clicks "add" (centre of the view). */
+  viewCenterPlacement(shapeType: ShapeType, size: Vec3): Vec3 {
+    const rect = this.app.viewport.dom.getBoundingClientRect();
+    return this.placementAt(
+      { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height * 0.6 },
+      shapeType,
+      size,
+    );
+  }
+
+  placementAt(ev: { clientX: number; clientY: number }, shapeType: ShapeType, size: Vec3): Vec3 {
+    const { app } = this;
+    const hh = halfHeight({ type: shapeType, size });
+    let p: Vec3;
+    const hit = app.picker.pick(ev, app.bodies.pickables());
+    const g = app.picker.groundPoint(ev, 0);
+    if (hit && hit.normal && (!g || hit.distance < app.camera.position.distanceTo(g))) {
+      const n = hit.normal.clone().normalize();
+      const off = n.y > 0.7 ? new Vector3(0, hh + 0.01, 0) : n.clone().multiplyScalar(hh + 0.01);
+      p = [hit.point.x + off.x, hit.point.y + off.y, hit.point.z + off.z];
+    } else if (g && g.distanceTo(app.camera.position) < 150) {
+      p = [g.x, hh + 0.001, g.z];
+    } else {
+      const t = app.viewport.controls.target;
+      p = [t.x, hh + 0.001, t.z];
+    }
+    if (app.prefs.value.snap) {
+      const s = app.prefs.value.snapGrid;
+      p = [Math.round(p[0] / s) * s, p[1], Math.round(p[2] / s) * s];
+    }
+    return p;
+  }
+}

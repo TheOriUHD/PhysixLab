@@ -75,6 +75,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design decisions (why a w
 npm test            # 65+ unit/physics tests (Vitest, runs the real Rapier engine in Node)
 npm run test:e2e    # drives the real UI in headless Chromium (starts its own dev server)
 E2E_SHOTS=1 npm run test:e2e   # …and writes screenshots to e2e/out/
+E2E_PORT=5231 E2E_FILTER=joint npm run test:e2e   # another port (default 5199), only matching tests
 ```
 
 The physics tests check the engine against analytic results: free fall, momentum conservation, restitution, friction-angle thresholds, pendulum and spring-mass periods, motor torque and speed, joint limits, spring breaking, energy conservation (double pendulum to 0.2 % over 4 s), determinism, and live add / edit / remove of bodies. Every example scene has a behavioural test (the car drives, steers and reverses; the cradle transfers momentum; the tower stands until it is hit; the banner tears; cloth drapes over a sphere without penetrating it; …).

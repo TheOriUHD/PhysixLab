@@ -34,6 +34,7 @@ Plain JSON: `SceneDocument { settings, entities[] }` where an entity is a **body
 ### `physics/` — the simulation
 
 * **`PhysicsWorld`** (pure TypeScript around Rapier) builds a Rapier world from a document, applies live edits, advances time and reports state. It has no DOM/worker dependency, so it runs identically in the worker and in the Node unit tests — which is how the physics is verified against analytic results.
+* **Module layout** — `physics/world.ts` re-exports the public API; the implementation is split by concern under `physics/world/`. `PhysicsWorld` (`physicsWorld.ts`) is a thin façade that owns one `WorldState` (`state.ts`: Rapier world, body / joint / soft records, grab state, accumulators) and delegates to function modules that take the state as first argument: `colliders` (shape → collider), `bodies`, `joints` (construction, motors, per-joint measurement, spring breakage), `soft`, `settings` (gravity, step rate, ground), `edits` (live remove / update / teleport), `forces` (thrusters, grab spring, impulse, explosion), `ops` (`SimOp` dispatch), `stepping` (fixed-step accumulator, pre/post step), `readback` (poses, joints, contacts, events), `energy` and `stats`. Hot loops (stepping, readback) write into caller-supplied buffers.
 * **Worker**: the world lives in a Web Worker. The main thread sends `tick` messages (wall-clock dt, time scale, pressed keys, run flag) and receives a frame: a `Float32Array` of poses/velocities/net forces/energy per body, a joint-state array (angle, speed, spring force, broken flag), optional contact points and statistics. Buffers are *transferred*, not copied. At most one tick is in flight; elapsed time accumulates meanwhile, so a slow simulation falls behind real time (the status bar shows the speed percentage) instead of stalling the UI.
 * **Time stepping**: fixed step (60/120/240/480 Hz, default 120) with an accumulator; the last step's pose is interpolated so rendering is smooth at any display rate and slow motion (0.1×) stays smooth. A per-tick time budget bounds worst-case work.
 * **Materials**: mass = density × volume (Rapier integrates mass properties of the real shape, including convex hulls). Pair friction uses the **average** of the two surface coefficients; pair restitution uses the **maximum** — so a "rubber ball with e = 0.85" bounces to ≈ e² of its drop height on any floor, which matches how restitution is usually quoted.
@@ -56,6 +57,7 @@ Plain JSON: `SceneDocument { settings, entities[] }` where an entity is a **body
 
 ### `app/` — orchestration
 
+* `App` (`app/app.ts`, exposed as `window.physicslab`) is the façade the UI talks to. It owns the long-lived objects (store, simulation controller, editor, viewport, views, gizmo) and the event wiring, and forwards commands to small collaborators: `prefsSync` (preferences → renderer / simulation / gizmo, tool hints), `viewSync` (document → views, selection outline, ephemeral views), `gizmoController`, `measureTool` (measure + joint-draft annotations), `placement` (picking, where new objects go), `cameraControl` (frame / follow), `sceneCommands` (add shape / soft body / prefab, load scene / template), `projectiles` (shoot, blast) and `frameLoop` (the per-frame update).
 * `SimController` owns the **edit / running / paused** state machine. *Edit* has no simulated world (the viewport shows the document); *Simulate* builds a worker world from the document; *Reset* discards it. While a world exists, document changes are mirrored into it as ops: structural and property edits (add, delete, material, motor, gravity…) apply to **both** the document and the live world; *pose* edits made while simulating (dragging a paused body, typing a position) apply to the live world only, so Reset still returns to what was built. "Use current simulation state as the starting layout" in the Edit menu promotes the live poses into the document.
 * Simulation-only bodies (projectiles) live in an `ephemeral` map: they exist in the live world and renderer but never in the document.
 * `Editor` holds the verbs (add shape, add joint with smart defaults — a cylinder's own axis for wheel hinges, otherwise the horizontal axis facing the camera — duplicate with internal joints, paste, delete, capture state).
@@ -64,7 +66,7 @@ Plain JSON: `SceneDocument { settings, entities[] }` where an entity is a **body
 
 ### `ui/`
 
-Vanilla TypeScript with a tiny `h()` hyperscript helper — no framework to keep the bundle small and the render loop uncontested. The inspector rebuilds its DOM only when the *kind* of selection changes and otherwise refreshes values in place, so typing and scrubbing never lose focus; live readouts refresh at ~11 Hz from the frame buffer. Number fields scrub by dragging their axis label.
+Vanilla TypeScript with a tiny `h()` hyperscript helper — no framework to keep the bundle small and the render loop uncontested. The inspector (`ui/inspector/`: `index.ts` orchestration, `body.ts`, `soft.ts`, `joint.ts` panels, `shared.ts` context with the header and edit / undo-grouping helpers) rebuilds its DOM only when the *kind* of selection changes and otherwise refreshes values in place, so typing and scrubbing never lose focus; live readouts refresh at ~11 Hz from the frame buffer. Number fields scrub by dragging their axis label.
 
 ## Why these choices
 
@@ -79,7 +81,7 @@ Vanilla TypeScript with a tiny `h()` hyperscript helper — no framework to keep
 
 ## Extending
 
-* **New shape**: add to `ShapeType`, `defaultSize/normalizeSize/volume/hullPoints` in `model/shapes.ts`, a collider branch in `PhysicsWorld.makeCollider`, a geometry branch in `bodyViews.ts`, an icon.
-* **New joint type**: add to `JointType`, build it in `PhysicsWorld.addJoint`, draw it in `jointViews.ts`, add inspector sections.
+* **New shape**: add to `ShapeType`, `defaultSize/normalizeSize/volume/hullPoints` in `model/shapes.ts`, a collider branch in `physics/world/colliders.ts` (`makeCollider`), a geometry branch in `bodyViews.ts`, an icon.
+* **New joint type**: add to `JointType`, build it in `physics/world/joints.ts` (`addJoint`), draw it in `jointViews.ts`, add inspector sections.
 * **New analysis**: put the quantity in the frame buffer (`protocol.ts`), plot it in `ui/telemetry.ts` or colour by it in `bodyViews.ts`.
 * **Different engine / GPU compute**: replace `PhysicsWorld` behind the same ops/frame protocol (`physics/protocol.ts`); nothing else knows Rapier exists.
