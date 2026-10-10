@@ -1,7 +1,6 @@
 /* Chart widgets (UI-30/31/32): the Charts tab of the bottom dock and the trace picker. */
 .ch-panel { position: relative; flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .ch-grid { flex: 1; min-height: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px; padding: 6px; overflow: auto; }
-.ch-grid:empty { display: none; }
 .ch-widget { position: relative; flex: 0 0 auto; max-width: 100%; height: 100%; min-height: 168px; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border-2); border-radius: var(--radius); overflow: hidden; }
 .ch-widget.fixed-h { height: auto; min-height: 0; }
 .ch-widget.dragging { opacity: 0.45; }
@@ -66,7 +65,9 @@
 .ch-empty-title { font-weight: 600; color: var(--text); font-size: 13.5px; }
 .ch-emptystate code, .td code, .ch-panel code { font-family: var(--mono); font-size: 11.5px; background: var(--bg); padding: 1px 5px; border-radius: 4px; color: var(--accent-2); }
 .ch-presets { display: flex; flex-wrap: wrap; gap: 6px; }
-.ch-addchart { height: 24px; }
+.ch-addchart { height: 24px; flex: none; white-space: nowrap; }
+/* the dock's tab strip is crowded on narrow windows: keep just the icon there */
+@media (max-width: 1500px) { .ch-addchart .ch-addlabel { display: none; } .ch-addchart { padding: 3px 7px; } }
 
 /* trace picker */
 .td { display: flex; flex-direction: column; gap: 10px; }
@@ -97,3 +98,7 @@
 
 /* the Charts tab needs more room than the other dock tabs */
 .dock:has(.ch-panel:not([style*="none"])) { height: max(var(--dock-h), 300px); }
+
+.ch-addtile { flex: 0 0 auto; width: 132px; height: 100%; min-height: 168px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: none; border: 1px dashed var(--border-2); border-radius: var(--radius); color: var(--text-3); }
+.ch-addtile:hover { color: var(--text); border-color: var(--accent-line); background: var(--accent-bg); }
+.ch-addtile .icon { width: 20px; height: 20px; }
