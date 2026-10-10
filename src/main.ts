@@ -21,8 +21,10 @@ import './styles/sf.css'; // -- SF --
 import './styles/joints.css';
 import './styles/jointtool.css';
 import './styles/sf-inspector.css'; // -- SF --
+import './styles/data.css'; // -- DT --
 import { App } from './app/app';
 import { InputController } from './app/input';
+import { initDataPlatform } from './app/data/platform'; // -- DT
 import { Persistence } from './app/persistence';
 import { newReport } from './model/errors';
 import type { SceneDocument } from './model/types';
@@ -145,11 +147,23 @@ async function boot(): Promise<void> {
   // -- DT-10: open IndexedDB storage (migrates old localStorage data) before reading the autosave --
   const storageState = await app.persistence.init();
   if (storageState.warning) app.toast(storageState.warning, 'warn');
+  // -- DT-11/12: restore points, crash detection, worker-crash handling --
+  const data = await initDataPlatform(app);
+  let restoredFrom: 'autosave' | 'restore-point' | 'none' = 'none';
   if (!loaded) {
     const auto = app.persistence.loadAutosave();
     if (auto && auto.entities.length) {
       app.store.load(auto);
       loaded = true;
+      restoredFrom = 'autosave';
+    } else if (data.crash.crashed) {
+      // The autosave is gone or empty after a crash: fall back to the newest restore point.
+      const rp = await data.recoveryDoc();
+      if (rp && rp.entities.length) {
+        app.store.load(rp);
+        loaded = true;
+        restoredFrom = 'restore-point';
+      }
     }
   }
   const demo = new URLSearchParams(location.search).get('scene');
@@ -166,6 +180,7 @@ async function boot(): Promise<void> {
   if (tv) app.viewport.setView(tv);
   else if (!viewSet) app.frameAll(false);
   app.updateToolHint();
+  data.announceRecovery(restoredFrom); // -- DT-12
 
   // Drag & drop a scene file anywhere to import it.
   window.addEventListener('dragover', (e) => {

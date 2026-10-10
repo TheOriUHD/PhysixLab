@@ -36,6 +36,8 @@ interface ClientEvents extends Record<string, unknown> {
   /** A reply on a custom channel (protocol v2). */
   custom: { channel: string; data: unknown };
   error: string;
+  // -- DT-12: the worker died or hung; the page restarts it (`restart()`) --
+  crash: string;
 }
 
 /**
@@ -91,12 +93,34 @@ export class SimClient extends Emitter<ClientEvents> {
 
   constructor() {
     super();
-    this.worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
-    this.worker.onmessage = (e: MessageEvent<FromWorker>) => this.onMessage(e.data);
-    this.worker.onerror = (e) => {
+    this.worker = this.spawn();
+  }
+
+  private spawn(): Worker {
+    const worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
+    worker.onmessage = (e: MessageEvent<FromWorker>) => this.onMessage(e.data);
+    // -- DT-12: an uncaught error inside the worker is a crash, not a message --
+    worker.onerror = (e) => {
+      e.preventDefault();
       this.lastError = e.message; // -- UI-B: diagnostics --
-      this.emit('error', e.message);
+      this.emit('crash', e.message || 'The physics worker stopped unexpectedly.');
     };
+    return worker;
+  }
+
+  /**
+   * DT-12: replace a crashed or hung worker by a fresh one. The simulated world is gone (`active` becomes false);
+   * the caller rebuilds it from the document when the user plays again.
+   */
+  restart(): void {
+    this.worker.terminate();
+    this.cancelRequests();
+    this.active = false;
+    this.inflight = false;
+    this.opQueue = [];
+    this.pendingDt = 0;
+    this.pendingSteps = 0;
+    this.worker = this.spawn();
   }
 
   private send(msg: ToWorker): void {
@@ -310,6 +334,11 @@ export class SimClient extends Emitter<ClientEvents> {
     if (!this.active) return;
     this.pendingDt += o.dt;
     this.pendingSteps += o.stepCount ?? 0;
+    // -- DT-12: no answer for 10 s means the worker hung (a normal tick is bounded by the per-tick time budget) --
+    if (this.inflight && performance.now() - this.inflightSince > 10_000) {
+      this.emit('crash', 'The physics worker stopped responding.');
+      return;
+    }
     if (this.inflight && performance.now() - this.inflightSince < 1000) return;
     if (this.opQueue.length) {
       this.send({ type: 'ops', ops: this.opQueue });

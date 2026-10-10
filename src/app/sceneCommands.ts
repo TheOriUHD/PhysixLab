@@ -10,6 +10,7 @@ import type { BodyEntity, LightType, SceneDocument, ShapeType, SoftType } from '
 import type { App } from './app';
 import { dropPoseForShape } from './edit/surfaceDrop';
 import { placeEntities } from '../model/edit/shapeSupport';
+import { riskyOperation } from './storage/restorePoints'; // -- DT-11
 
 export class SceneCommands {
   constructor(private app: App) {}
@@ -101,6 +102,8 @@ export class SceneCommands {
   loadDocument(doc: SceneDocument, view?: 'frame'): void {
     const { app } = this;
     app.sim.reset();
+    // -- DT-11: keep the scene that is about to be replaced as a "before" restore point --
+    if (app.store.size > 0) riskyOperation(`Before opening “${doc.name}”`);
     app.store.load(doc);
     app.persistence.saveNow();
     if (view === 'frame') app.frameAll(false);
