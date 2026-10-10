@@ -5,21 +5,8 @@
  */
 import { DEG, qfromAxisAngle, qfromEuler, type Vec3 } from '../core/math';
 import { Builder, idleMotor, noKeys, rotX, rotY, rotZ } from './builder';
+import type { TemplateInfo } from './content/registry';
 import type { BodyEntity, SceneDocument } from './types';
-
-export interface TemplateInfo {
-  id: string;
-  name: string;
-  category: 'Vehicles' | 'Mechanisms' | 'Structures' | 'Physics labs' | 'Soft bodies' | 'Playground';
-  blurb: string;
-  /** Short hint shown after loading. */
-  hint: string;
-  /** Optional opening camera. */
-  view?: { position: [number, number, number]; target: [number, number, number] };
-  /** Name of a body to select and follow with the camera while simulating. */
-  follow?: string;
-  build(): SceneDocument;
-}
 
 // ---- scenes -------------------------------------------------------------------------------------
 
@@ -596,7 +583,8 @@ function tearingBanner(): SceneDocument {
   return b.done();
 }
 
-export const TEMPLATES: TemplateInfo[] = [
+/** The example scenes that ship with the app, in Scenes-tab order (registered in `content/builtin.ts`). */
+export const BUILTIN_TEMPLATES: readonly TemplateInfo[] = [
   {
     id: 'jelly',
     name: 'Jelly playground',
@@ -732,5 +720,3 @@ export const TEMPLATES: TemplateInfo[] = [
     build: ballPit,
   },
 ];
-
-export const TEMPLATE_BY_ID = new Map(TEMPLATES.map((t) => [t.id, t]));

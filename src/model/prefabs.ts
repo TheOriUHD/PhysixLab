@@ -4,16 +4,9 @@
  */
 import { DEG, type Vec3 } from '../core/math';
 import { Builder, rotX, rotZ } from './builder';
+import type { PrefabInfo } from './content/registry';
 import { buildCar } from './templates';
 import type { Entity } from './types';
-
-export interface PrefabInfo {
-  id: string;
-  name: string;
-  icon: string;
-  blurb: string;
-  build(): Entity[];
-}
 
 const free = { linearDamping: 0.0, angularDamping: 0.0, canSleep: false };
 
@@ -195,7 +188,8 @@ function piston(): Entity[] {
   return b.doc.entities;
 }
 
-export const PREFABS: PrefabInfo[] = [
+/** The prefabs that ship with the app, in Prefabs-tab order (registered in `content/builtin.ts`). */
+export const BUILTIN_PREFABS: readonly PrefabInfo[] = [
   {
     id: 'car',
     name: 'Drivable car',

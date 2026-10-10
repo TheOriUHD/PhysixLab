@@ -4,7 +4,7 @@ import { InputController } from './app/input';
 import { Persistence } from './app/persistence';
 import { newReport } from './model/errors';
 import type { SceneDocument } from './model/types';
-import { TEMPLATE_BY_ID } from './model/templates';
+import { getTemplate } from './model/content';
 import { buildDock } from './ui/telemetry';
 import { buildLeftPanel } from './ui/leftPanel';
 import { buildRightPanel } from './ui/rightPanel';
@@ -103,16 +103,16 @@ async function boot(): Promise<void> {
     }
   }
   const demo = new URLSearchParams(location.search).get('scene');
-  if (demo && TEMPLATE_BY_ID.has(demo)) {
+  if (demo && getTemplate(demo)) {
     app.loadTemplate(demo);
     loaded = true;
-    viewSet = !!TEMPLATE_BY_ID.get(demo)!.view;
+    viewSet = !!getTemplate(demo)?.view;
   }
   if (!loaded) {
     app.loadTemplate('car');
     viewSet = true;
   }
-  const tv = demo ? TEMPLATE_BY_ID.get(demo)?.view : undefined;
+  const tv = demo ? getTemplate(demo)?.view : undefined;
   if (tv) app.viewport.setView(tv);
   else if (!viewSet) app.frameAll(false);
   app.updateToolHint();

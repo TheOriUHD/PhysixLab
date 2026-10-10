@@ -1,7 +1,7 @@
 import type { App } from '../app/app';
 import { COLOR_MODE_LABELS, type ColorMode } from '../render/bodyViews';
 import { newReport } from '../model/errors';
-import { TEMPLATES } from '../model/templates';
+import { listTemplates } from '../model/content';
 import { iconButton, segmented } from './controls';
 import { h } from './dom';
 import { icon, LOGO } from './icons';
@@ -55,7 +55,7 @@ export function buildTopbar(app: App): HTMLElement {
       () => [
         { label: 'New scene', icon: 'plus', action: () => newScene(app) },
         { heading: 'Examples' },
-        ...TEMPLATES.map((t): MenuItem => ({
+        ...listTemplates().map((t): MenuItem => ({
           label: t.name,
           action: () => confirmReplace(app, () => app.loadTemplate(t.id)),
         })),

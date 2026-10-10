@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { newDocument } from '../src/model/factory';
 import { newReport } from '../src/model/errors';
-import { PREFABS } from '../src/model/prefabs';
 import { hasShape } from '../src/model/shapeRegistry';
-import { TEMPLATES } from '../src/model/templates';
+import { listPrefabs, listTemplates } from '../src/model/content';
 import { parseDocument, sanitizeDocument, serializeDocument } from '../src/model/serialize';
 import { PhysicsWorld } from '../src/physics/world';
 import { qrot, type Vec3 } from '../src/core/math';
@@ -12,6 +11,8 @@ import type { BodyEntity, SceneDocument } from '../src/model/types';
 const log = (...a: unknown[]) =>
   process.stderr.write('\n' + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' '));
 
+const TEMPLATES = listTemplates();
+const PREFABS = listPrefabs();
 const byId = (id: string) => TEMPLATES.find((t) => t.id === id)!;
 const nameOf = (doc: SceneDocument, name: string) => doc.entities.find((e) => e.name === name) as BodyEntity;
 const run = (w: PhysicsWorld, s: number) => {

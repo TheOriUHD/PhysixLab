@@ -317,6 +317,10 @@ export class App extends Emitter<AppEvents> {
     this.commands.loadTemplate(id);
   }
 
+  loadMap(id: string): void {
+    this.commands.loadMap(id);
+  }
+
   newScene(): void {
     this.commands.newScene();
   }

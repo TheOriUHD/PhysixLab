@@ -3,10 +3,9 @@ import { Vector3 } from 'three';
 import type { Vec3 } from '../core/math';
 import { translateEntities } from '../model/builder';
 import { createBody, newDocument } from '../model/factory';
-import { PREFABS } from '../model/prefabs';
 import { halfHeight } from '../model/shapes';
 import { cloneEntities } from '../model/store';
-import { TEMPLATE_BY_ID } from '../model/templates';
+import { getMap, getPrefab, getTemplate } from '../model/content';
 import type { BodyEntity, LightType, SceneDocument, ShapeType, SoftType } from '../model/types';
 import type { App } from './app';
 
@@ -70,7 +69,7 @@ export class SceneCommands {
 
   insertPrefab(id: string): void {
     const { app } = this;
-    const pf = PREFABS.find((p) => p.id === id);
+    const pf = getPrefab(id);
     if (!pf) return;
     const t = app.viewport.controls.target;
     const snap = app.prefs.value.snap ? 0.5 : 0.01;
@@ -97,7 +96,7 @@ export class SceneCommands {
 
   loadTemplate(id: string): void {
     const { app } = this;
-    const t = TEMPLATE_BY_ID.get(id);
+    const t = getTemplate(id);
     if (!t) return;
     this.loadDocument(t.build(), t.view ? undefined : 'frame');
     if (t.view) app.viewport.flyTo(new Vector3(...t.view.position), new Vector3(...t.view.target), 0.6);
@@ -107,6 +106,17 @@ export class SceneCommands {
       app.prefs.set({ followSelection: true });
     } else app.prefs.set({ followSelection: false });
     app.toast(t.hint, 'info');
+  }
+
+  /** Open a registered map: its scene, its opening camera, and its objective as the hint. */
+  loadMap(id: string): void {
+    const { app } = this;
+    const m = getMap(id);
+    if (!m) return;
+    this.loadDocument(m.build());
+    app.viewport.flyTo(new Vector3(...m.camera.position), new Vector3(...m.camera.target), 0.6);
+    app.prefs.set({ followSelection: false });
+    app.toast(m.objective, 'info');
   }
 
   newScene(): void {

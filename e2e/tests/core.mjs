@@ -426,7 +426,9 @@ test('soft-body scenes (jelly, cloth, tearing banner) render and simulate', asyn
 
 test('every example scene loads and runs for a moment without errors', async () => {
   const page = await newPage();
-  const ids = await page.evaluate(async () => (await import('/src/model/templates.ts')).TEMPLATES.map((t) => t.id));
+  const ids = await page.evaluate(async () =>
+    (await import('/src/model/content/index.ts')).listTemplates().map((t) => t.id),
+  );
   for (const id of ids) {
     await page.evaluate((id) => {
       window.physicslab.sim.reset();

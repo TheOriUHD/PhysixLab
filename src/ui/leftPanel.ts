@@ -1,8 +1,7 @@
 import type { App } from '../app/app';
 import { JOINT_TYPE_LABELS } from '../model/factory';
-import { PREFABS } from '../model/prefabs';
 import { listShapes } from '../model/shapeRegistry';
-import { TEMPLATES } from '../model/templates';
+import { listPrefabs, listTemplates, templateCategories } from '../model/content';
 import { SOFT_LABELS } from '../model/factory';
 import type { JointType, LightType, SoftType } from '../model/types';
 import { button } from './controls';
@@ -186,7 +185,7 @@ function prefabTab(app: App): HTMLElement {
   const root = h('div');
   root.appendChild(h('div', { class: 'group-title' }, 'Insert an assembly'));
   const cards = h('div', { class: 'cards' });
-  for (const p of PREFABS) {
+  for (const p of listPrefabs()) {
     const c = h(
       'button',
       { class: 'card', type: 'button', title: 'Insert at the centre of the view' },
@@ -256,12 +255,10 @@ function scenesTab(app: App, rerender: () => void): HTMLElement {
   );
   root.appendChild(actions);
 
-  const order = ['Vehicles', 'Mechanisms', 'Soft bodies', 'Physics labs', 'Structures', 'Playground'];
-  const cats = [...new Set(TEMPLATES.map((t) => t.category))].sort((a, b) => order.indexOf(a) - order.indexOf(b));
-  for (const cat of cats) {
+  for (const cat of templateCategories()) {
     root.appendChild(h('div', { class: 'group-title' }, cat));
     const cards = h('div', { class: 'cards' });
-    for (const t of TEMPLATES.filter((x) => x.category === cat)) {
+    for (const t of listTemplates().filter((x) => x.category === cat)) {
       const c = h('button', { class: 'card', type: 'button' }, h('h4', null, t.name), h('p', null, t.blurb));
       c.addEventListener('click', () => void confirmReplace(app, () => app.loadTemplate(t.id)));
       cards.appendChild(c);
