@@ -11,5 +11,40 @@ import { icosahedron } from './icosahedron';
 import { prism } from './prism';
 import { sphere } from './sphere';
 import { wedge } from './wedge';
+// -- SH: primitive shapes I (torus, ring, tube, arch, stairs, spiral stairs, hemisphere, dome, frustum, beams) --
+import { arch } from './arch';
+import { dome } from './dome';
+import { frustum } from './frustum';
+import { hemisphere } from './hemisphere';
+import { iBeam } from './iBeam';
+import { lBeam } from './lBeam';
+import { ring } from './ring';
+import { spiralStairs } from './spiralStairs';
+import { stairs } from './stairs';
+import { tBeam } from './tBeam';
+import { torus } from './torus';
+import { tube } from './tube';
 
-export const BUILTIN_SHAPES: readonly ShapeDef[] = [box, sphere, cylinder, capsule, cone, wedge, prism, icosahedron];
+export const BUILTIN_SHAPES: readonly ShapeDef[] = [
+  box,
+  sphere,
+  cylinder,
+  capsule,
+  cone,
+  wedge,
+  prism,
+  icosahedron,
+  // -- SH: primitive shapes I --
+  torus,
+  ring,
+  tube,
+  arch,
+  stairs,
+  spiralStairs,
+  hemisphere,
+  dome,
+  frustum,
+  iBeam,
+  lBeam,
+  tBeam,
+];
