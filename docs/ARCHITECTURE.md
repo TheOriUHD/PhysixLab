@@ -81,7 +81,7 @@ Vanilla TypeScript with a tiny `h()` hyperscript helper — no framework to keep
 
 ## Extending
 
-* **New shape**: one file under `src/model/shapes/` exporting a `ShapeDef` (id, label, icon, category, default size, size normalisation, parameter schema, volume, bounding radius, convex points, Rapier collider factory, three.js geometry factory) and one entry in `src/model/shapes/index.ts`. The palette, inspector, world, renderer and loader all read the registry (`src/model/shapeRegistry.ts`); nothing else changes.
+* **New shape**: one file under `src/model/shapes/` exporting a `ShapeDef` (id, label, icon, category, default size, size normalisation, parameter schema, volume, bounding radius, convex points, Rapier collider factory, three.js geometry factory) and one entry in `src/model/shapes/index.ts`. The palette, inspector, world, renderer and loader all read the registry (`src/model/shapeRegistry.ts`); nothing else changes. The physics worker has its own copy of the registry, so register shapes from `shapes/index.ts` (which both threads import), not from a main-thread-only module — otherwise the shape would be drawn correctly but simulated as a box.
 * **New joint type**: add to `JointType`, build it in `physics/world/joints.ts` (`addJoint`), draw it in `jointViews.ts`, add inspector sections.
 * **New analysis**: put the quantity in the frame buffer (`protocol.ts`), plot it in `ui/telemetry.ts` or colour by it in `bodyViews.ts`.
 * **Different engine / GPU compute**: replace `PhysicsWorld` behind the same ops/frame protocol (`physics/protocol.ts`); nothing else knows Rapier exists.

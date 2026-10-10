@@ -1,7 +1,7 @@
 /** Rigid-body construction. */
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { Vec3 } from '../../core/math';
-import { shapeBoundingRadius } from '../../model/shapeRegistry';
+import { bodyBoundingRadius } from '../../model/compound';
 import type { BodyEntity } from '../../model/types';
 import { applyMassOverrides } from './bodyFields';
 import { makeColliders } from './colliders';
@@ -65,5 +65,5 @@ export function addBody(s: WorldState, def: BodyEntity, ephemeral: boolean): Bod
 /** Emulated sleep state for a dynamic body with a `sleepThreshold` (and sleeping allowed), else null. */
 export function sleepEmulation(def: BodyEntity): BodyRec['sleep'] {
   if (def.bodyType !== 'dynamic' || !def.canSleep || def.sleepThreshold === undefined) return null;
-  return { threshold: def.sleepThreshold, radius: shapeBoundingRadius(def.shape), calm: 0 };
+  return { threshold: def.sleepThreshold, radius: bodyBoundingRadius(def), calm: 0 };
 }

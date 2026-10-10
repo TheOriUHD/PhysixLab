@@ -8,7 +8,9 @@
  * model, the physics world, the renderer and the UI call the functions below and never switch on a shape id.
  *
  * Adding a shape = one new file under `src/model/shapes/` exporting a `ShapeDef` + one entry in the array
- * of `src/model/shapes/index.ts` (or a `registerShape()` call from a package's own module).
+ * of `src/model/shapes/index.ts`. The physics worker has its own copy of this registry, so a shape must be
+ * registered by a module the worker imports too — `shapes/index.ts` is one. A `registerShape()` call that
+ * only runs on the main thread would be drawn correctly but simulated as a box (the unknown-id fallback).
  *
  * This module has no runtime dependency on three.js or Rapier — the factories receive the libraries as
  * arguments (`RapierModule`, `GeometryKit`) — so the document model stays usable from the worker, the

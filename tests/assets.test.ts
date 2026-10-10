@@ -113,6 +113,25 @@ describe('base64 codec and content hash', () => {
     expect(contentHash(['physicslab'])).toBe('eca24206a458839969ee433ebfa27e82');
     expect(contentHash(['mesh', 'AAAA', 'x'])).toBe('d2353c309b74e774adb4c3b67b3aa940');
   });
+
+  it('covers the whole payload: content that differs only deep inside a large asset is not merged', () => {
+    const head = 'A'.repeat(100_000);
+    expect(contentHash([head + 'A'])).not.toBe(contentHash([head + 'B']));
+    expect(contentHash(['B' + head])).not.toBe(contentHash(['A' + head]));
+    // through the store: two 40 kB blobs identical except for the very last byte stay two assets
+    const bytes = (last: number) => {
+      const b = new Uint8Array(40_000).fill(7);
+      b[b.length - 1] = last;
+      return b;
+    };
+    const store = new SceneStore();
+    const a = store.addAsset(makeBlobAsset('A', 'application/octet-stream', bytes(1)));
+    const b = store.addAsset(makeBlobAsset('B', 'application/octet-stream', bytes(2)));
+    const twin = store.addAsset(makeBlobAsset('C', 'application/octet-stream', bytes(1)));
+    expect(b).not.toBe(a);
+    expect(twin).toBe(a);
+    expect(Object.keys(store.assets)).toHaveLength(2);
+  });
 });
 
 // ── building and decoding ─────────────────────────────────────────────────────────────────────────────

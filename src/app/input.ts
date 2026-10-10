@@ -564,7 +564,9 @@ export class InputController {
       case '5':
       case '6':
       case '7':
-      case '8': {
+      case '8':
+      case '9': {
+        // The palette order is the registry order; the first nine shapes answer to the 1–9 keys.
         const def = listShapes()[Number(k) - 1];
         if (def) app.addShape(def.id);
         break;

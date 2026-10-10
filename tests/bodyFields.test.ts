@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { qfromAxisAngle, qrot, vlen, type Vec3 } from '../src/core/math';
+import { bodyBoundingRadius, makePart } from '../src/model/compound';
 import { newReport } from '../src/model/errors';
 import { ALL_GROUPS, createBody, defaultCollision, newDocument } from '../src/model/factory';
 import { LIMITS } from '../src/model/limits';
@@ -432,6 +433,30 @@ describe('sleepThreshold (emulated: Rapier 0.21 has no per-body threshold)', () 
     run(w, 1.5); // the hitter arrives
     expect(asleep(w, 'z')).toBe(false);
     expect(w.getPose('z')!.position[0]).toBeGreaterThan(0.1);
+  });
+
+  it('judges a compound body by the reach of its parts, not by its placeholder shape', async () => {
+    // A 6 m spinner whose `shape` is a 0.2 m cube: |ω| × (shape radius) = 0.35 m/s < 1 m/s, but its tip moves at ~6 m/s.
+    const spinner = createBody({
+      shape: { type: 'box', size: [0.2, 0.2, 0.2] },
+      parts: [
+        makePart({ shape: { type: 'box', size: [0.2, 0.2, 0.2] } }),
+        makePart({ shape: { type: 'sphere', size: [0.2, 0.2, 0.2] }, position: [3, 0, 0] }),
+      ],
+      position: [0, 10, 0],
+      angularVelocity: [0, 0, 2],
+      gravityScale: 0,
+      linearDamping: 0,
+      angularDamping: 0,
+      canSleep: true,
+      sleepThreshold: 1,
+    });
+    expect(bodyBoundingRadius(spinner)).toBeCloseTo(3.1, 9);
+    expect(bodyBoundingRadius({ shape: spinner.shape })).toBeCloseTo(Math.hypot(0.2, 0.2, 0.2) / 2, 9);
+    const w = await worldOf([spinner], { ...noGround, ...zeroG });
+    run(w, SLEEP_AFTER + 1);
+    expect(asleep(w, spinner.id)).toBe(false);
+    expect(Math.abs(w.getPose(spinner.id)!.angvel[2])).toBeGreaterThan(1.9);
   });
 });
 

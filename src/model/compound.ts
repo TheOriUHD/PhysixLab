@@ -4,7 +4,7 @@
  */
 import { qrot, type Quat, type Vec3 } from '../core/math';
 import { uid } from './factory';
-import { makeShapeSpec, normalizeShapeSize, shapeVolume } from './shapeRegistry';
+import { makeShapeSpec, normalizeShapeSize, shapeBoundingRadius, shapeVolume } from './shapeRegistry';
 import type { BodyEntity, ColliderPart, MaterialSpec, PartMaterial, ShapeSpec } from './types';
 
 export interface PartInit {
@@ -32,6 +32,18 @@ export function makePart(init: PartInit): ColliderPart {
 }
 
 export const isCompound = (b: Pick<BodyEntity, 'parts'>): boolean => !!b.parts && b.parts.length > 0;
+
+/**
+ * Radius of a sphere around the body's origin that encloses all of it: its own shape, or — for a compound —
+ * every part at its offset (a compound's `shape` is only the frame its parts are scaled against).
+ */
+export function bodyBoundingRadius(b: Pick<BodyEntity, 'shape' | 'parts'>): number {
+  if (!isCompound(b)) return shapeBoundingRadius(b.shape);
+  return (b.parts as ColliderPart[]).reduce(
+    (r, p) => Math.max(r, Math.hypot(p.position[0], p.position[1], p.position[2]) + shapeBoundingRadius(p.shape)),
+    0,
+  );
+}
 
 /** The body's material with the part's overrides applied. */
 export function partMaterial(body: Pick<BodyEntity, 'material'>, part: ColliderPart): MaterialSpec {
