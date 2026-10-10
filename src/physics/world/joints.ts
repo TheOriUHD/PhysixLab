@@ -163,11 +163,14 @@ function configureUnitJoint(s: WorldState, rec: JointRec, initial: boolean): voi
   if (!joint || (def.type !== 'hinge' && def.type !== 'slider')) return;
   const u = joint as RAPIER.UnitImpulseJoint;
   if (initial) {
-    if (def.limit.enabled) u.setLimits(Math.min(def.limit.min, def.limit.max), Math.max(def.limit.min, def.limit.max));
+    // -- JT-A: limits and the position target are relative to the joint's zero; the build pose is `refOffset` from it --
+    const off = def.params.refOffset;
+    if (def.limit.enabled)
+      u.setLimits(Math.min(def.limit.min, def.limit.max) - off, Math.max(def.limit.min, def.limit.max) - off);
     u.configureMotorModel(RAPIER.MotorModel.ForceBased);
     u.setMotorMaxForce(def.motor.mode === 'off' ? 0 : def.motor.maxForce);
     rec.motorTarget =
-      def.motor.mode === 'position' && !(def.motor.keyPos || def.motor.keyNeg) ? def.motor.targetPosition : 0;
+      def.motor.mode === 'position' && !(def.motor.keyPos || def.motor.keyNeg) ? def.motor.targetPosition - off : 0;
   }
   driveMotor(s, rec, 0);
 }
@@ -197,9 +200,10 @@ export function driveMotor(s: WorldState, rec: JointRec, dt: number): void {
       rec.cache = [1, target, gain];
     }
   } else {
-    let target = m.targetPosition;
+    const off = def.params.refOffset;
+    let target = m.targetPosition - off;
     if (hasKeys) {
-      const desired = m.targetPosition * input;
+      const desired = m.targetPosition * input - off;
       const step = m.slewRate * dt;
       rec.motorTarget += clamp(desired - rec.motorTarget, -step, step);
       target = rec.motorTarget;
@@ -258,14 +262,14 @@ export function measureJoint(j: JointRec): void {
     if (d < -Math.PI) d += 2 * Math.PI;
     j.angle += d;
     j.lastTwist = tw;
-    j.value = j.angle;
+    j.value = j.angle + j.def.params.refOffset;
     const ax = qrot(qmul(qa, j.frameA), X_AXIS);
     const wa = j.A ? j.A.rb.angvel() : { x: 0, y: 0, z: 0 };
     const wb = j.B ? j.B.rb.angvel() : { x: 0, y: 0, z: 0 };
     j.speed = vdot([wb.x - wa.x, wb.y - wa.y, wb.z - wa.z], ax);
   } else if (t === 'slider') {
     const ax = qrot(qmul(qa, j.frameA), X_AXIS);
-    j.value = vdot(vsub(pb, pa), ax);
+    j.value = vdot(vsub(pb, pa), ax) + j.def.params.refOffset;
     const va = j.A ? j.A.rb.velocityAtPoint(rv(pa)) : { x: 0, y: 0, z: 0 };
     const vb = j.B ? j.B.rb.velocityAtPoint(rv(pb)) : { x: 0, y: 0, z: 0 };
     j.speed = vdot([vb.x - va.x, vb.y - va.y, vb.z - va.z], ax);
