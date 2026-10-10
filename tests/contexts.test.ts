@@ -10,7 +10,6 @@ import {
   ownerOf,
   resolveContext,
   shadowed,
-  type InputContext,
   type KeyInfo,
   type KeyState,
 } from '../src/app/input/contexts';
@@ -229,8 +228,12 @@ describe('who owns Q, W, E, R in each context (the "Q and E don\'t work" audit)'
     for (const c of ['KeyW', 'KeyA', 'KeyS', 'KeyD']) expect(ownerOf('simulating', info(c), st)).toBe('sim');
     for (const c of ['KeyQ', 'KeyE']) expect(ownerOf('simulating', info(c), st)).toBe('command');
     const editor = legendFor('simulating', st, { os: 'mac', device: 'trackpad' }).find((s) => s.id === 'editor')!;
-    expect(editor.entries.find((x) => x.id === 'tool.KeyQ')!.unavailable).toBeUndefined();
-    expect(editor.entries.find((x) => x.id === 'tool.KeyW')!.unavailable).toBeDefined();
+    // the tool keys the car leaves alone share one row; W, which it uses, is struck out with the reason
+    const free = editor.entries.find((x) => x.id === 'tool.available')!;
+    expect(free.keys).toEqual(['Q', 'E', 'R']);
+    expect(free.unavailable).toBeUndefined();
+    expect(editor.entries.find((x) => x.id === 'tool.KeyW')!.unavailable).toMatch(/Drive forward|the scene uses W/);
+    expect(editor.entries.find((x) => x.id === 'tool.KeyQ')).toBeUndefined();
   });
 
   it('grab: Q E A D turn the held body, W S push and pull, F freezes — whatever the scene binds', () => {

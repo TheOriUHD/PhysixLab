@@ -448,31 +448,39 @@ export function legendFor(ctx: InputContext, st: KeyState, env: LegendEnv, extra
         entries: ctl.length ? ctl : [{ id: 'scene.none', keys: ['—'], action: 'This scene has no key controls' }],
       });
       const sh = shadowedEditorKeys(st, env, ctx);
+      const TOOL_KEYS = ['KeyQ', 'KeyW', 'KeyE', 'KeyR'] as const;
+      const TOOL_NAMES: Record<string, string> = {
+        KeyQ: 'Select',
+        KeyW: 'Move gizmo',
+        KeyE: 'Rotate gizmo',
+        KeyR: 'Scale gizmo',
+      };
+      const free = TOOL_KEYS.filter((c) => !st.sceneKeys.has(c));
       sections.push({
         id: 'editor',
         title: 'Editor keys',
         entries: [
           { id: 'sim.toggle', keys: ['Space'], codes: ['Space'], action: 'Pause / resume' },
           { id: 'sim.reset', keys: ['Shift', 'Space'], codes: ['Space'], action: 'Stop and return to the layout' },
-          ...(['KeyQ', 'KeyW', 'KeyE', 'KeyR'] as const).map((code): LegendEntry => {
-            const names: Record<string, string> = {
-              KeyQ: 'Select',
-              KeyW: 'Move gizmo',
-              KeyE: 'Rotate gizmo',
-              KeyR: 'Scale gizmo',
-            };
-            const used = st.sceneKeys.has(code);
-            return {
-              id: `tool.${code}`,
-              keys: [cap(code, env)],
-              codes: [code],
-              action: names[code],
-              unavailable: used
-                ? `the scene uses ${cap(code, env)} for ${st.sceneLabels.get(code) ?? 'a control'}`
-                : undefined,
-            };
-          }),
-          ...sh.filter((x) => !['KeyQ', 'KeyW', 'KeyE', 'KeyR'].includes(x.id.slice(7))),
+          // The tool keys that still work share one row; every one the scene took gets its own struck-out row.
+          ...(free.length
+            ? [
+                {
+                  id: 'tool.available',
+                  keys: free.map((c) => cap(c, env)),
+                  codes: [...free],
+                  action: free.map((c) => TOOL_NAMES[c]).join(' · '),
+                },
+              ]
+            : []),
+          ...TOOL_KEYS.filter((c) => st.sceneKeys.has(c)).map((code): LegendEntry => ({
+            id: `tool.${code}`,
+            keys: [cap(code, env)],
+            codes: [code],
+            action: TOOL_NAMES[code],
+            unavailable: `the scene uses ${cap(code, env)} for ${st.sceneLabels.get(code) ?? 'a control'}`,
+          })),
+          ...sh.filter((x) => !(TOOL_KEYS as readonly string[]).includes(x.id.slice(7))),
         ],
       });
       sections.push({

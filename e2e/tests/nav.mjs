@@ -471,20 +471,42 @@ test('nav: holding a body — push / pull with W S ↑ ↓, turn with Q E A D in
   await settleZ(id, `z < ${z2 - 1}`, `] pushes it away (from z ${z2.toFixed(2)})`);
   await stable(id);
   // 15 degree steps
-  const rot = async () => (await pose(page, id)).rotation;
-  const q0 = await rot();
+  // The turn is a teleport that keeps the velocities: record what each step asked for next to the pose it started from
+  // (the held body keeps wobbling about its grab point, so two frames apart it has moved by more than the step).
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    const c = a.sim.client;
+    const orig = c.op.bind(c);
+    window.__turns = [];
+    c.op = (op) => {
+      if (op.op === 'teleport' && op.keepVelocity)
+        window.__turns.push({ before: [...a.sim.poseOf(op.id).rotation], after: [...op.rotation] });
+      return orig(op);
+    };
+  });
+  const lastTurn = async (n) => {
+    await page.waitForFunction((n) => window.__turns.length >= n, n, { timeout: 30000 });
+    return page.evaluate((n) => window.__turns[n - 1], n);
+  };
+  const q0 = (await pose(page, id)).rotation;
   await page.keyboard.press('KeyE');
-  await page.waitForTimeout(250);
-  const q1 = await rot();
-  near(angleBetween(q0, q1), 15, 4, 'E turns the held body by 15°');
+  const t1 = await lastTurn(1);
+  near(angleBetween(t1.before, t1.after), 15, 0.5, 'E turns the held body by 15°');
   await page.keyboard.press('KeyQ');
-  await page.waitForTimeout(250);
-  const q2 = await rot();
-  assert(angleBetween(q0, q2) < 5, `Q turns it back (${angleBetween(q0, q2).toFixed(1)}° from where it started)`);
+  const t2 = await lastTurn(2);
+  near(angleBetween(t2.before, t2.after), 15, 0.5, 'Q turns it by 15° the other way');
   await page.keyboard.press('Shift+KeyD');
-  await page.waitForTimeout(250);
-  const q3 = await rot();
-  near(angleBetween(q2, q3), 5, 3, 'Shift + D is a fine 5° step');
+  const t3 = await lastTurn(3);
+  near(angleBetween(t3.before, t3.after), 5, 0.5, 'Shift + D is a fine 5° step');
+  // E turns clockwise seen from above (negative about the up axis), Q counter-clockwise: the relative rotation after * before⁻¹
+  const relY = (t) => {
+    const [bx, by, bz, bw] = t.before;
+    const [ax, ay, az, aw] = t.after;
+    return aw * -by + ay * bw + az * -bx - ax * -bz; // y component of after * conj(before)
+  };
+  assert(relY(t1) < 0 && relY(t2) > 0, `E turns right and Q left (${relY(t1).toFixed(3)}, ${relY(t2).toFixed(3)})`);
+  const q1 = (await pose(page, id)).rotation;
+  assert(angleBetween(q0, q1) > 1, 'and the held body really turned');
   await shot(page, 'nav-grab-legend');
   // F freezes it where it is
   await page.keyboard.press('KeyF');
@@ -633,17 +655,26 @@ test('nav: Q and E work where the legend says they do — tools in the editor, t
   await page.evaluate(() => window.physicslab.cameraRig.setMode('fly'));
   await page.waitForFunction(() => window.physicslab.contexts.current === 'fly');
   await page.waitForTimeout(500);
-  const y0 = await page.evaluate(() => window.physicslab.camera.position.y);
-  await page.keyboard.down('KeyE');
-  await page.waitForTimeout(700);
-  await page.keyboard.up('KeyE');
-  const y1 = await page.evaluate(() => window.physicslab.camera.position.y);
-  assert(y1 > y0 + 0.5, `E flies up (${y0.toFixed(2)} -> ${y1.toFixed(2)})`);
-  await page.keyboard.down('KeyQ');
-  await page.waitForTimeout(700);
-  await page.keyboard.up('KeyQ');
-  const y2 = await page.evaluate(() => window.physicslab.camera.position.y);
-  assert(y2 < y1 - 0.5, `Q flies down (${y1.toFixed(2)} -> ${y2.toFixed(2)})`);
+  const camY = () => page.evaluate(() => window.physicslab.camera.position.y);
+  /** Hold a key until the camera height satisfies `test` (frames can take seconds on a loaded machine). */
+  const holdUntil = async (code, test, msg) => {
+    await page.keyboard.down(code);
+    try {
+      await page.waitForFunction(
+        (src) => new Function('y', `return ${src}`)(window.physicslab.camera.position.y),
+        test,
+        { timeout: 30000 },
+      );
+    } catch {
+      throw new Error(`assertion failed: ${msg}`);
+    } finally {
+      await page.keyboard.up(code);
+    }
+  };
+  const y0 = await camY();
+  await holdUntil('KeyE', `y > ${y0 + 0.5}`, `E flies up (from ${y0.toFixed(2)})`);
+  const y1 = await camY();
+  await holdUntil('KeyQ', `y < ${y1 - 0.5}`, `Q flies down (from ${y1.toFixed(2)})`);
   assert((await gizmo()) === 'translate', 'the gizmo was left alone in the fly camera');
   assert(page.errors.length === 0, page.errors.join('\n'));
   await page.close();

@@ -61,6 +61,8 @@ export class ImmersiveMode extends Emitter<{ change: undefined }> {
   driveCamera: DriveCamera = 'chase';
   /** The key assignment of the drive utility actions (avoids the vehicle's own keys). */
   driveKeys: ReadonlyMap<string, DriveAction> = new Map();
+  /** How many times the vehicle was reset or flipped (the HUD and the tests watch it). */
+  resets = 0;
   readonly hud: DriveHud = { name: '', speed: 0, rpm: null, gear: null, paused: false, tilted: false, camera: 'chase' };
   private saved: Saved | null = null;
   private hidden: Element[] = [];
@@ -270,6 +272,7 @@ export class ImmersiveMode extends Emitter<{ change: undefined }> {
     if (!v) return;
     const chassis = app.sim.poseOf(v.chassisId);
     if (!chassis) return;
+    this.resets++;
     if (this.tilted()) {
       _q.set(chassis.rotation[0], chassis.rotation[1], chassis.rotation[2], chassis.rotation[3]);
       // The rotation that brings the chassis' up axis back to the world's, keeping the heading as far as possible.

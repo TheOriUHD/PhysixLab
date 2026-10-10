@@ -298,15 +298,10 @@ test('drive: the powertrain car keeps its own keys (R reverse, P parking brake, 
   const p2 = await pose(page, id);
   assert(p2.position[0] - start[0] > 2, 'R did not reset the car (it is the reverse gear)');
   // Backspace does (a flip when it has rolled over, the start pose otherwise: either way the key reached the reset)
+  const resets0 = await page.evaluate(() => window.physicslab.immersive.resets);
   await page.keyboard.press('Backspace');
   await page
-    .waitForFunction(
-      () => /Flipped upright|Back at the start/.test(document.querySelector('.toasts')?.innerText ?? ''),
-      null,
-      {
-        timeout: 30000,
-      },
-    )
+    .waitForFunction((n) => window.physicslab.immersive.resets > n, resets0, { timeout: 30000 })
     .catch(() => {
       throw new Error('assertion failed: Backspace resets the powertrain car');
     });
@@ -407,13 +402,17 @@ test('play: the Play button puts you in the running scene — fly camera, grab a
   assert((await page.evaluate(() => window.physicslab.contexts.current)) === 'play', 'the play context');
   assert((await page.evaluate(() => window.physicslab.store.selection.length)) === 0, 'nothing selected');
   await simFor(page, 0.8);
-  // W flies forward
+  // W flies forward (hold it until the camera has moved: frames can take seconds on a loaded machine)
   const p0 = await page.evaluate(() => window.physicslab.camera.position.toArray());
   await page.keyboard.down('KeyW');
-  await page.waitForTimeout(800);
+  await page
+    .waitForFunction((p0) => window.physicslab.camera.position.distanceTo({ x: p0[0], y: p0[1], z: p0[2] }) > 0.8, p0, {
+      timeout: 30000,
+    })
+    .catch(() => {
+      throw new Error('assertion failed: W flies');
+    });
   await page.keyboard.up('KeyW');
-  const p1 = await page.evaluate(() => window.physicslab.camera.position.toArray());
-  assert(Math.hypot(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]) > 0.8, 'W flies');
   // editor keys are locked
   await page.keyboard.press('KeyG');
   await page.keyboard.press('KeyR');

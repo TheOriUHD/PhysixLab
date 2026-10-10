@@ -150,9 +150,13 @@ export class InputController {
     dom.focus({ preventScroll: true });
     // -- CM-A touch: a second finger belongs to the camera (pinch / orbit / pan), never to a one-finger tool --
     if (e.pointerType === 'touch') {
-      if (e.isPrimary) this.touchIds.clear(); // a new touch sequence: ids left over from a lost pointer-up are stale
+      if (e.isPrimary) {
+        this.touchIds.clear(); // a new touch sequence: ids left over from a lost pointer-up are stale
+        this.multiTouch = false;
+      }
       this.touchIds.add(e.pointerId);
       if (this.touchIds.size > 1) {
+        this.multiTouch = true; // -- NAV: a pinch / pan is never a tap --
         // -- NAV: a second finger while a body is held pinches its depth instead of dropping it --
         if (this.g.kind === 'grab' && !this.g.soft) return;
         this.cancelGesture();
@@ -495,7 +499,7 @@ export class InputController {
     const pose = this.app.sim.poseOf(g.id);
     if (!pose) return;
     const left = (GRAB_KEYS.turnLeft as readonly string[]).includes(code);
-    const angle = ((fine ? 5 : 15) * Math.PI) / 180 * (left ? 1 : -1);
+    const angle = (((fine ? 5 : 15) * Math.PI) / 180) * (left ? 1 : -1);
     const dq = new Quaternion().setFromAxisAngle(this.cam.up, angle);
     const pivot = g.plane.coplanarPoint(new Vector3());
     const p = new Vector3(...pose.position).sub(pivot).applyQuaternion(dq).add(pivot);
@@ -608,7 +612,10 @@ export class InputController {
       if (e.repeat) return;
       this.app.sim.client.op({ op: 'grabFreeze' });
       this.app.toast('Toggled freeze on the held body — grab it and press F again to release it', 'info');
-    } else if ((GRAB_KEYS.turnLeft as readonly string[]).includes(code) || (GRAB_KEYS.turnRight as readonly string[]).includes(code)) {
+    } else if (
+      (GRAB_KEYS.turnLeft as readonly string[]).includes(code) ||
+      (GRAB_KEYS.turnRight as readonly string[]).includes(code)
+    ) {
       const now = performance.now();
       if (e.repeat && now - this.lastTurnAt < 110) return;
       this.lastTurnAt = now;
@@ -696,7 +703,12 @@ export class InputController {
       return;
     }
     // -- NAV: two quick taps on touch = double-click (focus the object / frame everything) --
-    if (e.pointerType === 'touch' && e.type === 'pointerup' && ((g.kind === 'marquee' && !g.moved) || g.kind === 'none' || (g.kind === 'dragMove' && !g.moved))) {
+    if (
+      e.pointerType === 'touch' &&
+      e.type === 'pointerup' &&
+      !this.multiTouch &&
+      ((g.kind === 'marquee' && !g.moved) || g.kind === 'none' || (g.kind === 'dragMove' && !g.moved))
+    ) {
       const now = e.timeStamp; // the event's own time: a slow frame must not turn two quick taps into two single ones
       const t = this.lastTap;
       if (t && now - t.t < 350 && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 32) {
@@ -802,6 +814,8 @@ export class InputController {
   }
 
   private lastTap: { t: number; x: number; y: number } | null = null;
+  /** More than one finger was down during this touch sequence. */
+  private multiTouch = false;
   private lastDoubleAt = -1e9;
 
   private onDouble(e: MouseEvent): void {
