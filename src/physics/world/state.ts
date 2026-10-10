@@ -57,6 +57,8 @@ export interface BodyRec {
   forced: boolean;
   /** Quadratic drag is active (dynamic body with a non-zero drag coefficient). */
   dragged: boolean;
+  /** JT-31: this body is a one-way platform (the contact hook consults it). */
+  oneWay?: boolean;
   /** Emulated sleep threshold (see dynamics.ts); null = the engine's own sleeping applies. */
   sleep: { threshold: number; radius: number; calm: number } | null;
 }
@@ -224,6 +226,9 @@ export class WorldState {
   simSinceRead = 0;
   // -- JT-B: joint load estimation / breakage state --
   readonly loads = new LoadTracker();
+  /** JT-31: how many one-way platforms exist (the engine only gets the hook while there are some). */
+  oneWayCount = 0;
+  hooks: RAPIER.PhysicsHooks | null = null;
 
   constructor(world: RAPIER.World, worldBody: RAPIER.RigidBody, settings: SceneSettings) {
     this.world = world;

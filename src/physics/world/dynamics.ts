@@ -12,16 +12,24 @@ import type { WorldState } from './state';
  * principal axis with that axis' moment of inertia, so non-spherical bodies decelerate anisotropically.
  */
 export function applyDrag(s: WorldState, dt: number): void {
+  const wind = s.settings.wind;
+  const wx = wind ? wind[0] : 0,
+    wy = wind ? wind[1] : 0,
+    wz = wind ? wind[2] : 0;
   for (const r of s.draggers) {
     if (r.disabled || r.rb.isSleeping()) continue;
     const { linear2, angular2 } = r.def.drag;
     const rb = r.rb;
     if (linear2 > 0 && r.mass > 0) {
+      // -- JT-B: drag acts on the velocity relative to the wind --
       const v = rb.linvel();
-      const speed = Math.hypot(v.x, v.y, v.z);
+      const rx = v.x - wx,
+        ry = v.y - wy,
+        rz = v.z - wz;
+      const speed = Math.hypot(rx, ry, rz);
       if (speed > 1e-9) {
         const f = 1 / (1 + (linear2 / r.mass) * speed * dt);
-        rb.setLinvel({ x: v.x * f, y: v.y * f, z: v.z * f }, false);
+        rb.setLinvel({ x: wx + rx * f, y: wy + ry * f, z: wz + rz * f }, false);
       }
     }
     if (angular2 > 0) {

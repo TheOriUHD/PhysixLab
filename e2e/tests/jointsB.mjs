@@ -93,3 +93,94 @@ test('breakage: stress overlay colours a loaded joint and the live readout shows
   assert(color !== 'ff4d4d' && color.length === 6, `gizmo carries a load colour (${color})`);
   await shot(page, 'jt-breakage-live');
 });
+
+test('collision layers: rename in the World tab, matrix switches a pair off, body dropdown + accepted layers', async () => {
+  const page = await newPage();
+  const ids = await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    const plat = a.editor.addShape('box', [0, 2, 0], { bodyType: 'static', name: 'Platform', size: [6, 0.4, 6] });
+    const ball = a.editor.addShape('sphere', [0, 5, 0], { name: 'Ball' });
+    a.store.setSelection([ball.id]);
+    return { plat: plat.id, ball: ball.id };
+  });
+  // body inspector: layer dropdown + accepted-layer chips
+  await page.locator('.panel.right .section-head:has-text("Collision filter")').click();
+  await page.locator('.panel.right select').first().waitFor();
+  await page.evaluate((id) => {
+    const a = window.physicslab;
+    a.store.update(id, { collision: { group: 1, mask: 0xffff } }, 'test');
+  }, ids.ball);
+  const chipsOn = await page.locator('.panel.right .mask-grid .chip.on').count();
+  assert(chipsOn === 16, `all 16 layers accepted by default (${chipsOn})`);
+  await page.locator('.panel.right .mask-grid .chip').nth(5).click();
+  const mask = await page.evaluate((id) => window.physicslab.store.body(id).collision.mask, ids.ball);
+  assert((mask & (1 << 5)) === 0 && (mask & 1) === 1, `chip toggles one accepted layer (${mask.toString(2)})`);
+  // World tab: rename layer 1, switch the pair (1, 0) off, platform is layer 0 so the ball falls through to the ground
+  await page.click('.tab:has-text("World"), [role=tab]:has-text("World")');
+  await page.locator('.panel .section-head:has-text("Collision layers")').first().click();
+  const input = page.locator('.layer-name').nth(1);
+  await input.fill('Props');
+  await input.press('Enter');
+  const name = await page.evaluate(() => window.physicslab.store.settings.layers?.names[1]);
+  assert(name === 'Props', `layer renamed (${name})`);
+  await page.evaluate(() => {
+    // the platform is layer 0; the ball (layer 1) must not collide with it
+    window.physicslab.store.updateSettings({}, 'noop');
+  });
+  await page.locator('.layer-cell[data-a="1"][data-b="0"]').uncheck();
+  const m0 = await page.evaluate(() => window.physicslab.store.settings.layers.matrix.slice(0, 2));
+  assert((m0[0] & 2) === 0 && (m0[1] & 1) === 0, `matrix pair switched off symmetrically (${m0})`);
+  await shot(page, 'jt-layers-world');
+  await page.evaluate((id) => {
+    const a = window.physicslab;
+    a.store.update(id, { collision: { group: 1, mask: 0xffff } }, 'test');
+    a.sim.play();
+  }, ids.ball);
+  await simTime(page, 1.5);
+  const y = await page.evaluate((id) => window.physicslab.sim.poseOf(id).position[1], ids.ball);
+  assert(y < 1, `the ball passed through the platform and rests on the ground (y = ${y})`);
+});
+
+test('one-way platform, COM handle and wake-all from the UI', async () => {
+  const page = await newPage();
+  const ids = await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    const plat = a.editor.addShape('box', [0, 2, 0], { bodyType: 'static', name: 'Platform', size: [6, 0.4, 6] });
+    const ball = a.editor.addShape('sphere', [0, 0.5, 0], { name: 'Ball', velocity: [0, 9, 0] });
+    a.store.setSelection([plat.id]);
+    return { plat: plat.id, ball: ball.id };
+  });
+  await page.locator('.panel.right .section-head:has-text("Collision filter")').click();
+  await page.locator('.panel.right').getByText('One-way platform').click();
+  const ow = await page.evaluate((id) => window.physicslab.store.body(id).oneWay, ids.plat);
+  assert(Array.isArray(ow) && ow[1] === 1, `one-way platform enabled facing up (${ow})`);
+  await shot(page, 'jt-oneway');
+  await page.evaluate(() => window.physicslab.sim.play());
+  await simTime(page, 3);
+  const y = await page.evaluate((id) => window.physicslab.sim.poseOf(id).position[1], ids.ball);
+  assert(y > 2.3, `the ball came up through the platform and rests on it (y = ${y})`);
+  await page.evaluate(() => window.physicslab.sim.reset());
+  // centre of mass: enable the override and start the viewport handle
+  await page.evaluate((id) => window.physicslab.store.setSelection([id]), ids.ball);
+  await page.locator('.panel.right .section-head:has-text("Mass properties")').click();
+  await page.locator('.panel.right').getByText('Override centre of mass').click();
+  await page.locator('.panel.right button:has-text("Edit in viewport")').click();
+  const on = await page.evaluate(() => window.physicslab.gizmos.com.bodyId);
+  assert(on === ids.ball, 'the COM handle is active for the selected body');
+  await page.evaluate((id) => {
+    const a = window.physicslab;
+    // drag the handle programmatically through the same path the gizmo uses
+    a.gizmos.com.apply({ id: id + '@com', position: [0, 0.2, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] });
+  }, ids.ball);
+  const com = await page.evaluate((id) => window.physicslab.store.body(id).comOverride, ids.ball);
+  assert(Math.abs(com[1] + 0.3) < 0.02, `dragging the handle writes comOverride in the local frame (${com})`);
+  await shot(page, 'jt-com-handle');
+  // wake all
+  await page.evaluate(() => window.physicslab.sim.play());
+  await page.locator('.panel.right .section-head:has-text("Sleep")').click();
+  const dis = await page.locator('.panel.right button:has-text("Wake all bodies")').isEnabled();
+  assert(dis, 'wake-all is enabled while simulating');
+  await page.locator('.panel.right button:has-text("Wake all bodies")').click();
+});

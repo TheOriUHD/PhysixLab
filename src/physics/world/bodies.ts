@@ -5,6 +5,7 @@ import { bodyBoundingRadius } from '../../model/compound';
 import type { BodyEntity } from '../../model/types';
 import { applyMassOverrides } from './bodyFields';
 import { makeColliders } from './colliders';
+import { countHooks } from './layers';
 import { registerColliders } from './events';
 import type { BodyRec, WorldState } from './state';
 import { rq, rv } from './util';
@@ -39,7 +40,7 @@ export function addBody(s: WorldState, def: BodyEntity, ephemeral: boolean, docD
     desc = desc.setLinvel(def.velocity[0], def.velocity[1], def.velocity[2]).setAngvel(rv(def.angularVelocity));
   }
   const rb = s.world.createRigidBody(desc);
-  const built = makeColliders(def);
+  const built = makeColliders(def, s.settings.layers);
   const cols = built.map((b) => s.world.createCollider(b.desc, rb));
   if (isDyn) applyMassOverrides(rb, cols, def);
   const rec: BodyRec = {
@@ -65,6 +66,8 @@ export function addBody(s: WorldState, def: BodyEntity, ephemeral: boolean, docD
   s.order.push(rec);
   if (rec.dragged) s.draggers.push(rec);
   if (rec.sleep) s.sleepers.push(rec);
+  rec.oneWay = def.oneWay !== undefined;
+  if (rec.oneWay) countHooks(s);
   registerColliders(s, rec);
   s.queriesDirty = true;
   s.host.sync('body', rec.id, docDef.components);

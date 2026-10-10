@@ -13,6 +13,7 @@
  * tick supplies them). Components keep their own state through `saveState` / `loadState`; those without it start
  * over from their parameters.
  */
+import { countHooks } from './layers';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { pathCurveOf } from '../../model/path';
 import type { Quat, Vec3 } from '../../core/math';
@@ -151,6 +152,7 @@ export function restoreSnapshot(s: WorldState, snap: WorldSnapshot): void {
       forced: b.forced,
       dragged: def.bodyType === 'dynamic' && (def.drag.linear2 > 0 || def.drag.angular2 > 0),
       sleep: sleepEmulation(def),
+      oneWay: def.oneWay !== undefined, // -- JT-B --
     };
     if (rec.sleep && b.sleepCalm !== null) rec.sleep.calm = b.sleepCalm;
     s.bodies.set(def.id, rec);
@@ -159,6 +161,7 @@ export function restoreSnapshot(s: WorldState, snap: WorldSnapshot): void {
     if (rec.sleep) s.sleepers.push(rec);
     registerColliders(s, rec);
   }
+  countHooks(s); // -- JT-B --
 
   // joints
   for (const j of snap.joints) {

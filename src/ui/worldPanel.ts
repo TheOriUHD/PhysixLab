@@ -15,6 +15,7 @@ import { h } from './dom';
 import { buildBoundsSection } from './boundsSection'; // -- ZN
 import { buildGraphicsSection } from './graphicsSection'; // -- VZ-B: graphics (VZ-20..22)
 import { buildWeatherSection } from './weatherSection'; // -- VZ-B: weather --
+import { buildCollisionLayersSection } from './collisionLayersSection'; // -- JT-B
 
 /** Scene-wide physics + environment settings. */
 export function buildWorldPanel(app: App): HTMLElement {
@@ -179,6 +180,11 @@ export function buildWorldPanel(app: App): HTMLElement {
   const weather = buildWeatherSection(app);
   el.append(weather.el);
   upd.push(weather.refresh);
+
+  // -- JT-B: collision layers (JT-30) and wind (JT-32)
+  const layers = buildCollisionLayersSection(app);
+  el.append(...layers.el);
+  upd.push(layers.refresh);
 
   const refresh = () => upd.forEach((u) => u());
   store.on('change', refresh);

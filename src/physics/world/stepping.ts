@@ -11,6 +11,7 @@ import { applySoftWalls, checkBounds } from './bounds'; // -- ZN-34
 import { applyGrab, applyThrusters } from './forces';
 import { driveMotor, measureJoint, measureSpring } from './joints';
 import { applySoftGrab, softPrestep } from './soft';
+import { makeHooks, refreshHookCache } from './layers';
 import { captureLoads, computeLoads, prepareLoads } from './jointLoad';
 import type { WorldState } from './state';
 
@@ -82,7 +83,8 @@ export function stepOnce(s: WorldState): void {
     applyDrag(s, dt / n);
     if (track && i === 1) captureLoads(s); // JT-B: before the coupling impulses, so they are part of the measured Δv
     stepCouplings(s, dt / n); // -- JT-A: coupling rows of the pulley / gear / rack / … joints --
-    s.world.step(s.eventQueue);
+    if (s.oneWayCount > 0) refreshHookCache(s); // JT-31: the hook may not read bodies while the engine steps
+    s.world.step(s.eventQueue, s.oneWayCount > 0 ? (s.hooks ??= makeHooks(s)) : undefined);
     stepCouplings(s, dt / n, true); // -- JT-A: re-couple gear / belt / rack / screw velocities --
     collectEvents(s, tEnd);
   }

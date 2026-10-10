@@ -4,6 +4,7 @@
  * one collider, a compound shape (or a part with a compound shape) several.
  */
 import RAPIER from '@dimforge/rapier3d-compat';
+import { isTriggerLayer, type CollisionLayers } from '../../model/collisionLayers';
 import { composeCollider, shapeColliders, type ShapeCollider } from '../../model/shapeRegistry';
 import type { BodyEntity, ColliderPart } from '../../model/types';
 import { interactionGroups } from './bodyFields';
@@ -33,8 +34,9 @@ function rawColliders(def: BodyEntity): { c: ShapeCollider; part: ColliderPart |
   return shapeColliders(RAPIER, def.shape).map((c) => ({ c, part: null }));
 }
 
-export function makeColliders(def: BodyEntity): BuiltCollider[] {
-  const groups = interactionGroups(def.collision);
+export function makeColliders(def: BodyEntity, layers?: CollisionLayers): BuiltCollider[] {
+  const groups = interactionGroups(def.collision, layers);
+  const trigger = isTriggerLayer(layers, def.collision.group); // -- JT-B: a trigger layer's bodies are sensors
   return rawColliders(def).map(({ c, part }) => {
     const surface = colliderSurface(def, part);
     const density = def.bodyType === 'dynamic' ? (part?.material?.density ?? def.material.density) : 0;
@@ -45,7 +47,8 @@ export function makeColliders(def: BodyEntity): BuiltCollider[] {
       .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Average)
       .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max)
       .setCollisionGroups(groups)
-      .setSensor(def.ghost || !!part?.sensor);
+      .setSensor(def.ghost || !!part?.sensor || trigger)
+      .setActiveHooks(def.oneWay !== undefined ? RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS : RAPIER.ActiveHooks.NONE);
     const [x, y, z] = c.localPos;
     if (x !== 0 || y !== 0 || z !== 0) desc.setTranslation(x, y, z);
     const q = c.localRot;

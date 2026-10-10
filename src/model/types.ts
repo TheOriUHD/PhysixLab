@@ -5,6 +5,7 @@
  * JSON-serializable data. The physics worker builds a Rapier world from it, the renderer
  * mirrors it, and the UI edits it through SceneStore (which keeps it immutable + undoable).
  */
+import type { CollisionLayers } from './collisionLayers';
 import type { JointParams } from './jointParams';
 import type { Quat, Vec3 } from '../core/math';
 // -- ED-A array: the stored definition of a linked array --
@@ -122,6 +123,11 @@ export interface BodyEntity extends OutlinerMeta {
   inertiaScale: number;
   /** Speed (m/s) below which the body may fall asleep. Unset = the engine's default. */
   sleepThreshold?: number;
+  /**
+   * JT-31: one-way platform. The direction (in the body's local frame) of the solid side: other bodies collide only
+   * when they are on that side and not moving away from it, and pass through otherwise. Absent = a normal solid.
+   */
+  oneWay?: Vec3;
   /** Free-form labels for later features (zones, scripts, selection sets). */
   tags: string[];
   /** Named layer for editor visibility / selection filters. */
@@ -508,6 +514,10 @@ export interface SceneSettings {
   bounds: BoundsSettings;
   /** Display units — storage only (the engine always works in m, kg, s, rad). */
   units: UnitsSettings;
+  // -- JT-B: named collision layers + matrix (absent = every layer collides with every layer) and a steady wind --
+  layers?: CollisionLayers;
+  /** Wind velocity (m/s, world frame). Quadratic drag acts on the velocity relative to it. Absent = still air. */
+  wind?: Vec3;
 
   // -- UI-A: named selection sets (UI-21) --
   /** Named groups of entity ids the outliner saves and recalls. */
