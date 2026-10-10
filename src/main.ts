@@ -171,6 +171,7 @@ async function boot(): Promise<void> {
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
   // -- DT-30: the versioned public API (src/api); falls through to the App for the internal members --
   (window as unknown as { physicslab: App }).physicslab = publishApi(app);
+  window.dispatchEvent(new Event('physicslab:ready')); // -- DT-31: lets installed plugins start --
   if (!app.prefs.value.seenWelcome && !new URLSearchParams(location.search).has('nowelcome'))
     setTimeout(() => showWelcome(app), 400);
 }
