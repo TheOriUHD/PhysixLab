@@ -76,7 +76,10 @@ test('scene files: a v1 file upgrades on import and a damaged one is repaired wi
       gravity: d.settings.gravity,
     };
   });
-  assert(legacy.version === 2 && Object.keys(legacy.assets).length === 0, `upgraded to v2 ${JSON.stringify(legacy)}`);
+  assert(
+    legacy.version === 3 && Object.keys(legacy.assets).length === 0,
+    `upgraded to the current format (v3) ${JSON.stringify(legacy)}`,
+  );
   assert(legacy.sides === 5 && !legacy.legacy, 'prism side count moved into shape.params');
   near(legacy.gravity[1], -3.7, 1e-9, 'authored gravity survives');
   // it simulates
@@ -408,7 +411,7 @@ test('asset store: assets travel in share links, autosave and exported files; un
     const doc = JSON.parse(localStorage.getItem('physicslab:autosave:v1'));
     return { keys: Object.keys(doc.assets), version: doc.version };
   });
-  assert(auto.keys.length === 1 && auto.keys[0] === ids.used && auto.version === 2, `autosave ${JSON.stringify(auto)}`);
+  assert(auto.keys.length === 1 && auto.keys[0] === ids.used && auto.version === 3, `autosave ${JSON.stringify(auto)}`);
 
   // 3. exported file, then imported again into a fresh scene
   const [download] = await Promise.all([

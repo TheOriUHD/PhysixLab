@@ -1,0 +1,434 @@
+/**
+ * End-to-end tests for the scene object kinds beyond bodies and joints: groups, lights and paths (FB-6) — adding
+ * them from the palette, seeing them in the outliner and the viewport, moving a group with its members, editing a
+ * path's control points and a light's parameters in the inspector, and simulating a scene that contains them.
+ */
+import { assert, near, newPage, nextFrame, shot, simTime } from '../helpers.mjs';
+
+export const tests = [];
+const test = (name, fn) => tests.push({ name, fn });
+
+/** Client-space position of a world point (waits for a fresh frame so the camera is current). */
+const screenPoint = async (page, world) => {
+  await nextFrame(page);
+  return page.evaluate((w) => {
+    const a = window.physicslab;
+    const v = new a.camera.position.constructor(...w).project(a.camera);
+    const r = a.viewport.dom.getBoundingClientRect();
+    return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
+  }, world);
+};
+
+test('scene objects: lights, a path and a group are added from the palette and listed in the outliner', async () => {
+  const page = await newPage();
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.editor.addShape('box', [0, 0.5, 0], { name: 'Crate' });
+    a.viewport.setView({ position: [0, 4, 9], target: [0, 1, 0] });
+    a.store.setSelection([]);
+  });
+  await page.click('.tile:has-text("Spot")');
+  await page.click('.tile:has-text("Sun")');
+  await page.click('.tile:has-text("Path")');
+  await page.evaluate(() => window.physicslab.store.setSelection([])); // a selection would be grouped by the tile
+  await page.click('.tile:has-text("Group")');
+  const kinds = await page.evaluate(() =>
+    window.physicslab.store
+      .all()
+      .map((e) => e.kind + (e.kind === 'light' ? `:${e.lightType}` : ''))
+      .sort(),
+  );
+  assert(
+    JSON.stringify(kinds) === JSON.stringify(['body', 'group', 'light:directional', 'light:spot', 'path']),
+    `palette tiles add each kind: ${kinds}`,
+  );
+  // every light is a real three.js light of the right class, with the entity's physical values
+  const real = await page.evaluate(() => {
+    const a = window.physicslab;
+    const found = [];
+    a.viewport.scene.traverse((o) => {
+      if (o.isLight && o.userData.lightEntity) {
+        const e = a.store.light(o.userData.lightEntity);
+        found.push({
+          cls: o.type,
+          intensity: o.intensity,
+          expect: e.intensity,
+          shadow: o.castShadow,
+          visible: o.visible,
+        });
+      }
+    });
+    return found.sort((x, y) => x.cls.localeCompare(y.cls));
+  });
+  assert(real.length === 2, `two real lights in the scene graph (${real.length})`);
+  assert(real[0].cls === 'DirectionalLight' && real[1].cls === 'SpotLight', `light classes ${JSON.stringify(real)}`);
+  assert(
+    real.every((r) => r.intensity === r.expect && r.visible),
+    'lights carry the entity intensity and are on',
+  );
+  // the outliner lists everything, with kind-specific icons and titles
+  await page.click('.tab:has-text("Outliner")');
+  const rows = await page.evaluate(() =>
+    [...document.querySelectorAll('.o-item')].map((r) => ({
+      kind: r.dataset.kind,
+      name: r.querySelector('.o-name').textContent,
+      title: r.querySelector('.o-name').title,
+      icon: !!r.querySelector('svg'),
+    })),
+  );
+  assert(rows.length === 5 && rows.every((r) => r.icon), `five outliner rows with icons: ${JSON.stringify(rows)}`);
+  assert(
+    rows.some((r) => r.kind === 'light' && /spot light, 120 cd/.test(r.title)),
+    'spot light row titled with its intensity',
+  );
+  assert(
+    rows.some((r) => r.kind === 'path' && /path, 4 points/.test(r.title)),
+    'path row titled with its point count',
+  );
+  assert(
+    rows.some((r) => r.kind === 'group'),
+    'group row present',
+  );
+  // clicking the icon sprite of the spot light in the viewport selects it
+  const spot = await page.evaluate(() => window.physicslab.store.lights().find((l) => l.lightType === 'spot'));
+  await page.evaluate(() => window.physicslab.store.setSelection([]));
+  const p = await screenPoint(page, spot.position);
+  await page.mouse.click(p.x, p.y);
+  const sel = await page.evaluate(() => window.physicslab.store.selection.slice());
+  assert(sel.length === 1 && sel[0] === spot.id, `clicking the light's icon selects it (${sel})`);
+  await page.click('.panel.right .tab:has-text("Inspector")');
+  await page.waitForSelector('.panel.right .row:has(.row-label:text-is("Cone angle"))');
+  await shot(page, 'fb-entities-edit');
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});
+
+test('lights: inspector edits drive the real light; switching it off darkens the scene', async () => {
+  const page = await newPage();
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.editor.addShape('box', [0, 0.5, 0], { name: 'Crate' });
+    a.editor.addLight('point', [0, 2.2, 1.5], { name: 'Lamp' });
+    a.viewport.setView({ position: [0, 3, 6], target: [0, 0.5, 0] });
+  });
+  const id = await page.evaluate(() => window.physicslab.store.lights()[0].id);
+  await page.waitForSelector('.panel.right .row:has(.row-label:text-is("Intensity"))');
+  const intensity = page.locator('.panel.right .row:has(.row-label:text-is("Intensity")) .num-input');
+  await intensity.fill('500');
+  await intensity.press('Enter');
+  const got = await page.evaluate((id) => window.physicslab.lightViews.get(id).light.intensity, id);
+  assert(got === 500, `the three.js light follows the inspector (${got})`);
+  await page.locator('.panel.right .row:has(.row-label:text-is("Range")) .num-input').fill('4');
+  await page.keyboard.press('Enter');
+  assert(
+    (await page.evaluate((id) => window.physicslab.lightViews.get(id).light.distance, id)) === 4,
+    'range is the light distance',
+  );
+  await shot(page, 'fb-light-on');
+  // switch it off through the toggle: the three.js light is hidden and the entity says so
+  await page.locator('.panel.right .row:has(.row-label:text-is("State")) .switch').click();
+  const off = await page.evaluate(
+    (id) => ({ e: window.physicslab.store.light(id).enabled, v: window.physicslab.lightViews.get(id).light.visible }),
+    id,
+  );
+  assert(off.e === false && off.v === false, `off: ${JSON.stringify(off)}`);
+  await shot(page, 'fb-light-off');
+  await page.evaluate(() => document.activeElement?.blur()); // shortcuts are ignored while a form control has focus
+  await page.keyboard.press('Control+z');
+  assert(
+    await page.evaluate((id) => window.physicslab.lightViews.get(id).light.visible, id),
+    'undo switches it back on',
+  );
+  // changing the type rebuilds the real light
+  await page.click('.panel.right .seg-btn:has-text("Spot")');
+  const cls = await page.evaluate((id) => window.physicslab.lightViews.get(id).light.type, id);
+  assert(cls === 'SpotLight', `a spot after changing the type (${cls})`);
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});
+
+test('groups: group the selection, move it with its members, duplicate, ungroup — all undoable', async () => {
+  const page = await newPage();
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.editor.addShape('box', [-1, 0.5, 0], { name: 'Left' });
+    a.editor.addShape('sphere', [1, 0.5, 0], { name: 'Right' });
+    a.editor.addShape('cylinder', [4, 0.5, 0], { name: 'Bystander' });
+    a.editor.addLight('point', [0, 3, 0], { name: 'Lamp' });
+    a.viewport.setView({ position: [0, 5, 10], target: [0, 1, 0] });
+    const ids = a.store
+      .all()
+      .filter((e) => e.name === 'Left' || e.name === 'Right' || e.name === 'Lamp')
+      .map((e) => e.id);
+    a.store.setSelection(ids);
+  });
+  await page.keyboard.press('Control+g');
+  const g = await page.evaluate(() => {
+    const a = window.physicslab;
+    const grp = a.store.groups()[0];
+    return {
+      id: grp?.id,
+      members: grp
+        ? a.store
+            .children(grp.id)
+            .map((c) => c.name)
+            .sort()
+        : [],
+      sel: a.store.selection.slice(),
+      pos: grp?.position,
+    };
+  });
+  assert(g.id && g.members.join() === 'Lamp,Left,Right', `Ctrl+G groups the selection: ${JSON.stringify(g)}`);
+  assert(g.sel.length === 1 && g.sel[0] === g.id, 'the new group is selected');
+  near(g.pos[0], 0, 1e-9, 'pivot at the centre of the members (x)');
+  // the outliner nests the members under the group
+  await page.click('.tab:has-text("Outliner")');
+  const depth = await page.evaluate(() =>
+    [...document.querySelectorAll('.o-item')].map((r) => ({
+      n: r.querySelector('.o-name').textContent,
+      pad: parseFloat(r.style.paddingLeft || '0'),
+    })),
+  );
+  const pad = (n) => depth.find((r) => r.n === n)?.pad ?? -1;
+  assert(
+    pad('Left') > 0 && pad('Right') > 0 && pad('Lamp') > 0 && pad('Bystander') === 0,
+    `members are indented: ${JSON.stringify(depth)}`,
+  );
+  // folding hides the members
+  await page.locator('.o-item.is-group .o-caret').click();
+  assert((await page.locator('.o-item').count()) === 2, 'folded: only the group and the bystander remain');
+  await page.locator('.o-item.is-group .o-caret').click();
+  assert((await page.locator('.o-item').count()) === 5, 'unfolded again');
+  await page.click('.panel.right .tab:has-text("Inspector")');
+  // moving the group (arrow-key nudge acts on the selected group) carries every member
+  const before = await page.evaluate(() =>
+    Object.fromEntries(window.physicslab.store.all().map((e) => [e.name, e.position])),
+  );
+  await page.evaluate(() => window.physicslab.editor.translate(window.physicslab.store.selection, [0, 0, 2]));
+  const after = await page.evaluate(() =>
+    Object.fromEntries(window.physicslab.store.all().map((e) => [e.name, e.position])),
+  );
+  for (const n of ['Left', 'Right', 'Lamp']) near(after[n][2], before[n][2] + 2, 1e-9, `${n} moved with the group`);
+  near(after.Bystander[2], before.Bystander[2], 1e-9, 'a body outside the group stays');
+  // editing the group's position in the inspector does the same
+  const px = page.locator('.panel.right .vec3 .num-input').first();
+  await px.fill('3');
+  await px.press('Enter');
+  const moved = await page.evaluate(() => window.physicslab.store.bodies().find((b) => b.name === 'Left').position[0]);
+  near(moved, 2, 1e-9, 'the inspector pivot field moves the members (Left was at −1, pivot 0 → 3)');
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+z');
+  const undone = await page.evaluate(() =>
+    Object.fromEntries(window.physicslab.store.all().map((e) => [e.name, e.position])),
+  );
+  for (const n of ['Left', 'Right', 'Lamp']) near(undone[n][2], before[n][2], 1e-9, `${n} back after undo`);
+  near(undone.Left[0], before.Left[0], 1e-9, 'x back as well');
+  await shot(page, 'fb-group');
+  // duplicate: the copy brings its members and is its own group
+  await page.keyboard.press('Control+d');
+  const dup = await page.evaluate(() => {
+    const a = window.physicslab;
+    return {
+      groups: a.store.groups().length,
+      bodies: a.store.bodies().length,
+      lights: a.store.lights().length,
+      sel: a.store.selection.map((id) => a.store.get(id).kind),
+    };
+  });
+  assert(
+    dup.groups === 2 && dup.bodies === 5 && dup.lights === 2,
+    `duplicate copies the subtree: ${JSON.stringify(dup)}`,
+  );
+  assert(dup.sel.length === 1 && dup.sel[0] === 'group', 'only the copied group is selected');
+  await page.keyboard.press('Control+z');
+  // ungroup releases the members (they keep their poses)
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.store.setSelection([a.store.groups()[0].id]);
+  });
+  await page.keyboard.press('Control+Shift+g');
+  const un = await page.evaluate(() => {
+    const a = window.physicslab;
+    return {
+      groups: a.store.groups().length,
+      parented: a.store.all().filter((e) => e.parent).length,
+      sel: a.store.selection.length,
+    };
+  });
+  assert(un.groups === 0 && un.parented === 0 && un.sel === 3, `ungrouped: ${JSON.stringify(un)}`);
+  await page.keyboard.press('Control+z');
+  assert((await page.evaluate(() => window.physicslab.store.groups().length)) === 1, 'undo brings the group back');
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});
+
+test('groups: deleting a group keeps its members; hiding it hides them; they simulate and Reset restores', async () => {
+  const page = await newPage();
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.editor.addShape('box', [0, 3, 0], { name: 'Falling' });
+    a.editor.addLight('spot', [0, 6, 2], { name: 'Key' });
+    a.editor.addPath([0, 0.05, 0], { name: 'Track' });
+    a.editor.groupSelection(a.store.all().map((e) => e.id));
+    a.viewport.setView({ position: [0, 4, 10], target: [0, 1.5, 0] });
+  });
+  const ids = await page.evaluate(() => {
+    const a = window.physicslab;
+    return { group: a.store.groups()[0].id, body: a.store.bodies()[0].id };
+  });
+  // hiding the group hides what is in it
+  await page.evaluate((id) => window.physicslab.editor.toggleFlag([id], 'hidden'), ids.group);
+  const hid = await page.evaluate(() => window.physicslab.store.all().map((e) => e.hidden));
+  assert(hid.every(Boolean), 'hide cascades to the members');
+  await page.evaluate((id) => window.physicslab.editor.toggleFlag([id], 'hidden'), ids.group);
+  // a scene with all kinds simulates; the body falls, the document keeps its authored pose
+  await page.keyboard.press('Space');
+  await simTime(page, 0.5);
+  const y = await page.evaluate((id) => window.physicslab.sim.poseOf(id).position[1], ids.body);
+  assert(y < 2.9, `the grouped body falls while the group, light and path are around (${y})`);
+  assert(
+    await page.evaluate(() => !window.physicslab.groupViews.get(window.physicslab.store.groups()[0].id).root.visible),
+    'group helpers are hidden while the simulation owns the poses',
+  );
+  assert(
+    await page.evaluate(
+      () => window.physicslab.lightViews.views.size === 1 && window.physicslab.pathViews.views.size === 1,
+    ),
+    'light and path views stay',
+  );
+  await page.keyboard.press('Shift+Space');
+  await nextFrame(page);
+  near(
+    await page.evaluate((id) => window.physicslab.store.body(id).position[1], ids.body),
+    3,
+    1e-9,
+    'Reset keeps the authored pose',
+  );
+  assert(
+    await page.evaluate(() => window.physicslab.groupViews.get(window.physicslab.store.groups()[0].id).root.visible),
+    'group helpers are back after Reset',
+  );
+  // deleting the group leaves the members, now ungrouped
+  await page.evaluate((id) => window.physicslab.store.setSelection([id]), ids.group);
+  await page.keyboard.press('Delete');
+  const left = await page.evaluate(() => ({
+    n: window.physicslab.store.size,
+    parented: window.physicslab.store.all().filter((e) => e.parent).length,
+  }));
+  assert(left.n === 3 && left.parented === 0, `members stay: ${JSON.stringify(left)}`);
+  await page.keyboard.press('Control+z');
+  assert(
+    (await page.evaluate(() => window.physicslab.store.groups().length)) === 1,
+    'undo restores the group and its links',
+  );
+  assert(
+    (await page.evaluate(() => window.physicslab.store.all().filter((e) => e.parent).length)) === 3,
+    '…including the member links',
+  );
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});
+
+test('paths: curve, point handles, gizmo editing of a point and inspector point list', async () => {
+  const page = await newPage();
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.viewport.setView({ position: [0, 7, 7], target: [0, 0, 0] });
+    a.editor.addPath([0, 0.05, 0], { name: 'Track' });
+  });
+  const id = await page.evaluate(() => window.physicslab.store.paths()[0].id);
+  await page.waitForSelector('.panel.right .path-point');
+  assert((await page.locator('.panel.right .path-point').count()) === 4, 'four points listed');
+  const view = await page.evaluate((id) => {
+    const v = window.physicslab.pathViews.get(id);
+    return { len: v.length, handles: v.handles.geometry.getAttribute('position').count, arrows: v.arrows.count };
+  }, id);
+  assert(view.handles === 4 && view.arrows >= 2 && view.len > 6, `curve view: ${JSON.stringify(view)}`);
+  await shot(page, 'fb-path');
+  // clicking a point handle hands that point to the gizmo
+  const world = await page.evaluate((id) => window.physicslab.pathViews.get(id).pointWorld(2).toArray(), id);
+  const p = await screenPoint(page, world);
+  await page.mouse.click(p.x, p.y);
+  const pp = await page.evaluate(() => window.physicslab.pathPoint);
+  assert(pp && pp.id === id && pp.index === 2, `handle click selects point 3 (${JSON.stringify(pp)})`);
+  const item = await page.evaluate(() => window.physicslab.gizmo.pivot.position.toArray());
+  near(item[0], world[0], 1e-6, 'the gizmo sits on the point');
+  // dragging the gizmo moves just that point (simulated through the editor command the gizmo calls)
+  const lenBefore = await page.evaluate((id) => window.physicslab.pathViews.get(id).length, id);
+  await page.evaluate(([id, w]) => window.physicslab.editor.movePathPoint(id, 2, [w[0], w[1], w[2] + 3]), [id, world]);
+  const pts = await page.evaluate((id) => window.physicslab.store.path(id).points, id);
+  near(pts[2][2], -1.2 + 3, 1e-9, 'point 3 moved (local z = −1.2 + 3)');
+  near(pts[1][2], 1.2, 1e-9, 'the other points did not');
+  const lenAfter = await page.evaluate((id) => window.physicslab.pathViews.get(id).length, id);
+  assert(Math.abs(lenAfter - lenBefore) > 0.3, `the curve was redrawn (${lenBefore} → ${lenAfter})`);
+  // inspector: edit a coordinate, insert and delete points, close the loop, tension
+  const x2 = page.locator('.panel.right .path-point').nth(1).locator('.num-input').first();
+  await x2.fill('-0.5');
+  await x2.press('Enter');
+  near(
+    await page.evaluate((id) => window.physicslab.store.path(id).points[1][0], id),
+    -0.5,
+    1e-9,
+    'point coordinate edited',
+  );
+  await page.locator('.panel.right .path-point').nth(0).locator('button[title^="Insert"]').click();
+  assert((await page.locator('.panel.right .path-point').count()) === 5, 'a point was inserted');
+  await page.locator('.panel.right .path-point').nth(1).locator('button[title^="Delete"]').click();
+  assert((await page.locator('.panel.right .path-point').count()) === 4, 'and deleted again');
+  await page.locator('.panel.right .row:has(.row-label:text-is("Shape")) .switch').click();
+  assert(await page.evaluate((id) => window.physicslab.store.path(id).closed, id), 'closed loop toggled');
+  const closedLen = await page.evaluate((id) => window.physicslab.pathViews.get(id).length, id);
+  assert(closedLen > lenAfter, 'closing adds the segment back to the start');
+  await page.evaluate(() => document.activeElement?.blur());
+  await page.keyboard.press('Control+z');
+  assert(!(await page.evaluate((id) => window.physicslab.store.path(id).closed, id)), 'undo reopens it');
+  await page.keyboard.press('Escape');
+  assert((await page.evaluate(() => window.physicslab.pathPoint)) === null, 'Esc leaves point editing');
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});
+
+test('scene files: groups, lights and paths survive export, share link and autosave', async () => {
+  const page = await newPage();
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.editor.addShape('box', [0, 0.5, 0], { name: 'Member' });
+    a.editor.addLight('area', [0, 3, 0], { name: 'Panel', size: [1.5, 0.5] });
+    a.editor.addPath([1, 0.05, 1], { name: 'Route', closed: true, tension: 0.3 });
+    a.editor.groupSelection(a.store.all().map((e) => e.id));
+  });
+  const doc = await page.evaluate(async () => {
+    const { serializeDocument, parseDocument } = await import('/src/model/serialize.ts');
+    const a = window.physicslab;
+    const text = serializeDocument(a.store.toDocument());
+    const back = parseDocument(text);
+    return {
+      same: JSON.stringify(back.entities) === JSON.stringify(a.store.toDocument().entities),
+      version: back.version,
+      kinds: back.entities.map((e) => e.kind).sort(),
+    };
+  });
+  assert(doc.same && doc.version === 3, `round trip is lossless at v3: ${JSON.stringify(doc)}`);
+  assert(doc.kinds.join() === 'body,group,light,path', `all kinds kept: ${doc.kinds}`);
+  // autosave → reload gives the same scene back
+  await page.evaluate(() => window.physicslab.persistence.saveNow());
+  await page.reload();
+  await page.waitForFunction(() => !!window.physicslab && window.physicslab.viewport, null, { timeout: 30000 });
+  await page.waitForTimeout(500);
+  const re = await page.evaluate(() => {
+    const a = window.physicslab;
+    return {
+      kinds: a.store
+        .all()
+        .map((e) => e.kind)
+        .sort(),
+      area: a.store.lights()[0]?.size,
+      closed: a.store.paths()[0]?.closed,
+      views: [a.groupViews.views.size, a.lightViews.views.size, a.pathViews.views.size],
+    };
+  });
+  assert(re.kinds.join() === 'body,group,light,path' && re.closed === true, `after reload: ${JSON.stringify(re)}`);
+  assert(re.views.join() === '1,1,1', `views were rebuilt: ${re.views}`);
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});
