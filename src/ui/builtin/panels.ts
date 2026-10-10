@@ -8,6 +8,7 @@ import { Inspector } from '../inspector';
 import { LIBRARY_PANELS } from '../libraryPanels';
 import { Outliner } from '../outliner';
 import { energyPanel, selectionPanel } from '../telemetry';
+import { chartsPanel } from '../charts/panel';
 import { buildWorldPanel } from '../worldPanel';
 // -- CP: the Controls tab (keys and analog axes of the scene)
 import { controlsPanel } from '../controlsPanel';
@@ -60,7 +61,8 @@ export function registerBuiltinPanels(): void {
     energyPanel,
     selectionPanel,
     controlsPanel,
+    chartsPanel,
   ])
-    // -- CP: controlsPanel
+    // -- CP: controlsPanel; UI-30: chartsPanel
     registerPanel(p);
 }
