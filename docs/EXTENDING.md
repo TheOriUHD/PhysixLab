@@ -451,6 +451,10 @@ fails with the type's name instead of being drawn as a ball joint or dropped whe
 7. `src/ui/inspector/joint.ts` — the type-specific sections; then a physics test against an analytic expectation
    in `tests/` and the new id in the list at the top of `tests/jointTypes.test.ts`.
 
+A type whose two ends are *independent* points, like `spring` and `rope` (every other type derives end B from end A so
+the joint never starts violated), is also named in two places no test enumerates: `rigid` in `addJoint`
+(`src/physics/world/joints.ts`) and the gizmo's choice of which end it moves (`src/app/gizmoController.ts`).
+
 ```diff
 -export type JointType = 'fixed' | 'hinge' | 'slider' | 'ball' | 'spring' | 'rope';
 +export type JointType = 'fixed' | 'hinge' | 'slider' | 'ball' | 'spring' | 'rope' | 'cardan';
