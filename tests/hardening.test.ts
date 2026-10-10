@@ -226,7 +226,9 @@ describe('component lifecycle', () => {
       let hosted = 0;
       for (const id of [...bodies.keys(), ...joints.keys()]) hosted += w.componentsOf(id).length;
       expect(hosted, `${label}: components in the host`).toBe(total);
-      expect(st.host.size, `${label}: host.size`).toBe(total);
+      expect(w.hostedComponents, `${label}: components held by the host`).toBe(total);
+      const diagnostics = w.custom('diagnostics', null)[0].data as Record<string, number>;
+      expect(diagnostics.hostedComponents, `${label}: diagnostics`).toBe(diagnostics.components);
       expect([...w.bodyIds].sort(), `${label}: bodies in the world`).toEqual([...bodies.keys()].sort());
       const drained = w.drainComponentState();
       for (const id of drained.removed) page.delete(id);

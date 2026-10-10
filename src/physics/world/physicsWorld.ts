@@ -239,6 +239,18 @@ export class PhysicsWorld {
   isComponentRunning(componentId: string): boolean {
     return this.s.host.isRunning(componentId);
   }
+  /** Every component the host holds — equal to the sum of `componentsOf` unless something outlived its owner (a leak). */
+  get hostedComponents(): number {
+    return this.s.host.size;
+  }
+  /** How many components currently publish state to the page. */
+  get publishedStates(): number {
+    return this.s.componentState.size;
+  }
+  /** How many components asked for contact events (reference-counted by the world). */
+  get contactWatchers(): number {
+    return this.s.contactWatchers;
+  }
   /** The component state published since the last call, and the ids of components that went away. */
   drainComponentState(): { changed: Record<string, ComponentStateEntry>; removed: string[] } {
     return this.s.host.drainState();

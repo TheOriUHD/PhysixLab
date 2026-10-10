@@ -294,7 +294,12 @@ test('protocol v2 from the page: analog axes reach the worker; seeds and ray cas
     const snap = await a.sim.client.snapshot();
     a.sim.pause();
     a.sim.client.restore(snap);
-    await new Promise((r) => setTimeout(r, 500));
+    // a frame that was already in flight when the world was paused may still show the later clock: wait for the
+    // frame that follows the restore instead of a fixed time (software rendering can make a frame take a second)
+    const deadline = performance.now() + 15000;
+    while (Math.abs((a.sim.client.stats?.simTime ?? 0) - snap.simTime) > 0.05 && performance.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
     const t = a.sim.client.stats?.simTime ?? 0;
     return { t, snapT: snap.simTime };
   });
@@ -452,4 +457,162 @@ test('components: an error event from the worker becomes a toast naming the comp
   }, id);
   const toast = await page.locator('.toast.warn').first().textContent();
   assert(/Constant force on Crate stopped: kaboom/.test(toast ?? ''), `toast text: ${toast}`);
+});
+
+test('components: edits while the simulation runs — add / edit / remove, undo / redo, delete, duplicate, rebuild, pause, reset, scene reload — never leave the worker out of step', async () => {
+  const page = await newPage();
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.store.updateSettings({ gravity: [0, 0, 0] });
+    for (let i = 0; i < 3; i++) a.editor.addShape('box', [i * 3 - 3, 2, 0], { name: `B${i}` });
+    a.editor.addShape('box', [0, 5, 0], { name: 'Mover', bodyType: 'kinematic' });
+    a.viewport.setView({ position: [0, 6, 14], target: [0, 2, 0] });
+    // the worker's own count of components (the diagnostics channel) against the document's
+    window.__diag = () =>
+      new Promise((resolve) => {
+        const off = a.sim.client.on('custom', (m) => {
+          if (m.channel !== 'diagnostics') return;
+          off();
+          resolve(m.data);
+        });
+        a.sim.client.sendCustom('diagnostics', null);
+      });
+    window.__expected = () => ({
+      components: a.store.all().reduce((n, e) => n + (e.components?.length ?? 0), 0),
+      bodies: a.store.bodies().length,
+    });
+    window.__settle = async () => {
+      let d = null;
+      for (let i = 0; i < 120; i++) {
+        d = await window.__diag();
+        const want = window.__expected();
+        // `hostedComponents` counts what the host holds, owners or not: it only differs when something leaked
+        if (
+          d.components === want.components &&
+          d.hostedComponents === want.components &&
+          d.bodies === want.bodies &&
+          d.publishedStates <= want.components
+        )
+          return { ok: true, d, want };
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      return { ok: false, d, want: window.__expected() };
+    };
+  });
+  await page.keyboard.press('Space');
+  await simTime(page, 0.2);
+  // a long, reproducible sequence of operations; after each one the worker must agree with the document
+  const failures = await page.evaluate(async () => {
+    const { makeComponent } = await import('/src/model/componentRegistry.ts');
+    const a = window.physicslab;
+    let seed = 20240607;
+    const rnd = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;
+    const pick = (xs) => xs[Math.floor(rnd() * xs.length)];
+    const rigid = () => a.store.bodies().filter((b) => b.bodyType !== 'kinematic');
+    const log = [];
+    for (let i = 0; i < 70; i++) {
+      const op = Math.floor(rnd() * 12);
+      let label = `#${i} op ${op}`;
+      const bodies = a.store.bodies();
+      if (i === 25) a.sim.pause();
+      if (i === 40) a.sim.play();
+      if (op <= 1 && rigid().length) {
+        const b = pick(rigid());
+        a.store.update(b.id, {
+          components: [...b.components, makeComponent('constantForce', { force: [rnd(), 0, 0] })],
+        });
+        label += ' add';
+      } else if (op === 2) {
+        const m = bodies.find((b) => b.name === 'Mover');
+        if (m && !m.components.some((c) => c.type === 'sineMover')) {
+          a.store.update(m.id, { components: [...m.components, makeComponent('sineMover', { amplitude: 1 })] });
+          label += ' mover';
+        }
+      } else if (op === 3) {
+        const b = pick(bodies.filter((x) => x.components.length));
+        if (b) a.store.update(b.id, { components: b.components.slice(0, -1) });
+        label += ' remove';
+      } else if (op === 4) {
+        const b = pick(bodies.filter((x) => x.components.length));
+        if (b)
+          a.store.update(b.id, {
+            components: b.components.map((c, k) => (k === 0 ? { ...c, enabled: !c.enabled } : c)),
+          });
+        label += ' toggle';
+      } else if (op === 5) {
+        const b = pick(bodies.filter((x) => x.components.some((c) => c.type === 'constantForce')));
+        if (b)
+          a.store.update(b.id, {
+            components: b.components.map((c) =>
+              c.type === 'constantForce' ? { ...c, params: { ...c.params, force: [rnd() * 3, 0, 0] } } : c,
+            ),
+          });
+        label += ' edit';
+      } else if (op === 6) {
+        a.store.undo();
+        label += ' undo';
+      } else if (op === 7) {
+        a.store.redo();
+        label += ' redo';
+      } else if (op === 8 && bodies.length > 2) {
+        a.store.remove([pick(bodies).id]);
+        label += ' delete';
+      } else if (op === 9 && bodies.length) {
+        a.store.setSelection([pick(bodies).id]);
+        a.editor.duplicateSelection();
+        label += ' duplicate';
+      } else if (op === 10 && rigid().length) {
+        const b = pick(rigid());
+        a.store.update(b.id, { material: { ...b.material, density: 200 + Math.floor(rnd() * 800) } }); // rebuilds it
+        label += ' rebuild';
+      } else if (op === 11 && bodies.length) {
+        const b = pick(bodies);
+        a.store.update(b.id, { components: [...b.components].reverse() });
+        label += ' reorder';
+      }
+      if (a.sim.mode === 'paused') a.sim.step(2);
+      const r = await window.__settle();
+      log.push(
+        `${label}: worker ${JSON.stringify(r.d && { c: r.d.components, b: r.d.bodies })} doc ${JSON.stringify(r.want)}`,
+      );
+      if (!r.ok) return { at: label, log: log.slice(-4) };
+    }
+    return null;
+  });
+  assert(failures === null, `the worker agreed with the document after every operation: ${JSON.stringify(failures)}`);
+  assert(page.errors.length === 0, `no errors during the stress run: ${page.errors.join(' | ')}`);
+  // Reset throws the worker world away; playing again builds it from the document, components included
+  const afterReset = await page.evaluate(async () => {
+    const a = window.physicslab;
+    a.sim.reset();
+    const mode = a.sim.mode;
+    const active = a.sim.client.active;
+    const comps = a.store.all().reduce((n, e) => n + (e.components?.length ?? 0), 0);
+    a.sim.play();
+    const r = await window.__settle();
+    return { mode, active, comps, ok: r.ok, worker: r.d && r.d.components };
+  });
+  assert(
+    afterReset.mode === 'edit' && afterReset.active === false,
+    `Reset returns to edit mode: ${JSON.stringify(afterReset)}`,
+  );
+  assert(
+    afterReset.ok && afterReset.worker === afterReset.comps,
+    `a rebuilt world has the document's components: ${JSON.stringify(afterReset)}`,
+  );
+  // loading another scene while running drops the world; the next run has none of the old components
+  const reloaded = await page.evaluate(async () => {
+    const a = window.physicslab;
+    a.loadTemplate('car');
+    const mode = a.sim.mode;
+    a.sim.play();
+    const r = await window.__settle();
+    return { mode, ok: r.ok, worker: r.d && r.d.components, bodies: r.d && r.d.bodies };
+  });
+  assert(
+    reloaded.mode === 'edit' && reloaded.ok && reloaded.worker === 0 && reloaded.bodies > 5,
+    `a scene reload starts a clean world: ${JSON.stringify(reloaded)}`,
+  );
+  assert(page.errors.length === 0, `no errors after reset and reload: ${page.errors.join(' | ')}`);
 });
