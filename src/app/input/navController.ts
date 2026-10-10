@@ -141,7 +141,10 @@ export class NavController {
 
   private ndc(clientX: number, clientY: number): { x: number; y: number } {
     const r = this.app.viewport.dom.getBoundingClientRect();
-    return { x: ((clientX - r.left) / Math.max(1, r.width)) * 2 - 1, y: -(((clientY - r.top) / Math.max(1, r.height)) * 2 - 1) };
+    return {
+      x: ((clientX - r.left) / Math.max(1, r.width)) * 2 - 1,
+      y: -(((clientY - r.top) / Math.max(1, r.height)) * 2 - 1),
+    };
   }
 
   private onWheel(e: WheelEvent): void {
@@ -299,8 +302,7 @@ export class NavController {
   /** Apply the pending moves and the held keys. Called once per frame before the camera rig. */
   update(dt: number): void {
     const p = this.pending;
-    const idle =
-      !this.held.size && !p.ox && !p.oy && !p.px && !p.py && !p.zoom && !p.twist;
+    const idle = !this.held.size && !p.ox && !p.oy && !p.px && !p.py && !p.zoom && !p.twist;
     if (idle) return;
     const lim = this.limits();
     if (!lim) {
@@ -405,4 +407,3 @@ interface GestureEventLike extends Event {
   clientX?: number;
   clientY?: number;
 }
-

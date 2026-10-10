@@ -26,7 +26,8 @@ registerCommand({
   labelFor: (app) => (app.immersive.kind === 'play' ? 'Exit play mode' : 'Play mode: be in the scene'),
   category: 'Simulation',
   icon: 'eye',
-  description: 'Run the scene and fly through it, grabbing and throwing things, with the editor out of the way. Esc or Tab leaves.',
+  description:
+    'Run the scene and fly through it, grabbing and throwing things, with the editor out of the way. Esc or Tab leaves.',
   keywords: ['immersive', 'fly', 'first person', 'explore', 'interactive'],
   shortcut: 'Shift+V',
   enabled: (app) => app.immersive.kind !== 'drive',
@@ -57,8 +58,22 @@ registerCommand({
   run: () => legendState.toggle(),
 });
 
-registerMenuEntry({ id: 'menu.view.drive', menu: 'view', group: 'camera', order: 420, command: 'drive.toggle', icon: 'car' });
-registerMenuEntry({ id: 'menu.view.play', menu: 'view', group: 'camera', order: 430, command: 'play.toggle', icon: 'eye' });
+registerMenuEntry({
+  id: 'menu.view.drive',
+  menu: 'view',
+  group: 'camera',
+  order: 420,
+  command: 'drive.toggle',
+  icon: 'car',
+});
+registerMenuEntry({
+  id: 'menu.view.play',
+  menu: 'view',
+  group: 'camera',
+  order: 430,
+  command: 'play.toggle',
+  icon: 'eye',
+});
 registerMenuEntry({ id: 'menu.view.legend', menu: 'view', group: 'settings', order: 902, command: 'view.legend' });
 registerMenuEntry({
   id: 'menu.view.navigationSettings',

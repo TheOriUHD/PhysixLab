@@ -22,7 +22,15 @@ import { keyCapLabel, modNames, type OsKind, type PointerKind } from './platform
 
 export type InputContext = 'edit' | 'simulating' | 'grab' | 'fly' | 'placing' | 'drive' | 'play';
 
-export const INPUT_CONTEXTS: readonly InputContext[] = ['edit', 'simulating', 'grab', 'fly', 'placing', 'drive', 'play'];
+export const INPUT_CONTEXTS: readonly InputContext[] = [
+  'edit',
+  'simulating',
+  'grab',
+  'fly',
+  'placing',
+  'drive',
+  'play',
+];
 
 export const CONTEXT_LABEL: Record<InputContext, string> = {
   edit: 'Edit',
@@ -46,16 +54,7 @@ export const CONTEXT_BLURB: Record<InputContext, string> = {
 };
 
 export type KeyOwner =
-  | 'command'
-  | 'nav'
-  | 'sim'
-  | 'camera.fly'
-  | 'grab'
-  | 'placement'
-  | 'drive'
-  | 'play'
-  | 'blocked'
-  | 'none';
+  'command' | 'nav' | 'sim' | 'camera.fly' | 'grab' | 'placement' | 'drive' | 'play' | 'blocked' | 'none';
 
 export const OWNER_LABEL: Record<KeyOwner, string> = {
   command: 'an editor shortcut',
@@ -214,8 +213,12 @@ export function navWants(k: KeyInfo, st: KeyState): boolean {
   if (/^Arrow(Left|Right|Up|Down)$/.test(k.code)) return !(st.nudgeOwnsArrows && !k.alt);
   if (k.alt) return /^Digit[13579]$/.test(k.code);
   return (
-    (k.code === 'Equal' || k.code === 'NumpadAdd' || k.code === 'Minus' || k.code === 'NumpadSubtract' ||
-      k.code === 'PageUp' || k.code === 'PageDown') &&
+    (k.code === 'Equal' ||
+      k.code === 'NumpadAdd' ||
+      k.code === 'Minus' ||
+      k.code === 'NumpadSubtract' ||
+      k.code === 'PageUp' ||
+      k.code === 'PageDown') &&
     !st.hasCommand(k)
   );
 }
@@ -321,9 +324,21 @@ function navSection(env: LegendEnv, st: KeyState): LegendSection {
   const k = (...keys: string[]) => keys;
   if (env.device === 'trackpad') {
     e.push({ id: 'nav.swipe', keys: [], with: 'Two-finger swipe', action: 'Orbit' });
-    e.push({ id: 'nav.swipe.pan', keys: k(m.shift), with: '+ swipe', codes: ['ShiftLeft', 'ShiftRight'], action: `Pan (also ${m.mod} + swipe)` });
+    e.push({
+      id: 'nav.swipe.pan',
+      keys: k(m.shift),
+      with: '+ swipe',
+      codes: ['ShiftLeft', 'ShiftRight'],
+      action: `Pan (also ${m.mod} + swipe)`,
+    });
     e.push({ id: 'nav.pinch', keys: [], with: 'Pinch', action: 'Zoom towards the cursor' });
-    e.push({ id: 'nav.alt.drag', keys: k(m.alt), with: '+ drag', codes: ['AltLeft', 'AltRight'], action: 'Orbit with one finger' });
+    e.push({
+      id: 'nav.alt.drag',
+      keys: k(m.alt),
+      with: '+ drag',
+      codes: ['AltLeft', 'AltRight'],
+      action: 'Orbit with one finger',
+    });
     e.push({ id: 'nav.space.drag', keys: k('Space'), with: '+ drag', codes: ['Space'], action: 'Pan with one finger' });
   } else if (env.device === 'touch') {
     e.push({ id: 'nav.one', keys: [], with: 'One finger', action: 'Orbit (on empty space)' });
@@ -333,9 +348,16 @@ function navSection(env: LegendEnv, st: KeyState): LegendSection {
     e.push({ id: 'nav.rdrag', keys: [], with: 'Right-drag', action: 'Orbit' });
     e.push({ id: 'nav.mdrag', keys: [], with: 'Middle-drag', action: 'Pan (or Space + drag)' });
     e.push({ id: 'nav.wheel', keys: [], with: 'Wheel', action: 'Zoom towards the cursor' });
-    e.push({ id: 'nav.alt.drag', keys: k(m.alt), with: '+ drag', codes: ['AltLeft', 'AltRight'], action: 'Orbit with the left button' });
+    e.push({
+      id: 'nav.alt.drag',
+      keys: k(m.alt),
+      with: '+ drag',
+      codes: ['AltLeft', 'AltRight'],
+      action: 'Orbit with the left button',
+    });
   }
-  if (env.device !== 'touch') e.push({ id: 'nav.dbl', keys: [], with: 'Double-click', action: 'Focus an object / frame all' });
+  if (env.device !== 'touch')
+    e.push({ id: 'nav.dbl', keys: [], with: 'Double-click', action: 'Focus an object / frame all' });
   if (st.navKeys) {
     const nudge = st.nudgeOwnsArrows;
     e.push({
@@ -345,12 +367,28 @@ function navSection(env: LegendEnv, st: KeyState): LegendSection {
       codes: ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'],
       action: nudge ? 'Orbit (plain arrows nudge the selection)' : 'Orbit',
     });
-    e.push({ id: 'nav.arrows.pan', keys: ['Shift'], with: '+ arrows', codes: ['ShiftLeft', 'ShiftRight'], action: 'Pan' });
-    e.push({ id: 'nav.zoom', keys: ['+', '−'], codes: ['Equal', 'Minus', 'NumpadAdd', 'NumpadSubtract'], action: 'Zoom' });
+    e.push({
+      id: 'nav.arrows.pan',
+      keys: ['Shift'],
+      with: '+ arrows',
+      codes: ['ShiftLeft', 'ShiftRight'],
+      action: 'Pan',
+    });
+    e.push({
+      id: 'nav.zoom',
+      keys: ['+', '−'],
+      codes: ['Equal', 'Minus', 'NumpadAdd', 'NumpadSubtract'],
+      action: 'Zoom',
+    });
   }
   e.push({ id: 'nav.frame', keys: ['F'], codes: ['KeyF'], action: 'Frame selection' });
   e.push({ id: 'nav.home', keys: ['Home'], codes: ['Home'], action: 'Frame everything' });
-  e.push({ id: 'nav.views', keys: [m.alt], with: '+ 1 3 7 9', action: 'Front / side / top / iso view (or Num 1 3 7 9)' });
+  e.push({
+    id: 'nav.views',
+    keys: [m.alt],
+    with: '+ 1 3 7 9',
+    action: 'Front / side / top / iso view (or Num 1 3 7 9)',
+  });
   return { id: 'nav', title: 'Camera', entries: e };
 }
 
@@ -417,14 +455,21 @@ export function legendFor(ctx: InputContext, st: KeyState, env: LegendEnv, extra
           { id: 'sim.toggle', keys: ['Space'], codes: ['Space'], action: 'Pause / resume' },
           { id: 'sim.reset', keys: ['Shift', 'Space'], codes: ['Space'], action: 'Stop and return to the layout' },
           ...(['KeyQ', 'KeyW', 'KeyE', 'KeyR'] as const).map((code): LegendEntry => {
-            const names: Record<string, string> = { KeyQ: 'Select', KeyW: 'Move gizmo', KeyE: 'Rotate gizmo', KeyR: 'Scale gizmo' };
+            const names: Record<string, string> = {
+              KeyQ: 'Select',
+              KeyW: 'Move gizmo',
+              KeyE: 'Rotate gizmo',
+              KeyR: 'Scale gizmo',
+            };
             const used = st.sceneKeys.has(code);
             return {
               id: `tool.${code}`,
               keys: [cap(code, env)],
               codes: [code],
               action: names[code],
-              unavailable: used ? `the scene uses ${cap(code, env)} for ${st.sceneLabels.get(code) ?? 'a control'}` : undefined,
+              unavailable: used
+                ? `the scene uses ${cap(code, env)} for ${st.sceneLabels.get(code) ?? 'a control'}`
+                : undefined,
             };
           }),
           ...sh.filter((x) => !['KeyQ', 'KeyW', 'KeyE', 'KeyR'].includes(x.id.slice(7))),
@@ -433,7 +478,9 @@ export function legendFor(ctx: InputContext, st: KeyState, env: LegendEnv, extra
       sections.push({
         id: 'grab',
         title: 'Hold a body',
-        entries: [{ id: 'grab.hint', keys: [], with: 'Drag', action: 'Grab and throw (W S A D Q E F work while holding)' }],
+        entries: [
+          { id: 'grab.hint', keys: [], with: 'Drag', action: 'Grab and throw (W S A D Q E F work while holding)' },
+        ],
       });
       sections.push(navSection(env, st));
       break;
@@ -502,7 +549,11 @@ export function legendFor(ctx: InputContext, st: KeyState, env: LegendEnv, extra
       }
       break;
     case 'placing':
-      sections.push({ id: 'placing', title: 'Placing', entries: extra.length ? extra : [{ id: 'place.esc', keys: ['Esc'], codes: ['Escape'], action: 'Cancel' }] });
+      sections.push({
+        id: 'placing',
+        title: 'Placing',
+        entries: extra.length ? extra : [{ id: 'place.esc', keys: ['Esc'], codes: ['Escape'], action: 'Cancel' }],
+      });
       sections.push(navSection(env, st));
       break;
     case 'drive': {
@@ -546,7 +597,11 @@ export function legendFor(ctx: InputContext, st: KeyState, env: LegendEnv, extra
           { id: 'play.boost', keys: ['Shift'], codes: ['ShiftLeft', 'ShiftRight'], action: 'Faster' },
           { id: 'play.look', keys: [], with: 'Right-drag', action: 'Look around' },
           { id: 'play.grab', keys: [], with: 'Drag', action: 'Grab and throw bodies' },
-          { id: 'play.held', keys: ['W', 'S', 'A', 'D', 'Q', 'E', 'F'], action: 'While holding: push, pull, turn, freeze' },
+          {
+            id: 'play.held',
+            keys: ['W', 'S', 'A', 'D', 'Q', 'E', 'F'],
+            action: 'While holding: push, pull, turn, freeze',
+          },
           { id: 'play.exit', keys: ['Esc', 'Tab'], codes: ['Escape', 'Tab'], action: 'Leave play mode' },
         ],
       });

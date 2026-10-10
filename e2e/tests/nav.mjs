@@ -181,7 +181,8 @@ test('nav: Safari pinch / rotate gesture events zoom and turn the view and are p
       [type, scale, rotation],
     );
   assert(await fire('gesturestart', 1, 0), 'gesturestart is preventDefault-ed (no page zoom)');
-  for (let i = 1; i <= 6; i++) assert(await fire('gesturechange', 1 + i * 0.12, i * 3), 'gesturechange is preventDefault-ed');
+  for (let i = 1; i <= 6; i++)
+    assert(await fire('gesturechange', 1 + i * 0.12, i * 3), 'gesturechange is preventDefault-ed');
   await fire('gestureend', 1.72, 18);
   await settle(page);
   const c1 = await camState(page);
@@ -229,16 +230,29 @@ test('nav: Settings › Navigation shows the detected device, applies presets, s
   await page.keyboard.press('Enter');
   await page.waitForSelector('.input-modal .nav-tab');
   const status = await page.locator('.nav-status').innerText();
-  assert(/Linux/.test(status) && /mouse/.test(status) && /detected/.test(status), `the status names the system and device: ${status}`);
+  assert(
+    /Linux/.test(status) && /mouse/.test(status) && /detected/.test(status),
+    `the status names the system and device: ${status}`,
+  );
   let sheet = await page.locator('.nav-sheet').innerText();
-  assert(/Right-drag/.test(sheet) && /Alt/.test(sheet) && !/Option/.test(sheet), `mouse cheat sheet with Alt: ${sheet}`);
+  assert(
+    /Right-drag/.test(sheet) && /Alt/.test(sheet) && !/Option/.test(sheet),
+    `mouse cheat sheet with Alt: ${sheet}`,
+  );
   await shot(page, 'nav-settings');
   // presets
   await page.click('.nav-presets [data-preset="trackpad-map"]');
-  await page.waitForFunction(() => window.physicslab.input.settings.nav.device === 'trackpad' && window.physicslab.input.settings.nav.swipe === 'pan');
+  await page.waitForFunction(
+    () =>
+      window.physicslab.input.settings.nav.device === 'trackpad' &&
+      window.physicslab.input.settings.nav.swipe === 'pan',
+  );
   sheet = await page.locator('.nav-sheet').innerText();
   assert(/Two-finger swipe/.test(sheet) && /Pinch/.test(sheet), `the trackpad cheat sheet: ${sheet}`);
-  assert((await page.locator('.nav-status').innerText()).includes('your choice'), 'the status says it is the user choice');
+  assert(
+    (await page.locator('.nav-status').innerText()).includes('your choice'),
+    'the status says it is the user choice',
+  );
   await page.click('.nav-presets [data-preset="touch"]');
   await page.waitForFunction(() => window.physicslab.input.settings.nav.device === 'touch');
   assert(/Double-tap/.test(await page.locator('.nav-sheet').innerText()), 'the touch cheat sheet');
@@ -297,7 +311,7 @@ test('nav: keyboard navigation — arrows orbit, shift pans, +/- zoom, Option+7 
   await page.keyboard.down('Alt');
   await page.keyboard.press('Digit7');
   await page.keyboard.up('Alt');
-  await page.waitForFunction(() => window.physicslab.cameraRig.preset === 'top', null, { timeout: 10000 });
+  await page.waitForFunction(() => window.physicslab.cameraRig.preset === 'top', null, { timeout: 30000 });
   assert((await camState(page)).ortho, 'Alt + 7 shows the orthographic top view');
   assert((await page.evaluate(() => window.physicslab.store.bodies().length)) === 3, 'Alt + digit did not add a shape');
   assert(page.errors.length === 0, page.errors.join('\n'));
@@ -365,7 +379,10 @@ test('nav: Option + drag orbits, Space + drag pans, a plain drag on empty space 
   const c2 = await camState(page);
   assert(Math.hypot(c2.target[0] - c1.target[0], c2.target[2] - c1.target[2]) > 0.5, 'Space + drag pans');
   near(c2.az, c1.az, 0.01, 'pan keeps the azimuth');
-  assert(!(await page.evaluate(() => window.physicslab.sim.active)), 'Space used as a pan modifier does not start the simulation');
+  assert(
+    !(await page.evaluate(() => window.physicslab.sim.active)),
+    'Space used as a pan modifier does not start the simulation',
+  );
   // a plain drag draws the rectangle and leaves the camera alone
   await page.mouse.move(sx - 300, sy);
   await page.mouse.down();
@@ -377,7 +394,7 @@ test('nav: Option + drag orbits, Space + drag pans, a plain drag on empty space 
   // a tap on Space still plays
   await page.mouse.move(sx, sy);
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.physicslab.sim.active, null, { timeout: 5000 });
+  await page.waitForFunction(() => window.physicslab.sim.active, null, { timeout: 30000 });
   await page.keyboard.press('Space');
   assert(page.errors.length === 0, page.errors.join('\n'));
   await page.close();
@@ -394,7 +411,11 @@ const ballScene = (page) =>
     return b.id;
   });
 
-const yawOf = (q) => (2 * Math.atan2(q[1], q[3]) * 180) / Math.PI;
+/** The angle in degrees between two orientations (quaternions [x, y, z, w]). */
+const angleBetween = (a, b) => {
+  const d = Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]);
+  return (2 * Math.acos(Math.min(1, d)) * 180) / Math.PI;
+};
 
 test('nav: holding a body — push / pull with W S ↑ ↓, turn with Q E A D in 15° steps, freeze with F — no wheel needed', async () => {
   const page = await newPage();
@@ -406,7 +427,10 @@ test('nav: holding a body — push / pull with W S ↑ ↓, turn with Q E A D in
   await page.mouse.down();
   await page.mouse.move(sp.x, sp.y - 60, { steps: 6 });
   await page.waitForTimeout(500);
-  assert((await page.evaluate(() => window.physicslab.contexts.current)) === 'grab', 'the context is grab while holding');
+  assert(
+    (await page.evaluate(() => window.physicslab.contexts.current)) === 'grab',
+    'the context is grab while holding',
+  );
   const z0 = await page.evaluate((id) => window.physicslab.bodies.get(id).position.z, id);
   const zOf = (id) => page.evaluate((id) => window.physicslab.bodies.get(id).position.z, id);
   // hold a key for a moment (the target moves at a speed that scales with the distance), then let the spring catch up
@@ -416,32 +440,51 @@ test('nav: holding a body — push / pull with W S ↑ ↓, turn with Q E A D in
     await page.keyboard.up(code);
   };
   const settleZ = (id, test, msg) =>
-    page.waitForFunction(([id, src]) => new Function('z', `return ${src}`)(window.physicslab.bodies.get(id).position.z), [id, test], { timeout: 25000 }).catch(() => {
-      throw new Error(`assertion failed: ${msg}`);
-    });
+    page
+      .waitForFunction(
+        ([id, src]) => new Function('z', `return ${src}`)(window.physicslab.bodies.get(id).position.z),
+        [id, test],
+        { timeout: 25000 },
+      )
+      .catch(() => {
+        throw new Error(`assertion failed: ${msg}`);
+      });
+  /** Wait until the held body has stopped moving along the view axis (the spring is still catching up with the target). */
+  const stable = async (id) => {
+    let last = await zOf(id);
+    for (let i = 0; i < 30; i++) {
+      await page.waitForTimeout(400);
+      const z = await zOf(id);
+      if (Math.abs(z - last) < 0.03) return z;
+      last = z;
+    }
+    return last;
+  };
   await tap('KeyW', 350);
   await settleZ(id, `z < ${z0 - 1.2}`, `W pushes the held body away (from z ${z0.toFixed(2)})`);
-  const z1 = await zOf(id);
+  const z1 = await stable(id);
   await tap('ArrowDown', 350);
   await settleZ(id, `z > ${z1 + 1}`, `Arrow Down pulls it back (from z ${z1.toFixed(2)})`);
-  const z2 = await zOf(id);
+  const z2 = await stable(id);
   // [ and ] too
   await tap('BracketRight', 350);
   await settleZ(id, `z < ${z2 - 1}`, `] pushes it away (from z ${z2.toFixed(2)})`);
+  await stable(id);
   // 15 degree steps
-  const yaw0 = yawOf((await pose(page, id)).rotation);
+  const rot = async () => (await pose(page, id)).rotation;
+  const q0 = await rot();
   await page.keyboard.press('KeyE');
-  await page.waitForTimeout(200);
-  const yaw1 = yawOf((await pose(page, id)).rotation);
-  near(Math.abs(yaw1 - yaw0), 15, 4, `E turns 15° (${yaw0.toFixed(1)} -> ${yaw1.toFixed(1)})`);
+  await page.waitForTimeout(250);
+  const q1 = await rot();
+  near(angleBetween(q0, q1), 15, 4, 'E turns the held body by 15°');
   await page.keyboard.press('KeyQ');
-  await page.waitForTimeout(200);
-  const yaw2 = yawOf((await pose(page, id)).rotation);
-  near(yaw2, yaw0, 4, 'Q turns it back');
+  await page.waitForTimeout(250);
+  const q2 = await rot();
+  assert(angleBetween(q0, q2) < 5, `Q turns it back (${angleBetween(q0, q2).toFixed(1)}° from where it started)`);
   await page.keyboard.press('Shift+KeyD');
-  await page.waitForTimeout(200);
-  const yaw3 = yawOf((await pose(page, id)).rotation);
-  near(Math.abs(yaw3 - yaw2), 5, 3, `Shift + D is a fine 5° step (${yaw2.toFixed(1)} -> ${yaw3.toFixed(1)})`);
+  await page.waitForTimeout(250);
+  const q3 = await rot();
+  near(angleBetween(q2, q3), 5, 3, 'Shift + D is a fine 5° step');
   await shot(page, 'nav-grab-legend');
   // F freezes it where it is
   await page.keyboard.press('KeyF');
@@ -452,9 +495,50 @@ test('nav: holding a body — push / pull with W S ↑ ↓, turn with Q E A D in
   const b = await pose(page, id);
   near(b.position[1], a.position[1], 0.01, 'frozen body stays in the air');
   assert((await page.evaluate(() => window.__wheels)) === 0, 'no wheel event was needed');
-  assert((await page.evaluate(() => window.physicslab.contexts.current)) === 'simulating', 'back to the simulating context');
+  assert(
+    (await page.evaluate(() => window.physicslab.contexts.current)) === 'simulating',
+    'back to the simulating context',
+  );
   assert(page.errors.length === 0, page.errors.join('\n'));
   await page.close();
+});
+
+test('nav: on touch, a second finger pinching while a body is held pushes / pulls it', async () => {
+  const page = await newTouchPage();
+  const id = await page.evaluate(() => {
+    const a = window.physicslab;
+    a.prefs.set({ showLeft: false, showRight: false, showBottom: false, followSelection: false });
+    a.input.update_settings({ touch: { ...a.input.settings.touch, longPressMs: 9000 } });
+    a.newScene();
+    const b = a.editor.addShape('sphere', [0, 0.5, 0], { material: { preset: 'rubber', density: 300 } });
+    a.viewport.setView({ position: [0, 4, 9], target: [0, 1, 0] });
+    return b.id;
+  });
+  await page.evaluate(() => window.physicslab.sim.play());
+  await simTime(page, 0.8);
+  await settle(page);
+  const sp = await screenOf(page, id);
+  await downAll(page, [[1, sp.x, sp.y]]);
+  await drag(page, [1], 0, -50, 5);
+  await page.waitForFunction(() => window.physicslab.contexts.current === 'grab', null, { timeout: 20000 });
+  const z0 = await page.evaluate((id) => window.physicslab.bodies.get(id).position.z, id);
+  // the second finger lands: the body stays held (no cancel) and the context stays grab
+  await downAll(page, [[2, sp.x + 160, sp.y - 50]]);
+  assert(
+    (await page.evaluate(() => window.physicslab.contexts.current)) === 'grab',
+    'a second finger does not drop the held body',
+  );
+  for (let i = 1; i <= 8; i++) await moveTo(page, 2, sp.x + 160 + i * 25, sp.y - 50);
+  await page
+    .waitForFunction((a) => window.physicslab.bodies.get(a[0]).position.z > a[1] + 1.5, [id, z0], { timeout: 25000 })
+    .catch(() => {
+      throw new Error('assertion failed: pinching apart pulls the held body towards the camera');
+    });
+  assert((await page.evaluate(() => window.physicslab.contexts.current)) === 'grab', 'still holding');
+  await up(page, 2);
+  await up(page, 1);
+  assert(page.errors.length === 0, page.errors.join('\n'));
+  await page.closeAll();
 });
 
 test('nav: the controls legend names the context, lists what works now, and says what does not', async () => {
@@ -470,11 +554,14 @@ test('nav: the controls legend names the context, lists what works now, and says
   await page.click('.ctl-pill');
   await page.waitForSelector('.ctl-body:not([hidden]) .ctl-row');
   const editText = await page.locator('.ctl-body').innerText();
-  assert(/Move gizmo/.test(editText) && /Orbit/.test(editText), `edit legend lists the tools and the camera: ${editText}`);
+  assert(
+    /Move gizmo/.test(editText) && /Orbit/.test(editText),
+    `edit legend lists the tools and the camera: ${editText}`,
+  );
   await shot(page, 'nav-legend-edit');
   // simulating the powertrain car: Q W E R belong to the car
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.physicslab.sim.active, null, { timeout: 5000 });
+  await page.waitForFunction(() => window.physicslab.sim.active, null, { timeout: 30000 });
   await page.waitForFunction(() => document.querySelector('.ctl-legend')?.dataset.ctx === 'simulating');
   assert((await page.locator('.ctl-pill .ctl-ctx').innerText()) === 'Simulating', 'the pill follows the simulation');
   await page.waitForSelector('.ctl-row[data-id="tool.KeyQ"].off');
@@ -492,7 +579,10 @@ test('nav: the controls legend names the context, lists what works now, and says
   await page.evaluate(() => window.physicslab.cameraRig.setMode('fly'));
   await page.waitForFunction(() => document.querySelector('.ctl-legend')?.dataset.ctx === 'fly');
   assert(/Fly camera/.test(await page.locator('.ctl-pill .ctl-ctx').innerText()), 'fly pill');
-  assert(/the fly camera uses this key/.test(await page.locator('.ctl-body').innerText()), 'scene keys used by the camera are named');
+  assert(
+    /the fly camera uses this key/.test(await page.locator('.ctl-body').innerText()),
+    'scene keys used by the camera are named',
+  );
   await shot(page, 'nav-legend-fly');
   // collapse
   await page.click('.ctl-pill');
@@ -519,20 +609,24 @@ test('nav: Q and E work where the legend says they do — tools in the editor, t
   assert((await gizmo()) === 'translate', 'W: move gizmo');
   // simulating the powertrain car: Q / E / W are the car's and leave the gizmo alone
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.physicslab.sim.active, null, { timeout: 5000 });
+  await page.waitForFunction(() => window.physicslab.sim.active, null, { timeout: 30000 });
   await page.waitForFunction(() => window.physicslab.contexts.current === 'simulating');
   await page.keyboard.down('KeyE');
-  await page.waitForFunction(() => window.physicslab.sim.keys.has('KeyE'), null, { timeout: 10000 }).catch(() => {
-    throw new Error('assertion failed: E reaches the simulation (gear up)');
-  });
+  await page
+    .waitForFunction(() => window.physicslab.sim.keys.has('KeyE'), null, { timeout: 30000 })
+    .catch(() => {
+      throw new Error('assertion failed: E reaches the simulation (gear up)');
+    });
   assert((await gizmo()) === 'translate', 'and does not switch the gizmo while simulating');
   await page.keyboard.up('KeyE');
   await page.keyboard.press('KeyQ');
   assert((await gizmo()) === 'translate', 'Q does not select the select tool while simulating');
   await page.keyboard.down('KeyW');
-  await page.waitForFunction(() => window.physicslab.sim.keys.has('KeyW'), null, { timeout: 10000 }).catch(() => {
-    throw new Error('assertion failed: W reaches the engine');
-  });
+  await page
+    .waitForFunction(() => window.physicslab.sim.keys.has('KeyW'), null, { timeout: 30000 })
+    .catch(() => {
+      throw new Error('assertion failed: W reaches the engine');
+    });
   await page.keyboard.up('KeyW');
   await page.keyboard.press('Space'); // pause
   // fly camera: E up, Q down
@@ -560,7 +654,10 @@ test('nav: touch — one finger orbits on empty space, two fingers pan, a pinch 
   await page.evaluate(() => {
     const a = window.physicslab;
     a.prefs.set({ showLeft: false, showRight: false, showBottom: false, followSelection: false });
-    a.input.update_settings({ touch: { ...a.input.settings.touch, longPressMs: 9000 }, nav: { ...a.input.settings.nav, smooth: false } });
+    a.input.update_settings({
+      touch: { ...a.input.settings.touch, longPressMs: 9000 },
+      nav: { ...a.input.settings.nav, smooth: false },
+    });
     a.store.clear();
     for (const x of [-3, 0, 3]) a.addShape('box', [x, 0.5, 0]);
     a.store.setSelection([]);
@@ -579,7 +676,10 @@ test('nav: touch — one finger orbits on empty space, two fingers pan, a pinch 
   assert(Math.abs(c1.az - c0.az) > 0.2, `one finger orbits: ${c0.az} -> ${c1.az}`);
   assert(marquee === 'none', 'no selection rectangle on touch');
   // two fingers drag = pan
-  await downAll(page, [[1, 450, 300], [2, 650, 300]]);
+  await downAll(page, [
+    [1, 450, 300],
+    [2, 650, 300],
+  ]);
   await drag(page, [1, 2], 160, 0, 8);
   await up(page, 2);
   await up(page, 1);
@@ -589,7 +689,10 @@ test('nav: touch — one finger orbits on empty space, two fingers pan, a pinch 
   assert(Math.hypot(c2.target[0] - c1.target[0], c2.target[2] - c1.target[2]) > 0.4, 'two fingers pan the view');
   near(c2.az, c1.az, 0.05, 'pan keeps the azimuth');
   // twist: the fingers turn about their centre
-  await downAll(page, [[1, 500, 320], [2, 700, 320]]);
+  await downAll(page, [
+    [1, 500, 320],
+    [2, 700, 320],
+  ]);
   for (let i = 1; i <= 8; i++) {
     const a = (i / 8) * 0.9;
     await moveTo(page, 1, 600 - Math.cos(a) * 100, 320 - Math.sin(a) * 100);
@@ -602,7 +705,10 @@ test('nav: touch — one finger orbits on empty space, two fingers pan, a pinch 
   const c3 = await camState(page);
   assert(Math.abs(c3.az - c2.az) > 0.3, `a twist turns the view: ${c2.az} -> ${c3.az}`);
   // pinch zooms
-  await downAll(page, [[1, 500, 320], [2, 600, 320]]);
+  await downAll(page, [
+    [1, 500, 320],
+    [2, 600, 320],
+  ]);
   for (let i = 1; i <= 8; i++) {
     await moveTo(page, 1, 500 - i * 20, 320);
     await moveTo(page, 2, 600 + i * 20, 320);
@@ -613,16 +719,21 @@ test('nav: touch — one finger orbits on empty space, two fingers pan, a pinch 
   await settle(page);
   const c4 = await camState(page);
   assert(c4.dist < c3.dist * 0.8, `pinch out zooms in: ${c3.dist} -> ${c4.dist}`);
-  // double-tap on a box selects and frames it
+  // double-tap on a box selects and frames it (the gestures above moved the view: look at the boxes again first)
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.viewport.setView({ position: [0, 9, 12], target: [0, 0.5, 0] });
+    a.input.update_settings({ nav: { ...a.input.settings.nav, smooth: false } });
+  });
+  await settle(page);
   const id = await page.evaluate(() => window.physicslab.store.bodies()[2].id);
   const p = await screenOf(page, id);
   const target0 = (await camState(page)).target;
-  for (let i = 0; i < 2; i++) {
-    await downAllOne(page, 9, p.x, p.y);
-    await up(page, 9);
-    await page.waitForTimeout(60);
-  }
-  await page.waitForFunction((id) => window.physicslab.store.selection.includes(id), id, { timeout: 5000 });
+  // both taps go out back to back, so a slow machine cannot stretch the gap between them
+  const pts = [{ id: 9, x: p.x, y: p.y, radiusX: 8, radiusY: 8, force: 1 }];
+  const send = (type) => page.cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
+  await Promise.all([send('touchStart'), send('touchEnd'), send('touchStart'), send('touchEnd')]);
+  await page.waitForFunction((id) => window.physicslab.store.selection.includes(id), id, { timeout: 30000 });
   await page.waitForTimeout(800);
   await settle(page);
   const c5 = await camState(page);

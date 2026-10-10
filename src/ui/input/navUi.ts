@@ -59,7 +59,12 @@ function mountLegend(app: App, stage: HTMLElement): void {
     caret,
   );
   const body = h('div', { class: 'ctl-body', hidden: true });
-  const root = h('div', { class: 'ctl-legend', 'data-immersive': '', role: 'group', 'aria-label': 'Controls' }, pill, body);
+  const root = h(
+    'div',
+    { class: 'ctl-legend', 'data-immersive': '', role: 'group', 'aria-label': 'Controls' },
+    pill,
+    body,
+  );
   stage.appendChild(root);
 
   /** The rows currently shown with the key codes that light them. */
@@ -163,7 +168,12 @@ function mountDriveHud(app: App, stage: HTMLElement): void {
     '<circle class="fg" cx="60" cy="60" r="52" pathLength="100" stroke-dasharray="0 100" transform="rotate(135 60 60)"/>';
   const fg = arc.querySelector('.fg') as SVGCircleElement;
   const aux = h('div', { class: 'drv-aux' }, '');
-  const gauge = h('div', { class: 'drv-gauge' }, arc, h('div', { class: 'drv-gauge-text' }, speed, h('small', null, 'km/h'), aux));
+  const gauge = h(
+    'div',
+    { class: 'drv-gauge' },
+    arc,
+    h('div', { class: 'drv-gauge-text' }, speed, h('small', null, 'km/h'), aux),
+  );
   const note = h('div', { class: 'drv-note' }, '');
   const root = h(
     'div',
@@ -208,10 +218,15 @@ function mountDriveHud(app: App, stage: HTMLElement): void {
     speed.textContent = String(Math.round(h2.speed));
     fg.setAttribute('stroke-dasharray', `${Math.min(75, (h2.speed / scale) * 75).toFixed(1)} 100`);
     const bits: HTMLElement[] = [];
-    if (h2.gear !== null) bits.push(h('span', null, h2.gear < 0 ? 'Gear R' : h2.gear === 0 ? 'Gear N' : `Gear ${h2.gear}`));
+    if (h2.gear !== null)
+      bits.push(h('span', null, h2.gear < 0 ? 'Gear R' : h2.gear === 0 ? 'Gear N' : `Gear ${h2.gear}`));
     if (h2.rpm !== null) bits.push(h('span', null, `${Math.round(h2.rpm / 10) * 10} rpm`));
     aux.replaceChildren(...bits);
-    note.textContent = h2.paused ? 'Paused — resume with the pause key' : h2.tilted ? 'Tilted — press the reset key to flip upright' : '';
+    note.textContent = h2.paused
+      ? 'Paused — resume with the pause key'
+      : h2.tilted
+        ? 'Tilted — press the reset key to flip upright'
+        : '';
     note.classList.toggle('warn', h2.tilted && !h2.paused);
   });
 }

@@ -466,6 +466,8 @@ export class InputController {
   private grabHeld = new Set<string>();
   private lastTurnAt = 0;
   private grabT = 0;
+  /** The command Space would run (play / pause), kept until its release decides between that and a pan. */
+  private spaceCommand: string | null = null;
 
   /** Per frame: held depth keys push / pull the held body at a speed that scales with its distance. */
   private tickGrab(dt: number): void {
@@ -514,23 +516,23 @@ export class InputController {
    */
   private onKeyRoute(e: KeyboardEvent, down: boolean): void {
     const app = this.app;
-    if (isTyping(e.target)) {
-      if (!down && e.code === 'KeyR') this.rHeld = false;
-      return;
+    // A released key is released whatever has the focus now (a field may have taken it since the press).
+    if (!down) {
+      app.input.down.delete(e.code);
+      this.grabHeld.delete(e.code);
+      app.nav.keyUp(e);
+      if (e.code === 'KeyR') this.rHeld = false;
     }
+    if (isTyping(e.target)) return;
     const consume = () => {
       e.preventDefault();
       e.stopImmediatePropagation();
     };
     // The legend lights keys that are down, including the ones consumed below (they never reach the hub).
     if (down) app.input.down.add(e.code);
-    else app.input.down.delete(e.code);
     const ctx = app.contexts.update();
     if (e.code === 'Space' && this.spaceRoute(e, down)) return;
     if (!down) {
-      this.grabHeld.delete(e.code);
-      if (e.code === 'KeyR') this.rHeld = false;
-      app.nav.keyUp(e);
       if (ctx === 'drive' || ctx === 'play') app.immersive.handleKey(e, false);
       return;
     }
@@ -576,14 +578,21 @@ export class InputController {
       }
       if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || !this.pointer.inside || this.g.kind !== 'none')
         return false;
-      if (!this.focusFree(e) || keymap.find(e)?.id !== 'sim.toggle' || app.contexts.ownerOf(e) !== 'command') return false;
+      if (!this.focusFree(e)) return false;
+      // Space belongs to the editor (play / pause unless rebound) or to nobody; the scene, the placement ghost and the
+      // immersive modes keep it for themselves.
+      const owner = app.contexts.ownerOf(e);
+      if (owner !== 'command' && owner !== 'none') return false;
+      this.spaceCommand = keymap.find(e)?.id ?? null;
       nav.spaceDown();
       e.preventDefault();
       e.stopImmediatePropagation();
       return true;
     }
     if (!nav.spaceHeld) return false;
-    if (!nav.spaceUp()) runCommand('sim.toggle', app, 'shortcut', e);
+    const used = nav.spaceUp();
+    if (!used && this.spaceCommand) runCommand(this.spaceCommand, app, 'shortcut', e);
+    this.spaceCommand = null;
     e.preventDefault();
     return true;
   }
@@ -690,7 +699,7 @@ export class InputController {
     if (e.pointerType === 'touch' && e.type === 'pointerup' && ((g.kind === 'marquee' && !g.moved) || g.kind === 'none' || (g.kind === 'dragMove' && !g.moved))) {
       const now = e.timeStamp; // the event's own time: a slow frame must not turn two quick taps into two single ones
       const t = this.lastTap;
-      if (t && now - t.t < 320 && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 32) {
+      if (t && now - t.t < 350 && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 32) {
         this.lastTap = null;
         this.lastDoubleAt = performance.now();
         this.onDouble(e);

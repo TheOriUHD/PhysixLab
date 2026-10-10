@@ -230,7 +230,13 @@ describe('camera moves', () => {
     const w1 = world();
     // the same ray, so the point on the view plane through the camera is the same
     const f = new Vector3(0, 0, -1).applyQuaternion(c.quaternion);
-    expect(w1.clone().sub(w0).sub(f.multiplyScalar(w1.clone().sub(w0).dot(f))).length()).toBeLessThan(1e-6);
+    expect(
+      w1
+        .clone()
+        .sub(w0)
+        .sub(f.multiplyScalar(w1.clone().sub(w0).dot(f)))
+        .length(),
+    ).toBeLessThan(1e-6);
   });
 
   it('smoothing applies a share of the pending move; without it, all of it', () => {
@@ -245,8 +251,22 @@ describe('camera moves', () => {
 describe('navigation settings', () => {
   it('sanitise to valid values and survive a round trip through the input settings', () => {
     expect(sanitizeNav(undefined)).toEqual(DEFAULT_NAV);
-    const odd = sanitizeNav({ device: 'laser', swipe: 'pan', orbitSpeed: 99, panSpeed: -3, invertZoom: 'yes', touchOneFinger: 'select' });
-    expect(odd).toMatchObject({ device: 'auto', swipe: 'pan', orbitSpeed: 3, panSpeed: 0.25, invertZoom: false, touchOneFinger: 'select' });
+    const odd = sanitizeNav({
+      device: 'laser',
+      swipe: 'pan',
+      orbitSpeed: 99,
+      panSpeed: -3,
+      invertZoom: 'yes',
+      touchOneFinger: 'select',
+    });
+    expect(odd).toMatchObject({
+      device: 'auto',
+      swipe: 'pan',
+      orbitSpeed: 3,
+      panSpeed: 0.25,
+      invertZoom: false,
+      touchOneFinger: 'select',
+    });
     expect(DEFAULT_INPUT.nav).toEqual(DEFAULT_NAV);
     const stored = sanitizeInput({ nav: { device: 'trackpad', swipe: 'pan' } });
     expect(stored.nav).toMatchObject({ device: 'trackpad', swipe: 'pan' });

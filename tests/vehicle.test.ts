@@ -48,7 +48,8 @@ describe('vehicle detection (joint-built vehicles and powered components)', () =
     const { vehicle } = detect(b.doc.entities);
     expect(vehicle?.chassisId).toBe(chassis.id);
     const keys = vehicle!.controls.map((c) => c.code);
-    for (const k of ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'KeyQ', 'KeyE', 'KeyC', 'KeyL', 'KeyP']) expect(keys).toContain(k);
+    for (const k of ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'KeyQ', 'KeyE', 'KeyC', 'KeyL', 'KeyP'])
+      expect(keys).toContain(k);
     expect(vehicle!.controls.find((c) => c.code === 'KeyW')!.label).toMatch(/Throttle/);
     expect(vehicle!.componentOwners).toContain(chassis.id);
     expect(vehicle!.drivenIds.length).toBe(2);
@@ -80,7 +81,11 @@ describe('vehicle detection (joint-built vehicles and powered components)', () =
     const one = buildPowertrainCar(b, 'Near car');
     const far = new Builder('far');
     const farChassis = buildPowertrainCar(far, 'Far car');
-    const moved = far.doc.entities.map((e) => (e.kind === 'body' ? { ...e, position: [e.position[0] + 60, e.position[1], e.position[2]] as [number, number, number] } : e));
+    const moved = far.doc.entities.map((e) =>
+      e.kind === 'body'
+        ? { ...e, position: [e.position[0] + 60, e.position[1], e.position[2]] as [number, number, number] }
+        : e,
+    );
     const all = [...b.doc.entities, ...moved];
     expect(findVehicle({ entities: all, selection: [], near: [58, 1, 0] }).vehicle?.chassisId).toBe(farChassis.id);
     expect(findVehicle({ entities: all, selection: [], near: [1, 1, 0] }).vehicle?.chassisId).toBe(one.id);

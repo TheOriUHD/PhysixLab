@@ -89,7 +89,8 @@ export function findVehicle(input: DetectInput): VehicleChoice {
     if (hit) return { vehicle: hit };
     return {
       vehicle: null,
-      reason: 'The selected object is not part of a vehicle with key-bound motors or powered parts. Select the vehicle, or clear the selection.',
+      reason:
+        'The selected object is not part of a vehicle with key-bound motors or powered parts. Select the vehicle, or clear the selection.',
     };
   }
   if (all.length === 1 || !input.near) return { vehicle: all[0] };
@@ -130,7 +131,8 @@ class Groups {
   }
 }
 
-const VOLUME = (b: BodyEntity): number => b.massOverride ?? b.shape.size[0] * b.shape.size[1] * b.shape.size[2] * b.material.density;
+const VOLUME = (b: BodyEntity): number =>
+  b.massOverride ?? b.shape.size[0] * b.shape.size[1] * b.shape.size[2] * b.material.density;
 
 /** Words that only say which corner a part is on. */
 const SIDE_WORDS = /\b(front|rear|back|left|right|fl|fr|rl|rr)\b/gi;
@@ -230,10 +232,17 @@ export const jointVehicleDetector: VehicleDetector = {
       const jointMap = new Map(myJoints.map((j) => [j.id, j]));
       const controls: VehicleControl[] = ctl.keys.map((k) => ({ code: k.code, label: describeKey(k.uses, jointMap) }));
       const chassisBody = bodies.get(chassis)!;
-      const componentOwners = owners.filter((o) => (isBody(o) || isJoint(o)) && o.components.length > 0).map((o) => o.id);
-      const powered = owners.some((o) => (isBody(o) || isJoint(o)) && o.components.some((c) => POWER_TYPES.has(c.type)));
-      const score = ctl.keys.length + ctl.axes.length * 0.5 + (powered ? 3 : 0) + (driven.size ? 2 : 0) + ids.length * 0.01;
-      const poses = new Map(ids.map((id) => [id, { position: bodies.get(id)!.position, rotation: bodies.get(id)!.rotation }]));
+      const componentOwners = owners
+        .filter((o) => (isBody(o) || isJoint(o)) && o.components.length > 0)
+        .map((o) => o.id);
+      const powered = owners.some(
+        (o) => (isBody(o) || isJoint(o)) && o.components.some((c) => POWER_TYPES.has(c.type)),
+      );
+      const score =
+        ctl.keys.length + ctl.axes.length * 0.5 + (powered ? 3 : 0) + (driven.size ? 2 : 0) + ids.length * 0.01;
+      const poses = new Map(
+        ids.map((id) => [id, { position: bodies.get(id)!.position, rotation: bodies.get(id)!.rotation }]),
+      );
       out.push({
         score,
         adapter: {

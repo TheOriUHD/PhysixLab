@@ -130,7 +130,10 @@ export function dragVerb(_device: PointerKind, e: DragEventLike): NavVerb | null
  * OrbitControls flips rotate ↔ pan when Shift / Ctrl / Cmd is down. To get `verb` for a left-button drag whatever the
  * modifiers, the button mapping handed to it is the opposite one when a flipping modifier is held.
  */
-export function leftButtonMapping(verb: NavVerb | null, e: Pick<Mods, 'shift' | 'ctrl' | 'meta'>): 'rotate' | 'pan' | null {
+export function leftButtonMapping(
+  verb: NavVerb | null,
+  e: Pick<Mods, 'shift' | 'ctrl' | 'meta'>,
+): 'rotate' | 'pan' | null {
   if (!verb || verb === 'zoom') return null;
   const flip = e.shift || e.ctrl || e.meta;
   return (verb === 'orbit') !== flip ? 'rotate' : 'pan';
@@ -227,7 +230,11 @@ export function orbitBy(cam: DualCamera, target: Vector3, dAz: number, dPol: num
   if (_off.lengthSq() < 1e-12) return false;
   _sph.setFromVector3(_off);
   _sph.theta += dAz;
-  _sph.phi = MathUtils.clamp(_sph.phi + dPol, Math.max(lim.minPolarAngle, EPS), Math.min(lim.maxPolarAngle, Math.PI - EPS));
+  _sph.phi = MathUtils.clamp(
+    _sph.phi + dPol,
+    Math.max(lim.minPolarAngle, EPS),
+    Math.min(lim.maxPolarAngle, Math.PI - EPS),
+  );
   _sph.makeSafe();
   _off.setFromSpherical(_sph);
   cam.position.copy(target).add(_off);
@@ -242,14 +249,24 @@ export function dragToAngles(x: number, y: number, heightPx: number, s: NavSetti
 }
 
 /** Slide camera and target together as if the scene were dragged by (x, y) pixels in a view `heightPx` tall. */
-export function panByPixels(cam: DualCamera, target: Vector3, x: number, y: number, heightPx: number, lim: NavLimits): boolean {
+export function panByPixels(
+  cam: DualCamera,
+  target: Vector3,
+  x: number,
+  y: number,
+  heightPx: number,
+  lim: NavLimits,
+): boolean {
   if (!lim.enablePan || (x === 0 && y === 0)) return false;
   const perPixel = cam.ortho
     ? cam.orthoSize / Math.max(1e-6, cam.zoom) / Math.max(1, heightPx)
     : (2 * cam.position.distanceTo(target) * Math.tan(MathUtils.degToRad(cam.fov / 2))) / Math.max(1, heightPx);
   _right.set(1, 0, 0).applyQuaternion(cam.quaternion);
   _up.set(0, 1, 0).applyQuaternion(cam.quaternion);
-  _off.set(0, 0, 0).addScaledVector(_right, -x * perPixel).addScaledVector(_up, y * perPixel);
+  _off
+    .set(0, 0, 0)
+    .addScaledVector(_right, -x * perPixel)
+    .addScaledVector(_up, y * perPixel);
   cam.position.add(_off);
   target.add(_off);
   return true;
@@ -277,7 +294,10 @@ export function zoomBy(
       _right.set(1, 0, 0).applyQuaternion(cam.quaternion);
       _up.set(0, 1, 0).applyQuaternion(cam.quaternion);
       const k = 1 / z0 - 1 / z1;
-      _off.set(0, 0, 0).addScaledVector(_right, cursor.x * halfW * k).addScaledVector(_up, cursor.y * halfH * k);
+      _off
+        .set(0, 0, 0)
+        .addScaledVector(_right, cursor.x * halfW * k)
+        .addScaledVector(_up, cursor.y * halfH * k);
       cam.position.add(_off);
       target.add(_off);
     }

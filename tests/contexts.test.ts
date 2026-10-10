@@ -28,9 +28,37 @@ import { isJoint } from '../src/model/types';
 const CODES: string[] = [
   ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((c) => `Key${c}`),
   ...'0123456789'.split('').map((d) => `Digit${d}`),
-  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Escape', 'Tab', 'Enter', 'Backspace', 'Delete', 'Home', 'End',
-  'PageUp', 'PageDown', 'Equal', 'Minus', 'BracketLeft', 'BracketRight', 'Period', 'Comma', 'ShiftLeft', 'ShiftRight',
-  'Numpad1', 'Numpad3', 'Numpad5', 'Numpad7', 'Numpad9', 'NumpadAdd', 'NumpadSubtract', 'F1', 'F5',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Space',
+  'Escape',
+  'Tab',
+  'Enter',
+  'Backspace',
+  'Delete',
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown',
+  'Equal',
+  'Minus',
+  'BracketLeft',
+  'BracketRight',
+  'Period',
+  'Comma',
+  'ShiftLeft',
+  'ShiftRight',
+  'Numpad1',
+  'Numpad3',
+  'Numpad5',
+  'Numpad7',
+  'Numpad9',
+  'NumpadAdd',
+  'NumpadSubtract',
+  'F1',
+  'F5',
 ];
 
 const keyOf = (code: string): string => {
@@ -54,9 +82,11 @@ function stateWith(over: Partial<KeyState> & { sceneKeys?: Set<string> }): KeySt
   const st = emptyKeyState();
   return {
     ...st,
-    hasCommand: (k) => !!keymap.find({ key: k.key ?? keyOf(k.code), code: k.code, ctrlKey: k.ctrl, metaKey: k.meta, shiftKey: k.shift }),
+    hasCommand: (k) =>
+      !!keymap.find({ key: k.key ?? keyOf(k.code), code: k.code, ctrlKey: k.ctrl, metaKey: k.meta, shiftKey: k.shift }),
     commandLabel: (k) =>
-      keymap.find({ key: k.key ?? keyOf(k.code), code: k.code, ctrlKey: k.ctrl, metaKey: k.meta, shiftKey: k.shift })?.label,
+      keymap.find({ key: k.key ?? keyOf(k.code), code: k.code, ctrlKey: k.ctrl, metaKey: k.meta, shiftKey: k.shift })
+        ?.label,
     isPaletteKey: (k) => (k.ctrl || k.meta) && k.code === 'KeyK',
     ...over,
   };
@@ -64,7 +94,11 @@ function stateWith(over: Partial<KeyState> & { sceneKeys?: Set<string> }): KeySt
 
 beforeAll(async () => {
   registerBuiltins();
-  const files = import.meta.glob(['../src/ui/extensions/*.ts', '!../src/ui/extensions/*.test.ts', '!../src/ui/extensions/plugins.ts']);
+  const files = import.meta.glob([
+    '../src/ui/extensions/*.ts',
+    '!../src/ui/extensions/*.test.ts',
+    '!../src/ui/extensions/plugins.ts',
+  ]);
   for (const load of Object.values(files)) await load();
 });
 
@@ -97,7 +131,8 @@ describe('exactly one owner for every key in every context', () => {
 
   it('the scenes used here really bind the keys they are named for', () => {
     expect([...carKeys].sort()).toEqual(['KeyA', 'KeyD', 'KeyS', 'KeyW']);
-    for (const k of ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyQ', 'KeyE', 'KeyR', 'KeyC', 'KeyL', 'KeyP']) expect(ptKeys.has(k)).toBe(true);
+    for (const k of ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyQ', 'KeyE', 'KeyR', 'KeyC', 'KeyL', 'KeyP'])
+      expect(ptKeys.has(k)).toBe(true);
   });
 
   it('claims() has no duplicates and ownerOf() is the first claim, for every context × key × scene', () => {
@@ -120,7 +155,9 @@ describe('exactly one owner for every key in every context', () => {
                 const c = claims(ctx, k, st);
                 expect(new Set(c).size, `${ctx}/${name}/${code}`).toBe(c.length);
                 const owner = ownerOf(ctx, k, st);
-                expect(owner, `${ctx}/${name}/${code}`).toBe(c.length ? c[0] : ctx === 'drive' || ctx === 'play' ? 'blocked' : 'none');
+                expect(owner, `${ctx}/${name}/${code}`).toBe(
+                  c.length ? c[0] : ctx === 'drive' || ctx === 'play' ? 'blocked' : 'none',
+                );
                 expect(shadowed(ctx, k, st)).toEqual(c.slice(1));
               }
           }
@@ -171,7 +208,11 @@ describe('who owns Q, W, E, R in each context (the "Q and E don\'t work" audit)'
   });
 
   it('simulating: the powertrain car owns Q, W, E, R — the gizmo keys step aside and the legend says so', () => {
-    const st = stateWith({ simActive: true, sceneKeys: ptKeys, sceneLabels: new Map([...ptKeys].map((k) => [k, 'a control'])) });
+    const st = stateWith({
+      simActive: true,
+      sceneKeys: ptKeys,
+      sceneLabels: new Map([...ptKeys].map((k) => [k, 'a control'])),
+    });
     for (const c of ['KeyQ', 'KeyW', 'KeyE', 'KeyR']) {
       expect(ownerOf('simulating', info(c), st)).toBe('sim');
       expect(shadowed('simulating', info(c), st)).toContain('command');
@@ -194,7 +235,19 @@ describe('who owns Q, W, E, R in each context (the "Q and E don\'t work" audit)'
 
   it('grab: Q E A D turn the held body, W S push and pull, F freezes — whatever the scene binds', () => {
     const st = stateWith({ simActive: true, grabbing: true, sceneKeys: ptKeys });
-    for (const c of ['KeyQ', 'KeyE', 'KeyA', 'KeyD', 'KeyW', 'KeyS', 'KeyF', 'ArrowUp', 'ArrowDown', 'BracketLeft', 'BracketRight'])
+    for (const c of [
+      'KeyQ',
+      'KeyE',
+      'KeyA',
+      'KeyD',
+      'KeyW',
+      'KeyS',
+      'KeyF',
+      'ArrowUp',
+      'ArrowDown',
+      'BracketLeft',
+      'BracketRight',
+    ])
       expect(ownerOf('grab', info(c), st), c).toBe('grab');
     // shift is a modifier of the step size, still the grab's key
     expect(ownerOf('grab', info('KeyE', { shift: true }), st)).toBe('grab');
@@ -303,7 +356,7 @@ describe('the controls legend', () => {
 
   it('every context has a legend with at least one entry', () => {
     const st = stateWith({ vehicleKeys: new Set(['KeyW']), driveUtil: assignDriveKeys(new Set(['KeyW'])) });
-    for (const ctx of INPUT_CONTEXTS as readonly InputContext[]) {
+    for (const ctx of INPUT_CONTEXTS) {
       const sections = legendFor(ctx, st, { os: 'linux', device: 'mouse' });
       expect(sections.flatMap((s) => s.entries).length, ctx).toBeGreaterThan(0);
     }
