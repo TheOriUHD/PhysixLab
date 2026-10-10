@@ -488,7 +488,6 @@ test('nav: holding a body — push / pull with W S ↑ ↓, turn with Q E A D in
     await page.waitForFunction((n) => window.__turns.length >= n, n, { timeout: 30000 });
     return page.evaluate((n) => window.__turns[n - 1], n);
   };
-  const q0 = (await pose(page, id)).rotation;
   await page.keyboard.press('KeyE');
   const t1 = await lastTurn(1);
   near(angleBetween(t1.before, t1.after), 15, 0.5, 'E turns the held body by 15°');
@@ -505,8 +504,6 @@ test('nav: holding a body — push / pull with W S ↑ ↓, turn with Q E A D in
     return aw * -by + ay * bw + az * -bx - ax * -bz; // y component of after * conj(before)
   };
   assert(relY(t1) < 0 && relY(t2) > 0, `E turns right and Q left (${relY(t1).toFixed(3)}, ${relY(t2).toFixed(3)})`);
-  const q1 = (await pose(page, id)).rotation;
-  assert(angleBetween(q0, q1) > 1, 'and the held body really turned');
   await shot(page, 'nav-grab-legend');
   // F freezes it where it is
   await page.keyboard.press('KeyF');

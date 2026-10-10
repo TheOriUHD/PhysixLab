@@ -73,6 +73,37 @@ export class ImmersiveMode extends Emitter<{ change: undefined }> {
   constructor(private app: App) {
     super();
     app.on('frame', ({ dt }) => this.update(dt));
+    // Registered while the App is built, so it runs before every later capture-phase key handler (time travel's
+    // Backspace rewind, tours, …): the immersive lock must not leak, and the drive keys must not be pre-empted.
+    window.addEventListener('keydown', (e) => this.onKey(e, true), true);
+    window.addEventListener('keyup', (e) => this.onKey(e, false), true);
+  }
+
+  /** Keys while Drive / Play is on: the drive utility keys act, everything the mode does not own is swallowed. */
+  private onKey(e: KeyboardEvent, down: boolean): void {
+    if (this.kind === 'none') return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable))
+      return;
+    const app = this.app;
+    if (!down) {
+      app.input.down.delete(e.code);
+      this.handleKey(e, false);
+      return;
+    }
+    app.input.down.add(e.code); // the legend lights keys that are down, including the ones consumed here
+    app.contexts.update();
+    const owner = app.contexts.ownerOf(e);
+    if (owner === 'drive' || owner === 'play') {
+      if (this.handleKey(e, true)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    } else if (owner === 'blocked') {
+      // Locked: nothing downstream runs; the browser keeps its own shortcuts (Ctrl + R, F5 …).
+      e.stopImmediatePropagation();
+      if (!e.ctrlKey && !e.metaKey && !/^F\d+$/.test(e.code)) e.preventDefault();
+    }
   }
 
   get active(): boolean {

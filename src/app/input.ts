@@ -536,25 +536,13 @@ export class InputController {
     if (down) app.input.down.add(e.code);
     const ctx = app.contexts.update();
     if (e.code === 'Space' && this.spaceRoute(e, down)) return;
-    if (!down) {
-      if (ctx === 'drive' || ctx === 'play') app.immersive.handleKey(e, false);
-      return;
-    }
+    if (!down) return;
     // The placement ghost sees keys before anything else (its own keys, Esc to cancel …).
     if (ctx === 'placing' && placementGhost(app)?.handleKey(e)) return consume();
     switch (app.contexts.ownerOf(e)) {
       case 'grab':
         this.grabKeyDown(e);
         consume();
-        break;
-      case 'drive':
-      case 'play':
-        if (app.immersive.handleKey(e, true)) consume();
-        break;
-      case 'blocked':
-        // Locked in drive / play mode: nothing downstream runs; the browser keeps its own shortcuts.
-        e.stopImmediatePropagation();
-        if (!e.ctrlKey && !e.metaKey && !/^F\d+$/.test(e.code)) e.preventDefault();
         break;
       case 'nav':
         if (this.focusFree(e) && app.nav.keyDown(e, app.contexts.keyState().nudgeOwnsArrows)) consume();

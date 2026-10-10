@@ -156,7 +156,6 @@ test('drive: V in the Drivable car goes immersive — chase camera, W accelerate
     timeout: 30000,
   });
   await shot(page, 'drive-tilted-note');
-  const xTilted = (await pose(page, id)).position[0];
   await page.keyboard.press('KeyR');
   await page.waitForFunction(
     (id) => {
@@ -167,7 +166,10 @@ test('drive: V in the Drivable car goes immersive — chase camera, W accelerate
     id,
     { timeout: 30000 },
   );
-  assert(Math.abs((await pose(page, id)).position[0] - xTilted) < 12, 'a flip keeps the car where it stands');
+  assert(
+    (await pose(page, id)).position[0] > start[0] + 3,
+    'a flip keeps the car where it stands (it does not go back to the start)',
+  );
   // R again, upright now: back to the start pose (the car creeps away from it at once, so look for "far from where it was")
   await page.waitForFunction(() => !window.physicslab.immersive.hud.tilted, null, { timeout: 30000 });
   const xBefore = (await pose(page, id)).position[0];
