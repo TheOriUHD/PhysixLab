@@ -45,6 +45,8 @@ export class Shaft {
   invI = 0;
   /** Speed change gravity will cause in the coming step (joint shafts; compensated by the controllers). */
   ext = 0;
+  /** A virtual shaft that has not been through a solve yet: its first speed is made consistent with its neighbours. */
+  fresh = true;
   /** Impulse the solver delivered to this shaft in the last step (N·m·s) — what the physical world received. */
   impulse = 0;
   private cachedAt = -1;
@@ -300,14 +302,55 @@ export class DriveNetwork {
   /** Solve the step and deliver the impulses to the bodies. */
   solve(): void {
     const sv = this.solver;
-    sv.clear();
     const dt = this.dt;
     // The engine integrates a step in N = (solver iterations × sub-steps) equal parts, so what gravity adds to the
     // *average* speed of the step (the one that sets the displacement) is (N+1)/(2N) of g·dt, not all of it.
     const n =
       Math.max(1, Math.round(this.s.settings.solverIterations)) * Math.max(1, Math.round(this.s.settings.substeps));
     const meanShare = (n + 1) / (2 * n);
-    // shafts → solver nodes: free speed after the explicit part of the sources, inverse effective inertia
+    if (this.list.some((sh) => sh.fresh && !sh.bind)) this.initialise();
+    sv.clear();
+    this.addNodes(dt, meanShare);
+    this.addRows();
+    sv.solve();
+    this.collect();
+    this.phase++; // measurements taken before the engine step are stale after it
+    for (const sh of this.list) sh.invalidate();
+    this.sweep();
+  }
+
+  /**
+   * A shaft that has just appeared starts with whatever speed its owner gave it (0, or idle for an engine), which
+   * need not agree with the shafts it is rigidly connected to — a wheel that already turns, a differential whose
+   * outputs were given different speeds. Left alone, the first solve would settle the disagreement as a collision,
+   * throwing momentum between the physical bodies. Instead the new shafts adapt to their neighbours *first*: a
+   * one-off solve in which everything else (the bodies, shafts that were already running) is held fixed.
+   */
+  private initialise(): void {
+    const sv = this.solver;
+    sv.clear();
+    for (const sh of this.list) {
+      if (sh.bind) {
+        sh.invI = sh.bind.alive() ? sh.bind.invInertia() : 0;
+        sh.node = sv.addNode(0, sh.bind.alive() ? sh.speed : 0);
+      } else {
+        const free = sh.fresh;
+        sh.node = sv.addNode(free ? 1 / Math.max(sh.inertia, MIN_INERTIA) : 0, sh.omega);
+      }
+    }
+    this.addRows(true);
+    sv.solve();
+    for (const sh of this.list) {
+      if (!sh.bind && sh.fresh) {
+        sh.omega = sv.v[sh.node];
+        sh.fresh = false;
+      }
+    }
+  }
+
+  /** Solver nodes: free speed after the explicit part of the sources, inverse effective inertia. */
+  private addNodes(dt: number, meanShare: number): void {
+    const sv = this.solver;
     for (const sh of this.list) {
       let inertia: number;
       let w: number;
@@ -330,15 +373,26 @@ export class DriveNetwork {
       const m = inertia + dt * sh.damping;
       sh.node = sv.addNode(1 / m, (inertia * w + dt * sh.torque) / m);
     }
-    // rows
+  }
+
+  /** Hand the registered rows to the solver; `rigidOnly` leaves out the torque-limited ones (clutches, brakes, motors). */
+  private addRows(rigidOnly = false): void {
+    const sv = this.solver;
     for (let i = 0; i < this.rowCount; i++) {
       const r = this.pool[i];
+      if (rigidOnly && !(r.lo <= -INF / 2 && r.hi >= INF / 2)) {
+        r.setIndex(-1);
+        continue;
+      }
       const k = sv.addRow(r.rhs, r.lo, r.hi);
       r.setIndex(k);
       for (let e = 0; e < r.count; e++) sv.addEntry(k, r.shafts[e].node, r.coef[e]);
     }
-    sv.solve();
-    // results
+  }
+
+  /** Read the solution back: row impulses, new virtual speeds, impulses delivered to the bodies. */
+  private collect(): void {
+    const sv = this.solver;
     for (let i = 0; i < this.rowCount; i++) {
       const r = this.pool[i];
       const k = r.index;
@@ -358,9 +412,6 @@ export class DriveNetwork {
       }
       if (!sh.bind || sh.invI > 0) sh.omega = v;
     }
-    this.phase++; // measurements taken before the engine step are stale after it
-    for (const sh of this.list) sh.invalidate();
-    this.sweep();
   }
 
   /** Drop shafts nobody uses any more (and the joint shafts of joints that are gone). */
@@ -393,7 +444,10 @@ export class DriveNetwork {
   load(saved: Record<string, number>): void {
     for (const [k, w] of Object.entries(saved)) {
       const sh = this.virtual.get(k);
-      if (sh && Number.isFinite(w)) sh.omega = w;
+      if (sh && Number.isFinite(w)) {
+        sh.omega = w;
+        sh.fresh = false; // a saved speed is already consistent with its neighbours
+      }
     }
   }
 
