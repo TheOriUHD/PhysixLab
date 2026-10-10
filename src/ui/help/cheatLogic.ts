@@ -82,7 +82,12 @@ export function cheatSections(o: CheatOptions = {}): CheatSection[] {
 export function filterCheat(sections: readonly CheatSection[], query: string): CheatSection[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return sections.map((s) => ({ ...s }));
+  // Rows whose label contains every word come first inside a section (a keyword match only is a weaker hit).
+  const inLabel = (r: CheatRow) => words.every((w) => r.label.toLowerCase().includes(w));
   return sections
-    .map((s) => ({ title: s.title, rows: s.rows.filter((r) => words.every((w) => r.haystack.includes(w))) }))
+    .map((s) => {
+      const rows = s.rows.filter((r) => words.every((w) => r.haystack.includes(w)));
+      return { title: s.title, rows: [...rows.filter(inLabel), ...rows.filter((r) => !inLabel(r))] };
+    })
     .filter((s) => s.rows.length);
 }

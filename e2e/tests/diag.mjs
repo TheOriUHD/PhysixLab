@@ -27,7 +27,8 @@ test('diag: the shortcut cheat-sheet opens with ?, filters, navigates and runs a
     await shot(page, `diag-cheat-${tag}`);
     await page.keyboard.type('undo');
     const rows = await page.locator('.cheat-row').allTextContents();
-    assert(rows.length >= 1 && rows.every((r) => /undo/i.test(r)), `filtered to undo: ${rows.join('|')}`);
+    assert(rows.length >= 1 && rows.some((r) => /^Undo/.test(r)), `filtered to undo: ${rows.join('|')}`);
+    assert(rows.length < all / 2, 'the filter narrows the list');
     assert(
       rows.some((r) => /Ctrl|⌘/.test(r)),
       'key caps shown',

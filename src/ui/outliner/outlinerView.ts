@@ -172,7 +172,7 @@ export class Outliner {
     this.setsBar = h('div', { class: 'o-sets' });
     this.tagBar = h('div', { class: 'o-tags' });
     this.footer = h('div', { class: 'o-footer' });
-    this.empty = h('div', { class: 'empty-state o-empty' });
+    this.empty = h('div', { class: 'o-empty' });
     this.list = new VirtualList({ rowHeight: ROW_HEIGHT, render: (i, el) => this.renderRow(i, el) });
     this.list.el.classList.add('outliner');
     this.list.el.tabIndex = 0;

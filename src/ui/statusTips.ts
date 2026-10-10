@@ -76,6 +76,12 @@ export function mountStatusTips(app: App, bar: HTMLElement): void {
     }, 150);
   };
   app.store.on('selection', contextChanged);
+  // Edits and scene loads can change which tips apply (an empty scene, a new body): re-evaluate without restarting the rotation.
+  let refresh = 0;
+  app.store.on('change', () => {
+    window.clearTimeout(refresh);
+    refresh = window.setTimeout(show, 300);
+  });
   app.sim.on('mode', contextChanged);
   app.prefs.on('change', (keys) => {
     if (keys.includes('tool')) contextChanged();

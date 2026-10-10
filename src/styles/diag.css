@@ -64,7 +64,7 @@
 /* ── Status bar tip ── */
 .statusbar .status-tip { color: var(--text-3); font-size: 12px; max-width: 46ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 14px; }
 .statusbar .status-tip b { color: var(--accent-2); font-weight: 600; margin-right: 4px; }
-@media (max-width: 1400px) { .statusbar .status-tip { display: none; } }
+@media (max-width: 1100px) { .statusbar .status-tip { display: none; } }
 
 /* ── Diagnostics + profiler ── */
 /* The bottom dock's group row inherits `.row { align-items: center }`: groups must fill the dock's height. */
@@ -79,7 +79,7 @@
 .diag-sec dd.warn { color: var(--warn); }
 .diag-sec dd.ok { color: var(--run); }
 .prof-top { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
-.prof-graph { flex: 1 1 200px; min-width: 0; height: 116px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s); display: block; width: 100%; }
+.prof-graph { flex: 1 1 150px; min-width: 0; height: 116px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s); display: block; width: 100%; }
 .prof-table { flex: 0 0 auto; border-collapse: collapse; font: 12px var(--mono); font-variant-numeric: tabular-nums; }
 .prof-table th { font: 600 11px var(--font); color: var(--text-3); text-align: right; padding: 0 6px 3px; }
 .prof-table th:first-child { text-align: left; }
@@ -105,3 +105,7 @@
 .err-card .cap-list li.warn b { color: var(--warn); }
 .err-card .btn { font-size: 13px; }
 .degraded-bar { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); z-index: 300; max-width: min(720px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--warn); border-radius: var(--radius); padding: 8px 12px; color: var(--text-2); font-size: 12.5px; box-shadow: var(--shadow); display: flex; gap: 10px; align-items: center; }
+
+/* A dock with many tabs (Timeline … Profiler) must stay reachable at 1280 px: the strip scrolls instead of clipping. */
+.dock .dock-tabs { overflow-x: auto; scrollbar-width: none; }
+.dock .dock-tabs::-webkit-scrollbar { display: none; }
