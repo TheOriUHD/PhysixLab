@@ -24,6 +24,8 @@ export type MenuItem =
       checked?: boolean;
       disabled?: boolean;
       keepOpen?: boolean;
+      // -- ED-B: a row that opens a nested list (`action` is then unused; give it a no-op) --
+      submenu?: MenuItem[];
     }
   | { sep: true }
   | { heading: string };

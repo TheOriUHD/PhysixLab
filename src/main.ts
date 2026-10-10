@@ -16,6 +16,9 @@ import { showWelcome } from './ui/dialogs';
 import { openMenu } from './ui/menu';
 import { resolveMenu } from './app/registry/menus';
 import { loadExtensions, registerBuiltins } from './ui/builtin';
+// -- ED-B --
+import { setContextTarget } from './ui/contextTarget';
+import './styles/ed-b.css';
 
 async function boot(): Promise<void> {
   // Everything the UI offers is a registration; register the built-ins before any UI is built.
@@ -69,6 +72,10 @@ async function boot(): Promise<void> {
   input.onContextMenu = (ev) => {
     const hit = app.pickEntity(ev);
     if (hit && !app.store.selection.includes(hit.entityId)) app.store.setSelection([hit.entityId]);
+    // -- ED-B: remember where the user clicked; right-clicking nothing clears the selection --
+    if (!hit) app.store.setSelection([]);
+    const gp = hit ? hit.point : app.picker.groundPoint(ev, 0);
+    setContextTarget(gp ? [gp.x, gp.y, gp.z] : null);
     openMenu(resolveMenu(app, 'context'), { x: ev.clientX, y: ev.clientY });
   };
 
