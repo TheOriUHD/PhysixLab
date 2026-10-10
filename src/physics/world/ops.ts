@@ -6,7 +6,7 @@ import { removeEntities, setVelocity, teleport, updateBody } from './edits';
 import { configureEvents } from './events';
 import { raycast } from './queries';
 import { restoreSnapshot, takeSnapshot } from './snapshot';
-import { beginGrab, explode, impulse } from './forces';
+import { beginGrab, explode, freezeBody, impulse, releaseGrab } from './forces';
 import { addJoint, updateJoint } from './joints';
 import { applySettings } from './settings';
 import { addSoft, beginSoftGrab, releaseSoftGrab, removeSoft } from './soft';
@@ -39,21 +39,27 @@ export function applyOp(s: WorldState, op: SimOp): void {
       setVelocity(s, op.id, op.linvel, op.angvel);
       break;
     case 'grab':
-      beginGrab(s, op.id, op.point, op.target);
+      beginGrab(s, op.id, op.point, op.target, op.strength);
       break;
     case 'grabMove':
       if (s.grab) s.grab.target = op.target;
       if (s.softGrab) s.softGrab.target = op.target;
       break;
+    case 'grabSpin':
+      if (s.grab) s.grab.spin = op.angvel;
+      break;
+    case 'grabFreeze':
+      if (s.grab) freezeBody(s, s.grab.rec, op.frozen);
+      break;
     case 'release':
-      s.grab = null;
+      releaseGrab(s, op.throwScale);
       releaseSoftGrab(s);
       break;
     case 'impulse':
       impulse(s, op.id, op.impulse, op.point);
       break;
     case 'explode':
-      explode(s, op.center, op.strength, op.radius);
+      explode(s, op.center, op.strength, op.radius, op.kind, op.falloff, op.dir);
       break;
     case 'addSoft':
       addSoft(s, op.soft);
@@ -63,7 +69,7 @@ export function applyOp(s: WorldState, op: SimOp): void {
       addSoft(s, op.soft);
       break;
     case 'grabSoft':
-      beginSoftGrab(s, op.id, op.index, op.target);
+      beginSoftGrab(s, op.id, op.index, op.target, op.strength);
       break;
     case 'wakeAll':
       for (const r of s.order) r.rb.wakeUp();

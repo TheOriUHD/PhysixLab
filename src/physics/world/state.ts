@@ -138,7 +138,7 @@ export class WorldState {
   softOrder: SoftRec[] = [];
   softBlocks: RAPIER.SoftBody[][] = [];
   softSig = '';
-  softGrab: { body: RAPIER.SoftBody; local: number; target: Vec3 } | null = null;
+  softGrab: { body: RAPIER.SoftBody; local: number; target: Vec3; strength: number } | null = null;
   softParticles = 0;
   /** Unconsumed wall-clock time (scaled), in seconds, for the fixed-step accumulator. */
   acc = 0;
@@ -171,7 +171,10 @@ export class WorldState {
   componentStateRemoved: string[] = [];
   /** Component runtimes (created by `PhysicsWorld`). */
   host!: ComponentHost;
-  grab: { rec: BodyRec; local: Vec3; target: Vec3 } | null = null;
+  // -- ED-B: grab strength, spin, frozen bodies --
+  grab: { rec: BodyRec; local: Vec3; target: Vec3; strength: number; spin: Vec3 } | null = null;
+  /** Bodies frozen in place with the grab tool (F while holding); cleared when the world is rebuilt. */
+  frozen = new Set<string>();
   events: SimEvent[] = [];
   stepMsEma = 0;
   rtf = 1;

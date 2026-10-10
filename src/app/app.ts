@@ -333,12 +333,18 @@ export class App extends Emitter<AppEvents> {
     this.cameraControl.frameAll(keepDirection);
   }
 
-  shoot(origin: Vector3, dir: Vector3): void {
-    this.projectiles.shoot(origin, dir);
+  // -- ED-B: charge power, blast options --
+  shoot(origin: Vector3, dir: Vector3, power = 1): void {
+    this.projectiles.shoot(origin, dir, power);
   }
 
-  blast(at: Vector3): void {
-    this.projectiles.blast(at);
+  /** Launch speed and flight parameters of the next shot at `power`× charge (for the aim preview). */
+  shotSetup(power = 1): ReturnType<Projectiles['shotSetup']> {
+    return this.projectiles.shotSetup(power);
+  }
+
+  blast(at: Vector3, dir?: Vector3, scale = 1, quiet = false): void {
+    this.projectiles.blast(at, dir, scale, quiet);
   }
 
   /** Index (within the entity's particle block) of the soft particle closest to a world point. */

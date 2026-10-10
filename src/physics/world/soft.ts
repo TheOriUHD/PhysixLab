@@ -107,7 +107,7 @@ export function removeSoft(s: WorldState, id: string): void {
 }
 
 /** Start dragging particle `index` (entity-local, across all tear pieces) of soft entity `id`. */
-export function beginSoftGrab(s: WorldState, id: string, index: number, target: Vec3): void {
+export function beginSoftGrab(s: WorldState, id: string, index: number, target: Vec3, strength = 1): void {
   if (!s.softs.has(id)) return;
   const ei = s.softOrder.findIndex((r) => r.id === id);
   const blocks = s.softBlocks[ei];
@@ -117,7 +117,7 @@ export function beginSoftGrab(s: WorldState, id: string, index: number, target: 
     const n = b.numParticles();
     if (k < n) {
       b.wakeUp();
-      s.softGrab = { body: b, local: k, target };
+      s.softGrab = { body: b, local: k, target, strength };
       return;
     }
     k -= n;
@@ -135,9 +135,11 @@ export function applySoftGrab(s: WorldState): void {
   const p = g.body.particlePosition(g.local);
   const v = g.body.particleVelocity(g.local);
   const err = vsub(g.target, [p.x, p.y, p.z]);
-  let acc = vsub(vscale(err, SOFT_GRAB_OMEGA * SOFT_GRAB_OMEGA), vscale([v.x, v.y, v.z], 2 * SOFT_GRAB_OMEGA));
+  const omega = SOFT_GRAB_OMEGA * Math.sqrt(g.strength);
+  const maxAccel = SOFT_GRAB_MAX_ACCEL * g.strength;
+  let acc = vsub(vscale(err, omega * omega), vscale([v.x, v.y, v.z], 2 * omega));
   const al = vlen(acc);
-  if (al > SOFT_GRAB_MAX_ACCEL) acc = vscale(acc, SOFT_GRAB_MAX_ACCEL / al);
+  if (al > maxAccel) acc = vscale(acc, maxAccel / al);
   const grav = vscale(s.settings.gravity, -1);
   const f = vscale(vadd(acc, grav), g.body.mass() * 0.4);
   g.body.resetForces(false);

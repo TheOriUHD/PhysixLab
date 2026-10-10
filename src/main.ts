@@ -16,6 +16,9 @@ import { showWelcome } from './ui/dialogs';
 import { openMenu } from './ui/menu';
 import { resolveMenu } from './app/registry/menus';
 import { loadExtensions, registerBuiltins } from './ui/builtin';
+// -- ED-B: tool options bar --
+import { mountToolOptions } from './ui/toolOptionsBar';
+import './styles/ed-b-tools.css';
 
 async function boot(): Promise<void> {
   // Everything the UI offers is a registration; register the built-ins before any UI is built.
@@ -60,6 +63,7 @@ async function boot(): Promise<void> {
   const { toolbox, viewbar } = buildToolbox(app);
   shell.floatSlot.replaceWith(toolbox, viewbar);
   mountToasts(app);
+  mountToolOptions(app); // -- ED-B --
   wireShell(app, shell);
   const input = new InputController(app);
   app.viewport.controls.addEventListener('change', () => {

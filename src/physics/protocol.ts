@@ -67,6 +67,10 @@ export const J = {
 /** Floats per contact point in the contact buffer. */
 export const CONTACT_STRIDE = 7; // x y z nx ny nz force
 
+/** Blast shapes and strength-versus-distance curves (ED-40); the maths is in `world/blast.ts`. */
+export type BlastKind = 'radial' | 'directional' | 'implosion' | 'ring' | 'gust';
+export type FalloffKind = 'quadratic' | 'linear' | 'smooth' | 'constant' | 'steep';
+
 export type SimOp =
   | { op: 'addBody'; body: BodyEntity; ephemeral?: boolean }
   | { op: 'addJoint'; joint: JointEntity }
@@ -76,14 +80,30 @@ export type SimOp =
   | { op: 'settings'; settings: SceneSettings }
   | { op: 'teleport'; id: string; position: Vec3; rotation: Quat; keepVelocity?: boolean }
   | { op: 'setVelocity'; id: string; linvel: Vec3; angvel: Vec3 }
-  | { op: 'grab'; id: string; point: Vec3; target: Vec3 }
+  // -- ED-B: grab strength / spin / freeze / throw scale, blast variants --
+  /** `strength` scales the grab spring (1 = default; 0.25 floppy … 4 stiff). */
+  | { op: 'grab'; id: string; point: Vec3; target: Vec3; strength?: number }
   | { op: 'grabMove'; target: Vec3 }
-  | { op: 'release' }
+  /** Spin the held body at this angular velocity (world, rad/s); zero stops spinning it. */
+  | { op: 'grabSpin'; angvel: Vec3 }
+  /** Freeze (true) or unfreeze (false) the held body in place; with no `frozen`, toggle. */
+  | { op: 'grabFreeze'; frozen?: boolean }
+  /** `throwScale` multiplies the held body's velocity at release (1 = keep, 0 = drop dead). */
+  | { op: 'release'; throwScale?: number }
   | { op: 'impulse'; id: string; impulse: Vec3; point: Vec3 }
-  | { op: 'explode'; center: Vec3; strength: number; radius: number }
+  | {
+      op: 'explode';
+      center: Vec3;
+      strength: number;
+      radius: number;
+      kind?: BlastKind;
+      falloff?: FalloffKind;
+      /** World direction of a directional blast / gust. */
+      dir?: Vec3;
+    }
   | { op: 'addSoft'; soft: SoftEntity }
   | { op: 'updateSoft'; soft: SoftEntity }
-  | { op: 'grabSoft'; id: string; index: number; target: Vec3 }
+  | { op: 'grabSoft'; id: string; index: number; target: Vec3; strength?: number }
   | { op: 'wakeAll' }
   // ── protocol v2 ──
   /** Re-seed the world's random number generator. */

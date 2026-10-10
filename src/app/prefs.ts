@@ -25,6 +25,23 @@ export interface Prefs {
   blastStrength: number;
   shootSpeed: number;
   shootSize: number;
+  // -- ED-B: tool options (blast variants, throw/aim, paint, pin, grab) --
+  blastKind: 'radial' | 'directional' | 'implosion' | 'ring' | 'gust';
+  blastFalloff: 'quadratic' | 'linear' | 'smooth' | 'constant' | 'steep';
+  blastRadius: number;
+  /** Projectile type id (src/app/projectileTypes.ts). */
+  shootType: string;
+  /** Projectile mass in kg; 0 = the type's own mass. */
+  shootMass: number;
+  paintColor: string;
+  paintPalette: string;
+  paintMode: 'color' | 'material';
+  paintMaterial: string;
+  pinJoint: 'hinge' | 'ball' | 'fixed';
+  /** Grab spring strength multiplier (1 = default). */
+  grabStrength: number;
+  /** Velocity kept on release (0 = drop, 1 = throw with the hand's velocity, 2 = boosted). */
+  grabThrow: number;
   /** Ids of registered panels (src/app/registry/panels.ts); an unknown id falls back to the first tab. */
   leftTab: string;
   rightTab: string;
@@ -52,6 +69,18 @@ export const DEFAULT_PREFS: Prefs = {
   blastStrength: 60,
   shootSpeed: 28,
   shootSize: 0.4,
+  blastKind: 'radial',
+  blastFalloff: 'quadratic',
+  blastRadius: 7,
+  shootType: 'ball',
+  shootMass: 0,
+  paintColor: '#ff5d5d',
+  paintPalette: 'vivid',
+  paintMode: 'color',
+  paintMaterial: 'plastic',
+  pinJoint: 'hinge',
+  grabStrength: 1,
+  grabThrow: 1,
   leftTab: 'add',
   rightTab: 'inspector',
   showLeft: true,
