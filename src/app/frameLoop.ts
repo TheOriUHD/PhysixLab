@@ -53,6 +53,7 @@ export class FrameLoop {
       this.colorsDirty = false;
     }
 
+    app.bodies.updateSkins(dt, app.sim.keys, app.sim.active);
     app.bodies.flush(); // -- VZ-B: instance buffers (VZ-30) --
 
     const broken = client.broken;

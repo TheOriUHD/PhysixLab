@@ -5,12 +5,15 @@
  * glance.
  */
 import type { BufferGeometry, Group, Object3D } from 'three';
-import { Color, Group as ThreeGroup, Mesh, MeshStandardMaterial, SRGBColorSpace, Vector3 } from 'three';
+import { Color, Group as ThreeGroup, Mesh, MeshStandardMaterial, Quaternion, SRGBColorSpace, Vector3 } from 'three';
 import { isCompound, partMaterial } from '../model/compound';
 import { shapeGeometry, shapeGeometryKey, shapeVisualScale } from '../model/shapeRegistry';
 import type { BodyEntity, ColliderPart, MaterialSpec, ShapeSpec } from '../model/types';
 import { B, BODY_STRIDE } from '../physics/protocol';
 import { GEOMETRY_KIT } from './geometryKit';
+import { getSkin } from './skins/registry';
+import type { SkinBodyPose, SkinFrame, SkinInstance } from './skins/types';
+import './skins';
 import { DISSOLVE_BELOW, InstancePool, MIN_POOL, type PoolMember } from './instancing';
 
 export type ColorMode = 'material' | 'type' | 'speed' | 'energy' | 'force' | 'sleep';
@@ -72,7 +75,7 @@ interface Piece {
   baseColor: string;
 }
 
-export class BodyView implements PoolMember {
+export class BodyView implements PoolMember, SkinBodyPose {
   /**
    * Carries the pose: the body's own Mesh, or a Group of part meshes for a compound body. Anything that
    * moves, hides or measures a body uses this; picking and tinting use `pieces`.
@@ -96,8 +99,13 @@ export class BodyView implements PoolMember {
   /** Highlighted (selected / hovered): drawn through its own mesh even though a pool exists. */
   promoted = false;
   poolVisible = true;
+  /** Visual skin (VZ-42) drawn in place of the shape, or null. */
+  skin: SkinInstance | null = null;
   get id(): string {
     return this.def.id;
+  }
+  get quaternion() {
+    return this.mesh.quaternion;
   }
 
   constructor(
@@ -124,6 +132,32 @@ export class BodyView implements PoolMember {
     this.applyMaterial(def);
     this.applyShape(def);
     this.setPoseFromDef(def);
+    this.applySkin(def);
+  }
+
+  /** (Re)build the visual skin from `def.skin`; the shape's own mesh stays as the (invisible) pick / outline proxy. */
+  applySkin(def: BodyEntity): void {
+    if (this.skin) {
+      this.first.mesh.remove(this.skin.root);
+      this.skin.dispose();
+      this.skin = null;
+    }
+    if (this.compound || !def.skin) {
+      if (!this.compound) this.first.material.visible = true;
+      return;
+    }
+    const sd = getSkin(def.skin.id);
+    if (!sd || (sd.shapes && !sd.shapes.includes(def.shape.type))) {
+      this.first.material.visible = true;
+      return;
+    }
+    const size = shapeVisualScale(def.shape);
+    this.skin = sd.build(size, def.skin, def);
+    // The pose carrier is scaled by the shape size; the skin is authored in metres, so undo that scale.
+    const k = this.first.mesh.scale;
+    this.skin.root.scale.set(1 / (k.x || 1), 1 / (k.y || 1), 1 / (k.z || 1));
+    this.first.mesh.add(this.skin.root);
+    this.first.material.visible = false;
   }
 
   private makePiece(shape: ShapeSpec, part: ColliderPart | null): Piece {
@@ -186,6 +220,7 @@ export class BodyView implements PoolMember {
 
   /** Free GPU resources: the materials and this view's share of the cached geometries. */
   dispose(): void {
+    this.skin?.dispose();
     for (const piece of this.pieces) {
       piece.material.dispose();
       this.cache.release(piece.geoKey);
@@ -221,6 +256,16 @@ export class BodyViews {
   private candidates = new Map<string, Set<BodyView>>();
   private colorCache = new Map<string, Color>();
   private instancingOn = true;
+  // -- VZ-B: skins (VZ-42) --
+  private tagIndex = new Map<string, SkinBodyPose[]>();
+  private skinFrame: SkinFrame = {
+    dt: 0,
+    position: new Vector3(),
+    quaternion: new Quaternion(),
+    keys: new Set<string>(),
+    simulating: false,
+    bodiesWithTag: (tag) => this.bodiesWithTag(tag),
+  };
   mode: ColorMode = 'material';
   hoverId: string | null = null;
   /** Auto-ranging scale for the analytic colour modes. */
@@ -236,6 +281,7 @@ export class BodyViews {
     this.remove(def.id);
     const v = new BodyView(def, this.cache);
     this.views.set(def.id, v);
+    this.tagIndex.clear();
     this.group.add(v.mesh);
     this.register(v);
     return v;
@@ -248,6 +294,7 @@ export class BodyViews {
     this.group.remove(v.mesh);
     v.dispose();
     this.views.delete(id);
+    this.tagIndex.clear();
   }
 
   // -- VZ-B: instanced rendering (VZ-30) --
@@ -274,7 +321,7 @@ export class BodyViews {
   }
 
   private instKeyOf(v: BodyView): string | null {
-    if (!this.instancingOn || v.compound) return null;
+    if (!this.instancingOn || v.compound || v.def.skin) return null;
     const { color: _color, ...rest } = v.def.material;
     void _color;
     return `${this.cache.key(v.def.shape)}|${v.def.ghost ? 1 : 0}|${JSON.stringify(rest)}`;
@@ -328,6 +375,30 @@ export class BodyViews {
       this.pools.delete(key);
       this.cache.release(this.poolGeo.get(key)!);
       this.poolGeo.delete(key);
+    }
+  }
+
+  private bodiesWithTag(tag: string): readonly SkinBodyPose[] {
+    let list = this.tagIndex.get(tag);
+    if (!list) {
+      list = [];
+      for (const v of this.views.values()) if (v.def.tags.includes(tag)) list.push(v);
+      this.tagIndex.set(tag, list);
+    }
+    return list;
+  }
+
+  /** Per frame: let every skinned body update its model (wheel travel, lights …). */
+  updateSkins(dt: number, keys: ReadonlySet<string>, simulating: boolean): void {
+    const f = this.skinFrame;
+    f.dt = dt;
+    f.keys = keys;
+    f.simulating = simulating;
+    for (const v of this.views.values()) {
+      if (!v.skin) continue;
+      f.position = v.mesh.position;
+      f.quaternion = v.mesh.quaternion;
+      v.skin.update(f);
     }
   }
 
@@ -389,10 +460,13 @@ export class BodyViews {
       return true;
     }
     v.def = def;
-    const regroup = old.shape !== def.shape || old.material !== def.material || old.ghost !== def.ghost;
+    const regroup =
+      old.shape !== def.shape || old.material !== def.material || old.ghost !== def.ghost || old.skin !== def.skin;
     if (regroup) this.unregister(v);
     if (old.shape !== def.shape) v.applyShape(def);
     if (old.material !== def.material || old.hidden !== def.hidden || old.ghost !== def.ghost) v.applyMaterial(def);
+    if (old.shape !== def.shape || old.skin !== def.skin) v.applySkin(def);
+    if (old.tags !== def.tags) this.tagIndex.clear();
     if (regroup) this.register(v);
     return false;
   }

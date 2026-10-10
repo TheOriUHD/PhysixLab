@@ -58,6 +58,12 @@ export interface ThrustSpec {
   key: string;
 }
 
+/** A visual skin on a body: the registry id of a skin (`render/skins/registry.ts`) and its parameters. */
+export interface SkinSpec {
+  id: string;
+  params?: Record<string, number | string | boolean>;
+}
+
 export interface BodyEntity {
   kind: 'body';
   id: string;
@@ -105,6 +111,10 @@ export interface BodyEntity {
   layer: string;
   /** Id of the entity this one is grouped under. */
   parent?: string;
+
+  // -- VZ-B: visual skin (VZ-42) --
+  /** Render-only model drawn in place of the body's own shape (src/render/skins); the physics is unaffected. */
+  skin?: SkinSpec;
 
   // ── FB-3: compound bodies ──────────────────────────────────────────────────────────────────────
   /**

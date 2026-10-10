@@ -4,6 +4,7 @@ import { ALL_GROUPS, DEFAULT_LAYER } from '../factory';
 import { LIMITS } from '../limits';
 import type { BodyEntity, CollisionSpec, DragSpec } from '../types';
 import { int, isFiniteVec, num, obj, str } from './primitives';
+import { sanitizeSkin } from './skin';
 
 export const MAX_DRAG = 1e6;
 
@@ -44,6 +45,7 @@ export function sanitizeBodyFields(
   | 'tags'
   | 'layer'
   | 'parent'
+  | 'skin'
 > {
   const out: ReturnType<typeof sanitizeBodyFields> = {
     collision: sanitizeCollision(raw.collision),
@@ -61,6 +63,9 @@ export function sanitizeBodyFields(
   const sleep = num(raw.sleepThreshold, -1);
   if (sleep >= 0) out.sleepThreshold = Math.min(sleep, 100);
   if (typeof raw.parent === 'string' && raw.parent) out.parent = raw.parent.slice(0, LIMITS.maxIdLength);
+  // -- VZ-B: visual skin --
+  const skin = sanitizeSkin(raw.skin);
+  if (skin) out.skin = skin;
   return out;
 }
 
