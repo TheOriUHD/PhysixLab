@@ -10,6 +10,7 @@ export class FrameLoop {
   private fpsAcc = 0;
   private fpsFrames = 0;
   private reflectTick = 0;
+  private readonly skinKeys = new Set<string>();
 
   constructor(private app: App) {}
 
@@ -62,7 +63,13 @@ export class FrameLoop {
       this.colorsDirty = false;
     }
 
-    app.bodies.updateSkins(dt, app.sim.keys, app.sim.active);
+    // The brake / reverse input also arrives as the analog `drive` axis (keyboard ramp, pad trigger): a skin that
+    // listens for KeyS (the car's brake lights) must see it as that key.
+    const skinKeys = this.skinKeys;
+    for (const k of app.sim.keys) skinKeys.add(k);
+    if (app.input.axisValue('drive') < -0.1) skinKeys.add('KeyS');
+    app.bodies.updateSkins(dt, skinKeys, app.sim.active);
+    this.skinKeys.clear();
     // SSR reflects only glossy / metallic bodies; the list is rebuilt twice a second while the effect is on.
     if (app.viewport.resolvedGraphics.ssr && ++this.reflectTick % 30 === 1)
       app.viewport.post.reflectives = app.bodies.reflectiveMeshes();
