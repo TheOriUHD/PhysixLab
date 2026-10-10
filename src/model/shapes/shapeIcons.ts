@@ -28,6 +28,7 @@ export const SHAPE_ICONS = {
   d4: '<path d="M12 3.5 21 19.5H3z"/><path d="M12 3.5v10.5M12 14 3 19.5M12 14l9 5.5" opacity=".55"/>',
   d6: '<rect x="3.5" y="3.5" width="17" height="17" rx="3.6"/><circle cx="8.2" cy="8.2" r="1.15" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="15.8" cy="15.8" r="1.15" fill="currentColor" stroke="none"/><circle cx="15.8" cy="8.2" r="1.15" fill="currentColor" stroke="none"/><circle cx="8.2" cy="15.8" r="1.15" fill="currentColor" stroke="none"/>',
   d8: '<path d="M12 2.5 3.5 12l8.5 9.5 8.5-9.5z"/><path d="M12 8.2 8 12h8z" opacity=".7"/><path d="M12 2.5v5.7M3.5 12 8 12M20.5 12H16M12 21.5V12" opacity=".5"/>',
+  d10: '<path d="M12 2.5 20 10l-8 11.5L4 10z"/><path d="M12 2.5v19M4 10h16M12 2.5l4 7.5M12 2.5 8 10" opacity=".5"/>',
   d12: '<path d="m12 2.8 7.8 5.7-3 9.2H7.2l-3-9.2z"/><path d="m12 8.3 3.4 2.5-1.3 4h-4.2l-1.3-4z" opacity=".7"/><path d="M12 2.8v5.5M19.8 8.5l-4.4 2.3M16.8 17.7 14.1 14.8M7.2 17.7l2.7-2.9M4.2 8.5l4.4 2.3" opacity=".5"/>',
   d20: '<path d="m12 2.6 8.3 4.8v9.2L12 21.4l-8.3-4.8V7.4z"/><path d="m12 7.6 4.4 8H7.6z" opacity=".75"/><path d="M12 2.6v5M20.3 7.4l-3.9 2.6M3.7 7.4l3.9 2.6M12 21.4v-5.6M3.7 16.6l3.9-1.2M20.3 16.6l-3.9-1.2" opacity=".5"/>',
   'curved-ramp': '<path d="M3 19.5h18V5.5c-2.2 8.6-8.2 14-18 14z"/><path d="M3 19.5c7 0 12.2-4 15.6-10" opacity=".5"/>',

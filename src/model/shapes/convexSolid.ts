@@ -10,7 +10,7 @@
 import type { Vec3 } from '../../core/math';
 import type { ParamDef, ShapeCategory, ShapeDef } from '../shapeRegistry';
 import type { ShapeParams, ShapeSpec } from '../types';
-import { clampDims, hullCollider } from './helpers';
+import { clampDims, hullCollider, MIN_DIM } from './helpers';
 import { convexHull3, hullFaces, hullVolume, type Hull, type HullFace } from './hull3';
 import { memo, paramsKey } from './memo';
 import { flatFacesMesh } from './polyMesh';
@@ -60,8 +60,12 @@ export interface ConvexSolidOptions {
   unitPoints(params: ShapeParams): Vec3[];
   /** Default size; the bounding box of the unit points when omitted. */
   defaultSize?: Vec3;
-  /** Keep the proportions (dice): the axis that changed most wins. */
+  /** Always a cube (dice): the axis that changed most wins. */
   uniform?: boolean;
+  /** Always the proportions of the default size (a regular solid): the axis that changed most sets the scale. */
+  keepAspect?: boolean;
+  /** The size fields the inspector shows (default: width, height, depth). */
+  sizeFields?: ShapeDef['sizeFields'];
   /** Key of a painter for the surface (see `ShapeDef.surface`) and a function building the mesh from the unit hull. */
   mesh?(T: GeometryKit, hull: Hull, faces: HullFace[], params: ShapeParams): BufferGeometry;
   surface?: ShapeDef['surface'];
@@ -105,13 +109,18 @@ export function convexSolid(o: ConvexSolidOptions): ShapeDef {
     keywords: o.keywords,
     defaultSize,
     params,
-    sizeFields: [
+    sizeFields: o.sizeFields ?? [
       { axis: 0, label: 'Width' },
       { axis: 1, label: 'Height' },
       { axis: 2, label: 'Depth' },
     ],
     normalizeSize: (size, _params, prev) => {
       const s = clampDims(size);
+      if (o.keepAspect) {
+        const axis = changedAxis(s, prev);
+        const k = Math.max(s[axis] / defaultSize[axis], MIN_DIM / Math.min(...defaultSize));
+        return [defaultSize[0] * k, defaultSize[1] * k, defaultSize[2] * k];
+      }
       if (!o.uniform) return s;
       const d = uniformAxis(s, prev);
       return [d, d, d];
@@ -151,10 +160,13 @@ const roundDims = (d: Vec3): Vec3 => [
   Math.round(d[2] * 1e4) / 1e4,
 ];
 
-function uniformAxis(s: Vec3, prev?: Vec3): number {
-  if (!prev) return s[0];
+/** The axis the user changed (the one that moved most; x without a previous size). */
+function changedAxis(s: Vec3, prev?: Vec3): 0 | 1 | 2 {
+  if (!prev) return 0;
   const dx = Math.abs(s[0] - prev[0]),
     dy = Math.abs(s[1] - prev[1]),
     dz = Math.abs(s[2] - prev[2]);
-  return dx >= dy && dx >= dz ? s[0] : dy >= dz ? s[1] : s[2];
+  return dx >= dy && dx >= dz ? 0 : dy >= dz ? 1 : 2;
 }
+
+const uniformAxis = (s: Vec3, prev?: Vec3): number => s[changedAxis(s, prev)];
