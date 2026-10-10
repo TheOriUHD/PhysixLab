@@ -607,6 +607,7 @@ test('panels: the three regions are generated from the panel registry, follow it
     dockTabs.filter((t) => t === 'Energy' || t === 'Selection').join() === 'Energy,Selection',
     `bottom dock: ${dockTabs}`,
   );
+  assert(dockTabs.includes('Charts'), `the Charts tab is in the bottom dock: ${dockTabs}`);
   assert(dockTabs.includes('Zones'), `the Zones tab is in the bottom dock: ${dockTabs}`);
 
   // Tab semantics.

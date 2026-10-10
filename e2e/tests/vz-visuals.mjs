@@ -26,10 +26,23 @@ const firstBody = (page) =>
   });
 
 const pieceMat = (page, id, field) =>
-  page.evaluate(([i, f]) => {
-    const m = window.physicslab.bodies.get(i).pieces[0].material;
-    return f === 'map' ? !!m.map : f === 'normalMap' ? !!m.normalMap : f === 'transmission' ? m.transmission : f === 'clearcoat' ? m.clearcoat : f === 'emissive' ? m.emissive.r : null;
-  }, [id, field]);
+  page.evaluate(
+    ([i, f]) => {
+      const m = window.physicslab.bodies.get(i).pieces[0].material;
+      return f === 'map'
+        ? !!m.map
+        : f === 'normalMap'
+          ? !!m.normalMap
+          : f === 'transmission'
+            ? m.transmission
+            : f === 'clearcoat'
+              ? m.clearcoat
+              : f === 'emissive'
+                ? m.emissive.r
+                : null;
+    },
+    [id, field],
+  );
 
 test('VZ-A: material editor: picker search + preset click, preview sphere, texture pattern, triplanar', async () => {
   const page = await newPage('&scene=pit&quality=low');
@@ -69,7 +82,11 @@ test('VZ-A: material editor: picker search + preset click, preview sphere, textu
   // the editor applies to a multi-selection
   const two = await page.evaluate(() => {
     const a = window.physicslab;
-    const ids = a.store.bodies().filter((x) => x.shape.type === 'sphere').slice(0, 2).map((x) => x.id);
+    const ids = a.store
+      .bodies()
+      .filter((x) => x.shape.type === 'sphere')
+      .slice(0, 2)
+      .map((x) => x.id);
     a.store.setSelection(ids);
     return ids;
   });
@@ -77,7 +94,10 @@ test('VZ-A: material editor: picker search + preset click, preview sphere, textu
   await page.fill('input[aria-label="Search materials"]', 'copper');
   await page.locator('.material-swatch:visible').click();
   const presets = await page.evaluate((ids) => ids.map((i) => window.physicslab.store.body(i).material.preset), two);
-  assert(presets.every((p) => p === 'copper'), `multi-selection edit applies to all (${presets})`);
+  assert(
+    presets.every((p) => p === 'copper'),
+    `multi-selection edit applies to all (${presets})`,
+  );
   assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
 });
 
@@ -87,7 +107,20 @@ test('VZ-A: material: glass transmission, emissive glow and user image textures'
   const id = await firstBody(page);
   await page.evaluate((i) => {
     const a = window.physicslab;
-    a.store.update(i, { material: { ...a.store.body(i).material, transmission: 0.9, ior: 1.5, thickness: 0.5, emissive: '#ff4400', emissiveIntensity: 2 } }, 'glass');
+    a.store.update(
+      i,
+      {
+        material: {
+          ...a.store.body(i).material,
+          transmission: 0.9,
+          ior: 1.5,
+          thickness: 0.5,
+          emissive: '#ff4400',
+          emissiveIntensity: 2,
+        },
+      },
+      'glass',
+    );
   }, id);
   await settle(page);
   assert(Math.abs((await pieceMat(page, id, 'transmission')) - 0.9) < 1e-6, 'transmission applied at medium quality');
@@ -109,13 +142,39 @@ test('VZ-A: material: glass transmission, emissive glow and user image textures'
     const img = a.store.addAsset(makeTextureAsset('a.png', mk('#00ff00'), 16, 16));
     const nrm = a.store.addAsset(makeTextureAsset('n.png', mk('#8080ff'), 16, 16));
     const b = a.store.body(i);
-    a.store.update(i, { material: { ...b.material, transmission: 0, texture: { pattern: 'image', color2: '#fff', scale: [2, 2], rotation: 30, offset: [0.1, 0], triplanar: false, bump: 0, normalStrength: 1, imageId: img, normalId: nrm } } }, 'img');
+    a.store.update(
+      i,
+      {
+        material: {
+          ...b.material,
+          transmission: 0,
+          texture: {
+            pattern: 'image',
+            color2: '#fff',
+            scale: [2, 2],
+            rotation: 30,
+            offset: [0.1, 0],
+            triplanar: false,
+            bump: 0,
+            normalStrength: 1,
+            imageId: img,
+            normalId: nrm,
+          },
+        },
+      },
+      'img',
+    );
     await new Promise((r) => setTimeout(r, 400));
     const m = a.bodies.get(i).pieces[0].material;
-    return !!m.map && !!m.normalMap && m.map.repeat.x === 2 && Math.abs(m.map.rotation - Math.PI / 6) < 1e-6 && !!m.map.image;
+    return (
+      !!m.map && !!m.normalMap && m.map.repeat.x === 2 && Math.abs(m.map.rotation - Math.PI / 6) < 1e-6 && !!m.map.image
+    );
   }, id);
   assert(ok, 'image albedo + normal map applied with UV transform and loaded');
-  const refs = await page.evaluate((i) => window.physicslab.store.assetRefCount(window.physicslab.store.body(i).material.texture.imageId), id);
+  const refs = await page.evaluate(
+    (i) => window.physicslab.store.assetRefCount(window.physicslab.store.body(i).material.texture.imageId),
+    id,
+  );
   assert(refs === 1, 'texture asset is referenced by the body');
   assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
 });
@@ -123,7 +182,19 @@ test('VZ-A: material: glass transmission, emissive glow and user image textures'
 test('VZ-A: environment: every preset, the physical sky and tone mappings render without errors', async () => {
   const page = await newPage('&scene=pit&quality=low');
   await page.waitForTimeout(600);
-  for (const sky of ['studio', 'day', 'sunset', 'night', 'physical', 'blueprint', 'space', 'lab', 'desert', 'snow', 'overcast']) {
+  for (const sky of [
+    'studio',
+    'day',
+    'sunset',
+    'night',
+    'physical',
+    'blueprint',
+    'space',
+    'lab',
+    'desert',
+    'snow',
+    'overcast',
+  ]) {
     await setEnv(page, { sky });
     if (sky === 'physical' || sky === 'sunset') await shot(page, `vz-sky-${sky}`);
   }
@@ -143,19 +214,23 @@ test('VZ-A: time of day moves the sun, its light and its shadow direction; the c
       const v = window.physicslab.viewport;
       return { dir: v.sunDir.toArray(), i: v.sun.intensity, hours: v.env.hours };
     });
-  await setEnv(page, { sky: 'physical', sun: { azimuth: 180, elevation: 60, intensity: 1, turbidity: 6, rayleigh: 1.5 } });
+  await setEnv(page, {
+    sky: 'physical',
+    sun: { azimuth: 180, elevation: 60, intensity: 1, turbidity: 6, rayleigh: 1.5 },
+  });
   const noon = await read();
   await setEnv(page, { sun: { azimuth: 90, elevation: 5, intensity: 1, turbidity: 6, rayleigh: 1.5 } });
   const dawn = await read();
   await setEnv(page, { sun: { azimuth: 90, elevation: -20, intensity: 1, turbidity: 6, rayleigh: 1.5 } });
   const night = await read();
-  assert(noon.dir[1] > 0.8 && dawn.dir[1] < 0.2 && dawn.dir[0] > 0.9, `sun direction follows angles ${JSON.stringify([noon.dir, dawn.dir])}`);
+  assert(
+    noon.dir[1] > 0.8 && dawn.dir[1] < 0.2 && dawn.dir[0] > 0.9,
+    `sun direction follows angles ${JSON.stringify([noon.dir, dawn.dir])}`,
+  );
   assert(noon.i > dawn.i && dawn.i > night.i && night.i === 0, `sun intensity ${noon.i} > ${dawn.i} > ${night.i}`);
   await setEnv(page, { timeOfDay: 6, cycle: { enabled: true, hoursPerSecond: 6 } });
   const h0 = (await read()).hours;
-  await page
-    .waitForFunction((h) => window.physicslab.viewport.env.hours !== h, h0, { timeout: 15000 })
-    .catch(() => {});
+  await page.waitForFunction((h) => window.physicslab.viewport.env.hours !== h, h0, { timeout: 15000 }).catch(() => {});
   const h1 = (await read()).hours;
   assert(h1 !== h0, `day cycle advances (${h0} → ${h1})`);
   await setEnv(page, { cycle: { enabled: false, hoursPerSecond: 6 } });
@@ -170,17 +245,34 @@ test('VZ-A: user HDRI: a .hdr stored as an asset lights the scene; removing it f
     // 4×2 uncompressed Radiance image: bright sky on top, dark ground below
     const head = new TextEncoder().encode('#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 2 +X 4\n');
     const px = [];
-    for (let y = 0; y < 2; y++) for (let x = 0; x < 4; x++) px.push(...(y === 0 ? [200, 220, 255, 129] : [40, 40, 40, 128]));
+    for (let y = 0; y < 2; y++)
+      for (let x = 0; x < 4; x++) px.push(...(y === 0 ? [200, 220, 255, 129] : [40, 40, 40, 128]));
     const bytes = new Uint8Array(head.length + px.length);
     bytes.set(head);
     bytes.set(px, head.length);
     const { makeBlobAsset } = await import('/src/model/assets.ts');
     const id = a.store.addAsset(makeBlobAsset('test.hdr', 'image/vnd.radiance', bytes));
-    a.store.updateSettings({ environment: { ...a.store.settings.environment, sky: 'hdri', hdri: { ...a.store.settings.environment.hdri, assetId: id, backgroundBlur: 0.3 } } }, 'hdri');
+    a.store.updateSettings(
+      {
+        environment: {
+          ...a.store.settings.environment,
+          sky: 'hdri',
+          hdri: { ...a.store.settings.environment.hdri, assetId: id, backgroundBlur: 0.3 },
+        },
+      },
+      'hdri',
+    );
     for (let i = 0; i < 40 && !a.viewport.env.hdriReady; i++) await new Promise((r) => setTimeout(r, 100));
-    return { ready: a.viewport.env.hdriReady, bg: !!a.viewport.scene.background, blur: a.viewport.scene.backgroundBlurriness };
+    return {
+      ready: a.viewport.env.hdriReady,
+      bg: !!a.viewport.scene.background,
+      blur: a.viewport.scene.backgroundBlurriness,
+    };
   });
-  assert(result.ready && result.bg && Math.abs(result.blur - 0.3) < 1e-6, `HDRI loaded and used: ${JSON.stringify(result)}`);
+  assert(
+    result.ready && result.bg && Math.abs(result.blur - 0.3) < 1e-6,
+    `HDRI loaded and used: ${JSON.stringify(result)}`,
+  );
   await settle(page);
   await shot(page, 'vz-hdri');
   assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
@@ -189,10 +281,11 @@ test('VZ-A: user HDRI: a .hdr stored as an asset lights the scene; removing it f
 test('VZ-A: fog (linear / exponential / height) and ground types apply', async () => {
   const page = await newPage('&scene=pit&quality=low');
   await page.waitForTimeout(600);
-  const fogKind = () => page.evaluate(() => {
-    const f = window.physicslab.viewport.scene.fog;
-    return f ? (f.isFogExp2 ? 'exp' : f.far < 0 ? 'height' : 'linear') : 'none';
-  });
+  const fogKind = () =>
+    page.evaluate(() => {
+      const f = window.physicslab.viewport.scene.fog;
+      return f ? (f.isFogExp2 ? 'exp' : f.far < 0 ? 'height' : 'linear') : 'none';
+    });
   assert((await fogKind()) === 'none', 'no fog by default');
   const fog = { enabled: true, color: '#9db4cc', density: 0.03, near: 5, far: 60, height: 0, falloff: 0.2 };
   for (const type of ['linear', 'exp', 'height']) {
@@ -208,10 +301,24 @@ test('VZ-A: fog (linear / exponential / height) and ground types apply', async (
     await settle(page);
     const vis = await page.evaluate(() => {
       const v = window.physicslab.viewport;
-      return { slab: v.slab.visible, grid: v.grid.visible, map: !!v.slab.material.map, nrm: !!v.slab.material.normalMap };
+      return {
+        slab: v.slab.visible,
+        grid: v.grid.visible,
+        map: !!v.slab.material.map,
+        nrm: !!v.slab.material.normalMap,
+      };
     });
-    const want = { checker: [true, false, true, false], plain: [true, false, false, false], water: [true, false, false, true], none: [false, false, false, false], grid: [true, true, false, false] }[type];
-    assert(JSON.stringify([vis.slab, vis.grid, vis.map, vis.nrm]) === JSON.stringify(want), `ground ${type}: ${JSON.stringify(vis)}`);
+    const want = {
+      checker: [true, false, true, false],
+      plain: [true, false, false, false],
+      water: [true, false, false, true],
+      none: [false, false, false, false],
+      grid: [true, true, false, false],
+    }[type];
+    assert(
+      JSON.stringify([vis.slab, vis.grid, vis.map, vis.nrm]) === JSON.stringify(want),
+      `ground ${type}: ${JSON.stringify(vis)}`,
+    );
     if (type === 'water' || type === 'checker') await shot(page, `vz-ground-${type}`);
   }
   assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
@@ -221,9 +328,18 @@ test('VZ-A: World panel: environment controls edit the scene settings', async ()
   const page = await newPage('&scene=pit&quality=low');
   await page.waitForTimeout(600);
   await page.evaluate(() => window.physicslab.store.setSelection([]));
-  await page.getByText('World', { exact: true }).first().click().catch(() => {});
-  const found = await page.evaluate(() => [...document.querySelectorAll('.section-head span')].map((e) => e.textContent));
-  assert(['Sky & sun', 'Display', 'Fog', 'Ground look'].every((t) => found.includes(t)), `world sections present: ${found.join(', ')}`);
+  await page
+    .getByText('World', { exact: true })
+    .first()
+    .click()
+    .catch(() => {});
+  const found = await page.evaluate(() =>
+    [...document.querySelectorAll('.section-head span')].map((e) => e.textContent),
+  );
+  assert(
+    ['Sky & sun', 'Display', 'Fog', 'Ground look'].every((t) => found.includes(t)),
+    `world sections present: ${found.join(', ')}`,
+  );
   await shot(page, 'vz-world-panel');
 });
 
@@ -234,7 +350,13 @@ test('VZ-A: light entities render as real lights; flicker animates the intensity
     const a = window.physicslab;
     const { createLight } = await import('/src/model/factory.ts');
     const mk = (type, pos, extra = {}) => ({ ...createLight(type), position: pos, castShadow: true, ...extra });
-    const lights = [mk('point', [2, 4, 0], { flicker: { mode: 'flicker', amount: 0.8, speed: 8 } }), mk('spot', [-2, 5, 0]), mk('directional', [0, 8, 0]), mk('point', [4, 3, 3]), mk('spot', [-4, 3, 3])];
+    const lights = [
+      mk('point', [2, 4, 0], { flicker: { mode: 'flicker', amount: 0.8, speed: 8 } }),
+      mk('spot', [-2, 5, 0]),
+      mk('directional', [0, 8, 0]),
+      mk('point', [4, 3, 3]),
+      mk('spot', [-4, 3, 3]),
+    ];
     a.store.add(lights);
     await new Promise((r) => setTimeout(r, 600));
     const v = a.lightViews.get(lights[0].id);

@@ -41,3 +41,8 @@
 .plg-table th, .plg-table td { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--border); }
 .plg-bar { height: 6px; border-radius: 3px; background: var(--raised); overflow: hidden; }
 .plg-bar-fill { height: 100%; background: var(--accent); }
+
+/* inputs inside DT-B dialogs and plugin panels follow the app tokens, not the browser defaults */
+.dtb-examples, .modal input.plain, .plg-panel input:not([type=checkbox]), .plg-panel select { background: var(--bg-deep); color: var(--text); border: 1px solid var(--border-2); border-radius: var(--radius-s); padding: 5px 8px; }
+.dtb-status { min-height: 36px; }
+.plg-chip, .plg-state { color: var(--text); }

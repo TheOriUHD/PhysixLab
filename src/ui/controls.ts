@@ -11,6 +11,8 @@ import { followUnits, systemOf, unitChip } from './inspector/upgrades/fieldUnits
 import { quantityById, quantityOfSymbol, toDisplay } from './inspector/upgrades/units';
 import type { QuantityDef } from './inspector/upgrades/units';
 // -- /UI-A --
+// -- ED-A snap: relative entries (`+0.5`, `*2`, `x-1`; src/model/edit/expression.ts) --
+import { ENTRY_HINT, evaluateEntry } from '../model/edit/expression';
 
 export interface Field<T> {
   el: HTMLElement;
@@ -38,6 +40,12 @@ export interface NumberOpts {
   title?: string;
   // -- UI-A: what the field measures (id of a quantity in inspector/upgrades/units.ts); defaults to the one the `unit` text names, `null` = plain number --
   quantity?: string | null;
+  /**
+   * -- ED-A snap: called instead of `onChange` when the typed entry is relative ("+0.5", "*2", "x-1"). `apply(current)`
+   * gives the new value for an object whose own current value is `current` (NaN if it cannot be computed); `shown` is
+   * the value in the field. Lets a multi-selection apply the entry to every object's own value.
+   */
+  onRelative?: (apply: (current: number) => number, shown: number) => void;
 }
 
 // -- UI-A: scrubbing from outside the field (the inspector makes a row's label drag the row's number) --
@@ -54,8 +62,9 @@ export function numberField(o: NumberOpts): Field<number> {
     type: 'text',
     inputMode: 'decimal',
     spellcheck: false,
-    title: o.title ?? '',
+    title: o.title ? `${o.title}\n${ENTRY_HINT}` : ENTRY_HINT, // -- ED-A snap: entry hint --
   });
+  const baseTitle = input.title;
   // -- UI-A: unit toggle --
   const quantity: QuantityDef | undefined =
     o.quantity === null ? undefined : (quantityById(o.quantity) ?? quantityOfSymbol(o.unit));
@@ -91,15 +100,34 @@ export function numberField(o: NumberOpts): Field<number> {
 
   input.addEventListener('focus', () => input.select());
   input.addEventListener('change', () => {
-    // -- UI-A: expressions (`2*9.81`, `5 ft`, `3/4`) with units --
-    const r = parseFieldInput(input.value, quantity, systemOf(el ?? input, quantity));
+    // -- UI-A: expressions (`2*9.81`, `5 ft`, `3/4`) with units; -- ED-A snap: a leading operator makes it relative --
+    const sys = systemOf(el ?? input, quantity);
+    const shownOf = (native: number) => (quantity ? toDisplay(quantity, sys, native) : native);
+    const evalFor = (native: number) =>
+      evaluateEntry(input.value, native, shownOf(native), (t, plain) =>
+        parseFieldInput(t, plain ? undefined : quantity, sys),
+      );
+    const r = evalFor(value);
     if (!r.ok) {
       input.classList.add('invalid');
       input.title = r.error;
       window.setTimeout(() => {
         input.classList.remove('invalid');
-        input.title = o.title ?? '';
+        input.title = baseTitle;
       }, 1800);
+      show(value, mixedNow);
+      return;
+    }
+    if (r.relative && o.onRelative) {
+      const text = input.value;
+      o.onStart?.();
+      o.onRelative((native) => {
+        const x = evaluateEntry(text, native, shownOf(native), (t, plain) =>
+          parseFieldInput(t, plain ? undefined : quantity, sys),
+        );
+        return x.ok ? clampV(x.value) : NaN;
+      }, value);
+      o.onEnd?.();
       show(value, mixedNow);
       return;
     }
@@ -188,13 +216,16 @@ export function vec3Field(o: {
   min?: number;
   max?: number;
   digits?: number;
+  /** -- ED-A snap: relative entries of one axis ("+15"); see `NumberOpts.onRelative`. */
+  onRelative?: (axis: 0 | 1 | 2, apply: (current: number) => number, shown: number) => void;
 }): Field<[number, number, number]> {
   let cur: [number, number, number] = [0, 0, 0];
   // -- UI-A: one unit chip for the three axes, which share the quantity --
   const vq = o.unit ? quantityOfSymbol(o.unit) : undefined;
-  const mk = (i: number, name: string) =>
+  const mk = (i: 0 | 1 | 2, name: string) =>
     numberField({
       quantity: vq?.id ?? null,
+      onRelative: o.onRelative ? (apply, shown) => o.onRelative?.(i, apply, shown) : undefined, // -- ED-A snap
       label: name,
       labelClass: `axis-${name.toLowerCase()}`,
       step: o.step ?? 0.1,

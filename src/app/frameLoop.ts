@@ -68,7 +68,8 @@ export class FrameLoop {
       app.viewport.post.reflectives = app.bodies.reflectiveMeshes();
     if (!app.camera.ortho)
       app.bodies.updateLod(app.camera.position, app.viewport.dom.clientHeight, (app.camera.fov * Math.PI) / 180);
-    app.bodies.flush(); // -- VZ-B: instance buffers (VZ-30) --
+    app.bodies.flush();
+    app.viewport.refreshDecor(); // -- VZ-B: instance buffers (VZ-30) --
 
     // -- JT-B: joint load estimates run while the stress overlay is on or a joint inspector is showing them --
     client.watchLoads(app.prefs.value.overlays.stress || performance.now() - app.loadWatchStamp < 800);

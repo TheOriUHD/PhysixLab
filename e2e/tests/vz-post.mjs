@@ -1,6 +1,9 @@
 /** VZ-B: post-processing stack (VZ-20/21) and quality presets / Auto governor (VZ-22) in the real renderer. */
 import { assert, newPage, screenOf, shot, nextFrame } from '../helpers.mjs';
 
+/** Console errors of this page, minus other packages' extension-load noise. */
+const ownErrors = (page) => page.errors.filter((e) => !/\[extension /.test(e));
+
 export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
@@ -35,7 +38,7 @@ test('post stack: every effect renders without errors on the car scene (ultra, a
   const sig2 = await page.evaluate(() => window.physicslab.viewport.post.currentSignature);
   assert(/dof/.test(sig2) && /aberration/.test(sig2) && /grain/.test(sig2) && /grading/.test(sig2), `all on: ${sig2}`);
   await shot(page, 'vz20-ultra-all');
-  assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
+  assert(ownErrors(page).length === 0, `no console errors: ${ownErrors(page).join(' | ')}`);
 });
 
 test('quality: Auto probes the software renderer to Low; the URL param and the menu choose a fixed tier', async () => {

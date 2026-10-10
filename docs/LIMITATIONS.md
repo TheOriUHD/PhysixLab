@@ -80,6 +80,17 @@ Pulley, rack, gear, belt / chain, winch, soft weld, screw and the limits / sprin
 * **Snapshots are exact for what the engine and the world record** (rigid bodies, joints, soft bodies, RNG, clock, components with `saveState`). Components without `saveState` start over from their parameters on restore; the mouse grab is released; pending events and the per-pair rate-limit memory of contact events are not saved (so the first impact of a pair after a restore is reported even if it had reported within `pairInterval` before the snapshot); key and axis input are supplied by the next tick. A snapshot is for this build's engine: its bytes are not a file format.
 * **Component state is published only on change** and read by component id; there is no history (the telemetry package keeps series).
 
+## Time travel, replays and ghosts (package TM)
+
+* **Soft bodies come back from a snapshot approximately**: the engine's soft-body contact and attachment caches are not part of its serialisation, so after a restore a jelly, cloth or net can be a few millimetres (transiently up to a few centimetres) from where the uninterrupted run was. Rigid bodies, joints, components, the drive network and the RNG come back bit-exactly (`tests/timelineScenes.test.ts` checks every bundled scene; the soft scenes are held to a tolerance instead). A recording that starts mid-run therefore restores its own base state into the live world at the moment you press Record, so the live run and its replay share one starting point.
+* **Replays are exact for this build only** (the engine bytes and the checkpoint hashes are not a stable file format): a replay recorded by another build may report a divergence, which is the viewer working as designed. A recording from a fresh scene (step 0) needs no engine bytes at all, only the scene and the inputs.
+* **The mouse grab is part of the ring, but the soft-body grab is not**: dragging a soft particle while scrubbing back and forth releases it.
+* **History has a memory budget** (Replay tab, 32–512 MB): when a long run fills it the oldest and newest snapshots stay and the ones between are thinned, so a seek into the middle of a very long run re-simulates up to a few hundred steps; the input log keeps at most 400 000 entries, after which the oldest history is forgotten.
+* **Rewind speed on a slow machine is what the frame rate allows**: it plays history back at `rate × real time`, restoring a snapshot per frame, so a heavy scene rewinds in jumps rather than smoothly.
+* **Ghosts show bodies that existed when the run started** (projectiles and spawned debris are not in the track); the personal best is stored in the browser (localStorage, thinned to about 1.6 MB) per scene name.
+* **Share links carry small replays only** (the scene and the log are in the URL, limit about 150 kB); larger ones are saved as a file.
+* **Unseeded randomness is not caught by the compiler**: a runtime that calls `Math.random()` is detected by *Check determinism* and by `tests/timeline.test.ts`, not prevented.
+
 ## Effects (package FX)
 
 * **Trails and skid marks exist only for the ground plane** (the ground slab's top). Dust trails, tyre smoke, grinding sparks and skid marks come from the lowest point of a body touching the ground; a wheel on a ramp, a box sliding on another body or a car on a bridge leaves nothing. The slip is *estimated* from the body's pose and velocities (`v_c = v + ω × r` of the lowest point, see `render/fx/slip.ts`) rather than read from the engine's contact forces, and the lowest point of a compound body or a mesh body is approximated by its primary shape / bounding sphere.
@@ -131,6 +142,16 @@ Pulley, rack, gear, belt / chain, winch, soft weld, screw and the limits / sprin
 * **Fuel is mass at the centre of mass.** Burning fuel lowers the body's mass and scales its inertia in proportion; the centre of mass does not move as the tank empties. A rocket has no aerodynamic stabilisation other than its angular damping, so a small wobble from the pad stays as a slow drift (the launch scene sets an angular damping of 1.5; its `airDrag` is 0 so the climb is the rocket equation alone).
 * **Flames, blade blur and gauges are drawn, not simulated**: `src/render/componentFx.ts` draws a teardrop flame per thruster / jet, translucent blade discs for propellers and rotors, and dial / stroke / brake-ring gauges from the numbers the components publish. There are no exhaust particles or smoke yet (the `ignite` / `burnout` events and the published thrust are the hook); the sound engine (package FX) already voices them, from the published rpm / thrust and an ignition sound.
 * **The Controls panel drives analog axes only with its own sliders** (no gamepad or script input yet; the protocol accepts any `setAxis`). It lists the keys and axes found in the schemas of the enabled components of the scene, so a binding that a component reads through a script or a custom channel is not listed.
+
+## Charts (UI-30 / 31 / 32)
+
+* **Samples are per rendered frame**, at most 60 per simulated second (a chart's rate and record length are settable), so a spectrum can resolve frequencies up to half the sampling rate (30 Hz at best, less when the browser renders slower than the simulation) and fast contact transients are undersampled. Irregular frame spacing is resampled linearly onto a uniform grid before the FFT.
+* **Acceleration is the backward difference of the sampled velocity**, not an instantaneous value: it includes gravity and contact forces and is noisy at impacts.
+* **Angular momentum uses an effective moment of inertia** `2·KE_rot/ω²` recovered from the body's rotational kinetic energy, because the worker does not send the inertia tensor: exact for rotation about a principal axis, an approximation for a tumbling asymmetric body.
+* **Contacts are world-level.** The contact point count and total contact force come from the contact-point buffer of awake dynamic bodies (the same data as the Contacts overlay, which a chart switches on while it needs it); there is no per-body contact count or force, and no force for resting contacts of sleeping bodies.
+* **No hinge torque, temperature or sensor signals.** The engine's joint readback reports angle / speed (hinge, slider), length / force (spring) and tension (rope) only; there is no temperature simulation, and sensor events are events, not continuous values.
+* **Power is F·v** of the body's average net force over the last frame (the rate of change of its translational kinetic energy); use the Derivative option on an energy trace for dE/dt of anything else.
+* Chart data is not saved with the scene; configurations are saved per browser (localStorage), not per scene, and refer to objects by name.
 
 ## Rendering & platform
 
@@ -213,3 +234,5 @@ Plugins can register commands, declarative panels and example scenes (templates)
 * **Auto quality** judges by frame time on the main thread: a slow *simulation* step lowers quality too.
 * Themes (VZ-50): colour literals remain in other packages' canvases and stylesheets (`src/app/camera/minimap.ts`, `src/ui/timeTravel/timelinePanel.ts`, `src/ui/diag/panels.ts`, `cm.css`, `tm.css`, `diag.css`); they keep their own look in every theme until migrated to the `--canvas-*` / `--chart-*` tokens. The 3D viewport background is scene-driven.
 * Procedural pattern textures are cached per (pattern, colours, bump); dragging a colour slider adds cache entries that live until reload.
+## DT-42: first load is not under 1.2 MB gzip
+The Rapier WebAssembly binary alone is about 1.15 MB gzip (served as a separate cached asset), so the cold-start download is about 1.9 MB gzip; the JavaScript part is well below the target. Numbers and the lazy-loading policy are in docs/PERFORMANCE.md; `npm run size` enforces budgets in CI.

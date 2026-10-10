@@ -1,0 +1,99 @@
+/* Chart widgets (UI-30/31/32): the Charts tab of the bottom dock and the trace picker. */
+.ch-panel { position: relative; flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.ch-grid { flex: 1; min-height: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px; padding: 6px; overflow: auto; }
+.ch-grid:empty { display: none; }
+.ch-widget { position: relative; flex: 0 0 auto; max-width: 100%; height: 100%; min-height: 168px; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border-2); border-radius: var(--radius); overflow: hidden; }
+.ch-widget.fixed-h { height: auto; min-height: 0; }
+.ch-widget.dragging { opacity: 0.45; }
+.ch-widget.drop-before { box-shadow: -3px 0 0 var(--accent); }
+.ch-widget.drop-after { box-shadow: 3px 0 0 var(--accent); }
+
+.ch-head { display: flex; align-items: center; gap: 3px; padding: 4px 6px; border-bottom: 1px solid var(--border); flex: none; min-width: 0; flex-wrap: nowrap; }
+.ch-grip { display: inline-flex; width: 20px; height: 22px; align-items: center; justify-content: center; color: var(--text-3); cursor: grab; flex: none; }
+.ch-grip:hover { color: var(--text); }
+.ch-grip .icon { width: 14px; height: 14px; }
+.ch-title { background: none; border: 0; color: var(--text); font-weight: 600; font-size: 12.5px; padding: 2px 4px; border-radius: 4px; max-width: 150px; flex: 0 1 auto; min-width: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-title:hover { background: var(--hover); }
+.ch-spacer { flex: 1; min-width: 4px; }
+.ch-modes { flex: none; }
+.ch-modes .seg-btn { padding: 3px 6px; }
+.ch-btn { display: inline-flex; align-items: center; gap: 4px; height: 24px; min-width: 24px; padding: 0 6px; justify-content: center; border-radius: var(--radius-s); border: 1px solid transparent; background: transparent; color: var(--text-2); font-size: 12px; }
+.ch-btn:hover { background: var(--hover); color: var(--text); }
+.ch-btn .icon { width: 14px; height: 14px; }
+.ch-btn.on { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-line); }
+.ch-add { border-color: var(--border-2); }
+.ch-more { font-size: 15px; line-height: 1; }
+.ch-live .ch-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+.ch-live.on .ch-dot { background: var(--run); box-shadow: 0 0 6px var(--run); }
+
+.ch-sub { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-bottom: 1px solid var(--border); flex: none; flex-wrap: wrap; }
+.ch-field { display: inline-flex; align-items: center; gap: 5px; color: var(--text-3); font-size: 11.5px; }
+.ch-field .select { width: auto; max-width: 150px; height: 22px; }
+.ch-check input { margin: 0; }
+.ch-hint { color: var(--text-3); font-size: 11px; margin-left: auto; }
+
+.ch-plot { position: relative; flex: 1; min-height: 80px; min-width: 0; }
+.ch-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; outline: none; touch-action: none; }
+.ch-canvas:focus-visible { outline: 1px solid var(--accent-line); outline-offset: -1px; }
+
+.ch-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 4px 8px 5px; border-top: 1px solid var(--border); flex: none; max-height: 64px; overflow-y: auto; font-size: 11.5px; min-height: 28px; align-items: center; }
+.ch-empty { color: var(--text-3); }
+.ch-chip { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+.ch-chip.off .ch-name, .ch-chip.off .ch-val { opacity: 0.4; text-decoration: line-through; }
+.ch-chip.off .ch-sw { opacity: 0.35; }
+.ch-sw { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(255, 255, 255, 0.25); padding: 0; flex: none; }
+.ch-name { background: none; border: 0; color: var(--text-2); padding: 0 2px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 3px; font-size: 11.5px; }
+.ch-name:hover { color: var(--text); background: var(--hover); }
+.ch-val { font: 11.5px var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text); min-width: 64px; }
+.ch-warn { color: var(--warn); font-weight: 700; cursor: help; }
+.ch-chip.err .ch-name { color: var(--warn); }
+.ch-axis { background: var(--bg); border: 1px solid var(--border-2); color: var(--text-3); border-radius: 3px; font: 10px var(--mono); width: 16px; height: 16px; padding: 0; }
+.ch-axis:hover { color: var(--text); }
+.ch-chipmore { background: none; border: 0; color: var(--text-3); padding: 0 3px; border-radius: 3px; line-height: 1; }
+.ch-chipmore:hover { color: var(--text); background: var(--hover); }
+
+.ch-stats { flex: none; border-top: 1px solid var(--border); padding: 4px 8px; font: 11px var(--mono); max-height: 110px; overflow: auto; }
+.ch-st { display: grid; grid-template-columns: minmax(110px, 2.4fr) repeat(8, minmax(38px, 1fr)); gap: 6px; padding: 1px 0; font-variant-numeric: tabular-nums; }
+.ch-st span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-st span + span { text-align: right; }
+.ch-st.head { color: var(--text-3); font-family: var(--font); }
+
+.ch-resize { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 55%, var(--text-3) 55%, var(--text-3) 62%, transparent 62%, transparent 76%, var(--text-3) 76%, var(--text-3) 83%, transparent 83%); opacity: 0.7; }
+.ch-resize:hover { opacity: 1; }
+
+.ch-emptystate { flex: 1; padding: 14px 18px; overflow: auto; color: var(--text-2); max-width: 760px; }
+.ch-emptystate p { margin: 4px 0 10px; line-height: 1.5; }
+.ch-empty-title { font-weight: 600; color: var(--text); font-size: 13.5px; }
+.ch-emptystate code, .td code, .ch-panel code { font-family: var(--mono); font-size: 11.5px; background: var(--bg); padding: 1px 5px; border-radius: 4px; color: var(--accent-2); }
+.ch-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.ch-addchart { height: 24px; }
+
+/* trace picker */
+.td { display: flex; flex-direction: column; gap: 10px; }
+.td-pick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.td-field { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--text-3); min-width: 0; }
+.td-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.td-list { height: 210px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--bg); padding: 4px; }
+.td-group { color: var(--text-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; padding: 7px 8px 3px; }
+.td-sig { display: grid; grid-template-columns: minmax(0, 1fr) auto 54px; gap: 8px; align-items: center; width: 100%; text-align: left; background: none; border: 0; color: var(--text); padding: 4px 8px; border-radius: 5px; }
+.td-sig:hover { background: var(--hover); }
+.td-sig code { color: var(--text-3); background: none; }
+.td-sig-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-sig-unit { color: var(--text-3); font-size: 11px; text-align: right; }
+.td-none { color: var(--text-3); padding: 14px; text-align: center; }
+.td-expr { font-family: var(--mono); }
+.td-status { font-size: 12px; color: var(--text-3); min-height: 17px; }
+.td-status.ok { color: var(--run); }
+.td-status.bad { color: var(--danger); }
+.td-help { margin: 0; font-size: 11.5px; color: var(--text-3); line-height: 1.55; }
+.td-colorrow { display: flex; align-items: center; gap: 8px; }
+.td-color { width: 34px; height: 26px; padding: 0; border: 1px solid var(--border-2); border-radius: 5px; background: none; }
+.td-swatches { display: flex; gap: 4px; }
+.td-swatch { width: 16px; height: 16px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.2); padding: 0; }
+.td-details summary { cursor: pointer; color: var(--text-2); font-size: 12px; }
+.td-aliases { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 0; align-items: flex-start; }
+.td-alias { display: grid; grid-template-columns: 90px 18px minmax(0, 1fr) auto; gap: 6px; align-items: center; width: 100%; }
+@media (max-width: 760px) { .td-pick, .td-row { grid-template-columns: 1fr; } }
+
+/* the Charts tab needs more room than the other dock tabs */
+.dock:has(.ch-panel:not([style*="none"])) { height: max(var(--dock-h), 300px); }

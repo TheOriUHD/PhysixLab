@@ -50,6 +50,9 @@ export class BatchError extends Error {}
 // ── sweeps ─────────────────────────────────────────────────────────────────────────────────────
 
 const MAX_SWEEP_POINTS = 10_000;
+const MAX_STEPS = 10_000_000;
+/** Cap on recorded rows (runs × samples × bodies) so memory stays bounded. */
+const MAX_SAMPLES = 2_000_000;
 
 /** `path=v1,v2,v3` or `path=from:to:count` (inclusive, linear). Values parse as number / true / false / text. */
 export function parseSweep(text: string): SweepSpec {
@@ -172,10 +175,12 @@ function check(s: RunSample): void {
 }
 
 export async function runBatch(source: SceneDocument, opts: BatchOptions): Promise<RunResult[]> {
-  if (!Number.isInteger(opts.steps) || opts.steps < 1) throw new BatchError('steps must be a positive integer');
+  if (!Number.isInteger(opts.steps) || opts.steps < 1 || opts.steps > MAX_STEPS)
+    throw new BatchError(`steps must be an integer between 1 and ${MAX_STEPS}`);
   const every = Math.max(1, Math.floor(opts.every ?? 1));
   const points = expandSweeps(opts.sweeps ?? []);
   const results: RunResult[] = [];
+  let recorded = 0;
   for (let index = 0; index < points.length; index++) {
     const params = points[index];
     const doc = structuredClone(source);
@@ -196,6 +201,9 @@ export async function runBatch(source: SceneDocument, opts: BatchOptions): Promi
           const smp = sample(w, s, ids);
           check(smp);
           samples.push(smp);
+          recorded += ids.length || 1;
+          if (recorded > MAX_SAMPLES)
+            throw new BatchError('Too many recorded values: increase --every or reduce --steps / tracked bodies');
         }
       }
       results.push({ index, params, seed: doc.settings.seed, samples, final: samples[samples.length - 1] });
@@ -209,7 +217,9 @@ export async function runBatch(source: SceneDocument, opts: BatchOptions): Promi
 // ── output ─────────────────────────────────────────────────────────────────────────────────────
 
 const csvCell = (v: unknown): string => {
-  const s = String(v);
+  let s = String(v);
+  // Names come from scene files: neutralise spreadsheet formulas (=, +, -, @ at the start).
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 

@@ -74,10 +74,10 @@ export function publishApi(app: App): App & PhysicsLabApi {
   const api = createAppApi(app);
   return new Proxy(app, {
     get(target, prop) {
-      if (prop in api) return (api as unknown as Record<string | symbol, unknown>)[prop];
+      if (Object.hasOwn(api, prop)) return (api as unknown as Record<string | symbol, unknown>)[prop];
       const v = Reflect.get(target, prop, target) as unknown;
       return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(target) : v;
     },
-    has: (target, prop) => prop in api || prop in target,
+    has: (target, prop) => Object.hasOwn(api, prop) || prop in target,
   }) as unknown as App & PhysicsLabApi;
 }

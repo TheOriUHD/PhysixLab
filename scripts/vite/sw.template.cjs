@@ -26,6 +26,16 @@ const SHARE_CACHE = 'pl-share';
 const SHARE_PATH = 'share-target';
 const SHARED_FILE = 'shared-scene.json';
 const NAV_TIMEOUT_MS = 3500;
+/** Largest shared scene file we stash, and how long the stash lives if the page never collects it. */
+const MAX_SHARE_BYTES = 20 * 1024 * 1024;
+const SHARE_TTL_MS = 5 * 60 * 1000;
+/** Most entries the runtime (non-precached) cache keeps. */
+const MAX_RUNTIME_ENTRIES = 60;
+
+/** Should a response be put in the runtime cache? Whole, successful, same-origin responses only (never 206). */
+const isCacheable = (res) => !!res && res.status === 200 && res.type === 'basic';
+/** Has a stash made at `stashedAt` (ms epoch, may be NaN) outlived its TTL? */
+const shareExpired = (stashedAt, now) => !(now - stashedAt <= SHARE_TTL_MS);
 
 const cacheName = (version) => CACHE_PREFIX + version;
 /** Caches this worker owns but no longer needs (older versions). The share inbox is never stale. */
@@ -61,6 +71,11 @@ const api = {
   precacheUrl,
   precacheSet,
   routeRequest,
+  isCacheable,
+  shareExpired,
+  MAX_SHARE_BYTES,
+  SHARE_TTL_MS,
+  MAX_RUNTIME_ENTRIES,
   SHARE_CACHE,
   SHARE_PATH,
   SHARED_FILE,
@@ -107,16 +122,25 @@ if (typeof module !== 'undefined' && module.exports) {
     return (await cache.match(request, { ignoreSearch: true })) || undefined;
   };
 
+  /** Cache a runtime response, evicting the oldest non-precached entries beyond MAX_RUNTIME_ENTRIES. */
+  const runtimePut = (request, copy) => {
+    void (async () => {
+      const cache = await caches.open(cacheName(BUILD.version));
+      await cache.put(request, copy);
+      const keys = await cache.keys();
+      const extra = keys.filter((k) => !precached.has(new URL(k.url).origin + new URL(k.url).pathname));
+      for (const k of extra.slice(0, Math.max(0, extra.length - MAX_RUNTIME_ENTRIES))) await cache.delete(k);
+    })().catch(() => undefined);
+  };
+
   const networkFirst = async (request, fallbackUrl, timeoutMs) => {
     try {
       const net = fetch(request);
+      net.catch(() => undefined); // a rejection after the navigation timeout already won must not go unhandled
       const res = timeoutMs
         ? await Promise.race([net, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs))])
         : await net;
-      if (!timeoutMs && res.ok && res.type === 'basic') {
-        const copy = res.clone();
-        void caches.open(cacheName(BUILD.version)).then((c) => c.put(request, copy));
-      }
+      if (!timeoutMs && isCacheable(res)) runtimePut(request, res.clone());
       return res;
     } catch (err) {
       const hit = (await fromCache(request)) || (fallbackUrl ? await fromCache(fallbackUrl) : undefined);
@@ -129,22 +153,24 @@ if (typeof module !== 'undefined' && module.exports) {
     const hit = await fromCache(request);
     if (hit) return hit;
     const res = await fetch(request);
-    if (res.ok && res.type === 'basic') {
-      const copy = res.clone();
-      void caches.open(cacheName(BUILD.version)).then((c) => c.put(request, copy));
-    }
+    if (isCacheable(res)) runtimePut(request, res.clone());
     return res;
   };
 
   const handleShare = async (request) => {
     try {
       const file = (await request.formData()).get('scene');
-      if (file && typeof file === 'object' && 'name' in file) {
+      if (file && typeof file === 'object' && 'name' in file && file.size <= MAX_SHARE_BYTES) {
         const cache = await caches.open(SHARE_CACHE);
+        const key = new URL(SHARED_FILE, scopeUrl()).href;
         await cache.put(
-          new URL(SHARED_FILE, scopeUrl()).href,
-          new Response(file, { headers: { 'x-file-name': encodeURIComponent(file.name) } }),
+          key,
+          new Response(file, {
+            headers: { 'x-file-name': encodeURIComponent(file.name), 'x-stashed-at': String(Date.now()) },
+          }),
         );
+        // Drop the stash if the page never collects it (the page normally deletes it on read).
+        setTimeout(() => void cache.delete(key).catch(() => undefined), SHARE_TTL_MS);
       }
     } catch {
       /* an unreadable share just opens the app */

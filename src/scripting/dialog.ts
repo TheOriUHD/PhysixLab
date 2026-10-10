@@ -37,6 +37,11 @@ export function openSceneScriptDialog(app: App): void {
     wrap: 'off',
   });
   const status = h('div', { class: 'dtb-status', role: 'status', 'aria-live': 'polite' });
+  const hint = h(
+    'div',
+    { class: 'dtb-note' },
+    'Tab indents · Shift+Tab leaves the editor · Ctrl+Enter replaces the scene',
+  );
   const log = h('pre', { class: 'dtb-log', 'aria-label': 'Script output' });
   let busy = false;
 
@@ -59,7 +64,7 @@ export function openSceneScriptDialog(app: App): void {
 
   editor.addEventListener('keydown', (e) => {
     e.stopPropagation(); // typing must never trigger the app's shortcuts
-    if (e.key === 'Tab') {
+    if (e.key === 'Tab' && !e.shiftKey) {
       e.preventDefault();
       const { selectionStart: s, selectionEnd: t } = editor;
       editor.setRangeText('  ', s, t, 'end');
@@ -118,9 +123,9 @@ export function openSceneScriptDialog(app: App): void {
     }
   }
 
-  const replaceBtn = button('Run — replace scene', () => void run('replace'), { cls: 'primary' });
+  const replaceBtn = button('Replace scene', () => void run('replace'), { cls: 'primary' });
   replaceBtn.title = 'Build the scene from the script, replacing everything (Ctrl+Enter). One undo step.';
-  const addBtn = button('Run — add to scene', () => void run('add'));
+  const addBtn = button('Add to scene', () => void run('add'));
   addBtn.title = 'Add the script’s objects to the current scene. One undo step.';
   const buttons = [replaceBtn, addBtn];
 
@@ -154,6 +159,7 @@ export function openSceneScriptDialog(app: App): void {
     body: [
       h('div', { class: 'dtb-bar' }, examples, h('span', { class: 'dtb-spacer' }), ...buttons),
       editor,
+      hint,
       status,
       log,
       help,

@@ -168,6 +168,7 @@ describe('play-through', () => {
     const ringBefore = w.recorder.ring.map((e) => e.step);
     seekTo(w.state, 10);
     send(w, { cmd: 'playThrough', on: true });
+    w.applyOp({ op: 'events', config: { contacts: true } }); // only changes what is reported: not an edit
     for (let i = 0; i < 90; i++) {
       w.setKeys([]); // what the page supplies every tick: nothing changed
       w.stepOnce();

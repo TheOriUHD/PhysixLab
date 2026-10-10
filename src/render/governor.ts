@@ -56,6 +56,8 @@ export class Governor {
   /** The best level the governor may climb back to (the probe's guess). */
   readonly ceiling: number;
   private ema = 0;
+  /** Slowly rising minimum frame time: the display's own refresh interval (vsync caps what a fast GPU can show). */
+  private floorMs = Infinity;
   private slowFor = 0;
   private fastFor = 0;
   private sinceChange = 0;
@@ -84,12 +86,13 @@ export class Governor {
     if (!(dtSeconds > 0) || dtSeconds > 0.5) return false;
     const ms = dtSeconds * 1000;
     this.ema = this.ema === 0 ? ms : this.ema + (ms - this.ema) * 0.08;
+    this.floorMs = ms < this.floorMs ? ms : this.floorMs + (ms - this.floorMs) * 0.002;
     this.sinceChange += dtSeconds;
     const o = this.opts;
     if (this.ema > o.targetMs * o.slowFactor) {
       this.slowFor += dtSeconds;
       this.fastFor = 0;
-    } else if (this.ema < o.targetMs * o.fastFactor) {
+    } else if (this.ema < Math.max(o.targetMs * o.fastFactor, Math.min(o.targetMs, this.floorMs * 1.25))) {
       this.fastFor += dtSeconds;
       this.slowFor = 0;
     } else {

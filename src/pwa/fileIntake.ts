@@ -12,6 +12,7 @@ interface LaunchQueue {
 /** The cache the service worker drops a shared file into (see scripts/vite/sw.template.cjs). */
 const SHARE_CACHE = 'pl-share';
 const SHARED_FILE = 'shared-scene.json';
+const SHARE_TTL_MS = 5 * 60 * 1000;
 
 /**
  * Take the scene file the service worker stashed after a Web Share Target POST (the app was opened with
@@ -25,6 +26,8 @@ export async function takeSharedScene(): Promise<File | null> {
     const res = await cache.match(key);
     if (!res) return null;
     await cache.delete(key);
+    const at = Number(res.headers.get('x-stashed-at'));
+    if (!(Date.now() - at <= SHARE_TTL_MS)) return null; // stale stash: ignore
     const raw = res.headers.get('x-file-name');
     const name = raw ? decodeURIComponent(raw) : 'shared.physicslab.json';
     return new File([await res.blob()], name, { type: 'application/json' });

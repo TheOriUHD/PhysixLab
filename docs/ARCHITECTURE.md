@@ -303,6 +303,34 @@ engine's event drain): race lines, kill / respawn, respawn points, teleport, lau
   tiers, resolution suggestion, stability warnings with one-click fixes), `model/ropeGen.ts` (rope / chain generator
   with the mass-ratio guard).
 
+## 7a. Time travel, replays and ghosts (`physics/world/recorder.ts`, `app/timeTravel.ts`)
+
+Package TM. The recorder lives in the physics worker (state `WorldState.recorder`), the controller on the page.
+
+* **Snapshot ring** (`world/recorder.ts`). After every `interval` fixed steps the recorder keeps a full `WorldSnapshot`
+  (rigid bodies, joints with their break state, soft bodies, the clock, the RNG, every component's `saveState`, the
+  drive network, zones, the mouse grab). The interval adapts to what a snapshot costs (about 6 % of real time) and
+  doubles when the ring outgrows its memory budget (every other snapshot is dropped, the oldest and newest stay), so a
+  long run keeps its whole history at coarser resolution instead of losing its start.
+* **Input log.** Every op (`applyOp` hands each one to `Recorder.onOp`), key set and axis set that reaches the world is
+  logged with the step it was applied *before*. Re-stepping a stretch with its log reproduces it exactly: that is how a
+  seek to any step works (restore the newest snapshot at or before it, step forward with the logged inputs) and what a
+  replay is.
+* **Branching.** After going back in time the next live input or step truncates the future (`Recorder.branchIfNeeded`):
+  the timeline is a line, the past is rewritable. *Play-through* (loop regions) plays the recorded past forward instead.
+* **Replays** (`app/replayFile.ts`). A recording is the scene, the log, an optional base snapshot (recordings that start
+  mid-run) and hash checkpoints every 60 steps; the file is deflated JSON, the importer re-validates everything through
+  the scene sanitisers. The viewer (`Recorder.followLog`) ignores live inputs, applies the recorded ones and compares its
+  own hashes with the checkpoints, so *"verified"* means the playback is bit-identical to the recording.
+* **Determinism check** (`timelineChannel.ts`): two clones of the current state run side by side and are compared by
+  `stateHash` (`world/hash.ts`) every N steps; the real run is then compared with the clones' hashes for as long as
+  nothing is edited.
+* **Tracks and ghosts** (`world/track.ts`, `app/ghosts.ts`, `render/ghostViews.ts`): poses of the moving bodies at ~30 Hz;
+  finished runs outlive their world in a worker-side stash and come back as translucent ghosts posed at the live run's
+  simulation time.
+* The page talks to all of this through one custom channel (`timeline`, `physics/timelineTypes.ts`); nothing in
+  `protocol.ts` changed.
+
 ## 8. Rendering (`render/`)
 
 * `Viewport` — renderer, orbit navigation (right-drag orbit, middle pan, zoom-to-cursor), the sun with a snapped shadow

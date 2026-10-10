@@ -180,6 +180,47 @@ fresh every step (`ctx.num`, `ctx.vec3` …) and `paramsChanged` can stay empty 
 simulation runs without a rebuild. Test it with `worldOf([...])` against an analytic expectation, as the example's
 test does (a body spinning at 3 rad/s reports exactly 3 rad/s).
 
+## How to make a component survive time travel (`saveState` / `loadState`)
+
+The recorder (package TM) takes a full-state snapshot of the world every few simulated steps and restores one whenever
+the user rewinds, scrubs the timeline, steps back, loops a region or opens a replay. The engine bytes carry every
+rigid body, joint, soft body and the RNG; **whatever your runtime keeps in its own state `S` is not in them**. If a
+number in `S` survives from one step to the next (an accumulated time, a counter, an integrator, a latch, a queue of
+pending spawns, a slewed command, a "previous value" used for a derivative), give the runtime two small functions:
+
+```text
+export const spawner: ComponentRuntime<{ n: number; cooldown: number }> = {
+  type: 'spawner',
+  create: () => ({ n: 0, cooldown: 0 }),
+  prestep(s, dt, ctx) { /* … uses s.n, s.cooldown, ctx.random() … */ },
+  // JSON-serialisable data only (it travels through postMessage and replay files): numbers, strings, arrays, plain objects.
+  saveState: (s) => ({ n: s.n, cooldown: s.cooldown }),
+  // `s` is a freshly created state; put the saved values back. `data` may come from an older build: check its shape.
+  loadState(s, data) {
+    const d = data as { n?: number; cooldown?: number } | null;
+    s.n = d?.n ?? 0;
+    s.cooldown = d?.cooldown ?? 0;
+  },
+};
+```
+
+Rules of thumb:
+
+* **Save what cannot be recomputed from the world and the parameters.** State that is rebuilt from the bodies every
+  step (forces, measured speeds) needs nothing. Never save references to engine objects, body handles or DOM.
+* **Randomness comes from `ctx.random()`** (the world's seeded generator, saved with the snapshot) — never
+  `Math.random()` or the clock. A component that does is caught by *Check determinism* (Replay tab) and by the test below.
+* **Things you send to the engine and cache** ("already sent" flags, last motor target) must be restored too, or the
+  restored world re-sends them on its first step and the engine restarts that constraint. The drive network's motor
+  settings are the example (`saveMotors` / `loadMotors` in `components/drive/bindings.ts`, called from the host).
+* **State that lives next to the components** (a world-level system like zones or the drive network) is saved from
+  `ComponentHost.saveStates()` under an `@name` key; add yours there and in `loadStates`.
+
+Prove it with the generic test: `tests/timelineScenes.test.ts` runs every bundled example scene, seeks back and
+forward through its recording and demands the identical state hash. Add an example scene that uses your component (or a
+focused test like the one in `tests/timeline.test.ts`: run, `seekTo` an earlier step, compare `stateHash`) and a missing
+`saveState` shows up as a hash mismatch naming the scene.
+
 ## How to add a command
 
 A command is one action with an id, a label, a category and a `run` function; it may have an icon, keywords,

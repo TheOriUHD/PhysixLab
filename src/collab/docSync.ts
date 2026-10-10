@@ -52,6 +52,11 @@ export class DocSync {
   private mirrorCfg: Record<string, unknown> = {};
   private applying = false;
   private off: (() => void) | null = null;
+  /** Remote operations already in the replica whose materialise + sanitise + store write is still pending. */
+  private dirty = new Set<string>();
+  private dirtyCfg = false;
+  private commitTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastCommit = -Infinity;
 
   /** `onLocal` receives the operations produced by local edits (the session broadcasts them). */
   constructor(
@@ -71,6 +76,8 @@ export class DocSync {
   detach(): void {
     this.off?.();
     this.off = null;
+    if (this.commitTimer) clearTimeout(this.commitTimer);
+    this.commitTimer = null;
   }
 
   /** Diff the store against the mirror and hand the resulting operations to `onLocal`. */
@@ -127,9 +134,46 @@ export class DocSync {
   /** Apply operations that arrived from a peer. Returns the operations that actually changed the replica (to relay). */
   applyRemote(ops: readonly Op[]): Op[] {
     this.flush(); // anything the user did meanwhile is captured (and broadcast) first
+    const fresh = this.absorb(ops);
+    this.commitRemote();
+    return fresh;
+  }
+
+  /**
+   * Like `applyRemote`, but the expensive part (materialise + sanitise + store write) runs at most once per
+   * `minGapMs`: the first message after a quiet period is applied at once, a burst is coalesced into one trailing
+   * commit. The replica is always up to date, so the returned fresh operations can be relayed immediately.
+   */
+  applyRemoteThrottled(ops: readonly Op[], minGapMs = 50): Op[] {
+    const fresh = this.absorb(ops);
+    if (!fresh.length || this.commitTimer) return fresh;
+    const wait = this.lastCommit + minGapMs - Date.now();
+    if (wait <= 0) this.commitRemote();
+    else this.commitTimer = setTimeout(() => this.commitRemote(), wait);
+    return fresh;
+  }
+
+  private absorb(ops: readonly Op[]): Op[] {
     const fresh: Op[] = [];
-    for (const op of ops) if (this.replica.apply(op)) fresh.push(op);
-    if (!fresh.length) return fresh;
+    for (const op of ops)
+      if (this.replica.apply(op)) {
+        fresh.push(op);
+        if (op.k === 'cfg') this.dirtyCfg = true;
+        else this.dirty.add(op.e);
+      }
+    return fresh;
+  }
+
+  /** Write any pending remote state into the store now. */
+  commitRemote(): void {
+    if (this.commitTimer) clearTimeout(this.commitTimer);
+    this.commitTimer = null;
+    if (!this.dirty.size && !this.dirtyCfg) return;
+    this.flush(); // local edits made since the last commit are stamped before we materialise
+    const touched = this.dirty;
+    this.dirty = new Set();
+    this.dirtyCfg = false;
+    this.lastCommit = Date.now();
     const { entities, cfg } = this.replica.materialize();
     const { [NAME_KEY]: name, ...settings } = cfg;
     const raw = {
@@ -144,10 +188,8 @@ export class DocSync {
     try {
       doc = sanitizeDocument(raw);
     } catch {
-      return fresh; // over a hard limit: keep the replica state, leave the local document alone
+      return; // over a hard limit: keep the replica state, leave the local document alone
     }
-    const touched = new Set<string>();
-    for (const op of fresh) if (op.k !== 'cfg') touched.add(op.e);
     this.applying = true;
     try {
       this.store.transact('Remote edit', () => this.writeDiff(doc, touched));
@@ -156,7 +198,6 @@ export class DocSync {
     }
     this.mirror = new Map(this.store.all().map((e) => [e.id, e]));
     this.mirrorCfg = this.currentCfg();
-    return fresh;
   }
 
   private writeDiff(doc: SceneDocument, touched: Set<string>): void {

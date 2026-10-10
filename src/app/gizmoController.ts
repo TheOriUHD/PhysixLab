@@ -15,6 +15,9 @@ import { endScaleGroupDrag } from './edit/groupOps';
 import { jointWorldFrame } from './jointHandles';
 // -- ED-A arrange: pivot modes for the gizmo --
 import { gizmoPivotPolicy, groupPivotOf } from './edit/gizmoPivot';
+// -- ED-A snap --
+import { snapGizmoUpdates } from './edit/snapDrag';
+import { hideSnap } from './edit/snapIndicator';
 
 export class GizmoController {
   readonly gizmo: Gizmo;
@@ -208,6 +211,7 @@ export class GizmoController {
       this.moveJoint(jointUpdate, updates[0]);
       return;
     }
+    snapGizmoUpdates(app, updates, this.gizmo.mode); // -- ED-A snap: vertex / edge / face / bounds snapping --
     app.editor.applyGizmo(updates);
     // Immediate visual feedback (document updates also reach the views through events).
     if (app.sim.active) {
@@ -230,6 +234,7 @@ export class GizmoController {
         'warn',
       );
     }
+    hideSnap(this.app); // -- ED-A snap --
     if (this.undoOpen) {
       this.app.store.end();
       this.undoOpen = false;

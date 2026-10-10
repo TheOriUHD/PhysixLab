@@ -17,6 +17,7 @@ import { runtimeOf, type ComponentRuntime } from './registry';
 import { ZoneSystem } from '../zones/system';
 // -- CP: the shaft / torque graph shared by the powered parts
 import { DriveAccess, DriveNetwork } from './drive/network';
+import { loadMotors, saveMotors } from './drive/bindings'; // -- TM
 
 interface CompRec {
   spec: ComponentSpec;
@@ -371,12 +372,15 @@ export class ComponentHost {
     }
     if (this.zones.hasState()) out['@zones'] = this.zones.save(); // -- ZN: standings, score, respawn points
     out['@drive'] = this.drive.save(); // -- CP: speeds of the virtual shafts
+    out['@motors'] = saveMotors(this.s); // -- TM: what was last sent to the engine's joint motors / limits
     return out;
   }
 
   /** Give saved states back to the (re-created) components. */
   loadStates(saved: Record<string, unknown>): void {
     if ('@zones' in saved) this.zones.load(saved['@zones']); // -- ZN
+    const motors = saved['@motors']; // -- TM
+    if (motors && typeof motors === 'object') loadMotors(this.s, motors as Parameters<typeof loadMotors>[1]);
     const drive = saved['@drive'];
     if (drive && typeof drive === 'object') this.drive.load(drive as Record<string, number>); // -- CP
     for (const c of this.order()) {
