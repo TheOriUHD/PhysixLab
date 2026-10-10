@@ -155,7 +155,7 @@ test('path tool: draw with the pointer, insert, delete, close, reverse; the draw
   );
 });
 
-test('path tool: Escape with fewer than two points leaves nothing, Backspace removes the last point, double-click finishes', async () => {
+test('path tool: Escape cancels the draft (any number of points), Backspace removes the last point, double-click finishes', async () => {
   const page = await newPage();
   await page.evaluate(() => {
     const a = window.physicslab;
@@ -177,7 +177,14 @@ test('path tool: Escape with fewer than two points leaves nothing, Backspace rem
     const s = await screenPoint(page, g);
     await page.mouse.click(s.x, s.y);
   }
+  await page.keyboard.press('Escape');
+  assert((await paths(page)).length === 0, 'three points + Escape: the draft is cancelled, no path');
+  for (const g of GROUND.slice(0, 3)) {
+    const s = await screenPoint(page, g);
+    await page.mouse.click(s.x, s.y);
+  }
   await page.keyboard.press('Backspace');
+  await page.waitForTimeout(500); // the last press must not count as the first half of the double-click
   const s3 = await screenPoint(page, GROUND[2]);
   await page.mouse.dblclick(s3.x, s3.y);
   const ps = await paths(page);

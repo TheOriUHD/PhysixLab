@@ -21,6 +21,7 @@ import {
   type VariableValue,
 } from '../../model/edit/userPrefab';
 import { uid } from '../../model/factory';
+import { formatBytes } from '../../model/limits';
 import { MATERIAL_PRESETS } from '../../model/materials';
 import { isBody, isSoft } from '../../model/types';
 import { clear, h } from '../dom';
@@ -578,6 +579,11 @@ export function exportDialog(app: App, preselected?: readonly string[]): void {
 /** Import a pack file into the library. */
 export async function importPackFile(app: App, file: File): Promise<void> {
   try {
+    // Refuse before reading: file.text() would load the whole file only for the importer to reject it.
+    if (file.size > PREFAB_LIMITS.maxPackChars)
+      throw new PrefabPackError(
+        `This file is larger than ${formatBytes(PREFAB_LIMITS.maxPackChars)}, the biggest prefab pack PhysicsLab opens.`,
+      );
     const { added, warnings } = await prefabLibrary(app).importText(await file.text());
     app.toast(`Imported ${added.length} prefab${added.length === 1 ? '' : 's'}`, 'success');
     for (const w of warnings.slice(0, 3)) app.toast(w, 'warn');
@@ -586,14 +592,29 @@ export async function importPackFile(app: App, file: File): Promise<void> {
   }
 }
 
+/** The one hidden chooser input, created on first use and reused (a cancelled chooser leaves nothing behind). */
+let packInput: HTMLInputElement | null = null;
+
 /** Open the file chooser and import the picked pack. */
 export function importPackDialog(app: App): void {
-  const input = h('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' } });
-  input.addEventListener('change', () => {
+  if (!packInput || !packInput.isConnected) {
+    packInput?.remove();
+    packInput = h('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' } });
+    document.body.appendChild(packInput);
+  }
+  const input = packInput;
+  const cleanup = () => {
+    input.removeEventListener('change', onChange);
+    input.removeEventListener('cancel', cleanup);
+  };
+  const onChange = () => {
     const f = input.files?.[0];
-    input.remove();
+    cleanup();
+    input.value = '';
     if (f) void importPackFile(app, f);
-  });
-  document.body.appendChild(input);
+  };
+  input.addEventListener('change', onChange);
+  input.addEventListener('cancel', cleanup);
+  input.value = '';
   input.click();
 }

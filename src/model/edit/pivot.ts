@@ -14,9 +14,10 @@
  * and nothing else, and every later move, rotation or scale of the group is about the new pivot.
  */
 import { qfromAxisAngle, qmul, qrot, vadd, vlen, vnorm, vsub, type Quat, type Vec3 } from '../../core/math';
-import { descendantIds } from '../groups';
+import { childIndex, descendantIds } from '../groups';
+import { localFactor } from './groupScale';
 import type { Entity, GroupEntity, PosedEntity } from '../types';
-import { isGroup, isPosed } from '../types';
+import { isBody, isGroup, isPath, isPosed, isSoft } from '../types';
 import { aabbCentre, aabbUnion, BoundsContext, type AABB } from './bounds';
 import { editableRoots, movePatches, type Patch, type RootMove } from './moves';
 
@@ -140,10 +141,32 @@ export function scaleAboutPatches(entities: readonly Entity[], ids: readonly str
         p[1] + (e.position[1] - p[1]) * fy,
         p[2] + (e.position[2] - p[2]) * fz,
       ],
-      scale: [fx, fy, fz],
+      // A group takes the factor along world axes (members are mapped per own axis inside movePatches); a single
+      // entity sizes along its own axes, so a turned one gets the length each of its axes takes under the factor.
+      scale: isGroup(e) ? [fx, fy, fz] : localFactor(e.rotation, [fx, fy, fz]).f,
     });
   }
   return movePatches(entities, moves);
+}
+
+/**
+ * True when `factor` is non-uniform and some scaled body / soft body / path is turned against the world axes: it
+ * cannot be sheared, so its sizes follow the length each of its own axes takes (the UI says so).
+ */
+export function scaleAboutIsApproximate(entities: readonly Entity[], ids: readonly string[], factor: Vec3): boolean {
+  if (Math.abs(factor[0] - factor[1]) < 1e-9 && Math.abs(factor[1] - factor[2]) < 1e-9) return false;
+  const byId = new Map(entities.map((e) => [e.id, e]));
+  const index = childIndex(entities);
+  for (const id of editableRoots(entities, ids)) {
+    const e = byId.get(id);
+    if (!e) continue;
+    const members = isGroup(e) ? descendantIds(index, id).map((d) => byId.get(d)) : [e];
+    for (const m of members) {
+      if (!m || !(isBody(m) || isSoft(m) || isPath(m))) continue;
+      if (!localFactor(m.rotation, factor).aligned) return true;
+    }
+  }
+  return false;
 }
 
 // ── custom pivot of a group ──────────────────────────────────────────────────────────────────────────

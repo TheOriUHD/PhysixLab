@@ -255,7 +255,11 @@ export function placeEntities(list: readonly Entity[], at: Vec3, q: Quat | undef
         axis: rot && !e.bodyA ? qrot(rot, e.axis) : e.axis,
       };
     }
-    return { ...e, position: move(e.position), rotation: rot ? qmul(rot, e.rotation) : e.rotation };
+    const placed = { ...e, position: move(e.position), rotation: rot ? qmul(rot, e.rotation) : e.rotation };
+    // A body's initial velocities turn with the placement (like they do for an array copy).
+    if (rot && isBody(placed))
+      return { ...placed, velocity: qrot(rot, placed.velocity), angularVelocity: qrot(rot, placed.angularVelocity) };
+    return placed;
   });
 }
 
@@ -419,7 +423,11 @@ interface Expansion {
 /** Would adding a nested reference from `ownerId` to `targetId` create a cycle (or exceed the depth limit)? */
 export function nestingProblem(lookup: PrefabLookup, ownerId: string, targetId: string): string | null {
   if (ownerId === targetId) return 'A prefab cannot contain itself.';
+  /** prefab id → the shallowest depth it was already walked at without a problem (a DAG is walked once per node). */
+  const clean = new Map<string, number>();
   const walk = (id: string, depth: number, path: Set<string>): string | null => {
+    const seen = clean.get(id);
+    if (seen !== undefined && seen <= depth) return null;
     if (depth > PREFAB_LIMITS.maxNestDepth)
       return `Prefabs may nest at most ${PREFAB_LIMITS.maxNestDepth} levels deep.`;
     if (path.has(id)) return 'That would make the prefab contain itself.';
@@ -431,6 +439,7 @@ export function nestingProblem(lookup: PrefabLookup, ownerId: string, targetId: 
       const r = walk(n.prefabId, depth + 1, next);
       if (r) return r;
     }
+    clean.set(id, depth);
     return null;
   };
   return walk(targetId, 1, new Set([ownerId]));

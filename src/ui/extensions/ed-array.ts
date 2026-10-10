@@ -260,6 +260,11 @@ registerInspectorSection({
       if (timer) clearTimeout(timer);
       timer = setTimeout(flush, 180);
     };
+    ctx.disposers.push(() => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      pending = null;
+    });
     const form = buildArrayForm({
       spec: current(),
       paths: () => app.store.paths(),

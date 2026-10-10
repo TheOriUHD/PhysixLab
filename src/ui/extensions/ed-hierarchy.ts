@@ -12,7 +12,7 @@ import {
   setPasteAnchor,
   type PasteResult,
 } from '../../app/edit/clipboard';
-import { groupBodies, scaleGroup, unweldGroup, weldCount, weldGroup } from '../../app/edit/groupOps';
+import { groupBodies, lockedSkipNote, scaleGroup, unweldGroup, weldCount, weldGroup } from '../../app/edit/groupOps';
 import { registerCommand, registerInspectorSection, registerMenuEntry } from '../../app/registry';
 import type { PasteOptions } from '../../model/edit/clipboard';
 import { parseScaleFactor } from '../../model/edit/groupScale';
@@ -49,9 +49,15 @@ registerCommand({
       return;
     }
     let approximate = false;
+    let skipped = 0;
     app.store.transact('Scale group', () => {
-      for (const id of selectedGroups(app)) approximate ||= scaleGroup(app.store, id, f).approximate;
+      for (const id of selectedGroups(app)) {
+        const r = scaleGroup(app.store, id, f);
+        approximate ||= r.approximate;
+        skipped += r.skippedLocked;
+      }
     });
+    if (skipped) app.toast(lockedSkipNote(skipped), 'info');
     if (approximate)
       app.toast('Some members are turned against the group’s axes, so this scale is approximate for them.', 'warn');
   },

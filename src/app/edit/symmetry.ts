@@ -29,6 +29,7 @@ import {
   type MirrorPair,
   type MirrorPlane,
 } from '../../model/edit/mirror';
+import { entityRoom } from '../../model/edit/entityBudget';
 import { uid } from '../../model/factory';
 import type { SceneChange, SceneStore } from '../../model/store';
 import type { Entity, JointEntity, PosedEntity } from '../../model/types';
@@ -122,6 +123,8 @@ export interface SymmetryHost {
   store: SceneStore;
   /** Symmetry only acts on the document: while a simulation is live, edits are not mirrored. */
   simActive: () => boolean;
+  /** Tell the user something (optional). */
+  notify?: (message: string, kind: 'info' | 'warn') => void;
 }
 
 export class Symmetry extends Emitter<SymmetryEvents> {
@@ -133,11 +136,13 @@ export class Symmetry extends Emitter<SymmetryEvents> {
   private busy = false;
   private readonly store: SceneStore;
   private readonly simActive: () => boolean;
+  private readonly notify?: SymmetryHost['notify'];
 
   constructor(host: SymmetryHost) {
     super();
     this.store = host.store;
     this.simActive = host.simActive;
+    this.notify = host.notify;
     this.store.on('change', (c) => this.onChange(c));
   }
 
@@ -312,6 +317,15 @@ export class Symmetry extends Emitter<SymmetryEvents> {
         this.meshMirror(),
       );
       const copies = res.entities.map((c) => (isPosed(c) ? { ...c, name: this.store.uniqueName(c.name) } : c));
+      // Scene budget: past the limit the mirror partners are not made (the added objects themselves stay).
+      if (copies.length > entityRoom(this.store)) {
+        this.notify?.(
+          `Symmetry: the scene is at its object limit, so ${copies.length} mirror partner(s) were not added.`,
+          'warn',
+        );
+        this.emit('change', undefined);
+        return;
+      }
       // Do not mirror a mirror: the copies of the entities we just created pair with them.
       this.store.add(copies, 'Symmetry', false);
       for (const [orig, copy] of res.idMap) {
@@ -342,7 +356,7 @@ export class Symmetry extends Emitter<SymmetryEvents> {
       this.pairs.set(j.id, { other: nj.id, axis: pa?.axis ?? pb?.axis ?? 0 });
       this.pairs.set(nj.id, { other: j.id, axis: pa?.axis ?? pb?.axis ?? 0 });
     }
-    if (made.length) this.store.add(made, 'Symmetry', false);
+    if (made.length && made.length <= entityRoom(this.store)) this.store.add(made, 'Symmetry', false);
     this.emit('change', undefined);
   }
 

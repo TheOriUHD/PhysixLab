@@ -23,6 +23,7 @@ import { editableRoots, type Patch } from '../../model/edit/moves';
 import {
   groupPivotPatches,
   rotateAboutPatches,
+  scaleAboutIsApproximate,
   scaleAboutPatches,
   type GroupPivotTarget,
   type PivotSpec,
@@ -178,9 +179,15 @@ export function rotateSelectionAbout(app: App, axis: Vec3, angleDeg: number, spa
 }
 
 export function scaleSelectionAbout(app: App, factor: Vec3) {
-  return runArrange(app, 'Scale about pivot', (es, ids) =>
+  const n = runArrange(app, 'Scale about pivot', (es, ids) =>
     scaleAboutPatches(es, ids, { factor, pivot: pivotSpec(app) }),
   );
+  if (n && scaleAboutIsApproximate(app.store.all(), app.store.selection, factor))
+    app.toast(
+      'Some turned objects cannot be stretched exactly: they took the length of each of their own axes',
+      'info',
+    );
+  return n;
 }
 
 /** Put the 3D cursor at the centre of the selection's bounds (the world origin with nothing selected). */

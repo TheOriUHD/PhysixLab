@@ -17,7 +17,59 @@ export const isWeldJoint = (e: Entity): e is JointEntity =>
 
 export type WeldBody = Pick<BodyEntity, 'id' | 'position' | 'rotation' | 'bodyType'>;
 
-/** Pairs of body indices to join: Kruskal over proximity, skipping static–static pairs and already-joined bodies. */
+/** Nearest neighbours per body that seed the spanning tree (the rest is joined by the closest-pair fallback). */
+const WELD_NEIGHBOURS = 8;
+
+/**
+ * Candidate edges from a uniform hash grid: every body is paired with its `k` nearest bodies among the 27 cells around
+ * it, so the work is ~O(n·k) instead of O(n²) for n bodies spread in space.
+ */
+function nearestCandidates(
+  bodies: readonly Pick<WeldBody, 'position'>[],
+  k: number,
+  skip: (a: number, b: number) => boolean,
+): [number, number][] {
+  const n = bodies.length;
+  const lo: Vec3 = [Infinity, Infinity, Infinity];
+  const hi: Vec3 = [-Infinity, -Infinity, -Infinity];
+  for (const b of bodies)
+    for (let i = 0; i < 3; i++) {
+      lo[i] = Math.min(lo[i], b.position[i]);
+      hi[i] = Math.max(hi[i], b.position[i]);
+    }
+  const ext = [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]];
+  const maxExt = Math.max(...ext);
+  if (!(maxExt > 0)) return []; // all at one point: the fallback links them
+  const real = ext.filter((e) => e > maxExt * 1e-6);
+  const cell = Math.max(maxExt * 1e-6, Math.pow(real.reduce((a, e) => a * e, 1) / n, 1 / real.length));
+  const key = (x: number, y: number, z: number) => `${x},${y},${z}`;
+  const cellOf = (p: Vec3) => [0, 1, 2].map((i) => Math.floor((p[i] - lo[i]) / cell));
+  const grid = new Map<string, number[]>();
+  const cells = bodies.map((b) => cellOf(b.position));
+  cells.forEach((c, i) => {
+    const kk = key(c[0], c[1], c[2]);
+    const l = grid.get(kk);
+    if (l) l.push(i);
+    else grid.set(kk, [i]);
+  });
+  const out: [number, number][] = [];
+  for (let a = 0; a < n; a++) {
+    const [cx, cy, cz] = cells[a];
+    const near: { b: number; d: number }[] = [];
+    for (let dx = -1; dx <= 1; dx++)
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dz = -1; dz <= 1; dz++)
+          for (const b of grid.get(key(cx + dx, cy + dy, cz + dz)) ?? []) {
+            if (b === a || skip(a, b)) continue;
+            near.push({ b, d: vdist(bodies[a].position, bodies[b].position) });
+          }
+    near.sort((x, y) => x.d - y.d || x.b - y.b);
+    for (const c of near.slice(0, k)) out.push([Math.min(a, c.b), Math.max(a, c.b)]);
+  }
+  return out;
+}
+
+/** Pairs of body indices to join: Kruskal over proximity (grid-seeded neighbour edges), skipping static–static pairs and already-joined bodies. */
 export function weldEdges(
   bodies: readonly Pick<WeldBody, 'id' | 'position' | 'bodyType'>[],
   alreadyJoined: readonly [string, string][] = [],
@@ -37,12 +89,10 @@ export function weldEdges(
     const ib = idx.get(b);
     if (ia !== undefined && ib !== undefined) parent[find(ia)] = find(ib);
   }
+  const bothStatic = (a: number, b: number) => bodies[a].bodyType === 'static' && bodies[b].bodyType === 'static';
+  const dist = (a: number, b: number) => vdist(bodies[a].position, bodies[b].position);
   const edges: { a: number; b: number; d: number }[] = [];
-  for (let a = 0; a < n; a++)
-    for (let b = a + 1; b < n; b++) {
-      if (bodies[a].bodyType === 'static' && bodies[b].bodyType === 'static') continue;
-      edges.push({ a, b, d: vdist(bodies[a].position, bodies[b].position) });
-    }
+  for (const [a, b] of nearestCandidates(bodies, WELD_NEIGHBOURS, bothStatic)) edges.push({ a, b, d: dist(a, b) });
   edges.sort((x, y) => x.d - y.d || x.a - y.a || x.b - y.b);
   const out: [number, number][] = [];
   for (const e of edges) {
@@ -51,6 +101,35 @@ export function weldEdges(
     if (ra === rb) continue;
     parent[ra] = rb;
     out.push([e.a, e.b]);
+  }
+  // Components the neighbour graph left apart: join them by closest pairs (smallest component first).
+  for (;;) {
+    const comps = new Map<number, number[]>();
+    for (let i = 0; i < n; i++) {
+      const r = find(i);
+      const l = comps.get(r);
+      if (l) l.push(i);
+      else comps.set(r, [i]);
+    }
+    if (comps.size <= 1) break;
+    let progressed = false;
+    // A component that cannot be joined (only static bodies left) is skipped; try the next smallest.
+    for (const members of [...comps.values()].sort((x, y) => x.length - y.length || x[0] - y[0])) {
+      let best: { a: number; b: number; d: number } | null = null;
+      const root = find(members[0]);
+      for (const a of members)
+        for (let b = 0; b < n; b++) {
+          if (find(b) === root || bothStatic(a, b)) continue;
+          const d = dist(a, b);
+          if (!best || d < best.d || (d === best.d && (a < best.a || (a === best.a && b < best.b)))) best = { a, b, d };
+        }
+      if (!best) continue;
+      parent[find(best.a)] = find(best.b);
+      out.push([Math.min(best.a, best.b), Math.max(best.a, best.b)]);
+      progressed = true;
+      break;
+    }
+    if (!progressed) break;
   }
   return out;
 }

@@ -33,7 +33,7 @@ function savePlane(axis: Axis, offset: number): void {
 export function getSymmetry(app: App): Symmetry {
   const have = hosts.get(app);
   if (have) return have;
-  const sym = new Symmetry({ store: app.store, simActive: () => app.sim.active });
+  const sym = new Symmetry({ store: app.store, simActive: () => app.sim.active, notify: (m, k) => app.toast(m, k) });
   const saved = loadPlane();
   sym.axis = saved.axis;
   sym.offset = saved.offset;

@@ -10,7 +10,7 @@
  */
 import { qconj, qmul, qrot, qrotInv, vadd, vlen, vnorm, vsub, type Quat, type Vec3 } from '../../core/math';
 import { scaleParts } from '../compound';
-import { childIndex, descendantIds } from '../groups';
+import { childIndex } from '../groups';
 import { normalizeShapeSize, shapeVolume } from '../shapeRegistry';
 import type { Entity, GroupEntity, JointEntity, SoftEntity } from '../types';
 import { isBody, isGroup, isJoint, isLight, isPath, isPosed, isSoft } from '../types';
@@ -19,6 +19,8 @@ export interface GroupScaleResult {
   patches: [string, Partial<Entity>][];
   /** Some member could not follow a non-uniform factor exactly (it is turned against the group's axes). */
   approximate: boolean;
+  /** Locked members (and everything inside a locked sub-group) that were left alone. */
+  skippedLocked: number;
 }
 
 /** Smallest factor along any axis (a group cannot be flattened or mirrored by this operation). */
@@ -31,7 +33,7 @@ export const clampFactor = (f: Vec3): Vec3 =>
 const geoMean = (f: Vec3): number => Math.cbrt(f[0] * f[1] * f[2]);
 
 /** Per-local-axis factor of an entity turned by `rel` relative to the group's frame. */
-function localFactor(rel: Quat, F: Vec3): { f: Vec3; aligned: boolean } {
+export function localFactor(rel: Quat, F: Vec3): { f: Vec3; aligned: boolean } {
   const f: Vec3 = [1, 1, 1];
   let aligned = true;
   for (let i = 0; i < 3; i++) {
@@ -52,7 +54,7 @@ function localFactor(rel: Quat, F: Vec3): { f: Vec3; aligned: boolean } {
  */
 export function scaleGroupPatches(entities: readonly Entity[], groupId: string, factorIn: Vec3): GroupScaleResult {
   const group = entities.find((e): e is GroupEntity => e.id === groupId && isGroup(e));
-  const none: GroupScaleResult = { patches: [], approximate: false };
+  const none: GroupScaleResult = { patches: [], approximate: false, skippedLocked: 0 };
   if (!group) return none;
   const F = clampFactor(factorIn);
   if (F.every((v) => Math.abs(v - 1) < 1e-12)) return none;
@@ -68,8 +70,26 @@ export function scaleGroupPatches(entities: readonly Entity[], groupId: string, 
     return vnorm(qrot(Rg, [l[0] * F[0], l[1] * F[1], l[2] * F[2]]), d);
   };
   const index = childIndex(entities);
-  const moved = new Set(descendantIds(index, groupId));
   const byId = new Map(entities.map((e) => [e.id, e]));
+  // Locked members stay as they are (a locked sub-group keeps everything inside it); hidden ones scale.
+  const moved = new Set<string>();
+  const lockedSkip = new Set<string>();
+  const walk = (id: string, locked: boolean) => {
+    for (const cid of index.get(id) ?? []) {
+      const c = byId.get(cid);
+      if (!c || moved.has(cid) || lockedSkip.has(cid)) continue;
+      const lock = locked || (isPosed(c) && !!c.locked);
+      if (lock) lockedSkip.add(cid);
+      else moved.add(cid);
+      walk(cid, lock);
+    }
+  };
+  walk(groupId, false);
+  let skippedLocked = 0;
+  for (const id of lockedSkip) {
+    const e = byId.get(id);
+    if (e && isPosed(e) && !isGroup(e)) skippedLocked++;
+  }
   const patches: [string, Partial<Entity>][] = [];
   let approximate = false;
   /** body id → its per-local-axis size factor (after shape normalisation). */
@@ -169,7 +189,7 @@ export function scaleGroupPatches(entities: readonly Entity[], groupId: string, 
     }
     patches.push([j.id, patch]);
   }
-  return { patches, approximate };
+  return { patches, approximate, skippedLocked };
 }
 
 /** Size / mass of a soft body scaled by per-local-axis factors `f`. */

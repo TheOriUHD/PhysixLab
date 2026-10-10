@@ -6,7 +6,13 @@
 import { countFilter, getBrushRadius, onBrushRadius, selectByFilter, setBrushRadius } from '../app/edit/selectTools';
 import type { App } from '../app/app';
 import type { PanelView } from '../app/registry/panels';
-import { filterIsEmpty, filterIsValid, type EntityFilter, type SelectMode } from '../model/edit/selection';
+import {
+  filterIsEmpty,
+  filterIsValid,
+  MAX_FILTER_PATTERN,
+  type EntityFilter,
+  type SelectMode,
+} from '../model/edit/selection';
 import { isBody } from '../model/types';
 import { listShapes } from '../model/shapeRegistry';
 import { row, selectField, sliderField, toggleField } from './controls';
@@ -146,8 +152,22 @@ export function buildSelectPanel(app: App): PanelView {
     const empty = filterIsEmpty(filter);
     const valid = filterIsValid(filter);
     name.classList.toggle('invalid', !valid);
-    name.title = valid ? '' : 'Not a valid regular expression';
-    const n = empty || !valid ? 0 : countFilter(app, filter);
+    name.title = valid ? '' : `Not a valid regular expression (at most ${MAX_FILTER_PATTERN} characters)`;
+    if (countTimer) clearTimeout(countTimer);
+    countTimer = null;
+    if (!valid || empty) {
+      showCount(0, empty, valid);
+    } else if (filter.regex) {
+      // A regular expression runs over every name: wait for a pause in typing before counting.
+      for (const b of buttons) b.disabled = true;
+      countTimer = setTimeout(() => {
+        countTimer = null;
+        showCount(countFilter(app, filter), false, true);
+      }, 150);
+    } else showCount(countFilter(app, filter), false, true);
+  }
+
+  function showCount(n: number, empty: boolean, valid: boolean): void {
     count.textContent = !valid
       ? 'Invalid regular expression'
       : empty
@@ -156,6 +176,7 @@ export function buildSelectPanel(app: App): PanelView {
     count.dataset.matches = String(n);
     for (const b of buttons) b.disabled = n === 0;
   }
+  let countTimer: ReturnType<typeof setTimeout> | null = null;
 
   const el = h(
     'div',

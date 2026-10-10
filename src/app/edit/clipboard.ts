@@ -20,6 +20,7 @@ import {
   type ClipboardEnvelope,
   type PasteOptions,
 } from '../../model/edit/clipboard';
+import { fitsEntityBudget } from '../../model/edit/entityBudget';
 import { topLevel } from '../../model/groups';
 import type { SceneStore } from '../../model/store';
 import type { Entity } from '../../model/types';
@@ -70,7 +71,13 @@ export interface CopyResult {
 export function copyToClipboard(host: ClipboardHost, ids: readonly string[] = host.store.selection): CopyResult | null {
   const { store } = host;
   const valid = ids.filter((id) => store.has(id));
-  const env = buildClipboard(store.all(), store.toDocument().assets, valid, store.name);
+  const env = buildClipboard(
+    store.all(),
+    store.toDocument().assets,
+    valid,
+    store.name,
+    host.sim ? (id) => host.sim?.poseOf(id) ?? null : undefined,
+  );
   if (!env) return null;
   memory = env;
   const text = serializeClipboard(env);
@@ -166,6 +173,11 @@ export function pasteEnvelope(
     opts,
   );
   if (!plan.entities.length) return null;
+  const over = fitsEntityBudget(store, plan.entities.length, 'This paste');
+  if (over) {
+    notify(over, 'warn');
+    return null;
+  }
   let entities: Entity[] = plan.entities;
   store.transact('Paste', () => {
     const map = new Map<string, string>();

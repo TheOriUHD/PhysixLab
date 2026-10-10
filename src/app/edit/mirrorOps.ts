@@ -13,6 +13,7 @@ import {
   type MirrorOptions,
   type MirrorPlane,
 } from '../../model/edit/mirror';
+import { fitsEntityBudget } from '../../model/edit/entityBudget';
 import type { Entity } from '../../model/types';
 import { isPosed } from '../../model/types';
 import type { App } from '../app';
@@ -63,6 +64,11 @@ export function mirrorCopySelection(app: App, plane: MirrorPlane): string[] {
   const ids = mirrorRoots(app);
   const res = mirrorCopy(store.all(), ids, plane, meshOptions(app));
   if (!res.entities.length) return [];
+  const over = fitsEntityBudget(store, res.entities.length, 'This mirror copy');
+  if (over) {
+    app.toast(over, 'warn');
+    return [];
+  }
   const sym = getSymmetry(app);
   const copies: Entity[] = res.entities.map((c) => (isPosed(c) ? { ...c, name: store.uniqueName(c.name) } : c));
   store.transact(`Mirror copy about ${planeLabel(plane)}`, () => {

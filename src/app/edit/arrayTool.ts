@@ -13,6 +13,8 @@
  */
 import { Emitter } from '../../core/events';
 import { topLevel } from '../../model/groups';
+import { budgetMessage, fitsEntityBudget } from '../../model/edit/entityBudget';
+import { getSymmetry } from './symmetryHost';
 import {
   arrayProblem,
   buildLinkedArray,
@@ -201,6 +203,7 @@ export class ArrayTool extends Emitter<ToolEvents> {
     const first = store.get(sources[0]);
     let selected: string[];
     const pathOf = (id: string) => store.path(id);
+    const sym = getSymmetry(this.app);
     const ref = referencePoint(all, sources);
     if (this.mode === 'linked') {
       const { group, entities } = buildLinkedArray(
@@ -209,7 +212,14 @@ export class ArrayTool extends Emitter<ToolEvents> {
         spec,
         store.uniqueName(`${first?.name ?? 'Object'} array`),
       );
-      store.transact('Array (linked)', () => store.add([group, ...entities], 'Array (linked)', false));
+      const over = fitsEntityBudget(store, entities.length + 1, 'This array');
+      if (over) {
+        this.app.toast(over, 'warn');
+        return [];
+      }
+      store.transact('Array (linked)', () =>
+        sym.suspended(() => store.add([group, ...entities], 'Array (linked)', false)),
+      );
       selected = [group.id];
       this.app.toast(
         `Linked array: ${entities.filter((e) => isPosed(e)).length} object(s) in "${group.name}". Edit it in the Inspector.`,
@@ -227,7 +237,13 @@ export class ArrayTool extends Emitter<ToolEvents> {
       };
       const placements = newPlacements(spec, ref, pathOf);
       const inst = instantiateArray(all, sources, placements, ref, { rename });
-      store.transact('Array', () => store.add(inst.entities, 'Array', false));
+      const over = fitsEntityBudget(store, inst.entities.length, 'This array');
+      if (over) {
+        this.app.toast(over, 'warn');
+        return [];
+      }
+      // The copies are the user's own layout: symmetry mode must not add mirror partners for each one.
+      store.transact('Array', () => sym.suspended(() => store.add(inst.entities, 'Array', false)));
       selected = inst.roots;
       this.app.toast(`Array: ${inst.roots.length} new object(s).`, 'success');
     }
@@ -288,6 +304,11 @@ export function rebuildLinkedArray(app: App, groupId: string, spec?: ArraySpec, 
     return false;
   }
   if (!re) return false;
+  const over = budgetMessage(store.all().length - re.remove.length, re.add.length, 'This array');
+  if (over) {
+    app.toast(over, 'warn');
+    return false;
+  }
   const selection = store.selection.filter((id) => !re.remove.includes(id));
   const patch = re.group;
   store.transact(label, () => {

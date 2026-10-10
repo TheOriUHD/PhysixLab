@@ -45,6 +45,7 @@ import { isBody, isGroup, isJoint, isPath, isPosed, isSoft } from '../types';
 import { pathCurveOf } from '../path';
 import {
   MAX_ARRAY_INSTANCES,
+  MAX_ARRAY_SCALE,
   specInstanceCount,
   type ArrayDef,
   type ArraySpec,
@@ -324,6 +325,20 @@ export function arrayProblem(all: readonly Entity[], ids: readonly string[], spe
     if (p.points.length < 2) return 'The path needs at least two points.';
     if (ids.includes(spec.pathId)) return 'A path cannot be arrayed along itself.';
   }
+  if (spec.kind === 'linear') {
+    const last = Math.pow(spec.stepScale, Math.max(0, spec.count - 1));
+    if (!Number.isFinite(last) || last > MAX_ARRAY_SCALE || last < 1 / MAX_ARRAY_SCALE)
+      return `The last copy would be ${Number.isFinite(last) ? last.toExponential(1) : 'infinitely'} times the original size; keep the total growth between 1/${MAX_ARRAY_SCALE} and ${MAX_ARRAY_SCALE}.`;
+  }
+  const finitePose = (pl: Placement): boolean =>
+    pl.position.every(Number.isFinite) && pl.rotation.every(Number.isFinite) && Number.isFinite(pl.scale);
+  const ref = referencePoint(all, ids);
+  if (
+    !placementsFor(spec, ref, (id) => (isPath(byId.get(id)) ? (byId.get(id) as PathEntity) : undefined)).every(
+      finitePose,
+    )
+  )
+    return 'That array would put objects at positions that are not finite numbers; reduce the offset, count or scale.';
   const { set } = sourceSubset(all, ids);
   if (specInstanceCount(spec) * Math.max(1, set.size) > MAX_ARRAY_INSTANCES * 4)
     return `That would create too many objects (limit ${MAX_ARRAY_INSTANCES * 4}).`;

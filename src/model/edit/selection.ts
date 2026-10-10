@@ -144,9 +144,13 @@ export interface EntityFilter {
   bodyType?: BodyEntity['bodyType'] | '';
 }
 
-/** Is the filter's name pattern a valid regular expression? (Always true when `regex` is off.) */
+/** Longest regular expression the filter accepts (a hostile pattern cannot be made to hang the editor by length alone). */
+export const MAX_FILTER_PATTERN = 200;
+
+/** Is the filter's name pattern a valid, reasonably short regular expression? (Always true when `regex` is off.) */
 export function filterIsValid(f: EntityFilter): boolean {
   if (!f.regex || !f.name) return true;
+  if (f.name.length > MAX_FILTER_PATTERN) return false;
   try {
     new RegExp(f.name, 'i');
     return true;

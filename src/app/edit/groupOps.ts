@@ -23,24 +23,27 @@ export function scaleGroup(
   groupId: string,
   factor: Vec3,
   label = 'Scale group',
-): { changed: boolean; approximate: boolean } {
-  if (!store.group(groupId)) return { changed: false, approximate: false };
-  const { patches, approximate } = scaleGroupPatches(store.all(), groupId, factor);
-  if (!patches.length) return { changed: false, approximate };
+): { changed: boolean; approximate: boolean; skippedLocked: number } {
+  if (!store.group(groupId)) return { changed: false, approximate: false, skippedLocked: 0 };
+  const { patches, approximate, skippedLocked } = scaleGroupPatches(store.all(), groupId, factor);
+  if (!patches.length) return { changed: false, approximate, skippedLocked };
   store.updateMany(patches, label);
-  return { changed: true, approximate };
+  return { changed: true, approximate, skippedLocked };
 }
 
 // ---- gizmo drag: the factor is cumulative from the start of the drag, so it is applied to a snapshot ----------
 
 let dragBase: { id: string; entities: Entity[] } | null = null;
 let dragApproximate = false;
+let dragSkipped = 0;
+let lastSkipped = 0;
 
 /** Scale from the gizmo (factor relative to the state when the drag began). Call within `store.begin` / `end`. */
 export function scaleGroupDrag(store: SceneStore, groupId: string, factor: Vec3): void {
   if (!dragBase || dragBase.id !== groupId) dragBase = { id: groupId, entities: store.all() };
-  const { patches, approximate } = scaleGroupPatches(dragBase.entities, groupId, factor);
+  const { patches, approximate, skippedLocked } = scaleGroupPatches(dragBase.entities, groupId, factor);
   dragApproximate = approximate;
+  dragSkipped = skippedLocked;
   // Back to the snapshot first when the factor returns to 1 (patches are empty then).
   if (!patches.length) {
     const restore = dragBase.entities.filter((e) => store.has(e.id)).map((e): [string, Partial<Entity>] => [e.id, e]);
@@ -53,9 +56,23 @@ export function scaleGroupDrag(store: SceneStore, groupId: string, factor: Vec3)
 /** End of a gizmo drag; true when a non-uniform scale was only approximate for some member. */
 export function endScaleGroupDrag(): boolean {
   const approx = dragApproximate && dragBase !== null;
+  lastSkipped = dragBase !== null ? dragSkipped : 0;
   dragBase = null;
   dragApproximate = false;
+  dragSkipped = 0;
   return approx;
+}
+
+/** Locked members the gizmo scale that just ended left alone (read once after `endScaleGroupDrag`). */
+export function takeScaleGroupSkipped(): number {
+  const n = lastSkipped;
+  lastSkipped = 0;
+  return n;
+}
+
+/** The sentence that tells the user how many locked members a group scale left alone ('' when none). */
+export function lockedSkipNote(n: number): string {
+  return n ? `${n} locked object${n === 1 ? ' was' : 's were'} left unchanged.` : '';
 }
 
 // ---- weld ------------------------------------------------------------------------------------------------

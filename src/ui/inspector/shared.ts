@@ -16,11 +16,16 @@ export type Updater = () => void;
 export class InspectorContext {
   updaters: Updater[] = [];
   live: Updater[] = [];
+  /** Run once when the current build is thrown away (cancel timers, remove listeners). */
+  disposers: Updater[] = [];
 
   constructor(readonly app: App) {}
 
   /** Forget the callbacks of the previous build. */
   reset(): void {
+    const old = this.disposers;
+    this.disposers = [];
+    for (const d of old) d();
     this.updaters = [];
     this.live = [];
   }

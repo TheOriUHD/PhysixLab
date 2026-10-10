@@ -4,7 +4,7 @@
  */
 import type { Vec3 } from '../../core/math';
 import { mergeCommand, mergeGroupIntoCompound, MERGE_NEEDS } from '../../app/edit/compoundAdapter';
-import { groupBodies, scaleGroup, unweldGroup, weldCount, weldGroup } from '../../app/edit/groupOps';
+import { groupBodies, lockedSkipNote, scaleGroup, unweldGroup, weldCount, weldGroup } from '../../app/edit/groupOps';
 import type { GroupEntity } from '../../model/types';
 import { button, numberField, rowStack, section, vec3Field } from '../controls';
 import { h } from '../dom';
@@ -14,8 +14,9 @@ export function groupScaleSection(ctx: InspectorContext, g: GroupEntity): HTMLEl
   const { app } = ctx;
   const { store } = app;
   const off = () => app.sim.active;
-  const reportScale = (approximate: boolean) => {
-    if (approximate)
+  const reportScale = (r: { approximate: boolean; skippedLocked: number }) => {
+    if (r.skippedLocked) app.toast(lockedSkipNote(r.skippedLocked), 'info');
+    if (r.approximate)
       app.toast(
         'Some members are turned against the group’s axes, so this non-uniform scale is approximate for them. A uniform factor is always exact.',
         'warn',
@@ -32,20 +33,16 @@ export function groupScaleSection(ctx: InspectorContext, g: GroupEntity): HTMLEl
     unit: '×',
     onChange: (v) => (uniform = v),
   });
-  const applyUni = button(
-    'Scale',
-    () => reportScale(scaleGroup(store, g.id, [uniform, uniform, uniform]).approximate),
-    {
-      icon: 'scale',
-      title:
-        'Scale every member about the group pivot by this factor: positions, sizes, masses, joint anchors, spring lengths',
-    },
-  );
+  const applyUni = button('Scale', () => reportScale(scaleGroup(store, g.id, [uniform, uniform, uniform])), {
+    icon: 'scale',
+    title:
+      'Scale every member about the group pivot by this factor: positions, sizes, masses, joint anchors, spring lengths',
+  });
 
   let axes: Vec3 = [1, 1, 1];
   const per = vec3Field({ step: 0.1, min: 0.05, max: 50, digits: 3, onChange: (v) => (axes = v) });
   per.set([1, 1, 1]);
-  const applyAxes = button('Scale per axis', () => reportScale(scaleGroup(store, g.id, axes).approximate), {
+  const applyAxes = button('Scale per axis', () => reportScale(scaleGroup(store, g.id, axes)), {
     title:
       'Factors along the group’s own axes. Exact for members aligned with the group; members turned by another angle are approximated',
   });
