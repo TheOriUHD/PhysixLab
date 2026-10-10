@@ -128,6 +128,8 @@ export function buildPanelRegion(app: App, o: RegionOptions): HTMLElement {
     const next = defs[(i + (e.key === 'ArrowRight' ? 1 : -1) + defs.length) % defs.length];
     if (!next) return;
     e.preventDefault();
+    // The arrow keys are the tab list's: they must not also reach the shortcuts (nudging the selection).
+    e.stopPropagation();
     prefs.set({ [keys.tab]: next.id });
     entries.get(next.id)?.tab.focus();
   });

@@ -41,8 +41,9 @@ Requires a modern desktop browser with WebGL 2 and WebAssembly (Chrome, Edge, Fi
 | **Measure** | `M`, click two points |
 | **Camera** | right-drag orbit · middle-drag pan · scroll zoom · `F` frame selection · `Home` frame all · `C` follow selection |
 | **Undo** | `Ctrl+Z` / `Ctrl+Shift+Z` |
+| **Search** | `Ctrl+K` (`⌘K`) opens the command palette: every command, setting, example scene, saved scene, prefab and map in one fuzzy search box |
 
-Press the keyboard icon in the top bar for the full list. The **Scenes** tab has 16 worked examples (drivable car, wrecking ball, lever launcher, piston press, double pendulum, Newton's cradle, springs & dampers, friction lab, zero-g billiards, domino run, Jenga, rope bridge, 300-ball pit, jelly playground, cloth drape & hammock, tearing banner) and **Prefabs** has 12 insertable assemblies.
+Press the keyboard icon in the top bar for the full list. The **Scenes** tab has 16 worked examples (drivable car, wrecking ball, lever launcher, piston press, double pendulum, Newton's cradle, springs & dampers, friction lab, zero-g billiards, domino run, Jenga, rope bridge, 300-ball pit, jelly playground, cloth drape & hammock, tearing banner) **Prefabs** has 12 insertable assemblies, and **Maps** has two walled arenas (an empty one and a sandbox with a heap of blocks).
 
 ### Driving the car
 
@@ -61,18 +62,18 @@ Any hinge or slider motor can be bound to keys: select the joint → *Motor* →
                          Viewport (three.js) ◄── poses ──  SimController ◄──► Physics Worker (Rapier WASM)
 ```
 
-* `src/model` — the scene **document**: plain JSON entities (bodies, joints), materials, shape maths, example scenes, prefabs, an immutable store with structural-sharing undo history, validation / migration on load.
+* `src/model` — the scene **document**: plain JSON entities (bodies, joints, soft bodies, groups, lights, paths), materials, the shape and component registries, the content library (`model/content`: example scenes, prefabs, maps), an immutable store with structural-sharing undo history, validation / migration on load.
 * `src/physics` — `PhysicsWorld` (pure TS around Rapier; runs identically in the worker and in Node tests), the worker entry, the message protocol and the main-thread `SimClient`.
 * `src/render` — three.js viewport (PBR + shadows + environment, optional GTAO, outline pass), body / joint views, diagnostic overlays, gizmo wrapper, picking.
-* `src/app` — `App` (wiring), `SimController` (edit / running / paused state machine and live-edit sync), `Editor` (commands), input handling, persistence.
-* `src/ui` — panels, inspector, outliner, telemetry charts, menus, dialogs.
+* `src/app` — `App` (wiring), `SimController` (edit / running / paused state machine and live-edit sync), `Editor` (commands), input handling, persistence, and `registry/`: the command, tool, panel, inspector-section and menu registries everything in the UI is generated from.
+* `src/ui` — panels, inspector, outliner, telemetry charts, menus, dialogs, the command palette (`ui/palette`).
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design decisions (why a worker, why the document is the source of truth, how live edits work, how joints are framed, the physics model), and [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) for what is deliberately *not* done yet.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design decisions (why a worker, why the document is the source of truth, how live edits work, how joints are framed, the physics model), [`docs/EXTENDING.md`](docs/EXTENDING.md) for how to add a shape, component, command, tool, panel, template, prefab, map or joint type (every example in it is compiled and tested), and [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) for what is deliberately *not* done yet.
 
 ## Tests
 
 ```bash
-npm test            # 65+ unit/physics tests (Vitest, runs the real Rapier engine in Node)
+npm test            # 570+ unit/physics tests (Vitest, runs the real Rapier engine in Node)
 npm run test:e2e    # drives the real UI in headless Chromium (starts its own dev server)
 E2E_SHOTS=1 npm run test:e2e   # …and writes screenshots to e2e/out/
 E2E_PORT=5231 E2E_FILTER=joint npm run test:e2e   # another port (default 5199), only matching tests

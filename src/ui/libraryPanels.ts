@@ -220,24 +220,35 @@ export const prefabsPanel: PanelDef = {
 
 // ── Maps ──────────────────────────────────────────────────────────────────────────────────────────
 
+/** Thumbnails already produced, by map id — the list is re-rendered on every keystroke of the filter. */
+const thumbnails = new Map<string, string | Promise<string>>();
+
 /** The thumbnail of a map: its image, or — until an asynchronous one arrives, or without one — the map's icon. */
 function mapThumb(m: MapInfo): HTMLElement {
   const box = h('span', { class: 'map-thumb' }, icon(m.icon ?? 'layers'));
-  if (m.thumbnail) {
-    const put = (url: string) => {
-      const img = h('img', { src: url, alt: '', draggable: false, loading: 'lazy' });
-      box.replaceChildren(img);
-    };
-    try {
-      const t = typeof m.thumbnail === 'function' ? m.thumbnail() : m.thumbnail;
-      if (typeof t === 'string') put(t);
-      else t.then(put, () => undefined); // keep the icon if the thumbnail cannot be produced
-    } catch {
-      /* keep the icon */
+  if (!m.thumbnail) return box;
+  const put = (url: string) => {
+    const img = h('img', { src: url, alt: '', draggable: false, loading: 'lazy' });
+    box.replaceChildren(img);
+  };
+  try {
+    let t = thumbnails.get(m.id);
+    if (t === undefined) {
+      t = typeof m.thumbnail === 'function' ? m.thumbnail() : m.thumbnail;
+      thumbnails.set(m.id, t);
     }
+    if (typeof t === 'string') put(t);
+    else t.then(put, () => undefined); // keep the icon if the thumbnail cannot be produced
+  } catch {
+    /* keep the icon */
   }
   return box;
 }
+
+// A map registered again under an old id (tests, hot content) must not show the old picture.
+onContentChange((c) => {
+  if (c.kind === 'map') thumbnails.delete(c.id);
+});
 
 function mapsTab(app: App, query: string): HTMLElement {
   const root = h('div');

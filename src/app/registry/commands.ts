@@ -55,8 +55,12 @@ export interface CommandDef {
   help?: boolean;
   /** Fire the shortcut while a text field has focus (default false; the palette key sets it). */
   allowWhileTyping?: boolean;
-  /** `preventDefault()` the key event (default true — pass false to let Ctrl+C reach the browser). */
-  preventDefault?: boolean;
+  /**
+   * What to do with the browser's own action for the key once it matched: `true` (the default) always prevents it —
+   * the key belongs to the app, even while the command is disabled (Ctrl+D must never bookmark the page);
+   * `'when-enabled'` prevents it only if the command ran; `false` never does (Ctrl+C must reach the browser).
+   */
+  preventDefault?: boolean | 'when-enabled';
   run: (ctx: CommandContext) => void | Promise<void>;
 }
 

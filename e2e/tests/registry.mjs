@@ -215,6 +215,13 @@ test('command palette: finds scenes, prefabs, maps, saved scenes and settings; c
   await page.keyboard.press('Enter');
   assert((await page.evaluate(() => window.physicslab.sim.mode)) === 'edit', 'and it resets the simulation');
 
+  // A command that needs the browser's user-activation (the file picker) still works when run from the palette.
+  const chooser = page.waitForEvent('filechooser', { timeout: 5000 });
+  await openPalette(page);
+  await page.keyboard.type('import scene');
+  await page.keyboard.press('Enter');
+  await chooser;
+
   // Click outside closes; the palette does not open over a dialog (Esc closes the dialog first).
   await openPalette(page);
   await page.mouse.click(5, 450);
@@ -317,6 +324,24 @@ test('keyboard shortcuts generated from the command registry keep working exactl
   );
   await page.keyboard.press('Escape');
   assert((await page.evaluate(() => window.physicslab.store.selection.length)) === 0, 'Escape deselects');
+
+  // The app owns its keys: Ctrl+D with nothing selected is still swallowed (the browser would bookmark the page).
+  await page.evaluate(() => {
+    window.__prevented = {};
+    window.addEventListener('keydown', (e) => {
+      // Registered after the app's own listener, so by now the app has made its decision.
+      window.__prevented[`${e.ctrlKey ? 'Ctrl+' : ''}${e.key}`] = e.defaultPrevented;
+    });
+  });
+  await page.keyboard.press('Control+d');
+  await page.keyboard.press('Control+y');
+  await page.keyboard.press('ArrowUp');
+  const prevented = await page.evaluate(() => window.__prevented);
+  assert(
+    prevented['Ctrl+d'] === true && prevented['Ctrl+y'] === true,
+    `Ctrl+D / Ctrl+Y are swallowed with nothing to do (${JSON.stringify(prevented)})`,
+  );
+  assert(prevented.ArrowUp === false, 'an arrow key with nothing to nudge is left alone');
 
   // Hide, lock, nudge, delete on one body.
   const id = await page.evaluate(() => window.physicslab.store.bodies()[0].id);
@@ -596,8 +621,17 @@ test('panels: the three regions are generated from the panel registry, follow it
   );
   // Arrow keys move between tabs.
   await page.focus('.panel.left .tab.on');
+  const chassis = await page.evaluate(() => {
+    const a = window.physicslab;
+    return { id: a.store.selection[0], at: a.store.body(a.store.selection[0]).position };
+  });
+  assert(chassis.id, 'the car scene starts with its chassis selected');
   await page.keyboard.press('ArrowRight');
   assert((await prefs(page)).leftTab === 'prefabs', 'ArrowRight selects the next tab');
+  assert(
+    (await page.evaluate((c) => window.physicslab.store.body(c.id).position.join(), chassis)) === chassis.at.join(),
+    'and does not also nudge the selection',
+  );
   await page.keyboard.press('ArrowLeft');
   assert((await prefs(page)).leftTab === 'add', 'ArrowLeft goes back');
 
@@ -618,6 +652,16 @@ test('panels: the three regions are generated from the panel registry, follow it
       (await page.locator('.panel.right .tab.on').textContent()).trim() === 'Outliner',
     'the Show Outliner command switches the tab',
   );
+
+  // The topbar buttons run the panel-visibility commands.
+  const hidden = () => page.evaluate(() => document.getElementById('app').classList.contains('no-left'));
+  await page.click('button[title="Toggle library panel"]');
+  assert(
+    (await hidden()) === true && !(await page.locator('.panel.left').isVisible()),
+    'the library panel button hides the left region',
+  );
+  await page.click('button[title="Toggle library panel"]');
+  assert((await hidden()) === false && (await page.locator('.panel.left').isVisible()), 'and shows it again');
 
   // The Maps tab and the telemetry dock work.
   await page.click('.panel.left .tab:has-text("Maps")');

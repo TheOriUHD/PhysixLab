@@ -33,6 +33,8 @@ function nudgeCommand(dir: 'forward' | 'back' | 'left' | 'right', key: string): 
     shortcut: [key, `Shift+${key}`],
     palette: false,
     help: false,
+    // Arrow keys keep their normal action (scrolling a panel) unless there is something to nudge.
+    preventDefault: 'when-enabled',
     enabled: (app) => !app.sim.active && hasSelection(app),
     run: ({ app, event }) => {
       const step = event?.shiftKey ? 1 : app.prefs.value.snap ? app.prefs.value.snapGrid : 0.1;
@@ -169,6 +171,7 @@ const editCommands: CommandDef[] = [
     category: 'Edit',
     shortcut: 'Escape',
     palette: false,
+    preventDefault: false,
     run: ({ app }) => {
       if (app.pathPoint) app.setPathPoint(null);
       else if (app.jointDraft) {

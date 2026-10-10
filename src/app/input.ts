@@ -9,7 +9,7 @@ import { topLevel } from '../model/groups';
 import { isGroup, isLight, isPosed } from '../model/types';
 import type { App } from './app';
 import { runCommand } from './registry/commands';
-import { keymap } from './registry/keymap';
+import { keymap, shouldPreventDefault } from './registry/keymap';
 import { toolForMode } from './registry/tools';
 
 type Gesture =
@@ -461,6 +461,7 @@ export class InputController {
     // Every other key is a command's shortcut (src/app/registry/commands.ts); nothing here binds keys.
     const cmd = keymap.find(e);
     if (!cmd || (typing && !cmd.allowWhileTyping)) return;
-    if (runCommand(cmd.id, app, 'shortcut', e) && cmd.preventDefault !== false) e.preventDefault();
+    const ran = runCommand(cmd.id, app, 'shortcut', e);
+    if (shouldPreventDefault(cmd, ran)) e.preventDefault();
   }
 }

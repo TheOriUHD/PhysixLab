@@ -46,5 +46,14 @@ export class Keymap {
   }
 }
 
+/**
+ * Should the browser's own action for the key event be prevented, given the command it triggered and whether the
+ * command ran? (`CommandDef.preventDefault`: by default always — the key belongs to the app.)
+ */
+export function shouldPreventDefault(command: CommandDef, ran: boolean): boolean {
+  const p = command.preventDefault ?? true;
+  return p === true || (p === 'when-enabled' && ran);
+}
+
 /** The app's keymap. */
 export const keymap = new Keymap();

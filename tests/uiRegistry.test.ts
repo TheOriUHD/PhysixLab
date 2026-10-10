@@ -18,7 +18,7 @@ import {
   type CommandDef,
 } from '../src/app/registry/commands';
 import { helpSections, registerHelp } from '../src/app/registry/help';
-import { keymap } from '../src/app/registry/keymap';
+import { keymap, shouldPreventDefault } from '../src/app/registry/keymap';
 import { listBarMenus, registerMenu, registerMenuEntry, resolveMenu, type MenuItem } from '../src/app/registry/menus';
 import { listPanels, registerPanel, unregisterPanel } from '../src/app/registry/panels';
 import {
@@ -291,6 +291,29 @@ describe('the built-in keymap keeps every shortcut the app had', () => {
     expect(press(code('ArrowDown', { shiftKey: true }))).toBe('edit.nudge.back');
     expect(press(code('ArrowLeft'))).toBe('edit.nudge.left');
     expect(press(code('ArrowRight', { shiftKey: true }))).toBe('edit.nudge.right');
+  });
+
+  it('owns its keys: the browser action is prevented even while the command is disabled, except where the old code let it through', () => {
+    const cmd = (id: string) => getCommand(id)!;
+    // Ctrl+D with nothing selected must not bookmark the page, Ctrl+Y must not open the history, Shift+Space must not
+    // click a focused button — the command being disabled changes nothing about that.
+    for (const id of [
+      'edit.duplicate',
+      'edit.redo',
+      'edit.undo',
+      'edit.group',
+      'edit.ungroup',
+      'sim.reset',
+      'edit.delete',
+      'file.save',
+    ])
+      expect(shouldPreventDefault(cmd(id), false), id).toBe(true);
+    // Arrow keys keep scrolling things unless there is something to nudge.
+    expect(shouldPreventDefault(cmd('edit.nudge.left'), false)).toBe(false);
+    expect(shouldPreventDefault(cmd('edit.nudge.left'), true)).toBe(true);
+    // Ctrl+C must reach the browser; Escape was never prevented.
+    expect(shouldPreventDefault(cmd('edit.copy'), true)).toBe(false);
+    expect(shouldPreventDefault(cmd('edit.cancel'), true)).toBe(false);
   });
 
   it('follows the registry live: a new command is found, a removed one is not', () => {
