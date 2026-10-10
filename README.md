@@ -7,6 +7,10 @@
 <p><b>Build mechanisms, vehicles and experiments, then watch them obey real physics.<br>
 An advanced 3D physics sandbox that runs entirely in your browser.</b></p>
 
+<a href="https://physixlab.app"><img src="docs/media/play.svg" alt="Play PhysixLab" height="48"></a>
+
+<sub>Free &nbsp;·&nbsp; no install, no account &nbsp;·&nbsp; <a href="https://physixlab.app">physixlab.app</a></sub>
+
 <br>
 
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-5eead4?style=flat-square&labelColor=0b0e14)](LICENSE)
@@ -24,7 +28,7 @@ An advanced 3D physics sandbox that runs entirely in your browser.</b></p>
 [![Issues](https://img.shields.io/github/issues/TheOriUHD/PhysixLab?style=flat-square&labelColor=0b0e14&color=a78bfa)](https://github.com/TheOriUHD/PhysixLab/issues)
 [![Last commit](https://img.shields.io/github/last-commit/TheOriUHD/PhysixLab?style=flat-square&labelColor=0b0e14&color=f59e0b)](https://github.com/TheOriUHD/PhysixLab/commits)
 
-**[Run it](#-run-it)** &nbsp;·&nbsp; **[Features](#-features)** &nbsp;·&nbsp; **[Controls](#-controls)** &nbsp;·&nbsp; **[Architecture](#-architecture)** &nbsp;·&nbsp; **[Docs](#-documentation)** &nbsp;·&nbsp; **[Roadmap](#-roadmap)**
+**[Play](https://physixlab.app)** &nbsp;·&nbsp; **[Run it](#-run-it)** &nbsp;·&nbsp; **[Features](#-features)** &nbsp;·&nbsp; **[Controls](#-controls)** &nbsp;·&nbsp; **[Architecture](#-architecture)** &nbsp;·&nbsp; **[Docs](#-documentation)** &nbsp;·&nbsp; **[Roadmap](#-roadmap)**
 
 <br>
 
@@ -83,6 +87,10 @@ It is built to be *physically honest*: [Rapier](https://rapier.rs) (Rust → Web
 <br>
 
 ## 🚀 Run it
+
+**Just want to play?** Open **[physixlab.app](https://physixlab.app)** — it runs in any modern browser, nothing to install.
+
+**Run it yourself:**
 
 ```bash
 git clone https://github.com/TheOriUHD/PhysixLab.git
