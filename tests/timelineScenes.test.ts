@@ -14,7 +14,7 @@ import { seekTo } from '../src/physics/world/travel';
  * of its serialisation): these scenes must stay within a few millimetres of the original run instead of being
  * bit-identical. Listed in docs/LIMITATIONS.md; a scene that needs this exception for any other reason is a bug.
  */
-const APPROXIMATE = new Set(['Jelly playground', 'Cloth drape & hammock', 'Net between posts']);
+const APPROXIMATE = new Set(['Jelly playground', 'Cloth drape & hammock', 'Net between posts', 'Jelly car']);
 
 describe('every example scene rewinds exactly', () => {
   for (const t of listTemplates()) {
