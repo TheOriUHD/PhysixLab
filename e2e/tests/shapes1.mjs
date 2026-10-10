@@ -253,13 +253,18 @@ test('SH-5/6 · dynamic dome, hemisphere, frustum and beams settle on the ground
     a.newScene();
     a.viewport.setView({ position: [0, 4, 9], target: [0, 0.4, 0] });
     const types = ['dome', 'hemisphere', 'frustum', 'i-beam', 'l-beam', 't-beam'];
-    return types.map((t, i) => a.editor.addShape(t, [(i - 2.5) * 2.2, 1.2, 0]).id);
+    // spawn materials cycle through bouncy ones (rubber …): a bouncing body is still moving after seconds
+    return types.map((t, i) => {
+      const b = a.editor.addShape(t, [(i - 2.5) * 2.2, 1.2, 0]);
+      a.store.update(b.id, { material: { ...b.material, restitution: 0.05 } });
+      return b.id;
+    });
   });
   await page.keyboard.press('Space');
-  await simTime(page, 4);
+  await simTime(page, 5);
   await shot(page, 'sh1-dynamic');
   const before = await Promise.all(ids.map((id) => pose(page, id)));
-  await simTime(page, 4.6);
+  await simTime(page, 5.6);
   const after = await Promise.all(ids.map((id) => pose(page, id)));
   ids.forEach((id, i) => {
     const y = after[i].position[1];
