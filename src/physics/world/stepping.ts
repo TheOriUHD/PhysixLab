@@ -12,7 +12,6 @@ import { applyGrab, applyThrusters } from './forces';
 import { driveMotor, measureJoint, measureSpring } from './joints';
 import { applySoftGrab, softPrestep } from './soft';
 import { captureLoads, computeLoads, prepareLoads } from './jointLoad';
-import { applySoftGrab } from './soft';
 import type { WorldState } from './state';
 
 /** Bodies that fall below this height are switched off. */
