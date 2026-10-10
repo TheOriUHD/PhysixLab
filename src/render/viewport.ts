@@ -42,6 +42,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ViewHelper } from 'three/addons/helpers/ViewHelper.js';
 import type { GroundSettings } from '../model/types';
+import { EnvironmentController } from './environment';
 
 export type Quality = 'low' | 'medium' | 'high';
 
@@ -130,12 +131,16 @@ export class Viewport {
   private ao: GTAOPass | null = null;
   private output: OutputPass;
   private viewHelper: ViewHelper;
-  private sun: DirectionalLight;
-  private skyMesh: Mesh;
-  private slab: Mesh;
-  private grid: Mesh;
-  private shadowCatcher: Mesh;
-  private gridMat: ShaderMaterial;
+  // -- VZ-A: environment controller (src/render/environment.ts) and the direction the sun shines from --
+  env!: EnvironmentController;
+  readonly sunDir = new Vector3(-38, 62, 26).normalize();
+  ambient!: AmbientLight;
+  sun: DirectionalLight;
+  skyMesh: Mesh;
+  slab: Mesh;
+  grid: Mesh;
+  shadowCatcher: Mesh;
+  gridMat: ShaderMaterial;
   private quality: Quality = 'medium';
   private width = 1;
   private height = 1;
@@ -206,7 +211,8 @@ export class Viewport {
     this.buildEnvironment();
 
     // ---- lights -----------------------------------------------------------------------------
-    this.scene.add(new AmbientLight(0x8fa3c4, 0.18));
+    this.ambient = new AmbientLight(0x8fa3c4, 0.18);
+    this.scene.add(this.ambient);
     this.sun = new DirectionalLight(0xfff3e0, 3.2);
     this.sun.castShadow = true;
     this.sun.shadow.bias = -0.0003;
@@ -286,6 +292,7 @@ export class Viewport {
     this.resizeObserver.observe(container);
     this.resize();
     this.setQuality('medium');
+    this.env = new EnvironmentController(this); // -- VZ-A --
   }
 
   // ------------------------------------------------------------------------------------------
@@ -354,6 +361,7 @@ export class Viewport {
     this.grid.scale.set(size, 1, size);
     this.shadowCatcher.scale.set(size, 1, size);
     this.gridMat.uniforms.uHalf.value = g.halfSize;
+    this.env?.onGround(g); // -- VZ-A: ground type + horizon blend --
     this.needsRender = true;
   }
 
@@ -491,9 +499,11 @@ export class Viewport {
     const texel = (ext * 2) / this.sun.shadow.mapSize.x;
     const snap = (v: number) => Math.round(v / texel) * texel;
     this.sun.target.position.set(snap(tgt.x), 0, snap(tgt.z));
-    this.sun.position.set(this.sun.target.position.x - 38, 62, this.sun.target.position.z + 26);
+    this.sun.position.copy(this.sunDir).multiplyScalar(77).add(this.sun.target.position); // -- VZ-A --
 
     this.skyMesh.position.copy(this.camera.position);
+    this.env.followCamera(this.camera.position);
+    this.env.tick(dt); // -- VZ-A --
     (this.gridMat.uniforms.uCamPos.value as Vector3).copy(this.camera.position);
 
     this.composer.render(dt);

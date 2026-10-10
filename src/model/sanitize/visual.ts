@@ -1,7 +1,7 @@
 /** Sanitising of the optional PBR extras and texture spec of a `MaterialSpec` (VZ-1..VZ-4). */
 import { clamp } from '../../core/math';
 import type { MaterialSpec, ProceduralPattern, TextureSpec } from '../types';
-import { bool, hexColor, idStr, num, obj, oneOf } from './primitives';
+import { bool, hexColor, idStr, isFiniteVec, num, obj, oneOf } from './primitives';
 
 export const PATTERNS: readonly ProceduralPattern[] = [
   'checker',
@@ -17,14 +17,13 @@ export const PATTERNS: readonly ProceduralPattern[] = [
   'carbon',
 ];
 
-const opt = (raw: Record<string, unknown>, key: string, lo: number, hi: number): number | undefined =>
-  key in raw && typeof raw[key] === 'number' && Number.isFinite(raw[key])
-    ? clamp(raw[key] as number, lo, hi)
-    : undefined;
+const opt = (raw: Record<string, unknown>, key: string, lo: number, hi: number): number | undefined => {
+  const v = raw[key];
+  return typeof v === 'number' && Number.isFinite(v) ? clamp(v, lo, hi) : undefined;
+};
 
 function pair(x: unknown, d: [number, number], lo: number, hi: number): [number, number] {
-  if (Array.isArray(x) && x.length === 2 && x.every((v) => typeof v === 'number' && Number.isFinite(v)))
-    return [clamp(x[0], lo, hi), clamp(x[1], lo, hi)];
+  if (isFiniteVec(x, 2)) return [clamp(x[0], lo, hi), clamp(x[1], lo, hi)];
   return [...d];
 }
 

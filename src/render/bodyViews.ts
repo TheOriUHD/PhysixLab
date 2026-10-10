@@ -138,7 +138,14 @@ export class BodyView implements PoolMember {
     mesh.userData.entityId = this.def.id;
     const s = shapeVisualScale(shape);
     mesh.scale.set(s[0], s[1], s[2]);
-    const piece: Piece = { mesh, material, geoKey: key, part, baseColor: this.def.material.color, baseEmissive: '#000000' };
+    const piece: Piece = {
+      mesh,
+      material,
+      geoKey: key,
+      part,
+      baseColor: this.def.material.color,
+      baseEmissive: '#000000',
+    };
     this.pieces.push(piece);
     return piece;
   }
@@ -277,6 +284,8 @@ export class BodyViews {
     if (!this.instancingOn || v.compound) return null;
     const { color: _color, ...rest } = v.def.material;
     void _color;
+    // -- VZ-A: a procedural pattern bakes the material colour into its texture --
+    if (rest.texture && rest.texture.pattern !== 'image') (rest as Record<string, unknown>).color = _color;
     return `${this.cache.key(v.def.shape)}|${v.def.ghost ? 1 : 0}|${JSON.stringify(rest)}`;
   }
 

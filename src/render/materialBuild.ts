@@ -7,12 +7,12 @@
 import {
   CanvasTexture,
   LinearSRGBColorSpace,
-  MeshPhysicalMaterial,
   RepeatWrapping,
   SRGBColorSpace,
   Texture,
   type WebGLProgramParametersWithUniforms,
 } from 'three';
+import type { MeshPhysicalMaterial } from 'three';
 import type { MaterialSpec, TextureAsset, TextureSpec } from '../model/types';
 import { heightToNormal, renderPattern } from './proceduralTextures';
 
@@ -29,6 +29,10 @@ export const materialContext = {
 const PATTERN_SIZE = 256;
 const baseCache = new Map<string, Texture>();
 const imageCache = new Map<string, Texture>();
+
+export function canvasTextureFromRgba(data: Uint8ClampedArray, size: number, colorSpace: string): CanvasTexture {
+  return canvasTexture(data, size, colorSpace);
+}
 
 function canvasTexture(data: Uint8ClampedArray, size: number, colorSpace: string): CanvasTexture {
   const canvas = document.createElement('canvas');
@@ -188,7 +192,11 @@ export function applyMaterialSpec(mat: MeshPhysicalMaterial, spec: MaterialSpec,
 
   // ---- textures -------------------------------------------------------------------------------
   const t = spec.texture;
-  const assetKey = t ? [t.imageId, t.normalId, t.roughnessId, t.emissiveId].map((id) => materialContext.asset(id ?? '')?.hash ?? '').join(',') : '';
+  const assetKey = t
+    ? [t.imageId, t.normalId, t.roughnessId, t.emissiveId]
+        .map((id) => materialContext.asset(id ?? '')?.hash ?? '')
+        .join(',')
+    : '';
   const key = t ? JSON.stringify([t, assetKey, spec.color]) : '';
   if (key !== st.texKey) {
     for (const o of st.owned) o.dispose();
@@ -202,7 +210,7 @@ export function applyMaterialSpec(mat: MeshPhysicalMaterial, spec: MaterialSpec,
         st.owned.push(c);
         return c;
       };
-      let color: Texture | null = null;
+      let color: Texture | null;
       let normal: Texture | null = null;
       if (t.pattern === 'image') {
         color = t.imageId ? imageTexture(t.imageId, SRGBColorSpace) : null;

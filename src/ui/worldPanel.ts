@@ -12,6 +12,7 @@ import {
 } from './controls';
 import { GRAVITY_PRESETS } from '../model/gravityPresets';
 import { h } from './dom';
+import { buildEnvironmentSections } from './environmentPanel';
 
 /** Scene-wide physics + environment settings. */
 export function buildWorldPanel(app: App): HTMLElement {
@@ -166,6 +167,10 @@ export function buildWorldPanel(app: App): HTMLElement {
       { id: 'world-solver' },
     ),
   );
+  // -- VZ-A: sky / display / fog / ground look --
+  const envUi = buildEnvironmentSections(app);
+  el.append(...envUi.sections);
+  upd.push(envUi.refresh);
   const refresh = () => upd.forEach((u) => u());
   store.on('change', refresh);
   refresh();
