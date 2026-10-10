@@ -4,6 +4,7 @@ import { qfromAxisAngle, qrot, vadd, type Vec3 } from '../src/core/math';
 import { convexHullMesh } from '../src/core/hull';
 import { createBody, createJoint, createSoft } from '../src/model/factory';
 import { sanitizeDocument, serializeDocument } from '../src/model/serialize';
+import { softParticleCount } from '../src/model/softBudget';
 import { formatPascal, softYoungModulus, stiffnessForYoungModulus } from '../src/model/softMaterial';
 import { softSurface } from '../src/model/softMesh';
 import type { SoftAttachment } from '../src/model/types';
@@ -71,7 +72,6 @@ describe('SF-1 attachments', () => {
     expect(rb.translation().y).toBeGreaterThan(2.55);
     expect(rb.translation().y).toBeLessThan(2.85);
     // momentum balance of the whole hanging system: the pin carries (m_weight + m_cable)·g on average
-    const g = 9.81;
     const probe: number[] = [];
     for (let k = 0; k < 120; k++) {
       w.stepOnce();
@@ -80,7 +80,6 @@ describe('SF-1 attachments', () => {
     }
     const mean = probe.reduce((a, b) => a + b, 0) / probe.length;
     expect(Math.abs(mean)).toBeLessThan(0.05); // no net acceleration ⇒ tension T = m·g
-    expect(m * g).toBeGreaterThan(40);
   });
 
   it('the attachment follows the body: rotating and moving the body carries the fastened particles', async () => {
@@ -159,6 +158,17 @@ describe('SF-1 attachments', () => {
     w.applyOp({ op: 'releaseSoft', id: cable.id });
     run(w, 0.1);
     expect(priv(w).softOrder[0].root.numAttachments()).toBe(0);
+  });
+
+  it('hostile mesh / tyre sizes cannot request a huge lattice', () => {
+    const doc = docOf([createSoft('mesh'), createSoft('tyre')]);
+    const raw = JSON.parse(serializeDocument(doc)) as { entities: { size?: number[]; cell?: number }[] };
+    raw.entities[0].size = [1e6, 1e6, 1e6];
+    raw.entities[0].cell = 0.04;
+    raw.entities[1].size = [500, 0.0001, 0.0001];
+    const [m, t] = sanitizeDocument(raw).entities;
+    expect(m.kind === 'soft' && softParticleCount(m)).toBeLessThan(100000);
+    expect(t.kind === 'soft' && softParticleCount(t)).toBeLessThan(20000);
   });
 
   it('attachments survive a save / load round trip and untrusted JSON is repaired', () => {

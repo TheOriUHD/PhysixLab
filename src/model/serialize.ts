@@ -94,7 +94,6 @@ const SKIES: SkyPreset[] = [
   'hdri',
 ];
 
-
 function sanitizeBody(raw: any, report?: LoadReport): BodyEntity {
   const name = nameStr(raw?.name, '');
   const shape = sanitizeShapeSpec(raw?.shape, report, name ? `"${name}"` : 'an object');
@@ -239,7 +238,14 @@ function sanitizeSoft(raw: any, report?: LoadReport): SoftEntity {
   const type: SoftType = SOFTS.includes(raw?.type) ? raw.type : 'jelly';
   const base = createSoft(type);
   const d = softDefaults(type);
-  const size = vec3(raw?.size, d.size).map((v, i) => (v <= 0 && d.size[i] === 0 ? 0 : Math.max(0.05, v))) as Vec3;
+  const size = vec3(raw?.size, d.size).map((v, i) => (v <= 0 && d.size[i] === 0 ? 0 : clamp(v, 0.05, 100))) as Vec3;
+  // -- SF: a document must not be able to ask the worker for billions of lattice cells --
+  if (type === 'tyre') {
+    size[0] = Math.min(size[0], 4);
+    size[1] = clamp(size[1], 0.08, 2);
+    size[2] = clamp(size[2], 0.06, 1);
+  }
+  const cell = clamp(num(raw?.cell, d.cell), Math.max(0.04, Math.max(...size) / 40), 1);
   const maxRes =
     type === 'jelly'
       ? 10
@@ -285,7 +291,7 @@ function sanitizeSoft(raw: any, report?: LoadReport): SoftEntity {
     friction: clamp(num(raw?.friction, d.friction), 0, 5),
     particleRadius: raw?.particleRadius === 0 ? 0 : clamp(num(raw?.particleRadius, 0), 0, 0.2),
     shape: sanitizeShapeSpec(raw?.shape ?? d.shape, report, 'a soft mesh'),
-    cell: clamp(num(raw?.cell, d.cell), 0.04, 1),
+    cell,
     pneumatic: bool(raw?.pneumatic, d.pneumatic),
     ...outlinerMetaFields(raw ?? {}, true), // -- UI-A --
   };
@@ -504,7 +510,8 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
   if (hid) {
     const target = remap.get(hid) ?? hid;
     settings.environment.hdri.assetId = assets[target]?.kind === 'blob' ? target : null;
-    if (settings.environment.hdri.assetId === null && settings.environment.sky === 'hdri') settings.environment.sky = 'studio';
+    if (settings.environment.hdri.assetId === null && settings.environment.sky === 'hdri')
+      settings.environment.sky = 'studio';
   }
   return pruneAssets({
     format: SCENE_FORMAT,
