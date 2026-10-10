@@ -1,0 +1,17 @@
+/* DT-B: scene script dialog, plugin manager */
+.dtb-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.dtb-spacer { flex: 1; }
+.dtb-examples { max-width: 220px; }
+.dtb-code { width: 100%; min-height: 300px; height: 44vh; resize: vertical; background: var(--bg-deep); color: var(--text); border: 1px solid var(--border-2); border-radius: var(--radius-s); padding: 10px 12px; font: 12.5px/1.5 var(--mono); tab-size: 2; white-space: pre; overflow: auto; }
+.dtb-code:focus { outline: none; border-color: var(--accent-line); box-shadow: 0 0 0 2px var(--accent-bg); }
+.dtb-status { min-height: 20px; margin: 8px 0 4px; color: var(--text-2); font-size: 12px; }
+.dtb-status.ok { color: var(--run); }
+.dtb-status.error { color: var(--danger); }
+.dtb-status.busy { color: var(--pause); }
+.dtb-log { margin: 0; max-height: 96px; overflow: auto; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 6px 10px; font: 11.5px/1.45 var(--mono); color: var(--text-2); white-space: pre-wrap; }
+.dtb-log:empty { display: none; }
+.dtb-help { margin-top: 10px; color: var(--text-2); font-size: 12px; }
+.dtb-help summary { cursor: pointer; color: var(--text); }
+.dtb-help ul { margin: 6px 0 6px 18px; padding: 0; }
+.dtb-help li { margin: 3px 0; }
+.dtb-note { color: var(--text-3); }
