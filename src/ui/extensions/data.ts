@@ -71,3 +71,63 @@ registerMenuEntry({
   command: 'file.folderSync',
   icon: 'folder',
 });
+
+registerCommand({
+  id: 'file.exportData',
+  label: 'Export recorded data…',
+  category: 'File',
+  icon: 'download',
+  description: 'Save the recorded telemetry (energy, selection) as CSV or JSON, or copy it for a spreadsheet',
+  keywords: ['csv', 'json', 'telemetry', 'table', 'spreadsheet', 'clipboard', 'data'],
+  run: async ({ app }) => {
+    const { listDataSources, exportTable } = await import('../../app/export/dataExport');
+    const { openMenu } = await import('../menu');
+    const items = listDataSources().flatMap((src) =>
+      (['csv', 'json', 'clipboard'] as const).map((fmt) => ({
+        label: `${src.label}: ${fmt === 'csv' ? 'save CSV' : fmt === 'json' ? 'save JSON' : 'copy for spreadsheet'}`,
+        action: async () => {
+          const t = src.table(app);
+          if (!t) return app.toast('Nothing recorded yet - press Play first.', 'warn');
+          try {
+            app.toast(await exportTable(t, fmt), 'success');
+          } catch (e) {
+            app.toast((e as Error).message, 'error');
+          }
+        },
+      })),
+    );
+    openMenu(items, { x: window.innerWidth / 2 - 120, y: 120 });
+  },
+});
+
+registerCommand({
+  id: 'file.exportReport',
+  label: 'Export lab report (HTML)…',
+  category: 'File',
+  icon: 'download',
+  description: 'One standalone page with a screenshot, the scene parameters, an object table and the recorded charts',
+  keywords: ['report', 'lab', 'html', 'print', 'pdf', 'homework'],
+  run: async ({ app }) => {
+    const { buildReport } = await import('../../app/export/reportData');
+    const { saveTextFile, fileSafe } = await import('../../app/export/dataExport');
+    saveTextFile(`${fileSafe(app.store.name)} - report.html`, await buildReport(app), 'text/html');
+    app.toast('Report saved - open it in a browser and print it to PDF if you need one.', 'success');
+  },
+});
+
+registerMenuEntry({
+  id: 'menu.file.exportData',
+  menu: 'file',
+  group: 'io',
+  order: 330,
+  command: 'file.exportData',
+  icon: 'download',
+});
+registerMenuEntry({
+  id: 'menu.file.exportReport',
+  menu: 'file',
+  group: 'io',
+  order: 340,
+  command: 'file.exportReport',
+  icon: 'download',
+});

@@ -261,3 +261,10 @@ The Rapier WebAssembly binary alone is about 1.15 MB gzip (served as a separate 
 * The preview card (Open Graph) needs a host: the scene is in the URL fragment, which crawlers never see, so a static deployment cannot render per-scene previews by itself. The dialog produces the thumbnail and the tags; `docs/EMBED.md` explains the landing page.
 * "Copy image + link" depends on the browser's async clipboard (`ClipboardItem` with `image/png`); where it is missing or refused, only the link is copied and the toast says so.
 * The viewer's message API without an `origin=` allow-list accepts commands from any parent page (it can play, pause and load scenes, nothing more).
+
+## Data platform (DT-A)
+
+* **Folder sync** needs the File System Access API (Chromium browsers). It polls every 3 s for external changes (no file-watcher API exists); the native picker/permission flow is not covered by an automated browser test.
+* **Crash detection** relies on a localStorage heartbeat; a crash is not noticed while the tab is in the background, and a second tab with a fresh heartbeat is treated as "not crashed".
+* **Restore points** store whole serialized scenes (no delta storage); the default 64 MB cap keeps the oldest automatic ones out.
+* **Table export** covers what registers a data source (the two telemetry charts); other panels adopt it by calling `registerDataSource`.

@@ -133,3 +133,38 @@ test('DT-10 storage dialog shows usage per collection and the quota meter; DT-13
   assert(/Choose folder/.test(f) || /File System Access/.test(f), `folder sync dialog: ${f.slice(0, 160)}`);
   assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
 });
+
+test('DT-3 data export: telemetry CSV/JSON through the export menu and a standalone HTML lab report', async () => {
+  const page = await newPage('&scene=car');
+  await page.evaluate(() => {
+    window.__e2eDownloads = true;
+    window.physicslab.sim.play();
+  });
+  await simTime(page, 1.5);
+  const out = await page.evaluate(async () => {
+    const a = window.physicslab;
+    const dx = await import('/src/app/export/dataExport.ts');
+    const src = dx.listDataSources().find((s) => s.id === 'telemetry.energy');
+    const table = src.table(a);
+    await dx.exportTable(table, 'csv');
+    const csv = window.__lastDownload;
+    await dx.exportTable(table, 'json');
+    const json = window.__lastDownload;
+    const { buildReport } = await import('/src/app/export/reportData.ts');
+    const html = await buildReport(a);
+    return { csv, json, rows: table.rows.length, html };
+  });
+  assert(out.rows > 5, `telemetry recorded rows (${out.rows})`);
+  assert(
+    out.csv.name.endsWith('.csv') && /^Time \(s\),/.test(out.csv.text),
+    `CSV header: ${out.csv.text.slice(0, 60)}`,
+  );
+  assert(out.csv.text.trim().split('\r\n').length === out.rows + 1, 'CSV has one line per row plus the header');
+  assert(JSON.parse(out.json.text).rows.length === out.rows, 'JSON rows match');
+  assert(
+    /<h2>Energy<\/h2>/.test(out.html) && /<svg/.test(out.html),
+    `report sections: ${(out.html.match(/<h2>[^<]*/g) ?? []).join('|')}; ${(out.html.match(/<title>[^<]*/) ?? [''])[0]}`,
+  );
+  assert(!/<script/i.test(out.html), 'report has no scripts');
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});
