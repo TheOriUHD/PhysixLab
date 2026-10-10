@@ -12,6 +12,7 @@ import { fixedDt, stepOnce } from './stepping';
 export function installTimeline(s: WorldState): void {
   s.recorder.api = {
     take: takeSnapshot,
+    restore: restoreSnapshot,
     applyOp: (st: WorldState, op: SimOp) => applyOp(st, op),
     hash: stateHash,
     rewindAdvance,
@@ -37,7 +38,14 @@ export function seekTo(s: WorldState, target: number): number {
       restoreSnapshot(s, e.snap);
       if (e.grab) {
         const rec = s.bodies.get(e.grab.id);
-        if (rec) s.grab = { rec, local: [...e.grab.local], target: [...e.grab.target], strength: 1, spin: [0, 0, 0] }; // -- ED-B: grab strength / spin are not part of a time-travel entry --
+        if (rec)
+          s.grab = {
+            rec,
+            local: [...e.grab.local],
+            target: [...e.grab.target],
+            strength: e.grab.strength,
+            spin: [...e.grab.spin],
+          };
       }
     }
     while (s.stepCount < t) stepOnce(s);

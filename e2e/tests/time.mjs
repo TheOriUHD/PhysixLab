@@ -8,6 +8,12 @@ import { assert, newPage, shot, sleep } from '../helpers.mjs';
 export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
+/** No console errors — apart from other packages' extensions failing to register (not this package's business). */
+const assertClean = (page) => {
+  const own = page.errors.filter((e) => !/\[extension \.\.\/extensions\/(?!timeTravel)/.test(e));
+  assert(own.length === 0, `no console errors: ${own.join(' | ')}`);
+};
+
 const showTab = async (page, id) => {
   await page.evaluate((tab) => window.physicslab.prefs.set({ bottomTab: tab, showBottom: true }), id);
   await page.waitForSelector('.dock:not(.collapsed)');
@@ -63,7 +69,7 @@ test('time: timeline tab shows the run, scrub back restores the exact earlier st
   const badge = await page.locator('.tm-badge.past').count();
   assert(badge === 1, 'the "past" badge shows');
   await shot(page, 'tm-timeline-scrubbed');
-  assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
+  assertClean(page);
 });
 
 test('time: hold Backspace to rewind, release resumes from the past (new branch); step back / forward by one frame', async () => {
@@ -101,7 +107,7 @@ test('time: hold Backspace to rewind, release resumes from the past (new branch)
   const n = await tt(page, (t) => t.bookmarks.length);
   assert(n === 1, 'bookmark added');
   await shot(page, 'tm-rewound');
-  assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
+  assertClean(page);
 });
 
 test('time: record a replay, save it, open it in the viewer and watch it verify', async () => {
@@ -135,7 +141,7 @@ test('time: record a replay, save it, open it in the viewer and watch it verify'
   const text = await viewer.locator('.tm-verify').innerText();
   assert(/Verified/.test(text), `verification shown: ${text}`);
   await shot(viewer, 'tm-replay-viewer');
-  assert(viewer.errors.length === 0, `no console errors: ${viewer.errors.join(' | ')}`);
+  assertClean(viewer);
 });
 
 test('time: the previous run shows up as a ghost, the determinism check passes, the seed reseeds', async () => {
@@ -166,5 +172,114 @@ test('time: the previous run shows up as a ghost, the determinism check passes, 
   await page.click('button:has-text("Reseed")');
   const after = await page.evaluate(() => window.physicslab.store.settings.seed);
   assert(before !== after, `reseed changed the seed (${before} → ${after})`);
-  assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
+  assertClean(page);
+});
+
+test('time: bookmarks (add, rename, jump), a loop region replays the recorded past without branching, auto slow-mo after a hard impact', async () => {
+  const page = await newPage();
+  await showTab(page, 'timeline');
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) > 260, null, {
+    timeout: 90000,
+  });
+  await page.keyboard.press('Space'); // pause
+  await sleep(300);
+  // bookmarks
+  await tt(page, (t) => {
+    t.addBookmark(undefined, 60);
+    t.addBookmark('late', 200);
+  });
+  await page.waitForFunction(() => document.querySelectorAll('.tm-bm').length === 2, null, { timeout: 15000 });
+  await tt(page, (t) => t.renameBookmark(t.bookmarks[0].id, 'first drop'));
+  await page.waitForSelector('.tm-bm:has-text("first drop")');
+  // (a hint bubble floats over the dock, so click through the DOM)
+  await page.evaluate(() =>
+    [...document.querySelectorAll('.tm-bm')].find((e) => /first drop/.test(e.textContent)).click(),
+  );
+  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) === 60, null, {
+    timeout: 15000,
+  });
+  // loop 40..100 over the recorded run
+  const head0 = await tt(page, (t) => t.head);
+  await tt(page, (t) => {
+    t.setLoopPoint('a', 40);
+    t.setLoopPoint('b', 100);
+    t.toggleLoop();
+  });
+  await page.keyboard.press('Space'); // play: the loop keeps the run inside the region
+  const seen = [];
+  for (let i = 0; i < 24; i++) {
+    await sleep(250);
+    seen.push(await step(page));
+  }
+  const wraps = seen.filter((s, i) => i > 0 && s < seen[i - 1]).length;
+  assert(wraps >= 1, `the loop wrapped at least once: ${seen.join(',')}`);
+  assert(Math.max(...seen) <= 100 + 70 && Math.min(...seen) >= 40 - 2, `stayed in the region: ${seen.join(',')}`);
+  const head1 = await tt(page, (t) => t.status.head);
+  assert(head1 >= head0 - 1, `looping did not discard the recorded run (head ${head1}, was ${head0})`);
+  await shot(page, 'tm-loop');
+  // leave the loop, then auto slow-mo
+  await tt(page, (t) => t.clearLoop());
+  const slow = await page.evaluate(() => {
+    const a = window.physicslab;
+    a.timeTravel.setOptions({ autoSlowmo: true });
+    a.sim.client.emit('event', {
+      kind: 'contact',
+      t: 1,
+      a: 'x',
+      b: '$ground',
+      point: [0, 0, 0],
+      normal: [0, 1, 0],
+      impulse: 50,
+      speed: 5,
+      matA: 'steel',
+      matB: 'ground',
+      count: 1,
+    });
+    return a.sim.timeScale;
+  });
+  assert(slow <= 0.25, `time scale dropped after the impact (${slow})`);
+  await page.waitForFunction(() => window.physicslab.sim.timeScale === window.physicslab.prefs.value.timeScale, null, {
+    timeout: 15000,
+  });
+  assertClean(page);
+});
+
+test('time: two runs compared: the distance chart appears', async () => {
+  const page = await newPage();
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) > 150, null, {
+    timeout: 90000,
+  });
+  await page.keyboard.press('Space');
+  await page.evaluate(() => window.physicslab.sim.reset());
+  await sleep(300);
+  await page.evaluate(() => window.physicslab.prefs.set({ bottomTab: 'ghosts', showBottom: true }));
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.physicslab.timeTravel.ghosts.runs.length > 0, null, { timeout: 30000 });
+  // nudge the second run so it differs: shoot a body with an impulse through the op channel
+  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) > 120, null, {
+    timeout: 90000,
+  });
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    const mass = a.sim.client.info.mass;
+    const b = a.store
+      .bodies()
+      .filter((x) => x.bodyType === 'dynamic' && mass[x.id] > 0)
+      .sort((p, q) => mass[p.id] - mass[q.id])[0];
+    a.sim.client.op({ op: 'impulse', id: b.id, impulse: [0, 40, 30], point: b.position });
+  });
+  await page.waitForFunction(() => (window.physicslab.sim.client.stats?.stepCount ?? 0) > 300, null, {
+    timeout: 90000,
+  });
+  await page.evaluate(() => window.physicslab.timeTravel.ghosts.compareWithLive());
+  await page.waitForFunction(() => window.physicslab.timeTravel.ghosts.comparison !== null, null, { timeout: 15000 });
+  const peak = await page.evaluate(() => window.physicslab.timeTravel.ghosts.comparison.peak.distance);
+  assert(peak > 0.001, `the two runs drifted apart (${peak} m)`);
+  await sleep(500);
+  await shot(page, 'tm-compare');
+  const summary = await page.locator('.tm-ghosts .tm-status').innerText();
+  assert(/largest gap/.test(summary), `chart summary shown: ${summary}`);
+  assertClean(page);
 });

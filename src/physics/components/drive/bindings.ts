@@ -36,6 +36,29 @@ function cacheOf(u: object): MotorCache {
   return c;
 }
 
+// -- TM: the motor settings the engine holds are part of a snapshot, so the cache that says "already sent" must be too;
+// otherwise a restored world re-sends them on its first step and the engine restarts the joint's motor / limit solve. --
+export function saveMotors(s: WorldState): Record<string, MotorCache> {
+  const out: Record<string, MotorCache> = {};
+  for (const r of s.jointOrder) {
+    const u = r.joint;
+    if (!u) continue;
+    const c = motorCaches.get(u);
+    if (c && (c.mode !== 0 || c.lo !== null || c.hi !== null)) out[r.id] = { ...c };
+  }
+  return out;
+}
+
+export function loadMotors(s: WorldState, saved: Record<string, MotorCache>): void {
+  for (const [id, c] of Object.entries(saved)) {
+    const u = s.joints.get(id)?.joint;
+    if (!u) continue;
+    // JSON turns NaN into null: the cache's "never sent" marker
+    const n = (v: number | null): number => (typeof v === 'number' ? v : NaN);
+    motorCaches.set(u, { mode: c.mode, a: n(c.a), b: n(c.b), c: n(c.c), lo: c.lo, hi: c.hi });
+  }
+}
+
 /** nᵀ·W·n for a symmetric matrix stored as [m11, m12, m13, m22, m23, m33]. */
 function quad(e: Float32Array, n: Vec3): number {
   return (

@@ -27,6 +27,9 @@ export const hydraulicCylinder: ComponentRuntime<State> = {
   type: 'hydraulicCylinder',
   create: () => ({ command: 0, cap: 0, area: 1, last: NaN }),
   paramsChanged: () => undefined,
+  // -- TM: the stroke at the end of the previous step (the gauge's speed is its difference); the rest is recomputed every step --
+  saveState: (s) => s.last,
+  loadState: (s, d) => void (s.last = typeof d === 'number' ? d : NaN),
   dispose(_s, ctx) {
     const sh = ctx.drive.own();
     sh?.motorOff();

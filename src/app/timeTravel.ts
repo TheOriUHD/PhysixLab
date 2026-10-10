@@ -261,6 +261,8 @@ export class TimeTravel extends Emitter<TTEvents> {
     // coalesce scrubbing to one seek per frame
     if (this.pendingSeek !== null) {
       this.send({ cmd: 'seek', step: this.pendingSeek });
+      // With a loop on, the run goes on through the recorded past from wherever it was put (set before play starts)
+      if (this.loopOn) this.send({ cmd: 'playThrough', on: true });
       this.pendingSeek = null;
       this.poll(true);
     }
@@ -458,7 +460,8 @@ export class TimeTravel extends Emitter<TTEvents> {
   toggleLoop(): void {
     if (!this.loop) this.loop = { a: this.first, b: Math.max(this.first + 1, this.head) };
     this.loopOn = !this.loopOn;
-    if (!this.loopOn) this.send({ cmd: 'playThrough', on: false });
+    // Armed now, not when play is pressed: the first step after play must already know it is replaying the past.
+    this.send({ cmd: 'playThrough', on: this.loopOn });
     this.emit('change', undefined);
   }
 
