@@ -357,6 +357,11 @@ export class Viewport {
     this.needsRender = true;
   }
 
+  // -- DT-1: the scene parts a still-image export hides or keeps (src/app/export/capture.ts) --
+  captureParts(): { sky: Object3D; slab: Object3D; grid: Object3D; shadowCatcher: Object3D } {
+    return { sky: this.skyMesh, slab: this.slab, grid: this.grid, shadowCatcher: this.shadowCatcher };
+  }
+
   setQuality(q: Quality): void {
     this.quality = q;
     const sunMap = q === 'low' ? 1024 : q === 'medium' ? 2048 : 4096;

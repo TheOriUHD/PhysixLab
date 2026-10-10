@@ -117,3 +117,11 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 ## Share links v2 (DT-20)
 
 The compact share link stores non-integer numbers with 6 significant digits and renames entity ids to `e0`, `e1` … when opened, so a scene opened from a link is physically equivalent to the original but not bit-identical (chaotic scenes can diverge over a long run). Use *Export file* for exact transfer. Old `#scene=` (v1) links keep working.
+
+## Export (DT-1)
+
+* **Soft bodies are not exported** to glTF / OBJ / STL: they are simulated particles with a surface rebuilt every frame, and the exporters work from the document. The export reports them in a toast and leaves them out.
+* **Baked glTF animation is a real-time capture** of the running simulation (~30 samples per second for the chosen number of seconds), not a deterministic replay of the time-travel recording, so two exports of a chaotic scene can differ slightly and the clip length follows the wall clock.
+* **Not representable**: area lights, paths, joints, render-only skins and texture maps are not written. OBJ has no hierarchy or lights; STL is geometry only (one merged solid, optionally in millimetres and Z-up).
+* **Screenshots are not anti-aliased above 2560 px** (the viewport renderer has no MSAA; smaller images are rendered at 2x and averaged). Transparent PNGs recover alpha by rendering twice (over black and white), so the ground shadow is kept but selection outlines and ambient occlusion are not drawn. Maximum size is 3840 px per side and the graphics card's texture limit.
+
