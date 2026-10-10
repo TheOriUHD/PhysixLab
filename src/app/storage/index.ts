@@ -58,17 +58,22 @@ export async function storageUsage(backend?: StorageBackend): Promise<UsageRepor
   const b = backend ?? (await getStorage());
   const perCollection: UsageReport['perCollection'] = {};
   let bytes = 0;
-  for (const c of COLLECTIONS) {
-    const items = await b.list(c);
+  // in parallel: every IndexedDB round trip costs at least one task, and the page may be busy rendering
+  const lists = await Promise.all(COLLECTIONS.map((c) => b.list(c)));
+  COLLECTIONS.forEach((c, i) => {
     let n = 0;
-    for (const it of items) n += approxBytes(it.key) + approxBytes(it.value);
-    perCollection[c] = { count: items.length, bytes: n };
+    for (const it of lists[i]) n += approxBytes(it.key) + approxBytes(it.value);
+    perCollection[c] = { count: lists[i].length, bytes: n };
     bytes += n;
-  }
+  });
   let originUsage: number | null = null;
   let originQuota: number | null = null;
   try {
-    const est = await navigator.storage?.estimate?.();
+    // Some browsers never answer (private windows, headless): do not hold the dialog hostage
+    const est = await Promise.race([
+      navigator.storage?.estimate?.(),
+      new Promise<undefined>((r) => setTimeout(() => r(undefined), 1500)),
+    ]);
     originUsage = est?.usage ?? null;
     originQuota = est?.quota ?? null;
   } catch {

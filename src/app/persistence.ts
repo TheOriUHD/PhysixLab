@@ -28,6 +28,12 @@ export class Persistence {
   private writes: Promise<void> = Promise.resolve();
   onError: ((msg: string) => void) | null = null;
   onSaved: (() => void) | null = null;
+  // -- DT-13: further listeners (folder sync) that run after each successful autosave --
+  private saveListeners = new Set<() => void>();
+  addSaveListener(fn: () => void): () => void {
+    this.saveListeners.add(fn);
+    return () => this.saveListeners.delete(fn);
+  }
 
   constructor(private store: SceneStore) {
     store.on('change', () => this.schedule());
@@ -73,6 +79,7 @@ export class Persistence {
     this.write(async (s) => {
       await s.put('meta', 'autosave', json);
       this.onSaved?.();
+      for (const fn of this.saveListeners) fn();
     }, 'Autosave failed — browser storage is full. Free space in Settings → Storage or export the scene to keep it.');
   }
 

@@ -685,6 +685,12 @@ export class Viewport {
     profiler.mark(RENDER); // -- UI-B: frame timing --
     profiler.end(); // -- UI-B: frame timing --
     if (this.thumbRequests.length) this.flushThumbnails();
+    // -- DT-11: one-shot hook right after the frame was drawn (the canvas has no preserved drawing buffer) --
+    const after = this.afterRender;
+    if (after) {
+      this.afterRender = null;
+      after();
+    }
   }
 
   /** A small JPEG data URL of the next rendered frame (cropped to w:h), or null when it cannot be made. */
@@ -776,6 +782,9 @@ export class Viewport {
     const step = visible > 160 ? 10 : visible > 16 ? 1 : visible > 1.6 ? 0.1 : 0.01;
     this.viewGrid.set(this.viewPlane, this.controls.target, visible * 2.2, step);
   }
+
+  /** One-shot callback run right after the next frame is rendered, while the canvas still holds it (screenshots). */
+  afterRender: (() => void) | null = null;
 
   dispose(): void {
     this.viewGrid.dispose();

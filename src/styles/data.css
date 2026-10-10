@@ -1,0 +1,23 @@
+/* Data platform (package DT): banners, restore points, storage dialog */
+.data-banner { position: fixed; top: 54px; left: 50%; transform: translateX(-50%); z-index: 900; display: flex; align-items: center; gap: 10px; max-width: min(760px, calc(100vw - 32px)); padding: 8px 10px 8px 14px; background: var(--panel); border: 1px solid var(--border-2); border-left: 3px solid var(--accent); border-radius: 10px; box-shadow: var(--shadow); color: var(--text); }
+.data-banner.warn { border-left-color: #f5b83d; }
+.data-banner.error { border-left-color: #ff5d73; }
+.data-banner-text { flex: 1; line-height: 1.35; }
+.data-banner-actions { display: inline-flex; gap: 6px; }
+.rp-toolbar { display: flex; gap: 8px; margin-bottom: 10px; }
+.rp-list { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow: auto; padding-right: 4px; }
+.rp-card { display: grid; grid-template-columns: 96px 1fr auto; gap: 12px; align-items: center; padding: 8px; border: 1px solid var(--border-2); border-radius: 10px; background: var(--panel-2); }
+.rp-thumb { width: 96px; height: 60px; object-fit: cover; border-radius: 6px; background: var(--bg-deep); display: flex; align-items: center; justify-content: center; color: var(--text-3); }
+.rp-title { font-weight: 600; }
+.rp-meta, .rp-diff { color: var(--text-2); font-size: 11.5px; }
+.rp-diff { color: var(--text-3); }
+.rp-actions { display: inline-flex; gap: 6px; }
+.rp-settings { margin-top: 14px; }
+.data-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; }
+.data-row input { width: 84px; }
+.data-warning { padding: 8px 10px; border-radius: 8px; background: rgba(245, 184, 61, 0.12); border: 1px solid rgba(245, 184, 61, 0.45); color: var(--text); }
+.quota-label { color: var(--text-2); margin-bottom: 4px; }
+.quota-bar { height: 8px; border-radius: 6px; background: var(--bg-deep); overflow: hidden; border: 1px solid var(--border-2); }
+.quota-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.storage-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border-2); }
+.storage-size { color: var(--text-2); font: 12px var(--mono); }
