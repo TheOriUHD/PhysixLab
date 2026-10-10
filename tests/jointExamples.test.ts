@@ -12,6 +12,8 @@ import { newReport } from '../src/model/errors';
 import { parseDocument, serializeDocument } from '../src/model/serialize';
 import { JT_A_TYPES } from '../src/model/jointParams';
 import { PhysicsWorld } from '../src/physics/world';
+import { Builder } from '../src/model/builder';
+import { defaultDof } from '../src/model/jointParams';
 import type { BodyEntity, JointEntity, SceneDocument } from '../src/model/types';
 
 const G = 9.81;
@@ -96,6 +98,27 @@ describe('gear train (gear, JT-4)', () => {
     expect(wb / wa).toBeCloseTo(-0.4 / 0.8, 1); // reversed, ×1/2
     expect(wc / wb).toBeCloseTo(-0.8 / 1.2, 1); // reversed, ×2/3
     expect(wc / wa).toBeCloseTo(1 / 3, 1); // same direction, ÷3
+  });
+});
+
+describe('gear pair torque / speed trade-off (gear, JT-4)', () => {
+  // Gear A (0.4 m) drives gear B (0.8 m): ωB = −ωA/2, so the torque on B is twice the torque on A. A brake of 10 N·m on B
+  // can therefore be overcome by a motor of more than 5 N·m on A, and by none below.
+  const turns = async (motorTorque: number): Promise<number> => {
+    const doc = { ...newDocument('gear pair'), entities: getPrefab('jt-gear-pair')!.build() };
+    const j = (n: string) => doc.entities.find((e): e is JointEntity => e.kind === 'joint' && e.name === n)!;
+    const a = j('Axle A (motor)');
+    const b = j('Axle B');
+    a.motor = { ...a.motor, mode: 'velocity', targetVelocity: 4, maxForce: motorTorque, damping: 1e4 };
+    b.motor = { ...b.motor, mode: 'velocity', targetVelocity: 0, maxForce: 10, damping: 1e4 };
+    const driver = doc.entities.find((e) => e.kind === 'body' && e.name === 'Gear A (driver)')!;
+    const w = await start(doc);
+    steps(w, 3);
+    return w.getPose(driver.id)!.angvel[2];
+  };
+  it('a 4.5 N·m motor stalls against the 10 N·m brake, a 5.5 N·m motor turns it', async () => {
+    expect(await turns(4.5)).toBeLessThan(0.3);
+    expect(await turns(5.5)).toBeGreaterThan(2.5);
   });
 });
 
@@ -264,6 +287,28 @@ describe('spring-mounted platform (6-DOF, JT-2)', () => {
     const sag = plat.position[1] - w.getPose(plat.id)!.position[1];
     expect(sag / ((20 * G) / k)).toBeGreaterThan(0.95);
     expect(sag / ((20 * G) / k)).toBeLessThan(1.05);
+  });
+});
+
+describe('6-DOF axis motor (JT-2)', () => {
+  it('a velocity motor on a limited axis drives the body to the limit and holds it there', async () => {
+    const b = new Builder('6-DOF motor');
+    const base = b.body('base', 'box', [0.4, 0.4, 0.4], [0, 3, 0], { bodyType: 'static' });
+    const car = b.body('car', 'box', [0.3, 0.3, 0.3], [0, 3, 0], { massOverride: 2 });
+    const j = b.joint('sixdof', base, car, [0, 3, 0], [1, 0, 0]);
+    const dof = defaultDof();
+    dof[0] = { ...dof[0], mode: 'limited', min: -0.3, max: 0.5, motorVelocity: 1, motorForce: 500 };
+    j.params = { ...j.params, dof };
+    const doc = b.done();
+    doc.settings = { ...doc.settings, gravity: [0, 0, 0] };
+    const w = await start(doc);
+    steps(w, 0.25);
+    expect(w.getPose(car.id)!.linvel[0]).toBeGreaterThan(0.8); // the motor's 1 m/s
+    expect(w.getPose(car.id)!.position[0]).toBeLessThan(0.4);
+    steps(w, 2);
+    expect(w.getPose(car.id)!.position[0]).toBeGreaterThan(0.45);
+    expect(w.getPose(car.id)!.position[0]).toBeLessThan(0.5 + 0.05);
+    expect(Math.abs(w.getPose(car.id)!.position[1] - 3)).toBeLessThan(0.01);
   });
 });
 
