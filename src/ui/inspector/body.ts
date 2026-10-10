@@ -23,6 +23,7 @@ import {
 } from '../controls';
 import type { Field } from '../controls';
 import { h } from '../dom';
+import { multiTransformSection, relativeRotation, rotateByRow } from './edTransform';
 import type { InspectorContext } from './shared';
 import { shapeParamRows } from './shapeParams';
 import { shapeQuantityRows } from './shapeQuantities'; // -- SH
@@ -61,10 +62,20 @@ export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLEle
       digits: o.digits,
       ...g,
       onChange: (v) => ctx.edit<BodyEntity>(ids, `Edit ${label}`, (b) => set(b, v)),
+      // -- ED-A snap: with several bodies a relative entry (+0.5, *2) applies to each body's own value --
+      onRelative: multi
+        ? (apply) =>
+            ctx.edit<BodyEntity>(ids, `Edit ${label}`, (b) => {
+              const next = apply(get(b));
+              return Number.isFinite(next) ? set(b, next) : {};
+            })
+        : undefined,
     });
     return row(label, bind(f, get), o.hint);
   };
   const out: HTMLElement[] = [ctx.header(sel)];
+  // -- ED-A snap: several bodies get a centre entry and "Rotate by" (src/ui/inspector/edTransform.ts) --
+  if (multi) out.push(multiTransformSection(ctx, ids));
 
   // ---- transform ----------------------------------------------------------------------------
   if (!multi) {
@@ -88,6 +99,7 @@ export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLEle
       step: 1,
       unit: '°',
       digits: 2,
+      onRelative: relativeRotation(ctx, ids), // -- ED-A snap: "+15" turns the body 15° about that axis --
       ...gr,
       onChange: (v) => {
         const q = qfromEuler([v[0] * DEG, v[1] * DEG, v[2] * DEG]);
@@ -115,6 +127,7 @@ export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLEle
             live ? 'Live pose — editing moves the body in the running simulation only' : undefined,
           ),
           rowStack('Rotation (°)', rot.el),
+          rotateByRow(ctx, ids), // -- ED-A snap --
           ...size,
         ],
         { id: 'transform' },
