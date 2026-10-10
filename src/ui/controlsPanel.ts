@@ -82,7 +82,6 @@ class ControlsView {
     if (s) {
       s.range.value = String(v);
       s.out.textContent = (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2);
-      s.range.style.setProperty('--fill', String(v));
     }
   }
 

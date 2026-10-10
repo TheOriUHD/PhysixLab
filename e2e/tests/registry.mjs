@@ -597,7 +597,8 @@ test('panels: the three regions are generated from the panel registry, follow it
   const tabs = async (sel) => (await page.locator(`${sel} .tab`).allTextContents()).map((t) => t.trim());
   assert((await tabs('.panel.left')).join() === 'Add,Prefabs,Maps,Scenes', `left: ${await tabs('.panel.left')}`);
   assert((await tabs('.panel.right')).join() === 'Inspector,Outliner,World', 'right');
-  assert((await tabs('.dock')).join() === 'Energy,Selection', 'bottom dock');
+  // the foundation's two telemetry tabs come first; packages append their own (CP: Controls)
+  assert((await tabs('.dock')).join().startsWith('Energy,Selection'), `bottom dock: ${await tabs('.dock')}`);
 
   // Tab semantics.
   const aria = await page.evaluate(() => {
