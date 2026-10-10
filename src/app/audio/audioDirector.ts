@@ -98,6 +98,8 @@ export class AudioDirector {
   private clock = 0;
   private loopAcc = 0;
   private airSpeed = 0;
+  /** Magnitude of the scene's gravity, m/s² (read once per loop update). */
+  private gravity = 9.81;
   private demo: Demo | null = null;
 
   private readonly rolling: LoopSet<RollHandle>;
@@ -380,6 +382,8 @@ export class AudioDirector {
   // -- sustained voices -------------------------------------------------------------------------------------------------
 
   private updateLoops(step: number): void {
+    const g = this.app.store.settings.gravity;
+    this.gravity = Math.hypot(g[0], g[1], g[2]);
     this.scanRolling();
     this.scanMotors();
     this.updateAmbience(step);
@@ -426,9 +430,15 @@ export class AudioDirector {
   private rollOf(info: AudioBodyInfo): RollParams {
     const c = this.contact;
     const mass = this.app.sim.client.info.mass[info.id] ?? 0;
-    const g = Math.hypot(...this.app.store.settings.gravity);
     return rollParams(
-      { cls: info.cls, speed: c.speed, slip: c.slip, load: mass * g, size: info.size, rounded: info.rounded },
+      {
+        cls: info.cls,
+        speed: c.speed,
+        slip: c.slip,
+        load: mass * this.gravity,
+        size: info.size,
+        rounded: info.rounded,
+      },
       this.roll,
     );
   }
@@ -552,7 +562,7 @@ export class AudioDirector {
       if (v) target = Math.hypot(v.linear[0], v.linear[1], v.linear[2]);
     }
     this.airSpeed += (target - this.airSpeed) * (1 - Math.exp(-step / 0.35));
-    const density = airDensityForGravity(Math.hypot(...app.store.settings.gravity));
+    const density = airDensityForGravity(this.gravity);
     this.driveAmbience(this.airSpeed, density, engine.now);
   }
 

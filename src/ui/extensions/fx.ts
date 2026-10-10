@@ -11,7 +11,7 @@ registerPanel({
   icon: 'sparkle',
   region: 'right',
   order: 40,
-  title: 'Particles, impact effects, skid marks and explosions: quality and switches',
+  title: 'Particles, impact effects, skid marks, explosions and sound: quality, volumes and switches',
   build: (app, ctx) => buildFxPanel(app, ctx),
 });
 

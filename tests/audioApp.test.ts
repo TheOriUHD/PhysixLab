@@ -4,7 +4,7 @@
  * set, the interface-sound gate, and contact events from the real engine turned into impact voices. The pieces that
  * need an `App` and a browser (the director, the engine's WebAudio graph) are covered by `e2e/tests/audio.mjs`.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { qfromAxisAngle } from '../src/core/math';
 import { audioBodyInfo, characteristicSize, isTrampoline } from '../src/app/audio/bodyAudio';
 import { LoopSet, type HandleLike } from '../src/app/audio/loopSet';
@@ -472,5 +472,63 @@ describe('contacts from the real engine become impact voices (FX-11)', () => {
     const smash = voicesFor(await drop('glass', 0.5, 20))[0];
     expect(smash.spec.shatter).toBe(true);
     expect(voicesFor(await drop('glass', 0.5, 0.3))[0].spec.shatter).toBe(false);
+  });
+});
+
+// -- stored preferences -------------------------------------------------------------------------------------------------------
+
+describe('stored sound preferences (FX-10: settings persisted)', () => {
+  const store = new Map<string, string>();
+  const g = globalThis as unknown as { localStorage?: unknown };
+  afterEach(() => {
+    store.clear();
+    delete g.localStorage;
+  });
+  const install = () => {
+    g.localStorage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+    };
+  };
+
+  it('a first run is audible, with the default volumes and interface sounds on', async () => {
+    install();
+    const { PrefsStore } = await import('../src/app/prefs');
+    const a = new PrefsStore().value.audio;
+    expect(a).toMatchObject({
+      enabled: true,
+      muted: false,
+      spatial: true,
+      doppler: false,
+      pitchWithTimeScale: true,
+      uiSounds: true,
+    });
+    expect(a.volume.ambience).toBeLessThan(a.volume.impacts);
+  });
+
+  it('loads damaged settings as valid ones, keeps what was valid, and persists changes', async () => {
+    install();
+    const { PrefsStore } = await import('../src/app/prefs');
+    store.set(
+      'physicslab:prefs:v1',
+      JSON.stringify({
+        audio: { muted: true, master: 9, volume: { rolling: 0.3, engines: 'x', ghost: 1 }, doppler: 'sure' },
+      }),
+    );
+    const p = new PrefsStore();
+    expect(p.value.audio.muted).toBe(true);
+    expect(p.value.audio.master).toBe(1);
+    expect(p.value.audio.volume.rolling).toBe(0.3);
+    expect(p.value.audio.volume.engines).toBeGreaterThan(0);
+    expect(p.value.audio.doppler).toBe(false);
+    p.set({ audio: { ...p.value.audio, muted: false, master: 0.4 } });
+    const saved = JSON.parse(store.get('physicslab:prefs:v1') as string) as {
+      audio: { master: number; muted: boolean };
+    };
+    expect(saved.audio.master).toBe(0.4);
+    expect(saved.audio.muted).toBe(false);
+    expect(new PrefsStore().value.audio.master).toBe(0.4); // a reload sees it
+    store.set('physicslab:prefs:v1', '{not json');
+    expect(new PrefsStore().value.audio.enabled).toBe(true); // storage garbage: defaults
   });
 });

@@ -205,7 +205,7 @@ test('audio: Sound panel — volumes, switches, mute (Shift+M leaves Measure on 
       { label, pos },
     );
   await setRange('Master volume', 500);
-  await setRange('Rolling & sliding', 250);
+  await setRange('Rolling', 250);
   a = await audio();
   assert(
     Math.abs(a.master - 0.5) < 0.011 && Math.abs(a.volume.rolling - 0.25) < 0.011,

@@ -300,8 +300,12 @@ export class AudioEngine extends Emitter<{ state: EngineState }> {
   }
 
   private onContextState(): void {
-    const s = this.ctx?.state;
-    this.setState(!this.ctx ? 'idle' : s === 'running' ? 'running' : 'suspended');
+    const ctx = this.ctx;
+    this.setState(!ctx ? 'idle' : ctx.state === 'running' ? 'running' : 'suspended');
+    if (!ctx) return;
+    if (ctx.state === 'running') this.disarm?.();
+    // The browser (an interruption, a policy) stopped a context we want: the next gesture resumes it.
+    else if (this.settings.enabled && !this.settings.muted && typeof window !== 'undefined') this.arm();
   }
 
   /** Resume or suspend the context to match what is wanted: audible and visible. */

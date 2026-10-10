@@ -24,6 +24,8 @@ import type { RollParams } from './rolling';
 /** Time constants of the parameter approaches, seconds. */
 const FAST = 0.03;
 const SLOW = 0.08;
+/** Time constant of the level fade-in of a new voice. */
+const FADE_IN = 0.04;
 
 export interface LoopVoice {
   readonly out: GainNode;
@@ -128,13 +130,17 @@ export class RollingVoice extends BaseLoop {
     };
   }
 
-  /** `first`: jump to the parameters instead of approaching them (a voice that has just been given to a body). */
+  /**
+   * `first`: a voice that has just been given to a body jumps to its filter settings and fades its levels in (a step in
+   * the level of a noise is a click).
+   */
   update(p: RollParams, t: number, pitch = 1, first = false): void {
     const tau = first ? 0 : FAST;
+    const gtau = first ? FADE_IN : FAST;
     // Levels are balanced against the impacts: a rolling ball is a background texture, not the loudest thing in the mix.
-    ramp(this.rumble.gain, p.rumbleGain * 0.95, t, tau);
+    ramp(this.rumble.gain, p.rumbleGain * 0.95, t, gtau);
     ramp(this.rumbleLp.frequency, clamp(p.rumbleCutoff * pitch, 40, 8000), t, tau);
-    ramp(this.scrape.gain, p.scrapeGain * 1.6, t, tau);
+    ramp(this.scrape.gain, p.scrapeGain * 1.6, t, gtau);
     ramp(this.scrapeBp.frequency, clamp(p.scrapeFreq * pitch, 100, 12000), t, tau);
     ramp(this.scrapeBp.Q, clamp(p.scrapeQ, 0.3, 12), t, tau);
     ramp(this.rumbleSrc.playbackRate, pitch, t, SLOW);
@@ -244,20 +250,21 @@ export class MotorVoice extends BaseLoop {
 
   update(p: MotorParams, t: number, pitch = 1, first = false): void {
     const tau = first ? 0 : FAST;
+    const gtau = first ? FADE_IN : FAST; // levels fade in on the first update; frequencies jump
     ramp(this.osc1.frequency, clamp(p.f1 * pitch, 5, 6000), t, tau);
     ramp(this.osc2.frequency, clamp(p.f2 * pitch, 5, 9000), t, tau);
-    ramp(this.g1.gain, p.g1, t, tau);
-    ramp(this.g2.gain, p.g2, t, tau);
+    ramp(this.g1.gain, p.g1, t, gtau);
+    ramp(this.g2.gain, p.g2, t, gtau);
     ramp(this.lp.frequency, clamp(p.cutoff * pitch, 60, 12000), t, tau);
     ramp(this.lp.Q, clamp(p.q, 0.3, 14), t, tau);
-    ramp(this.noiseGain.gain, p.noiseGain * 0.9, t, tau);
+    ramp(this.noiseGain.gain, p.noiseGain * 0.9, t, gtau);
     ramp(this.noiseBp.frequency, clamp(p.noiseCutoff * pitch, 60, 12000), t, tau);
     // Blade-pass chop: the gain swings between 1 − depth and 1 (centre 1 − depth/2, swing ±depth/2).
     ramp(this.chop.gain, 1 - p.lfoDepth / 2, t, tau);
     ramp(this.lfoDepth.gain, p.lfoDepth / 2, t, tau);
     ramp(this.lfo.frequency, clamp(p.lfoRate * pitch, 0.1, 400), t, tau);
     ramp(this.noiseSrc.playbackRate, pitch, t, SLOW);
-    ramp(this.out.gain, p.gain * 0.25, t, tau);
+    ramp(this.out.gain, p.gain * 0.25, t, gtau);
   }
 }
 
@@ -302,13 +309,14 @@ export class WindVoice extends BaseLoop {
 
   update(p: WindParams, t: number, first = false): void {
     const tau = first ? 0 : SLOW;
+    const gtau = first ? FADE_IN * 4 : SLOW; // the ambience swells in
     ramp(this.bp.frequency, p.cutoff, t, tau);
     ramp(this.bp.Q, p.q, t, tau);
     ramp(this.lfo.frequency, p.gustRate, t, tau);
     ramp(this.gust.gain, 1 - p.gustDepth / 2, t, tau);
     ramp(this.lfoDepth.gain, p.gustDepth / 2, t, tau);
     // Pink noise through a band-pass is quiet: bring it up to a usable level.
-    ramp(this.out.gain, p.gain * 1.6, t, tau);
+    ramp(this.out.gain, p.gain * 1.6, t, gtau);
   }
 }
 
@@ -347,7 +355,8 @@ export class BedVoice extends BaseLoop {
 
   update(p: BedParams, t: number, first = false): void {
     const tau = first ? 0 : SLOW;
+    const gtau = first ? FADE_IN * 4 : SLOW;
     ramp(this.lp.frequency, p.cutoff, t, tau);
-    ramp(this.out.gain, p.gain * 2, t, tau);
+    ramp(this.out.gain, p.gain * 2, t, gtau);
   }
 }
