@@ -11,6 +11,7 @@ import { shapeGeometry, shapeGeometryKey, shapeVisualScale } from '../model/shap
 import type { BodyEntity, ColliderPart, MaterialSpec, ShapeSpec } from '../model/types';
 import { B, BODY_STRIDE } from '../physics/protocol';
 import { GEOMETRY_KIT } from './geometryKit';
+import { applyShapeSurface } from './shapeSurface';
 
 export type ColorMode = 'material' | 'type' | 'speed' | 'energy' | 'force' | 'sleep';
 
@@ -115,6 +116,7 @@ export class BodyView {
     const { key, geo } = this.cache.acquire(shape);
     const material = new MeshStandardMaterial();
     const mesh = new Mesh(geo, material);
+    applyShapeSurface(material, geo, shape); // -- SH: vertex-coloured tyres, painted dice
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.userData.entityId = this.def.id;
@@ -141,6 +143,7 @@ export class BodyView {
       piece.geoKey = key;
       piece.mesh.geometry = geo;
     }
+    applyShapeSurface(piece.material, piece.mesh.geometry, def.shape); // -- SH: the new shape's surface
     const s = shapeVisualScale(def.shape);
     piece.mesh.scale.set(s[0], s[1], s[2]);
   }

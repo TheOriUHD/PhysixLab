@@ -28,6 +28,7 @@ import type { Field } from '../controls';
 import { h } from '../dom';
 import type { InspectorContext } from './shared';
 import { shapeParamRows } from './shapeParams';
+import { shapeQuantityRows } from './shapeQuantities'; // -- SH
 
 export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLElement[] {
   const { app } = ctx;
@@ -435,6 +436,7 @@ function sizeFields(ctx: InspectorContext, id: string): HTMLElement[] {
     ...compoundRows(get()),
     ...def.sizeFields.map((f) => mk(f.label, f.axis)),
     ...shapeParamRows(ctx, id, def),
+    ...shapeQuantityRows(ctx, id, def), // -- SH: derived numbers (gear module, corner radius, …)
   ];
 }
 
