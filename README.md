@@ -1,6 +1,11 @@
 <div align="center">
 
-<img src="docs/media/banner.svg" alt="PhysixLab — an advanced 3D physics sandbox that runs entirely in your browser" width="100%">
+<img src="docs/media/logo.svg" alt="PhysixLab logo" width="112">
+
+<h1>PhysixLab</h1>
+
+<p><b>Build mechanisms, vehicles and experiments, then watch them obey real physics.<br>
+An advanced 3D physics sandbox that runs entirely in your browser.</b></p>
 
 <br>
 
