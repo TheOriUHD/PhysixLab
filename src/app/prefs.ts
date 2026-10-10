@@ -7,6 +7,7 @@ import type { JointType } from '../model/types';
 import { DEFAULT_FX_SETTINGS, sanitizeFxSettings, type FxSettings } from '../render/fx/settings';
 // ── FX: sound settings live in the preferences too ──
 import { sanitizeAudioSettings, type AudioSettings } from '../audio/settings';
+import { DEFAULT_INPUT, sanitizeInput, type InputSettings } from './input/settings';
 
 /** The interaction mode (`ToolDef.mode`): 'select', 'joint', 'measure', 'blast', 'shoot' … — any registered tool's mode. */
 export type ToolId = string;
@@ -41,6 +42,8 @@ export interface Prefs {
   fx: FxSettings;
   // ── FX: sound — master volume, mute, per-category volumes, spatialisation (src/audio) ──
   audio: AudioSettings;
+  // -- CM-A: key bindings, gamepad, touch and axis settings --
+  input: InputSettings;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -69,6 +72,7 @@ export const DEFAULT_PREFS: Prefs = {
   seenWelcome: false,
   fx: { ...DEFAULT_FX_SETTINGS },
   audio: sanitizeAudioSettings(undefined),
+  input: DEFAULT_INPUT, // -- CM-A --
 };
 
 const KEY = 'physicslab:prefs:v1';
@@ -93,6 +97,7 @@ export class PrefsStore extends Emitter<{ change: (keyof Prefs)[] }> {
         this.value.tool = 'select';
         this.value.fx = sanitizeFxSettings(saved.fx); // ── FX: stored values are validated ──
         this.value.audio = sanitizeAudioSettings(saved.audio); // ── FX ──
+        this.value.input = sanitizeInput(saved.input); // -- CM-A --
       }
     } catch {
       /* storage unavailable */

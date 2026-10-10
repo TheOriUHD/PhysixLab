@@ -26,6 +26,7 @@ export class FrameLoop {
       this.fpsFrames = 0;
     }
 
+    app.input.update(dt); // -- CM-A --
     app.sim.tick();
     const client = app.sim.client;
     const live = client.active && client.frameNo > 0;

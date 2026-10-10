@@ -170,6 +170,7 @@ function sanitizeJoint(raw: any, report?: LoadReport): JointEntity {
       maxForce: Math.max(0, num(m.maxForce, base.motor.maxForce)),
       keyPos: str(m.keyPos, ''),
       keyNeg: str(m.keyNeg, ''),
+      axis: str(m.axis, '').slice(0, 40), // -- CM-A --
       slewRate: Math.max(0, num(m.slewRate, base.motor.slewRate)),
       brake: bool(m.brake, true),
     },

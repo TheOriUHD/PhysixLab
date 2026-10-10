@@ -170,7 +170,9 @@ function configureUnitJoint(s: WorldState, rec: JointRec, initial: boolean): voi
     u.configureMotorModel(RAPIER.MotorModel.ForceBased);
     u.setMotorMaxForce(def.motor.mode === 'off' ? 0 : def.motor.maxForce);
     rec.motorTarget =
-      def.motor.mode === 'position' && !(def.motor.keyPos || def.motor.keyNeg) ? def.motor.targetPosition - off : 0;
+      def.motor.mode === 'position' && !(def.motor.keyPos || def.motor.keyNeg || def.motor.axis)
+        ? def.motor.targetPosition - off
+        : 0;
   }
   driveMotor(s, rec, 0);
 }
@@ -189,8 +191,13 @@ export function driveMotor(s: WorldState, rec: JointRec, dt: number): void {
     }
     return;
   }
-  const hasKeys = !!(m.keyPos || m.keyNeg);
-  const input = hasKeys ? (s.keys.has(m.keyPos) && m.keyPos ? 1 : 0) - (s.keys.has(m.keyNeg) && m.keyNeg ? 1 : 0) : 1;
+  // -- CM-A: an analog axis adds to the key input (clamped to ±1) --
+  const hasKeys = !!(m.keyPos || m.keyNeg || m.axis);
+  let input = 1;
+  if (hasKeys) {
+    input = (s.keys.has(m.keyPos) && m.keyPos ? 1 : 0) - (s.keys.has(m.keyNeg) && m.keyNeg ? 1 : 0);
+    if (m.axis) input = clamp(input + (s.axes[m.axis] ?? 0), -1, 1);
+  }
   if (m.mode === 'velocity') {
     const target = m.targetVelocity * input;
     const gain = hasKeys && input === 0 && !m.brake ? 0 : m.damping;

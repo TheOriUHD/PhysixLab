@@ -49,6 +49,7 @@ import { CameraControl } from './cameraControl';
 import { Editor } from './editor';
 import { FrameLoop } from './frameLoop';
 import { GizmoController } from './gizmoController';
+import { InputHub } from './input/hub'; // -- CM-A --
 import { MeasureTool } from './measureTool';
 import { Persistence } from './persistence';
 import { Placement } from './placement';
@@ -112,6 +113,8 @@ export class App extends Emitter<AppEvents> {
   // -- ZN: zones, races, world bounds (events and state as an API; the volumes drawn in the viewport)
   readonly zones: ZoneBridge;
   readonly zoneViews: ZoneViews;
+  /** -- CM-A: keyboard / gamepad / touch → simulation keys and analog axes -- */
+  readonly input: InputHub;
 
   constructor(readonly shell: Shell) {
     super();
@@ -166,6 +169,7 @@ export class App extends Emitter<AppEvents> {
     this.audio = this.audioDirector.engine;
     this.zones = new ZoneBridge(this); // -- ZN
     this.zoneViews = new ZoneViews(this); // -- ZN
+    this.input = new InputHub(this); // -- CM-A --
 
     shell.stage.appendChild(this.labels.layer);
     this.measureTool = new MeasureTool(this);

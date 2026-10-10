@@ -111,6 +111,7 @@ function motorWheel(): Entity[] {
       maxForce: 1200,
       keyPos: 'KeyE',
       keyNeg: 'KeyQ',
+      axis: 'drive', // -- CM-A --
       slewRate: 1,
       brake: true,
     },
@@ -180,6 +181,7 @@ function piston(): Entity[] {
       maxForce: 80000,
       keyPos: 'ArrowUp',
       keyNeg: 'ArrowDown',
+      axis: 'lift', // -- CM-A --
       slewRate: 1,
       brake: true,
     },

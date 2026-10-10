@@ -161,6 +161,7 @@ export function buildCar(withTrack = true): SceneDocument {
           maxForce: 6000,
           keyPos: 'KeyA',
           keyNeg: 'KeyD',
+          axis: 'steer', // -- CM-A --
           slewRate: 2.4,
           brake: true,
         },
@@ -186,6 +187,7 @@ export function buildCar(withTrack = true): SceneDocument {
             maxForce: 1400,
             keyPos: 'KeyW',
             keyNeg: 'KeyS',
+            axis: 'drive', // -- CM-A --
             slewRate: 1,
             brake: false,
           },
@@ -455,6 +457,7 @@ function pistonPress(): SceneDocument {
       maxForce: 300000,
       keyPos: 'ArrowUp',
       keyNeg: 'ArrowDown',
+      axis: 'lift', // -- CM-A --
       slewRate: 1,
       brake: true,
     },

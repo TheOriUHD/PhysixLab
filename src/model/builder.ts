@@ -93,7 +93,7 @@ export class Builder {
 export const rotY = (deg: number): Quat => qfromAxisAngle([0, 1, 0], deg * DEG);
 export const rotZ = (deg: number): Quat => qfromAxisAngle([0, 0, 1], deg * DEG);
 export const rotX = (deg: number): Quat => qfromAxisAngle([1, 0, 0], deg * DEG);
-export const noKeys = { keyPos: '', keyNeg: '' };
+export const noKeys = { keyPos: '', keyNeg: '', axis: '' };
 export const idleMotor = (): MotorSpec => ({
   mode: 'off',
   targetVelocity: 0,
