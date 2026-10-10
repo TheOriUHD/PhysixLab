@@ -22,6 +22,7 @@ const leaveSimulation = (app: App) => {
 export function registerOnboardingTour(): () => void {
   // Stateful `until` for the palette step: opened, then closed again.
   let paletteSeen = false;
+  let paletteWatch: MutationObserver | null = null;
   const steps: TourStep[] = [
     {
       target: null,
@@ -78,13 +79,20 @@ export function registerOnboardingTour(): () => void {
       target: null,
       title: 'The command palette',
       body: 'Press [[Ctrl+K]] to search every command, setting and example scene. Try typing “gravity”, then close it with [[Esc]].',
+      // Opened and closed again — a quick Ctrl+K, Esc must not slip between two polls, so watch the DOM.
       onEnter: () => {
-        paletteSeen = false;
+        paletteSeen = paletteOpen();
+        paletteWatch?.disconnect();
+        paletteWatch = new MutationObserver(() => {
+          if (paletteOpen()) paletteSeen = true;
+        });
+        paletteWatch.observe(document.body, { childList: true });
       },
-      until: () => {
-        if (paletteOpen()) paletteSeen = true;
-        return paletteSeen && !paletteOpen();
+      onExit: () => {
+        paletteWatch?.disconnect();
+        paletteWatch = null;
       },
+      until: () => paletteSeen && !paletteOpen(),
     },
     {
       target: '.topbar-right .icon-btn[title^="Undo"]',
