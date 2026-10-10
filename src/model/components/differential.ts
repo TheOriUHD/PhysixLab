@@ -6,7 +6,7 @@
  * `src/physics/components/differential.ts`.
  */
 import type { ComponentDef } from '../componentRegistry';
-import { keyField, shaftField } from './powerHelpers';
+import { axisField, keyField, shaftField } from './powerHelpers';
 
 export const differential: ComponentDef = {
   type: 'differential',
@@ -41,6 +41,23 @@ export const differential: ComponentDef = {
       ],
     },
     keyField('lockKey', 'Lock key', '', 'Held = lock the differential (a driver-selectable locker)'),
+    axisField(
+      'lockAxis',
+      'Lock axis',
+      'Analog axis 0 … 1: an adjustable locker. The clutch pack between the wheels carries axis × Lock torque (full lock needs the key or the Locked type)',
+    ),
+    {
+      kind: 'number',
+      key: 'lockTorque',
+      label: 'Lock torque',
+      default: 800,
+      min: 0,
+      max: 100000,
+      step: 10,
+      unit: 'N·m',
+      showIf: (p) => typeof p.lockAxis === 'string' && p.lockAxis !== '',
+      hint: 'Clutch-pack torque at lock axis = 1',
+    },
     {
       kind: 'number',
       key: 'preload',

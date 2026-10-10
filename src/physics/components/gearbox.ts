@@ -20,6 +20,8 @@ interface State {
   down: Edge;
   neutral: Edge;
   reverse: Edge;
+  axisUp: Edge;
+  axisDown: Edge;
   row: Row | null;
   outTorque: number;
   ratioText: string;
@@ -35,6 +37,8 @@ export const gearbox: ComponentRuntime<State> = {
     down: new Edge(),
     neutral: new Edge(),
     reverse: new Edge(),
+    axisUp: new Edge(),
+    axisDown: new Edge(),
     row: null,
     outTorque: 0,
     ratioText: '',
@@ -57,8 +61,13 @@ export const gearbox: ComponentRuntime<State> = {
       return !!code && ctx.input.key(code);
     };
     const before = s.gear;
-    if (s.up.pressed(key('upKey'))) s.gear = Math.min(n, s.gear + 1);
-    if (s.down.pressed(key('downKey'))) s.gear = Math.max(-1, s.gear - 1);
+    // the shift axis acts like two keys: past +0.6 is "up", past −0.6 is "down" (a push counts once)
+    const axisName = ctx.str('shiftAxis');
+    const stick = axisName ? ctx.input.axis(axisName) : 0;
+    const up = s.up.pressed(key('upKey'));
+    const down = s.down.pressed(key('downKey'));
+    if (s.axisUp.pressed(stick > 0.6) || up) s.gear = Math.min(n, s.gear + 1);
+    if (s.axisDown.pressed(stick < -0.6) || down) s.gear = Math.max(-1, s.gear - 1);
     if (s.neutral.pressed(key('neutralKey'))) s.gear = 0;
     if (s.reverse.pressed(key('reverseKey'))) s.gear = -1;
     if (ctx.str('mode') === 'auto' && s.gear >= 1 && s.shifting <= 0) {

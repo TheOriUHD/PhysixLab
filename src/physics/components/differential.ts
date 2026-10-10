@@ -7,6 +7,7 @@
  * the same row with a torque bound (preload plus a share of the carrier torque), so a small speed difference is
  * resisted and a large one slips at the limit.
  */
+import { clamp } from '../../core/math';
 import type { Row } from './drive/network';
 import { UNBOUNDED } from './drive/network';
 import { toRpm } from './powered/common';
@@ -41,8 +42,14 @@ export const differential: ComponentRuntime<State> = {
     const mode = ctx.str('mode');
     s.locked = mode === 'locked' || (!!key && ctx.input.key(key));
     if (s.locked) s.coupling = ctx.drive.row(0, -UNBOUNDED, UNBOUNDED).add(left, 1).add(right, -1);
-    else if (mode === 'lsd')
-      s.coupling = ctx.drive.couple(left, right, ctx.num('preload') + ctx.num('bias') * Math.abs(s.prevTorque) * fd);
+    else {
+      // a limited-slip pack (preload plus a share of the carrier torque) and/or an adjustable locker on the axis
+      const axis = ctx.str('lockAxis');
+      const dial = axis ? clamp(ctx.input.axis(axis), 0, 1) * ctx.num('lockTorque') : 0;
+      const slip = mode === 'lsd' ? ctx.num('preload') + ctx.num('bias') * Math.abs(s.prevTorque) * fd : 0;
+      const pack = Math.max(slip, dial);
+      if (pack > 0) s.coupling = ctx.drive.couple(left, right, pack);
+    }
   },
   poststep(s, _dt, ctx) {
     const left = ctx.drive.shaft(ctx.str('left'));

@@ -18,7 +18,16 @@
 import { Color, Vector3 } from 'three';
 import { Emitter } from '../core/events';
 import type { Vec3 } from '../core/math';
-import type { BodyEntity, Entity, JointType, LightType, SceneDocument, ShapeType, SoftType } from '../model/types';
+import type {
+  BodyEntity,
+  Entity,
+  JointEntity,
+  JointType,
+  LightType,
+  SceneDocument,
+  ShapeType,
+  SoftType,
+} from '../model/types';
 import { isBody } from '../model/types';
 import { componentDef } from '../model/componentRegistry';
 import { SceneStore } from '../model/store';
@@ -101,9 +110,17 @@ export class App extends Emitter<AppEvents> {
     this.overlays = new Overlays(this.viewport.overlays);
     this.effects = new Effects(this.viewport.helpers);
     // -- CP: the powered parts' flames, blades and gauges read the document, the live poses and the published numbers
+    // (only the owners that carry components are looked at; the lists are rebuilt after any change of the document)
+    let fxOwners: { bodies: BodyEntity[]; joints: JointEntity[] } | null = null;
+    this.store.on('change', () => (fxOwners = null));
+    const owners = () =>
+      (fxOwners ??= {
+        bodies: this.store.bodies().filter((b) => b.components.length > 0),
+        joints: this.store.joints().filter((j) => j.components.length > 0),
+      });
     this.componentFx = new ComponentFx(this.viewport.helpers, {
-      bodies: () => this.store.bodies(),
-      joints: () => this.store.joints(),
+      bodies: () => owners().bodies,
+      joints: () => owners().joints,
       pose: (id) => this.sim.poseOf(id),
       values: (id) => (this.sim.client.active ? this.sim.client.stateOf(id) : null),
       live: () => this.sim.client.active && this.sim.client.frameNo > 0,

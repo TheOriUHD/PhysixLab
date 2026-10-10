@@ -51,6 +51,8 @@ test('powered: the Controls panel lists the keys and axes of a rocket and its sl
   // before Play the controls are disabled and say why
   assert(await page.locator('.ctl-slider').first().isDisabled(), 'the slider waits for Play');
   assert(/Press Play/.test((await page.locator('.ctl-hint').textContent()) ?? ''), 'the hint says Press Play');
+  // while editing, the selected rocket shows a faint flame preview (one drawn thing)
+  await page.waitForFunction(() => window.physicslab.componentFx.count === 1, null, { timeout: 10000 });
   await shot(page, 'powered-01-controls-idle');
 
   await play(page);

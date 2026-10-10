@@ -200,6 +200,28 @@ describe('gearbox', () => {
     expect(wheelSpeed(w, wheel.id)).toBeLessThan(coast); // reversed engine torque slows it, then reverses it
   });
 
+  it('an analog shift axis shifts once per push: past +0.6 up, past −0.6 down, and holding it does not repeat', async () => {
+    const { gb, frame, wheel, j } = build({ gear: 1, upKey: '', downKey: '', shiftAxis: 'shift' });
+    const w = await worldOf([frame, wheel, j], NO_G);
+    const gear = () => stateOf(w, gb.id)[0];
+    run(w, 0.1);
+    expect(gear()).toBe(1);
+    w.setAxes({ shift: 0.5 }); // not far enough
+    run(w, 0.1);
+    expect(gear()).toBe(1);
+    w.setAxes({ shift: 1 });
+    run(w, 0.5); // held: one shift only
+    expect(gear()).toBe(2);
+    w.setAxes({ shift: 0 });
+    run(w, 0.1);
+    w.setAxes({ shift: 1 });
+    run(w, 0.1);
+    expect(gear()).toBe(3);
+    w.setAxes({ shift: -1 });
+    run(w, 0.5);
+    expect(gear()).toBe(2);
+  });
+
   it('an automatic gearbox upshifts as the engine speed passes its threshold and downshifts below the other', async () => {
     const { gb, frame, wheel, j } = build({ mode: 'auto', gear: 1, upRpm: 1200, downRpm: 400, ratios: '3, 2, 1.2' });
     const w = await worldOf([frame, wheel, j], NO_G);
@@ -299,6 +321,19 @@ describe('differential', () => {
     w.setKeys(['KeyL']);
     run(w, 0.2);
     expect(Math.abs(wheelSpeed(w, b.L.wheel.id) - wheelSpeed(w, b.R.wheel.id))).toBeLessThan(0.01);
+  });
+
+  it('the lock axis is an adjustable locker: the clutch pack carries axis × lock torque (half the axis, half the pull)', async () => {
+    const closing = async (axis: number) => {
+      const b = build('open', [6, 6], { lockAxis: 'lock', lockTorque: 8 }, [10, 0]);
+      const w = await world(b);
+      w.setAxes({ lock: axis });
+      run(w, 0.5);
+      return wheelSpeed(w, b.L.wheel.id) - wheelSpeed(w, b.R.wheel.id);
+    };
+    expect(await closing(0)).toBeCloseTo(10, 2); // open
+    expect(await closing(0.5)).toBeCloseTo(10 - (2 * 4 * 0.5) / 1.02, 0); // 4 N·m on two 1.02 kg·m² wheels
+    expect(await closing(1)).toBeCloseTo(10 - (2 * 8 * 0.5) / 1.02, 0); // 8 N·m: twice the pull
   });
 
   it('limited slip: resists a speed difference with its clutch-pack torque, so it closes at T / I_reduced', async () => {

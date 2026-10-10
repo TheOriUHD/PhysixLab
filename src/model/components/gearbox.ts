@@ -4,7 +4,7 @@
  * itself by engine speed. Runtime: `src/physics/components/gearbox.ts`.
  */
 import type { ComponentDef } from '../componentRegistry';
-import { keyField, shaftField } from './powerHelpers';
+import { axisField, keyField, shaftField } from './powerHelpers';
 
 /** The gear ratios of a ratio list as typed ("3.6, 2.2 1.4"): positive numbers, at most `MAX_GEARS`. */
 export const MAX_GEARS = 10;
@@ -63,6 +63,11 @@ export const gearbox: ComponentDef = {
     keyField('downKey', 'Shift down key', 'KeyQ'),
     keyField('neutralKey', 'Neutral key', '', 'Jumps to neutral'),
     keyField('reverseKey', 'Reverse key', '', 'Jumps to reverse'),
+    axisField(
+      'shiftAxis',
+      'Shift axis',
+      'Analog axis −1 … 1 (a stick or a paddle): pushing it past +0.6 shifts up, past −0.6 shifts down, once per push',
+    ),
     {
       kind: 'number',
       key: 'shiftTime',

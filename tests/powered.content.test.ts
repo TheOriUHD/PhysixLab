@@ -212,7 +212,7 @@ describe('rocket launch', () => {
     // m₀ = 38.5 kg including the nose cone (a separate body, joined to the rocket); m is what the sim reports
     const total = mass + 1.5;
     const expected = 432 * Math.log(38.5 / total) - 9.81 * 6;
-    expect(Math.abs(w.getPose(rocket.id)!.linvel[1] - expected)).toBeLessThan(1); // ≈ 110 m/s, to within 1 %
+    expect(Math.abs(w.getPose(rocket.id)!.linvel[1] - expected)).toBeLessThan(0.5); // ≈ 106 m/s, to within 0.5 m/s
     run(w, 7);
     const burnout = w.getPose(rocket.id)!.linvel[1];
     expect(gauge(w, compOf(rocket, 'thruster').id)[0]).toBe(0);
@@ -220,7 +220,7 @@ describe('rocket launch', () => {
     expect(gauge(w, compOf(rocket, 'thruster').id)[3]).toBeCloseTo(12, 2); // only the dry mass is left
     // after burnout the climb is v_e·ln(38.5/13.5) − g·(time), the burn having ended a spool-up (0.15 s) late
     const flightTime = 13;
-    expect(Math.abs(burnout - (432 * Math.log(38.5 / 13.5) - 9.81 * flightTime))).toBeLessThan(2);
+    expect(Math.abs(burnout - (432 * Math.log(38.5 / 13.5) - 9.81 * flightTime))).toBeLessThan(0.5); // ≈ 325 m/s
   });
 
   it('the throttle axis scales the thrust', async () => {
