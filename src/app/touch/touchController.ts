@@ -22,6 +22,7 @@ import { effectiveModes } from '../edit/snapScene';
 import {
   FingerSet,
   LongPress,
+  angleStep,
   classifyTwoFinger,
   orthoPixel,
   panShift,
@@ -29,10 +30,11 @@ import {
   pinchDistance,
   pinchZoom,
   snapMove,
+  twoFingerAngle,
   type TwoFingerKind,
 } from './gestures';
 
-type Mode = 'idle' | 'one' | 'two-camera' | 'two-move' | 'pan';
+type Mode = 'idle' | 'one' | 'two-camera' | 'two-move' | 'pan' | 'grab-pinch';
 
 const tmpR = new Vector3();
 const tmpU = new Vector3();
@@ -58,6 +60,8 @@ export class TouchGestures {
   private readonly centroidEvent = { clientX: 0, clientY: 0, ctrlKey: false, metaKey: false, shiftKey: false };
   private spread0 = 0;
   private prevSpread = 0;
+  /** -- NAV: angle of the two fingers last frame, for the twist that turns the view -- */
+  private prevAngle: number | null = null;
   private kind: TwoFingerKind = 'undecided';
   private move: {
     ids: string[];
@@ -187,7 +191,12 @@ export class TouchGestures {
       this.c0.y = this.prev.y;
       this.spread0 = this.prevSpread;
       this.kind = 'undecided';
-      if (this.canMoveSelection() && this.beginMove()) {
+      this.prevAngle = twoFingerAngle(this.fingers);
+      if (this.input.holding) {
+        // -- NAV: a body is held: the second finger pinches its depth, the camera stays out of it --
+        this.mode = 'grab-pinch';
+        this.app.viewport.controls.touches.TWO = null;
+      } else if (this.canMoveSelection() && this.beginMove()) {
         this.mode = 'two-move';
         this.app.viewport.controls.touches.TWO = null; // OrbitControls stays out of it
       } else {
@@ -207,6 +216,21 @@ export class TouchGestures {
       return;
     }
     if (!this.fingers.move(e.pointerId, e.clientX, e.clientY)) return;
+    if (this.mode === 'grab-pinch') {
+      const sp = this.fingers.spread();
+      if (this.prevSpread > 0 && sp > 0) this.input.grabPinch(sp / this.prevSpread);
+      this.prevSpread = sp;
+      return;
+    }
+    // -- NAV: twisting two fingers turns the view (the orbit controls do the pinch and the drag) --
+    if (this.mode === 'two-camera' && this.fingers.count === 2 && this.cfg.twoFingerDrag !== 'orbit') {
+      const a = twoFingerAngle(this.fingers);
+      if (a !== null && this.prevAngle !== null && this.app.input.settings.nav.touchTwist) {
+        const d = angleStep(this.prevAngle, a);
+        if (Math.abs(d) < 1) this.app.nav.twist(d);
+      }
+      this.prevAngle = a;
+    }
     if (!this.press.move(e.pointerId, e.clientX, e.clientY)) window.clearTimeout(this.pressTimer);
     // Fingers report one after the other: judge the hand once per frame, when all of them have moved.
     if ((this.mode === 'pan' || this.mode === 'two-move') && !this.evalFrame) {

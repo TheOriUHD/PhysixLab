@@ -94,6 +94,18 @@ export class CameraRig extends Emitter<RigEvents> {
   readonly minimap: Minimap;
   /** An externally supplied pose (cinematic playback, bookmarks played back) overrides the mode while set. */
   override: ((dt: number, out: Pose) => boolean) | null = null;
+  // ── NAV: drive / play mode hooks ──
+  /** Which drag looks around in a driven mode: the secondary button only, or the primary button and touch too. */
+  dragLook: 'secondary' | 'any' = 'secondary';
+  /** After a look-around drag the view eases back behind the subject (the immersive modes do it each frame). */
+  lookReturn = false;
+  /** Look behind whatever is held (drive mode's own key). */
+  lookBack = false;
+  /** Is a look-around drag in progress? */
+  get isLooking(): boolean {
+    return this.looking;
+  }
+  // ── /NAV ──
 
   constructor(readonly app: App) {
     super();
@@ -376,7 +388,10 @@ export class CameraRig extends Emitter<RigEvents> {
   // ---- input ---------------------------------------------------------------------------------
 
   private onPointerDown(e: PointerEvent): void {
-    if (!this.driven || e.button !== 2) return;
+    if (!this.driven) return;
+    // -- NAV: in drive mode the primary button / a finger looks around too (picking is off there) --
+    const primary = this.dragLook === 'any' && e.isPrimary && (e.button === 0 || e.pointerType === 'touch');
+    if (e.button !== 2 && !primary) return;
     this.looking = true;
     this.lastPointer = [e.clientX, e.clientY];
     this.app.viewport.dom.setPointerCapture(e.pointerId);
@@ -609,7 +624,7 @@ export class CameraRig extends Emitter<RigEvents> {
       s,
       this.settings.forwardAxis,
       { distance: this.settings.chaseDistance, height: this.settings.chaseHeight },
-      this.app.input.held('camera.chase.lookBehind'),
+      this.app.input.held('camera.chase.lookBehind') || this.lookBack,
       this.settings.fov,
       dt,
       out,

@@ -48,7 +48,7 @@ export const DEFAULT_TOUCH: TouchSettings = {
   opacity: 0.7,
   sticks: 'both',
   buttons: ['LT', 'RT', 'South', 'East'],
-  twoFingerDrag: 'orbit',
+  twoFingerDrag: 'pan', // -- NAV: one finger orbits on empty space, so two fingers pan (and pinch, and twist)
   longPressMs: 500,
   moveWithTwoFingers: false,
 };

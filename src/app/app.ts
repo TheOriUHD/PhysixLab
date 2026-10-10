@@ -51,6 +51,10 @@ import { FrameLoop } from './frameLoop';
 import { GizmoController } from './gizmoController';
 import { InputHub } from './input/hub'; // -- CM-A --
 import { CameraRig } from './camera/rig'; // -- CM-A --
+// -- NAV: navigation controller, input contexts, drive / play mode --
+import { NavController } from './input/navController';
+import { InputContexts } from './input/contextManager';
+import { ImmersiveMode } from './drive/immersive';
 import { MeasureTool } from './measureTool';
 import { Persistence } from './persistence';
 import { Placement } from './placement';
@@ -122,6 +126,10 @@ export class App extends Emitter<AppEvents> {
   readonly input: InputHub;
   /** -- CM-A: camera modes, projection, bookmarks, shake -- */
   readonly cameraRig: CameraRig;
+  // -- NAV: camera navigation (wheel, trackpad, gestures, keys), the input contexts, drive / play mode --
+  readonly nav: NavController;
+  readonly contexts: InputContexts;
+  readonly immersive: ImmersiveMode;
 
   constructor(readonly shell: Shell) {
     super();
@@ -179,6 +187,9 @@ export class App extends Emitter<AppEvents> {
     this.zoneViews = new ZoneViews(this); // -- ZN
     this.input = new InputHub(this); // -- CM-A --
     this.cameraRig = new CameraRig(this); // -- CM-A --
+    this.nav = new NavController(this); // -- NAV --
+    this.immersive = new ImmersiveMode(this); // -- NAV --
+    this.contexts = new InputContexts(this); // -- NAV --
 
     shell.stage.appendChild(this.labels.layer);
     this.measureTool = new MeasureTool(this);

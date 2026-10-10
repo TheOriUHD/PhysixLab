@@ -32,6 +32,7 @@ export interface TouchOverlay {
 export function mountTouchOverlay(app: App): TouchOverlay {
   const hub = app.input;
   const root = h('div', { class: 'tc-overlay', role: 'group', hidden: true, 'aria-label': 'Touch controls' });
+  root.setAttribute('data-immersive', ''); // -- NAV: stays visible in drive / play mode --
   app.shell.stage.appendChild(root);
   /** Pointers currently holding a control. */
   const held = new Set<number>();

@@ -26,6 +26,7 @@ import './styles/data.css'; // -- DT --
 import './styles/capture.css'; // -- DT-2 --
 import './styles/embed.css'; // -- DT-22 --
 import './styles/qol.css';
+import './styles/nav.css'; // -- NAV: controls legend, context pill, drive HUD, immersive modes --
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { initDataPlatform } from './app/data/platform'; // -- DT
@@ -60,6 +61,7 @@ import { installTour } from './ui/tour';
 import { initPwa } from './pwa'; // -- DT-40 --
 import { mountTouch } from './ui/touch'; // -- CM-A touch --
 import { installQol } from './ui/qol/install';
+import { mountNavUi } from './ui/input/navUi'; // -- NAV --
 
 installDiagnostics(); // -- UI-B: error boundary --
 import { readEmbedOptions } from './app/embed/options'; // -- DT-22 --
@@ -134,7 +136,9 @@ async function boot(): Promise<void> {
     /* camera moved */
   });
 
+  mountNavUi(app, shell.stage); // -- NAV: controls legend + context pill, drive HUD --
   input.onContextMenu = (ev) => {
+    if (app.immersive.active) return; // -- NAV: no editor menus in drive / play mode --
     const hit = app.pickEntity(ev);
     if (hit && !app.store.selection.includes(hit.entityId)) app.store.setSelection([hit.entityId]);
     // -- ED-B: remember where the user clicked; right-clicking nothing clears the selection --

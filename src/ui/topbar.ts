@@ -88,6 +88,29 @@ export function buildTopbar(app: App): HTMLElement {
   );
   const clock = h('div', { class: 'sim-clock', title: 'Simulated time' }, '0.00 s');
   const run = (id: string) => runCommand(id, app, 'button');
+  // -- NAV: Drive (immersive vehicle mode) and Play (be in the scene) next to Simulate --
+  const driveBtn = h(
+    'button',
+    {
+      class: 'tbtn drive',
+      type: 'button',
+      title: withShortcut('Drive the selected vehicle — a chase camera and only the vehicle’s controls', 'drive.toggle'),
+    },
+    icon('car'),
+    h('span', null, 'Drive'),
+  );
+  const playModeBtn = h(
+    'button',
+    {
+      class: 'tbtn play-mode',
+      type: 'button',
+      title: withShortcut('Play mode — fly through the running scene and grab things, no editor', 'play.toggle'),
+      'aria-label': 'Play mode',
+    },
+    icon('eye'),
+  );
+  driveBtn.addEventListener('click', () => run('drive.toggle'));
+  playModeBtn.addEventListener('click', () => run('play.toggle'));
   playBtn.addEventListener('click', () => run('sim.toggle'));
   stepBtn.addEventListener('click', () => run('sim.step'));
   resetBtn.addEventListener('click', () => run('sim.reset'));
@@ -130,6 +153,8 @@ export function buildTopbar(app: App): HTMLElement {
     'div',
     { class: 'transport' },
     playBtn,
+    driveBtn,
+    playModeBtn,
     stepBtn,
     resetBtn,
     h('div', { class: 'timescale' }, ts.el),
