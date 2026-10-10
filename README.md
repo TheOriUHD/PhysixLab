@@ -9,7 +9,7 @@ An advanced 3D physics sandbox that runs entirely in your browser.</b></p>
 
 <br>
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-5eead4?style=flat-square&labelColor=0b0e14)](LICENSE)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-5eead4?style=flat-square&labelColor=0b0e14)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square&logo=typescript&logoColor=white&labelColor=0b0e14)](tsconfig.json)
 [![three.js](https://img.shields.io/badge/three.js-r186-ffffff?style=flat-square&logo=threedotjs&logoColor=white&labelColor=0b0e14)](https://threejs.org)
 [![Rapier](https://img.shields.io/badge/Rapier-WebAssembly-dea584?style=flat-square&logo=webassembly&logoColor=white&labelColor=0b0e14)](https://rapier.rs)
@@ -302,11 +302,15 @@ PhysixLab is under active development. Done and shipping today: everything liste
 
 ## 🤝 Contributing
 
-Issues and pull requests are welcome. Start with [docs/EXTENDING.md](docs/EXTENDING.md) — most contributions are *one new file plus one registration line* — and run `npm run typecheck && npm run lint && npm test` before opening a PR. Please keep changes honest: a feature is either genuinely implemented and tested, or it isn't in the UI.
+Issues and pull requests are welcome. Start with [docs/EXTENDING.md](docs/EXTENDING.md) — most contributions are *one new file plus one registration line* — and run `npm run typecheck && npm run lint && npm test` before opening a PR. Please keep changes honest: a feature is either genuinely implemented and tested, or it isn't in the UI. By contributing you agree that your contribution is licensed under the same terms as the project.
 
 ## 📄 License
 
-[MIT](LICENSE) © 2026 TheOriUHD
+PhysixLab is **source-available** under the [PolyForm Noncommercial License 1.0.0](LICENSE): free to read, run, modify and share for any **non-commercial** purpose — personal projects, learning, teaching, research and hobby use. Every copy or fork must keep the [license](LICENSE) and its `Required Notice` attribution line.
+
+**Commercial use** — selling it, hosting it as a paid or ad-supported service, shipping it inside a commercial product — needs a separate licence. Get in touch via [@TheOriUHD](https://github.com/TheOriUHD).
+
+© 2026 TheOriUHD
 
 ## 🙏 Built with
 
