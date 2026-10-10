@@ -699,7 +699,30 @@ fails with the type's name instead of being drawn as a ball joint or dropped whe
 
 A type whose two ends are *independent* points, like `spring` and `rope` (every other type derives end B from end A so
 the joint never starts violated), is also named in two places no test enumerates: `rigid` in `addJoint`
-(`src/physics/world/joints.ts`) and the gizmo's choice of which end it moves (`src/app/gizmoController.ts`).
+(`src/physics/world/joints.ts`) and the gizmo's choice of which end it moves (`src/app/gizmoController.ts`). Both ask
+`hasIndependentAnchors(type)` from `src/model/jointParams.ts` instead of listing types, so a new independent-anchor type
+is added to `INDEPENDENT_ANCHOR_TYPES` there (and to `COUPLING_TYPES` when it joins two mechanisms that each have their
+own support, to `AXIS_TYPES` / `AXIS_B_TYPES` when it reads `axis` / `params.axisB`).
+
+**Type-specific settings live in `JointEntity.params`** (`src/model/jointParams.ts`: the `JointParams` interface, its
+defaults and `sanitizeParams`), not in new top-level fields: cone-twist limits, the six `dof` rows of a 6-DOF joint,
+ratio / radii / `axisB` / slip torque of gears and belts, the two pulley points, the screw pitch, the winch load rating,
+the soft-weld stiffnesses. Add the field there with a default and a clamp in the sanitiser; a file written before the
+field existed loads with the default (`tests/jointParamsSanitize.test.ts` fuzzes the sanitiser, and loads a joint with
+no `params` at all).
+
+**Types the engine has no joint for** (pulley, rack, gear, belt, winch, soft weld, and the limits / springs / motors of
+cone-twist and 6-DOF) are solved in `src/physics/world/couplings.ts`: `addJoint` gives them an inert engine rope that
+only carries the collide flag (or a generic joint holding the positions they do not touch), and `stepCouplings` adds
+velocity-level rows (`λ = −(Ċ + bias)/(K + γ)`) as impulses on the two bodies before each engine step. A row sees only
+its two bodies and this step's gravity, so the approximations in `docs/LIMITATIONS.md` ("Joint types without an engine
+joint") apply to any new coupling. Coupling joints connect bodies that *each already have their own support* (a hinge
+or slider to the world): give both ends `anchorA` / `anchorB` and `axis` / `params.axisB` explicitly.
+
+**Tests and examples for a joint type**: the analytic physics goes in `tests/jointCouplings.test.ts` (Atwood
+acceleration, gear ratio, rack travel, screw lead, winch rating, cone / 6-DOF limits, soft-weld sag), the example scene
+in a content file (`src/model/content/joints-mechanisms.ts` has one per JT-A type) with
+`tests/jointExamples.test.ts` running each scene headless and checking its outcome plus a save → load round trip.
 
 ```diff
 -export type JointType = 'fixed' | 'hinge' | 'slider' | 'ball' | 'spring' | 'rope';

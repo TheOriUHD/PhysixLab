@@ -4,6 +4,7 @@
  */
 import { Quaternion, Vector3 } from 'three';
 import type { Vec3 } from '../core/math';
+import { hasIndependentAnchors } from '../model/jointParams';
 import type { JointEntity } from '../model/types';
 import { Gizmo, type GizmoItem, type GizmoUpdate } from '../render/gizmo';
 import type { App } from './app';
@@ -11,6 +12,7 @@ import type { PathPointRef } from './appTypes';
 import { ComHandle } from './comHandle'; // -- JT-B
 // -- ED-A hierarchy: scale gizmo on groups --
 import { endScaleGroupDrag } from './edit/groupOps';
+import { jointWorldFrame } from './jointHandles';
 
 export class GizmoController {
   readonly gizmo: Gizmo;
@@ -73,9 +75,9 @@ export class GizmoController {
     if (comItem) return [comItem];
     if (sel.length === 1 && app.store.joint(sel[0])) {
       const j = app.store.joint(sel[0])!;
-      const f = app.joints.frameOf(j, { a: new Vector3(), b: new Vector3(), axis: new Vector3() });
+      const f = jointWorldFrame(app, j, { a: new Vector3(), b: new Vector3(), axis: new Vector3() });
       if (f) {
-        const pos = this.jointEnd === 'B' && (j.type === 'spring' || j.type === 'rope') ? f.b : f.a;
+        const pos = this.jointEnd === 'B' && hasIndependentAnchors(j.type) ? f.b : f.a;
         const q = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), f.axis);
         items.push({ id: j.id, position: pos.clone(), quaternion: q, size: new Vector3(1, 1, 1) });
       }
@@ -232,11 +234,11 @@ export class GizmoController {
   /** Joint edits are structural, so they apply to both the document and a live world. */
   private moveJoint(j: JointEntity, u: GizmoUpdate): void {
     const { app } = this;
-    const frame = app.joints.frameOf(j, { a: new Vector3(), b: new Vector3(), axis: new Vector3() });
+    const frame = jointWorldFrame(app, j, { a: new Vector3(), b: new Vector3(), axis: new Vector3() });
     if (!frame) return;
     const world = new Vector3(...u.position);
     if (this.gizmo.mode === 'translate') {
-      const end = this.jointEnd === 'B' && (j.type === 'spring' || j.type === 'rope') ? 'B' : 'A';
+      const end = this.jointEnd === 'B' && hasIndependentAnchors(j.type) ? 'B' : 'A';
       const body = end === 'A' ? j.bodyA : j.bodyB;
       let local: Vec3 = [world.x, world.y, world.z];
       if (body) {

@@ -14,6 +14,7 @@ import { groupInspector, lightInspector, membershipRow, pathInspector } from './
 import { bodyInspector } from './body';
 import { componentsSection } from './components';
 import { jointInspector } from './joint';
+import { jointSelectionInspector } from './jointTypes';
 import type { InspectorContext } from './shared';
 import { softInspector } from './soft';
 
@@ -82,6 +83,13 @@ export const BUILTIN_INSPECTOR_SECTIONS: readonly InspectorSectionDef[] = [
     order: 100,
     appliesTo: (sel) => sel.length === 1 && isJoint(sel[0]),
     build: (ctx, sel) => (isJoint(sel[0]) ? jointInspector(ctx, sel[0]) : []),
+  },
+  {
+    // -- JT-A: several joints: copy settings, mirror
+    id: 'joints',
+    order: 100,
+    appliesTo: (sel) => sel.length > 1 && sel.every(isJoint),
+    build: (ctx, sel) => jointSelectionInspector(ctx, sel.filter(isJoint)),
   },
   {
     // Bodies and soft bodies can be put into a group.

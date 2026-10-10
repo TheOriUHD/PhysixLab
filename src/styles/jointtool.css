@@ -1,0 +1,22 @@
+/* JT-21: joint tool options bar + JT-20 handle cursor */
+.joint-options { top: 58px; left: 0; right: 0; margin: 0 auto; width: max-content; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; padding: 6px 10px; max-width: calc(100% - 150px); }
+.joint-options.hidden { display: none; }
+.joint-options .jo-group { display: flex; align-items: center; gap: 5px; }
+.joint-options .jo-group.hidden { display: none; }
+.joint-options .jo-group.disabled { opacity: 0.4; }
+.joint-options .jo-label { color: var(--text-3); font: 600 10px var(--font); letter-spacing: 0.08em; text-transform: uppercase; }
+.joint-options .jo-select { height: 26px; max-width: 150px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 0 6px; font-size: 12px; outline: none; }
+.joint-options .jo-select:hover { border-color: var(--border-2); }
+.joint-options .jo-select:focus-visible, .joint-options .jo-btn:focus-visible, .joint-options .jo-seg:focus-visible { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-bg); outline: none; }
+.joint-options .jo-segs { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 2px; gap: 2px; }
+.joint-options .jo-seg { background: none; border: 0; color: var(--text-2); padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+.joint-options .jo-seg:hover:not(:disabled) { color: var(--text); background: var(--hover); }
+.joint-options .jo-seg.on { background: var(--raised); color: var(--accent); box-shadow: 0 0 0 1px var(--border-2) inset; }
+.joint-options .jo-seg:disabled { cursor: default; }
+.joint-options .jo-btn { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: var(--radius-s); border: 1px solid var(--border-2); background: var(--raised); color: var(--text-2); font-size: 12px; }
+.joint-options .jo-btn .icon { width: 14px; height: 14px; }
+.joint-options .jo-btn:hover:not(:disabled) { color: var(--text); background: var(--hover); }
+.joint-options .jo-btn.on { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-line); }
+.joint-options .jo-btn.primary { background: var(--accent); border-color: var(--accent); color: #031a21; font-weight: 600; }
+.joint-options .jo-btn:disabled { opacity: 0.4; cursor: default; }
+.viewport-canvas.joint-handle-hover { cursor: grab; }

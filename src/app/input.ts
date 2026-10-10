@@ -9,6 +9,8 @@ import { vadd, type Vec3 } from '../core/math';
 import { topLevel } from '../model/groups';
 import { isGroup, isLight, isPosed } from '../model/types';
 import type { App } from './app';
+import { JointHandles } from './jointHandles';
+import { jointToolOf } from './jointTool';
 import { runCommand } from './registry/commands';
 import { keymap, shouldPreventDefault } from './registry/keymap';
 import { toolForMode } from './registry/tools';
@@ -42,8 +44,11 @@ export class InputController {
   private g: Gesture = { kind: 'none' };
   private marquee: HTMLElement;
   private pointer = { x: 0, y: 0, inside: false };
+  // ── JT-20/21: draggable handles of the selected joint, and the joint tool (anchor snapping, chain) ──
+  readonly jointHandles: JointHandles;
 
   constructor(private app: App) {
+    this.jointHandles = new JointHandles(app);
     const dom = app.viewport.dom;
     this.marquee = document.createElement('div');
     this.marquee.className = 'marquee';
@@ -56,6 +61,7 @@ export class InputController {
     dom.addEventListener('pointerleave', () => {
       this.pointer.inside = false;
       this.setHover(null);
+      jointToolOf(app).hideMarker();
     });
     dom.addEventListener('dblclick', (e) => this.onDouble(e));
     // -- ED-B: scroll depth and held-body keys; capture phase so the camera and the tool shortcuts never see them --
@@ -89,7 +95,8 @@ export class InputController {
   private updateHover(e: PointerEvent): void {
     if (this.g.kind !== 'none' || this.app.gizmo.isDragging) return;
     const tool = this.app.prefs.value.tool;
-    if (tool !== 'select' && tool !== 'joint') {
+    if (tool === 'joint') return; // the joint tool sets its own hover (jointTool.hover)
+    if (tool !== 'select') {
       this.setHover(null);
       return;
     }
@@ -216,50 +223,9 @@ export class InputController {
     };
   }
 
-  /** Pointer press of the tool of the same name (called through the tool registry). */
+  /** Pointer press of the tool of the same name (called through the tool registry). Placement lives in `jointTool.ts`. */
   downJoint(e: PointerEvent): void {
-    const app = this.app;
-    const hit = app.pickEntity(e, { joints: false });
-    const ground = app.picker.groundPoint(e, 0);
-    const type = app.prefs.value.jointType;
-    let end: { body: string | null; point: Vector3 } | null = null;
-    if (hit && app.store.soft(hit.entityId)) {
-      app.toast('Joints can’t attach to soft bodies — they can only be pinned in space', 'warn');
-      return;
-    }
-    if (hit) end = { body: hit.entityId, point: hit.point };
-    else if (ground && ground.distanceTo(this.cam.position) < 400) end = { body: null, point: ground };
-    if (!end) return;
-
-    if (!app.jointDraft) {
-      app.jointDraft = end;
-      app.effects.ping(end.point, 0xffb347);
-      app.setHint(
-        `<b>${type}</b> — now click the second body, or empty ground to attach to the world · <kbd>Esc</kbd> cancels`,
-      );
-      return;
-    }
-    const a = app.jointDraft;
-    if (a.body && a.body === end.body) {
-      app.toast('Pick two different bodies', 'warn');
-      return;
-    }
-    if (!a.body && !end.body) {
-      app.toast('At least one end must be a body', 'warn');
-      return;
-    }
-    const j = app.editor.addJoint(
-      type,
-      { body: a.body, point: [a.point.x, a.point.y, a.point.z] },
-      { body: end.body, point: [end.point.x, end.point.y, end.point.z] },
-    );
-    app.cancelJointDraft();
-    if (j) {
-      app.effects.ping(end.point, 0x5be3a1);
-      if (!e.shiftKey) app.setTool('select');
-      app.toast(`${j.name} added — select it to edit limits, motors and springs`, 'success');
-    }
-    app.updateToolHint();
+    jointToolOf(this.app).press(e);
   }
 
   /** Pointer press of the tool of the same name (called through the tool registry). */
@@ -312,11 +278,11 @@ export class InputController {
     this.pointer = { x: e.clientX, y: e.clientY, inside: true };
     const g = this.g;
 
-    if (app.jointDraft) {
-      const hit = app.pickEntity(e, { joints: false });
-      const p = hit?.point ?? app.picker.groundPoint(e, 0);
-      if (p) app.setMeasureLine(app.jointDraft.point, p);
-    } else if (app.prefs.value.tool === 'measure' && app.measure && !app.measure.b) {
+    const tool = app.prefs.value.tool;
+    if (tool === 'joint') {
+      // Snap marker + rubber band from the first anchor (the tool also sets the hover highlight).
+      if (g.kind === 'none') jointToolOf(app).hover(e);
+    } else if (tool === 'measure' && app.measure && !app.measure.b) {
       const hit = app.pickEntity(e, { joints: false });
       const p = hit?.point ?? app.picker.groundPoint(e, 0);
       if (p) {
@@ -564,6 +530,8 @@ export class InputController {
       if (p) this.app.cameraRig.setPivot(p);
       return;
     }
+    // Double-click ends a joint chain instead of framing the view.
+    if (this.app.prefs.value.tool === 'joint' && jointToolOf(this.app).finish()) return;
     const hit = this.app.pickEntity(e);
     if (hit) {
       this.app.store.setSelection([hit.entityId]);
@@ -602,6 +570,11 @@ export class InputController {
       return;
     }
     if (forward && (e.code.startsWith('Arrow') || e.code === 'Space')) e.preventDefault();
+    // Enter ends the joint chain being drawn.
+    if (!typing && e.key === 'Enter' && app.prefs.value.tool === 'joint' && jointToolOf(app).finish()) {
+      e.preventDefault();
+      return;
+    }
     // Every other key is a command's shortcut (src/app/registry/commands.ts); nothing here binds keys.
     const cmd = keymap.find(e);
     if (!cmd || cmd.allowWhileTyping || typing) return; // allowWhileTyping ones already ran in the capture phase

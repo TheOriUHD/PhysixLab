@@ -1,8 +1,10 @@
 /** Inspector sections for a joint: connection, anchors and axis, limits, motor, spring / rope settings, live readout. */
 import { Vector3 } from 'three';
-import { DEG, RAD, vlen } from '../../core/math';
+import { DEG, RAD, qrot, vadd, vdist, vlen } from '../../core/math';
 import type { Vec3 } from '../../core/math';
 import { JOINT_TYPE_LABELS } from '../../model/factory';
+import { AXIS_TYPES, INDEPENDENT_ANCHOR_TYPES } from '../../model/jointParams';
+import { anchorBFromGeometry, convertJoint, convertibleTo } from '../../model/jointConvert';
 import type { JointEntity, MotorMode } from '../../model/types';
 import {
   fmt,
@@ -20,6 +22,10 @@ import {
 import type { Field } from '../controls';
 import { h } from '../dom';
 import { breakageSection } from './jointBreakage';
+import { copyJointSettingsTo } from '../../app/jointOps';
+import { openMenu } from '../menu';
+import { jointDiagram, openJointPicker } from './jointPicker';
+import { AXIS_LABELS, jointTypeSections, liveDefs } from './jointTypes';
 import type { InspectorContext } from './shared';
 
 export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElement[] {
@@ -35,8 +41,10 @@ export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElem
   };
   const edit = (label: string, fn: (j: JointEntity) => Partial<JointEntity>) => app.store.update(id, fn(get()), label);
   const grouped = (label: string) => ctx.grouped(label);
+  // hinge / slider: limits, motor and re-zero; `hasAxis` types show the axis row; `independentEnds` types have their own end B
   const isUnit = j0.type === 'hinge' || j0.type === 'slider';
-  const isTether = j0.type === 'spring' || j0.type === 'rope';
+  const hasAxis = AXIS_TYPES.includes(j0.type);
+  const independentEnds = INDEPENDENT_ANCHOR_TYPES.includes(j0.type);
   const unit = j0.type === 'hinge' ? '°' : 'm';
   const toUI = (v: number) => (j0.type === 'hinge' ? v * RAD : v);
   const fromUI = (v: number) => (j0.type === 'hinge' ? v * DEG : v);
@@ -60,26 +68,126 @@ export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElem
     'Swap A ↔ B',
     () => {
       const j = get();
+      const p = j.params;
+      // Everything that names an end follows the swap: shafts, radii, the pulley's fixed points, reciprocal ratios.
+      const params = {
+        ...p,
+        axisB: j.axis,
+        radiusA: p.radiusB,
+        radiusB: p.radiusA,
+        pulleyA: p.pulleyB,
+        pulleyB: p.pulleyA,
+        ratio: j.type === 'gear' || j.type === 'pulley' ? Math.min(1000, Math.max(0.01, 1 / p.ratio)) : p.ratio,
+      };
       app.store.update(
         id,
-        { bodyA: j.bodyB, bodyB: j.bodyA, anchorA: j.anchorB, anchorB: j.anchorA },
+        { bodyA: j.bodyB, bodyB: j.bodyA, anchorA: j.anchorB, anchorB: j.anchorA, axis: p.axisB, params },
         'Swap joint ends',
       );
     },
     {
       cls: 'small',
-      title: 'Swap which body is the parent. Anchors swap with it; for hinges / sliders re-check the axis.',
+      title: 'Swap which body is the parent. Anchors, shafts and ratios swap with it.',
     },
   );
-  swap.disabled = !isTether;
+  // A rack's two ends have different roles (pinion / rack), so they cannot trade places.
+  swap.disabled = !independentEnds || j0.type === 'rack';
+  swap.title = j0.type === 'rack' ? 'The pinion and the rack have different roles and cannot be swapped' : swap.title;
+
+  // Copy settings to…: limits, motor, spring and behaviour params go to other joints of the same type (one undo step).
+  const copyBtn = button(
+    'Copy settings to…',
+    () => {
+      const me = get();
+      const others = app.store.joints().filter((o) => o.id !== id && o.type === me.type);
+      openMenu(
+        [
+          {
+            label: `All other ${JOINT_TYPE_LABELS[me.type]} joints (${others.length})`,
+            action: () => {
+              copyJointSettingsTo(
+                app,
+                id,
+                others.map((o) => o.id),
+              );
+            },
+          },
+          { sep: true },
+          ...others.slice(0, 14).map((o) => ({
+            label: o.name,
+            action: () => {
+              copyJointSettingsTo(app, id, [o.id]);
+            },
+          })),
+          ...(others.length > 14
+            ? [{ label: `… and ${others.length - 14} more`, action: () => {}, disabled: true }]
+            : []),
+        ],
+        copyBtn,
+      );
+    },
+    {
+      cls: 'small',
+      title:
+        'Copy limits, motor, spring and behaviour settings (not the position or axis) to other joints of this type',
+    },
+  );
+  ctx.updaters.push(() => {
+    const n = app.store.joints().filter((o) => o.id !== id && o.type === get().type).length;
+    copyBtn.disabled = n === 0;
+  });
+
+  // Change type…: the grouped picker with diagrams; one undo step, bodies and anchors stay.
+  const typeBtn = button('Change type…', () => {}, {
+    cls: 'small',
+    title: 'Convert this joint to another type, keeping its bodies and anchors',
+  });
+  typeBtn.addEventListener('click', () => {
+    const j = get();
+    openJointPicker(typeBtn, {
+      current: j.type,
+      title: 'Change joint type',
+      targets: convertibleTo(j),
+      onPick: (type) => {
+        const cur = get();
+        const pose = (bid: string | null) => {
+          const b = bid ? app.store.body(bid) : undefined;
+          return b ? { position: b.position, rotation: b.rotation } : null;
+        };
+        const wa = pose(cur.bodyA);
+        const wb = pose(cur.bodyB);
+        const worldOf = (p: ReturnType<typeof pose>, a: Vec3): Vec3 => (p ? vadd(p.position, qrot(p.rotation, a)) : a);
+        const ownEnds = INDEPENDENT_ANCHOR_TYPES.includes(cur.type);
+        const patch = convertJoint(cur, type, {
+          anchorB: anchorBFromGeometry(cur, wa, wb),
+          distance: ownEnds ? vdist(worldOf(wa, cur.anchorA), worldOf(wb, cur.anchorB)) : undefined,
+        });
+        app.store.update(id, patch, `Change joint type to ${JOINT_TYPE_LABELS[type]}`);
+      },
+    });
+  });
+  ctx.updaters.push(() => {
+    typeBtn.disabled = app.sim.active;
+    typeBtn.title = app.sim.active
+      ? 'Stop the simulation to change the joint type'
+      : 'Convert this joint to another type, keeping its bodies and anchors';
+  });
   out.push(
     section(
       'Connection',
       [
-        row('Type', h('span', { class: 'readout' }, JOINT_TYPE_LABELS[j0.type])),
+        row(
+          'Type',
+          h(
+            'div',
+            { class: 'jt-type-row' },
+            jointDiagram(j0.type),
+            h('span', { class: 'readout' }, JOINT_TYPE_LABELS[j0.type]),
+          ),
+        ),
         row('Body A', link('A')),
         row('Body B', link('B')),
-        isTether ? row('', swap) : h('span'),
+        independentEnds ? row('', swap) : h('span'),
         row(
           'Collide',
           bind(
@@ -90,6 +198,7 @@ export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElem
             (j) => j.collideConnected,
           ),
         ),
+        h('div', { class: 'jt-actions' }, typeBtn, copyBtn),
       ],
       { id: 'joint-conn' },
     ),
@@ -109,7 +218,7 @@ export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElem
       bind(anchorA, (j) => j.anchorA),
     ),
   ];
-  if (isTether) {
+  if (independentEnds) {
     const anchorB = vec3Field({
       step: 0.05,
       unit: 'm',
@@ -133,7 +242,11 @@ export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElem
     ctx.updaters.push(() => endSeg.set(app.jointEnd));
     rows.push(row('Gizmo end', endSeg.el, 'Which end the move gizmo drags'));
   }
-  if (isUnit) {
+  if (hasAxis) {
+    const axisInfo = AXIS_LABELS[j0.type] ?? {
+      label: 'Axis (unit vector)',
+      hint: 'Local to body A (world if A is the world)',
+    };
     const axis = vec3Field({
       step: 0.1,
       digits: 3,
@@ -145,9 +258,9 @@ export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElem
     });
     rows.push(
       rowStack(
-        'Axis (unit vector)',
+        axisInfo.label,
         bind(axis, (j) => j.axis),
-        'Local to body A (world if A is the world)',
+        axisInfo.hint,
       ),
     );
     const axes = h('div', { class: 'chips' });
@@ -165,9 +278,50 @@ export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElem
     rows.push(row('Align to world', axes));
   }
   out.push(section('Anchors', rows, { id: 'joint-anchor' }));
+  // ---- type-specific sections (JT-A types) ------------------------------------------------------
+  out.push(...jointTypeSections({ ctx, app, id, get, bind, edit }, j0.type));
 
   // ---- limits -------------------------------------------------------------------------------
   if (isUnit) {
+    // Reference pose (JT-22): where the joint's zero is. Limits, motor targets and the live value count from it.
+    const setRef = (label: string, p: Partial<JointEntity['params']>) =>
+      edit(label, (j) => ({ params: { ...j.params, ...p } }));
+    const lock = toggleField({
+      label: 'Lock reference pose',
+      title: 'A locked reference cannot be re-zeroed by accident',
+      onChange: (v) => setRef(v ? 'Lock reference pose' : 'Unlock reference pose', { refLocked: v }),
+    });
+    const rezero = button(
+      'Re-zero reference pose',
+      () => {
+        const j = get();
+        if (j.params.refLocked) return;
+        // While simulating the current pose becomes zero; in the editor the zero returns to the starting pose.
+        const live = app.sim.active ? app.liveJoint(id) : null;
+        if (app.sim.active && (!live || live.broken)) return;
+        setRef('Re-zero reference pose', { refOffset: live ? j.params.refOffset - live.value : 0 });
+      },
+      { cls: 'small' },
+    );
+    const refInfo = h('div', { class: 'jt-info' });
+    ctx.updaters.push(() => {
+      const j = get();
+      const off = j.params.refOffset;
+      const shown = j0.type === 'hinge' ? `${fmt(off * RAD, 2)}°` : `${fmt(off, 3)} m`;
+      refInfo.replaceChildren(
+        'Starting pose reads ',
+        h('b', null, shown),
+        off === 0 ? ' (zero = starting pose)' : ' (limits and readout count from the re-zeroed pose)',
+      );
+      rezero.disabled = j.params.refLocked || (!app.sim.active && off === 0);
+      rezero.title = j.params.refLocked
+        ? 'Unlock the reference pose to re-zero it'
+        : app.sim.active
+          ? 'Make the current pose the joint’s zero: limits, motor targets and the readout are measured from it'
+          : 'Return the joint’s zero to the pose it has when the simulation starts';
+    });
+    const referenceRows = (): HTMLElement[] => [refInfo, h('div', { class: 'jt-actions' }, rezero, lock.el)];
+    ctx.updaters.push(() => lock.set(get().params.refLocked));
     const lim = toggleField({
       label: 'Limit the range of motion',
       onChange: (v) => edit('Toggle limits', (j) => ({ limit: { ...j.limit, enabled: v } })),
@@ -204,6 +358,7 @@ export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElem
           ),
           row('Min', mn.el),
           row('Max', mx.el),
+          ...referenceRows(),
         ],
         { id: 'joint-limits' },
       ),
@@ -316,47 +471,21 @@ export function jointInspector(ctx: InspectorContext, j0: JointEntity): HTMLElem
 
   // ---- live ---------------------------------------------------------------------------------
   if (app.sim.active) {
+    const defs = liveDefs(j0.type);
     const dl = h('dl', { class: 'readout' });
-    const r: Record<string, HTMLElement> = {};
-    const defs: [string, string][] =
-      j0.type === 'hinge'
-        ? [
-            ['value', 'Angle'],
-            ['speed', 'Speed'],
-          ]
-        : j0.type === 'slider'
-          ? [
-              ['value', 'Position'],
-              ['speed', 'Speed'],
-            ]
-          : j0.type === 'spring'
-            ? [
-                ['value', 'Length'],
-                ['speed', 'Rate'],
-                ['force', 'Force'],
-              ]
-            : j0.type === 'rope'
-              ? [['value', 'Distance']]
-              : [];
-    for (const [k, label] of defs) {
+    const r: Partial<Record<'value' | 'speed' | 'force', HTMLElement>> = {};
+    for (const d of defs) {
       const dd = h('dd', null, '—');
-      r[k] = dd;
-      dl.append(h('dt', null, label), dd);
+      r[d.key] = dd;
+      dl.append(h('dt', null, d.label), dd);
     }
     ctx.live.push(() => {
       const s = app.liveJoint(id);
       if (!s) return;
-      if (s.broken) {
-        for (const k of Object.keys(r)) r[k].textContent = 'broken';
-        return;
+      for (const d of defs) {
+        const el = r[d.key];
+        if (el) el.textContent = s.broken ? 'broken' : d.format(s[d.key]);
       }
-      if (r.value) r.value.textContent = j0.type === 'hinge' ? `${fmt(s.value * RAD, 1)}°` : `${fmt(s.value, 3)} m`;
-      if (r.speed)
-        r.speed.textContent =
-          j0.type === 'hinge'
-            ? `${fmt(s.speed, 2)} rad/s (${fmt((s.speed * 60) / (2 * Math.PI), 1)} rpm)`
-            : `${fmt(s.speed, 3)} m/s`;
-      if (r.force) r.force.textContent = `${fmt(s.force, 1)} N ${s.force > 0 ? '(tension)' : '(compression)'}`;
     });
     if (defs.length) out.push(section('Live', [dl], { id: 'live', badge: 'LIVE' }));
   }
