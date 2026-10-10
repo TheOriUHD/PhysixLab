@@ -117,3 +117,12 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 ## Share links v2 (DT-20)
 
 The compact share link stores non-integer numbers with 6 significant digits and renames entity ids to `e0`, `e1` … when opened, so a scene opened from a link is physically equivalent to the original but not bit-identical (chaotic scenes can diverge over a long run). Use *Export file* for exact transfer. Old `#scene=` (v1) links keep working.
+
+## Embed viewer and share dialog (DT-21, DT-22)
+
+* The viewer has no `bg=transparent|light|dark` option: the renderer draws an opaque sky and has no alpha buffer, so a transparent or light background would need renderer changes. The viewer always looks like the editor's viewport.
+* An embed carries its scene in the link, so it is limited to the share-link size (about 32 kB); larger scenes cannot be embedded this way.
+* QR codes hold at most 2953 bytes (2331 at error correction M); longer links are shown as text with the file alternative. Scanning a QR code for a long link (above roughly 1 kB) needs a good camera and a large code.
+* The preview card (Open Graph) needs a host: the scene is in the URL fragment, which crawlers never see, so a static deployment cannot render per-scene previews by itself. The dialog produces the thumbnail and the tags; `docs/EMBED.md` explains the landing page.
+* "Copy image + link" depends on the browser's async clipboard (`ClipboardItem` with `image/png`); where it is missing or refused, only the link is copied and the toast says so.
+* The viewer's message API without an `origin=` allow-list accepts commands from any parent page (it can play, pause and load scenes, nothing more).

@@ -46,8 +46,7 @@ const MAX_COORD = 1e5;
 const MAX_STEPS = 600;
 const MAX_ID = 64;
 
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 function vec3(v: unknown): Vec3Tuple | null {
   if (!Array.isArray(v) || v.length !== 3) return null;
@@ -75,7 +74,7 @@ export function parseMessage(data: unknown): ParseResult {
     return {
       kind: 'invalid',
       id,
-      message: `Unsupported protocol version ${String(data.v)} (this viewer speaks ${PROTOCOL_VERSION})`,
+      message: `Unsupported protocol version ${JSON.stringify(data.v)} (this viewer speaks ${PROTOCOL_VERSION})`,
     };
   const cmd = data.cmd;
   if (typeof cmd !== 'string' || !COMMANDS.has(cmd))

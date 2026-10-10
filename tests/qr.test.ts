@@ -48,7 +48,8 @@ function functionMap(ver: number): boolean[][] {
   const n = 17 + 4 * ver;
   const f = Array.from({ length: n }, () => new Array<boolean>(n).fill(false));
   const rect = (x0: number, y0: number, x1: number, y1: number) => {
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (x >= 0 && y >= 0 && x < n && y < n) f[y][x] = true;
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) if (x >= 0 && y >= 0 && x < n && y < n) f[y][x] = true;
   };
   rect(0, 0, 8, 8); // top-left finder + separator + format
   rect(n - 8, 0, n - 1, 8); // top-right

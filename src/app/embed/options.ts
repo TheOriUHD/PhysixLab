@@ -12,6 +12,8 @@ export interface EmbedOptions {
   camera: 'orbit' | 'fixed';
   /** Allow grabbing and throwing bodies while the simulation runs (still no editing). */
   interact: boolean;
+  /** Opening camera `[px, py, pz, tx, ty, tz]` (`?view=…`, comma separated); null = the scene's own framing. */
+  view: [number, number, number, number, number, number] | null;
   /** Origins allowed to talk to the viewer through postMessage; empty = any parent. */
   origins: string[];
 }
@@ -31,6 +33,13 @@ export function normalizeOrigin(raw: string): string | null {
   }
 }
 
+function parseView(raw: string | null): EmbedOptions['view'] {
+  if (!raw) return null;
+  const n = raw.split(',').map(Number);
+  if (n.length !== 6 || n.some((v) => !Number.isFinite(v) || Math.abs(v) > 1e5)) return null;
+  return n as NonNullable<EmbedOptions['view']>;
+}
+
 /** The embed options of a page URL's query, or null when the page is not in embed mode (`embed=1` is absent). */
 export function readEmbedOptions(search: string): EmbedOptions | null {
   const q = new URLSearchParams(search);
@@ -45,6 +54,7 @@ export function readEmbedOptions(search: string): EmbedOptions | null {
     controls: q.get('controls') !== '0',
     camera: q.get('camera') === 'fixed' ? 'fixed' : 'orbit',
     interact: truthy(q.get('interact')),
+    view: parseView(q.get('view')),
     origins,
   };
 }
@@ -60,6 +70,7 @@ export function buildEmbedUrl(base: string, opts: Partial<EmbedOptions> & { payl
   if (opts.controls === false) u.searchParams.set('controls', '0');
   if (opts.camera === 'fixed') u.searchParams.set('camera', 'fixed');
   if (opts.interact) u.searchParams.set('interact', '1');
+  if (opts.view) u.searchParams.set('view', opts.view.map((v) => Math.round(v * 100) / 100).join(','));
   if (opts.origins?.length) u.searchParams.set('origin', opts.origins.join(','));
   const url = u.toString();
   return opts.payload ? `${url}#${opts.payload}` : url;

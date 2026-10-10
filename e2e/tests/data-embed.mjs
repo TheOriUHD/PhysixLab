@@ -103,11 +103,20 @@ test('DT-22 embed postMessage API: ready, play / pause / step / reset / getState
   const host = await hostPage(`${origin}/?nowelcome&embed=1&scene=car`);
   await host.waitForFunction(() => window.msgs.some((m) => m.data.event === 'ready'), null, { timeout: 30000 });
   const ready = await host.evaluate(() => window.msgs.find((m) => m.data.event === 'ready'));
-  assert(ready.origin === origin && ready.data.v === 1, `ready from the viewer origin (${JSON.stringify(ready.origin)})`);
-  assert(ready.data.capabilities.includes('loadScene') && ready.data.state.mode === 'edit', 'ready carries capabilities + state');
+  assert(
+    ready.origin === origin && ready.data.v === 1,
+    `ready from the viewer origin (${JSON.stringify(ready.origin)})`,
+  );
+  assert(
+    ready.data.capabilities.includes('loadScene') && ready.data.state.mode === 'edit',
+    'ready carries capabilities + state',
+  );
 
   let r = await ask(host, { cmd: 'getState' });
-  assert(r.event === 'state' && r.state.mode === 'edit' && r.state.bodies > 3, `getState round trip (${JSON.stringify(r)})`);
+  assert(
+    r.event === 'state' && r.state.mode === 'edit' && r.state.bodies > 3,
+    `getState round trip (${JSON.stringify(r)})`,
+  );
   r = await ask(host, { cmd: 'play' });
   assert(r.state.mode === 'running', 'play');
   for (let i = 0; i < 120 && r.state.time < 0.4; i++) {
@@ -131,7 +140,10 @@ test('DT-22 embed postMessage API: ready, play / pause / step / reset / getState
   assert(r.event === 'state', 'camera reset accepted');
   const nameBefore = r.state.sceneName;
   r = await ask(host, { cmd: 'loadScene', template: 'wreck' });
-  assert(r.event === 'state' && r.state.sceneName !== nameBefore && r.state.bodies > 0, `loadScene template (${nameBefore} -> ${r.state.sceneName})`);
+  assert(
+    r.event === 'state' && r.state.sceneName !== nameBefore && r.state.bodies > 0,
+    `loadScene template (${nameBefore} -> ${r.state.sceneName})`,
+  );
   r = await ask(host, { cmd: 'loadScene', template: 'nope' });
   assert(r.event === 'error' && /nope/.test(r.message), `unknown template -> error (${JSON.stringify(r)})`);
   r = await ask(host, { cmd: 'explode' });
@@ -149,7 +161,10 @@ test('DT-22 embed postMessage API ignores other senders and non-listed origins',
   const v = await newPage('&embed=1&scene=car');
   await v.evaluate(() => window.postMessage({ type: 'physicslab', cmd: 'play' }, '*'));
   await sleep(600);
-  assert((await v.evaluate(() => window.physicslab.sim.mode)) === 'edit', 'self-posted command ignored (source is not the parent)');
+  assert(
+    (await v.evaluate(() => window.physicslab.sim.mode)) === 'edit',
+    'self-posted command ignored (source is not the parent)',
+  );
   await v.close();
   // 2) an origin allow-list that does not include the host: silence
   const host = await hostPage(`${origin}/?nowelcome&embed=1&scene=car&origin=https://trusted.example`);
@@ -162,7 +177,9 @@ test('DT-22 embed postMessage API ignores other senders and non-listed origins',
   await host.close();
   // 3) allow-list containing the host: works
   const ok = await hostPage((host) => `${origin}/?nowelcome&embed=1&scene=car&origin=${host}`);
-  await ok.waitForFunction(() => window.msgs.some((m) => m.data.event === 'ready'), null, { timeout: 30000 }).catch(() => undefined);
+  await ok
+    .waitForFunction(() => window.msgs.some((m) => m.data.event === 'ready'), null, { timeout: 30000 })
+    .catch(() => undefined);
   const r = await ask(ok, { cmd: 'getState' });
   assert(r.event === 'state', 'listed origin is served');
   await ok.close();
@@ -192,7 +209,10 @@ test('DT-22 embed locks editing: selection, drags and shortcuts do nothing; inte
     return { position: [...b.position], n: a.store.size, sel: a.store.selection.length, rev: a.store.revision };
   }, target.id);
   assert(after.n === target.n && after.sel === 0, `nothing deleted or selected (${JSON.stringify(after)})`);
-  assert(after.position.every((v, i) => v === target.position[i]), 'dragging did not move the body');
+  assert(
+    after.position.every((v, i) => v === target.position[i]),
+    'dragging did not move the body',
+  );
   await p.close();
 
   const q = await newPage('&embed=1&scene=car&interact=1');
@@ -206,16 +226,27 @@ test('DT-22 embed locks editing: selection, drags and shortcuts do nothing; inte
   await q.mouse.move(pt.x + 100, pt.y, { steps: 5 });
   await q.mouse.up();
   const moved = await q.evaluate((id) => [...window.physicslab.store.body(id).position], info.id);
-  assert(moved.every((v, i) => v === info.position[i]), 'interact=1 still cannot edit while stopped');
+  assert(
+    moved.every((v, i) => v === info.position[i]),
+    'interact=1 still cannot edit while stopped',
+  );
   await q.click('.embed-play');
   await q.waitForFunction(() => window.physicslab.sim.mode === 'running');
   const pt2 = await screenOf(q, info.id);
   await q.mouse.move(pt2.x, pt2.y);
   await q.mouse.down();
-  const grabbed = await q.waitForFunction(() => document.querySelector('.viewport-canvas.grabbing') || null, null, { timeout: 5000 }).then(() => true, () => false);
+  const grabbed = await q
+    .waitForFunction(() => document.querySelector('.viewport-canvas.grabbing') || null, null, { timeout: 5000 })
+    .then(
+      () => true,
+      () => false,
+    );
   await q.mouse.up();
   const docAfter = await q.evaluate((id) => [...window.physicslab.store.body(id).position], info.id);
-  assert(docAfter.every((v, i) => v === info.position[i]), 'grabbing never writes to the document');
+  assert(
+    docAfter.every((v, i) => v === info.position[i]),
+    'grabbing never writes to the document',
+  );
   assert(grabbed, 'interact=1 allows grabbing a body of the running simulation');
   await q.close();
 });

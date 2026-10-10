@@ -64,7 +64,11 @@ export function dataCodewords(ver: number, ecl: QrEcl): number {
 
 /** Block structure of a version at a level (exported for tests). */
 export function blockInfo(ver: number, ecl: QrEcl): { blocks: number; eccPerBlock: number; rawCodewords: number } {
-  return { blocks: NUM_BLOCKS[ecl][ver], eccPerBlock: ECC_PER_BLOCK[ecl][ver], rawCodewords: Math.floor(rawDataModules(ver) / 8) };
+  return {
+    blocks: NUM_BLOCKS[ecl][ver],
+    eccPerBlock: ECC_PER_BLOCK[ecl][ver],
+    rawCodewords: Math.floor(rawDataModules(ver) / 8),
+  };
 }
 
 const countBits = (ver: number): number => (ver < 10 ? 8 : 16);
@@ -276,8 +280,7 @@ function buildCodewords(data: Uint8Array, ver: number, ecl: QrEcl): number[] {
     eccBlocks.push(rsRemainder(d, gen));
   }
   const out: number[] = [];
-  for (let i = 0; i < shortLen - eccLen + 1; i++)
-    for (const d of dataBlocks) if (i < d.length) out.push(d[i]);
+  for (let i = 0; i < shortLen - eccLen + 1; i++) for (const d of dataBlocks) if (i < d.length) out.push(d[i]);
   for (let i = 0; i < eccLen; i++) for (const e of eccBlocks) out.push(e[i]);
   return out;
 }
@@ -323,8 +326,7 @@ function maskBit(mask: number, x: number, y: number): boolean {
 function applyMask(g: Grid, mask: number): void {
   const size = g.size;
   for (let y = 0; y < size; y++)
-    for (let x = 0; x < size; x++)
-      if (!g.isFunction[y * size + x] && maskBit(mask, x, y)) g.modules[y * size + x] ^= 1;
+    for (let x = 0; x < size; x++) if (!g.isFunction[y * size + x] && maskBit(mask, x, y)) g.modules[y * size + x] ^= 1;
 }
 
 /** Penalty score of the four standard rules (lower is better). */
@@ -385,7 +387,8 @@ export interface QrOptions {
   mask?: number;
 }
 
-const toBytes = (data: string | Uint8Array): Uint8Array => (typeof data === 'string' ? new TextEncoder().encode(data) : data);
+const toBytes = (data: string | Uint8Array): Uint8Array =>
+  typeof data === 'string' ? new TextEncoder().encode(data) : data;
 
 /** Encodes `data` in byte mode using the smallest version that fits. Throws `QrTooLongError` when none does. */
 export function encodeQr(data: string | Uint8Array, opts: QrOptions = {}): QrCode {
@@ -466,7 +469,14 @@ export function qrToSvg(qr: QrCode, border = 4, dark = '#000000', light = '#ffff
 }
 
 /** Draws the symbol on a canvas, `scale` pixels per module. */
-export function drawQr(canvas: HTMLCanvasElement, qr: QrCode, scale = 6, border = 4, dark = '#000', light = '#fff'): void {
+export function drawQr(
+  canvas: HTMLCanvasElement,
+  qr: QrCode,
+  scale = 6,
+  border = 4,
+  dark = '#000',
+  light = '#fff',
+): void {
   const dim = (qr.size + border * 2) * scale;
   canvas.width = canvas.height = dim;
   const ctx = canvas.getContext('2d');
@@ -475,5 +485,6 @@ export function drawQr(canvas: HTMLCanvasElement, qr: QrCode, scale = 6, border 
   ctx.fillRect(0, 0, dim, dim);
   ctx.fillStyle = dark;
   for (let y = 0; y < qr.size; y++)
-    for (let x = 0; x < qr.size; x++) if (qr.get(x, y)) ctx.fillRect((x + border) * scale, (y + border) * scale, scale, scale);
+    for (let x = 0; x < qr.size; x++)
+      if (qr.get(x, y)) ctx.fillRect((x + border) * scale, (y + border) * scale, scale, scale);
 }

@@ -8,6 +8,7 @@ import { EmbedBridge } from '../../app/embed/bridge';
 import type { EmbedOptions } from '../../app/embed/options';
 import { InputController } from '../../app/input';
 import { Persistence } from '../../app/persistence';
+import { DEFAULT_OVERLAYS } from '../../render/overlays';
 import { newReport } from '../../model/errors';
 import { getTemplate } from '../../model/content';
 import type { SceneDocument } from '../../model/types';
@@ -52,11 +53,20 @@ export async function bootEmbed(app: App, shell: ShellDom, opts: EmbedOptions): 
       bridge.setHome(view);
     }
   }
+  if (opts.view) {
+    const view = {
+      position: opts.view.slice(0, 3) as [number, number, number],
+      target: opts.view.slice(3) as [number, number, number],
+    };
+    app.viewport.setView(view);
+    bridge.setHome(view);
+  }
   app.sim.reset();
 
   // ---- camera, selection, input -------------------------------------------------------------------------------
   if (opts.camera === 'fixed') app.viewport.controls.enabled = false;
-  app.prefs.set({ followSelection: false });
+  // The editor's debug overlays (velocity vectors, contact points …) stay out of the viewer, whatever the editor left on.
+  app.prefs.set({ followSelection: false, overlays: { ...DEFAULT_OVERLAYS } });
   const viewportDom = app.viewport.dom;
   if (opts.interact) {
     // Grabbing only while the simulation runs: a press in edit mode would drag the body in the document.
