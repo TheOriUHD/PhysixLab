@@ -56,6 +56,7 @@ const kib = (n) => n / 1024;
 const rows = [];
 const totals = { firstLoadJs: 0, workerJs: 0, wasm: 0, css: 0, lazyTotal: 0 };
 for (const f of files) {
+  if (f.rel === 'sw.js') continue; // DT-40: the service worker is neither first-load JS nor a lazy chunk
   const buf = readFileSync(f.abs);
   const gz = gzipSync(buf, { level: 9 }).length;
   let kind = null;

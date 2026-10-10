@@ -13,7 +13,6 @@ import {
   DoubleSide,
   Fog,
   Group,
-  HalfFloatType,
   MathUtils,
   Mesh,
   MeshBasicMaterial,
@@ -30,20 +29,26 @@ import {
   Vector2,
   Vector3,
   WebGLRenderer,
-  WebGLRenderTarget,
   type Object3D,
 } from 'three';
 import type { Material } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ViewHelper } from 'three/addons/helpers/ViewHelper.js';
 import type { GroundSettings } from '../model/types';
+// -- VZ-B: graphics settings, the post stack and the Auto governor (VZ-20..22) --
+import {
+  DEFAULT_GRAPHICS,
+  probeTier,
+  resolveGraphics,
+  type GraphicsOptions,
+  type QualityChoice,
+  type QualityTier,
+} from './graphics';
+import { Governor } from './governor';
+import { PostStack } from './postStack';
 
-export type Quality = 'low' | 'medium' | 'high';
+export type Quality = QualityChoice;
 
 const SKY_VERT = /* glsl */ `
 varying vec3 vDir;
@@ -124,11 +129,14 @@ export class Viewport {
   readonly lights = new Group();
   readonly paths = new Group();
 
-  private composer: EffectComposer;
-  private renderPass: RenderPass;
+  // -- VZ-B: post stack (src/render/postStack.ts) --
+  readonly post: PostStack;
   private outline: OutlinePass;
-  private ao: GTAOPass | null = null;
-  private output: OutputPass;
+  private graphics: GraphicsOptions = DEFAULT_GRAPHICS;
+  private governor: Governor | null = null;
+  private probedTier: QualityTier = 'high';
+  private activeTier: QualityTier = 'medium';
+  private pixelRatioNow = 1;
   private viewHelper: ViewHelper;
   private sun: DirectionalLight;
   private skyMesh: Mesh;
@@ -149,8 +157,6 @@ export class Viewport {
   } | null = null;
   private lastTime = performance.now();
   private resizeObserver: ResizeObserver;
-  private shadowsOn = true;
-  private aoOn = false;
   /** Called every frame before rendering with the frame delta in seconds. */
   onFrame: ((dt: number) => void) | null = null;
   needsRender = true;
@@ -267,16 +273,24 @@ export class Viewport {
     this.dom.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // ---- post-processing --------------------------------------------------------------------
-    this.composer = this.makeComposer();
-    this.renderPass = new RenderPass(this.scene, this.camera);
     this.outline = new OutlinePass(new Vector2(1, 1), this.scene, this.camera);
     this.outline.edgeStrength = 4.5;
     this.outline.edgeGlow = 0.0;
     this.outline.edgeThickness = 1.6;
     this.outline.visibleEdgeColor.set('#5ec8ff');
     this.outline.hiddenEdgeColor.set('#1e5f8a');
-    this.output = new OutputPass();
-    this.rebuildPasses();
+    this.post = new PostStack(this.renderer, this.scene, this.camera, this.outline);
+    this.post.sun = this.sun;
+    this.post.velocityHidden = [
+      this.overlays,
+      this.helpers,
+      this.joints,
+      this.groups,
+      this.lights,
+      this.paths,
+      this.skyMesh,
+    ];
+    this.probedTier = probeTier(this.gpuString(), isMobile());
 
     this.viewHelper = new ViewHelper(this.camera, this.dom);
     this.viewHelper.center = this.controls.target;
@@ -285,32 +299,10 @@ export class Viewport {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
-    this.setQuality('medium');
+    this.setQuality('auto');
   }
 
   // ------------------------------------------------------------------------------------------
-
-  private makeComposer(): EffectComposer {
-    const rt = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: this.quality === 'low' ? 0 : 4 });
-    return new EffectComposer(this.renderer, rt);
-  }
-
-  private rebuildPasses(): void {
-    const c = this.composer;
-    c.passes.length = 0;
-    c.addPass(this.renderPass);
-    if (this.aoOn) {
-      this.ao = this.ao ?? new GTAOPass(this.scene, this.camera, this.width, this.height);
-      this.ao.output = GTAOPass.OUTPUT.Default;
-      this.ao.blendIntensity = 0.9;
-      this.ao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.6, thickness: 1.2, scale: 1.1, samples: 12 });
-      this.ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 5, rings: 2, samples: 12 });
-      c.addPass(this.ao);
-    }
-    c.addPass(this.outline);
-    c.addPass(this.output);
-    c.setSize(this.width, this.height);
-  }
 
   private buildEnvironment(): void {
     const pmrem = new PMREMGenerator(this.renderer);
@@ -357,27 +349,81 @@ export class Viewport {
     this.needsRender = true;
   }
 
+  /** The WebGL renderer string ("ANGLE (NVIDIA …)", "SwiftShader" …) for the Auto tier probe. */
+  private gpuString(): string {
+    try {
+      const gl = this.renderer.getContext();
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      return String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    } catch {
+      return '';
+    }
+  }
+
+  /** Choose a quality tier — or 'auto', which lets the governor pick and adapt (VZ-22). */
   setQuality(q: Quality): void {
     this.quality = q;
-    const sunMap = q === 'low' ? 1024 : q === 'medium' ? 2048 : 4096;
-    this.shadowsOn = q !== 'low';
-    this.aoOn = q === 'high';
-    this.renderer.shadowMap.enabled = this.shadowsOn;
-    this.sun.castShadow = this.shadowsOn;
-    this.sun.shadow.mapSize.set(sunMap, sunMap);
-    this.sun.shadow.map?.dispose();
-    this.sun.shadow.map = null;
-    this.renderer.setPixelRatio(q === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, 2));
-    this.composer.dispose();
-    this.composer = this.makeComposer();
-    this.rebuildPasses();
-    this.resize();
-    // materials must recompile when shadows are toggled
-    this.scene.traverse((o) => {
-      const m: Material | Material[] = (o as Mesh).material;
-      if (m && !Array.isArray(m)) m.needsUpdate = true;
-    });
+    if (q === 'auto') {
+      this.governor = new Governor(this.probedTier);
+      this.activeTier = this.governor.step.tier;
+    } else {
+      this.governor = null;
+      this.activeTier = q;
+    }
+    this.applyGraphics();
+  }
+
+  /** The user's per-effect options (prefs). */
+  setGraphics(g: GraphicsOptions): void {
+    this.graphics = g;
+    this.applyGraphics();
+  }
+
+  /** Resolve tier + options and push the result into the renderer, the shadow system and the post stack. */
+  private applyGraphics(): void {
+    const tier = this.governor ? this.governor.step.tier : this.activeTier;
+    this.activeTier = tier;
+    const g = resolveGraphics(this.graphics, tier, this.renderer.capabilities.maxSamples);
+    this.resolvedGraphics = g;
+    this.renderer.shadowMap.enabled = g.shadows.enabled;
+    this.sun.castShadow = g.shadows.enabled;
+    const res = g.shadows.resolution;
+    if (this.sun.shadow.mapSize.x !== res) {
+      this.sun.shadow.mapSize.set(res, res);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+    }
+    this.sun.shadow.radius = 1 + g.shadows.softness * 5;
+    const dpr = Math.min(window.devicePixelRatio || 1, g.pixelRatioCap);
+    const pr = Math.max(0.5, dpr * this.graphics.resolutionScale * (this.governor ? this.governor.step.scale : 1));
+    this.pixelRatioNow = pr;
+    this.renderer.setPixelRatio(pr);
+    this.post.setSize(this.width, this.height, pr);
+    const before = this.post.currentSignature;
+    this.post.configure(g);
+    if (before !== this.post.currentSignature || this.lastShadowsOn !== g.shadows.enabled) {
+      // materials must recompile when shadows are toggled
+      this.scene.traverse((o) => {
+        const m: Material | Material[] = (o as Mesh).material;
+        if (m && !Array.isArray(m)) m.needsUpdate = true;
+      });
+    }
+    this.lastShadowsOn = g.shadows.enabled;
     this.needsRender = true;
+  }
+
+  private lastShadowsOn = true;
+  resolvedGraphics = resolveGraphics(DEFAULT_GRAPHICS, 'medium');
+
+  /** The tier actually in force (differs from the chosen quality under Auto) and the live governor state. */
+  get graphicsInfo(): { tier: QualityTier; auto: boolean; pixelRatio: number; frameMs: number; probe: QualityTier } {
+    return {
+      tier: this.activeTier,
+      auto: this.governor !== null,
+      pixelRatio: this.pixelRatioNow,
+      frameMs: this.governor?.averageMs ?? 0,
+      probe: this.probedTier,
+    };
   }
 
   get currentQuality(): Quality {
@@ -398,7 +444,7 @@ export class Viewport {
     this.renderer.setSize(w, h, false);
     this.dom.style.width = '100%';
     this.dom.style.height = '100%';
-    this.composer.setSize(w, h);
+    this.post.setSize(w, h, this.pixelRatioNow);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.needsRender = true;
@@ -456,8 +502,10 @@ export class Viewport {
 
   private frameOnce(): void {
     const now = performance.now();
-    const dt = Math.min(0.1, (now - this.lastTime) / 1000);
+    const rawDt = (now - this.lastTime) / 1000;
+    const dt = Math.min(0.1, rawDt);
     this.lastTime = now;
+    if (this.governor?.update(rawDt)) this.applyGraphics(); // -- VZ-B: Auto governor --
 
     if (this.tween) {
       const t = this.tween;
@@ -496,7 +544,8 @@ export class Viewport {
     this.skyMesh.position.copy(this.camera.position);
     (this.gridMat.uniforms.uCamPos.value as Vector3).copy(this.camera.position);
 
-    this.composer.render(dt);
+    this.post.focusDistance = this.camera.position.distanceTo(this.controls.target);
+    this.post.render(dt);
     this.renderer.autoClear = false;
     this.viewHelper.render(this.renderer);
     this.renderer.autoClear = true;
@@ -505,7 +554,12 @@ export class Viewport {
   dispose(): void {
     this.resizeObserver.disconnect();
     this.controls.dispose();
-    this.composer.dispose();
+    this.post.dispose();
     this.renderer.dispose();
   }
+}
+
+/** Phones and tablets start Auto one tier lower. */
+function isMobile(): boolean {
+  return typeof navigator !== 'undefined' && /android|iphone|ipad|mobile/i.test(navigator.userAgent);
 }

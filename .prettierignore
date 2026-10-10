@@ -13,3 +13,6 @@ physicslab-dist.zip
 
 # scene fixtures are kept byte-exact as the app that wrote them produced them
 tests/fixtures
+
+# DT-41: the optional desktop wrapper has its own package (desktop/)
+desktop

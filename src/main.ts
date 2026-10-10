@@ -8,6 +8,8 @@ import './styles/ed-path.css';
 import './styles/ui-a.css';
 import './styles/cm.css'; // -- CM-A --
 import './styles/diag.css';
+import './styles/tour.css';
+import './styles/vzb.css'; // -- VZ-B --
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';
@@ -33,6 +35,8 @@ import './styles/ed-b-tools.css';
 import { setContextTarget } from './ui/contextTarget';
 import './styles/ed-b.css';
 import { publishApi } from './api/install';
+import { installTour } from './ui/tour';
+import { initPwa } from './pwa'; // -- DT-40 --
 
 async function boot(): Promise<void> {
   // Everything the UI offers is a registration; register the built-ins before any UI is built.
@@ -151,7 +155,9 @@ async function boot(): Promise<void> {
   });
 
   for (const f of extensionFailures) app.toast(`Extension ${f.file} failed to load: ${f.error.message}`, 'error');
+  initPwa(app); // -- DT-40: service worker (production only), update banner, file / share intake --
   app.start();
+  installTour(app); // -- UI-B: guided tours, context hints, tips --
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
   // -- DT-30: the versioned public API (src/api); falls through to the App for the internal members --
   (window as unknown as { physicslab: App }).physicslab = publishApi(app);

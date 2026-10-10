@@ -14,7 +14,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { Plugin } from 'vite';
 
-const INLINED = /module_or_path:\s*(\w+)\.toByteArray\("[A-Za-z0-9+/=]{1000,}"\)/;
+const INLINED = /module_or_path:\s*(\w+)\.toByteArray\("[A-Za-z0-9+/=]{1000,}"\)(?:\.buffer)?/;
 
 export function rapierWasm(): Plugin {
   const require = createRequire(import.meta.url);

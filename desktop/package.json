@@ -1,0 +1,16 @@
+{
+  "name": "physicslab-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Optional Electron shell that wraps the PhysicsLab production build (../dist). Not part of the web app.",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke",
+    "pack": "node scripts/pack.cjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "electron": "^33.2.0"
+  }
+}

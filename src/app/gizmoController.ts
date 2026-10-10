@@ -132,6 +132,8 @@ export class GizmoController {
   /** The gizmo edits poses, so it is hidden while the simulation is running (grabbing takes over). */
   private active(): boolean {
     const { prefs, sim } = this.app;
+    // -- ED-A path: the Path tool shows the gizmo only on the active control point --
+    if (prefs.value.tool === 'path') return this.pathPoint !== null && sim.mode !== 'running';
     return prefs.value.gizmo !== 'none' && prefs.value.tool === 'select' && sim.mode !== 'running';
   }
 

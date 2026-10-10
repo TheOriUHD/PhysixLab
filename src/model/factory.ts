@@ -80,6 +80,7 @@ export function defaultSettings(): SceneSettings {
     environment: defaultEnvironment(),
     bounds: defaultBounds(),
     units: defaultUnits(),
+    selectionSets: [], // -- UI-A --
   };
 }
 

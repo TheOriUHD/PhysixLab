@@ -75,6 +75,9 @@ export class SceneStore extends Emitter<StoreEvents> {
   private batchDepth = 0;
   private batchBase: Snapshot | null = null;
   private batchChanged = false;
+  // -- ED-A symmetry: edits folded into the undo step that is already open (see `amend`) --
+  private amendDepth = 0;
+  private restoring = false;
 
   // ---- reads --------------------------------------------------------------------------------
 
@@ -204,11 +207,31 @@ export class SceneStore extends Emitter<StoreEvents> {
   /** Called before every mutation. */
   private touch(label: string): void {
     this.revision++;
+    if (this.amendDepth > 0) return;
     if (this.batchDepth > 0) {
       this.batchChanged = true;
     } else {
       this.pushHistory(this.snapshot(label));
     }
+  }
+
+  // -- ED-A symmetry: follow-up edits made from a 'change' listener belong to the edit that triggered them --
+  /**
+   * Run `fn` so that the mutations it makes join the undo step of the edit being reported right now (a listener
+   * to 'change' uses it to apply a mirrored follow-up edit). Inside a `begin`/`end` batch that already happens.
+   */
+  amend<T>(fn: () => T): T {
+    this.amendDepth++;
+    try {
+      return fn();
+    } finally {
+      this.amendDepth--;
+    }
+  }
+
+  /** True while an undo / redo is being applied (listeners that react to edits must not react to history). */
+  get replaying(): boolean {
+    return this.restoring;
   }
 
   get canUndo(): boolean {
@@ -292,6 +315,15 @@ export class SceneStore extends Emitter<StoreEvents> {
   // -- end ED-B --
 
   private restore(s: Snapshot): void {
+    this.restoring = true;
+    try {
+      this.applySnapshot(s);
+    } finally {
+      this.restoring = false;
+    }
+  }
+
+  private applySnapshot(s: Snapshot): void {
     const old = this.entities;
     const removed: Entity[] = [];
     const added: string[] = [];
@@ -581,7 +613,13 @@ const ID_PREFIX = { body: 'b', soft: 's', group: 'g', light: 'l', path: 'p' } as
  * that copy (otherwise they stay in the original group). Joints are cloned only when every body they connect is part
  * of the clone set (or the joint attaches to the world), so duplicated assemblies keep their mechanisms.
  */
-export function cloneEntities(all: Entity[], ids: string[], offset: Vec3 = [0, 0, 0]): Entity[] {
+export function cloneEntities(
+  all: Entity[],
+  ids: string[],
+  offset: Vec3 = [0, 0, 0],
+  // -- ED-A: optional out-parameter receiving old id -> new id for every cloned entity (joints included) --
+  idMap?: Map<string, string>,
+): Entity[] {
   const idSet = withDescendants(all, ids);
   const bodyIds = new Set<string>();
   const map = new Map<string, string>();
@@ -593,11 +631,20 @@ export function cloneEntities(all: Entity[], ids: string[], offset: Vec3 = [0, 0
     if (isBody(e)) bodyIds.add(e.id);
     out.push({ ...e, id: nid, position: vadd(e.position, offset) });
   }
+  if (idMap) for (const [k, v] of map) idMap.set(k, v);
   for (const c of out) {
     const parent = isPosed(c) ? c.parent : undefined;
     if (isPosed(c) && parent !== undefined && map.has(parent)) c.parent = map.get(parent);
     // New component ids; references to bodies cloned together follow the copies.
     if (isBody(c)) c.components = cloneComponents(c.components, map);
+    // -- ED-A array: a copied linked-array group stays linked only if its sources are copied with it --
+    if (isGroup(c) && c.array) {
+      if (c.array.sourceIds.every((s) => map.has(s))) {
+        c.array = { ...c.array, sourceIds: c.array.sourceIds.map((s) => map.get(s)!) };
+      } else {
+        delete c.array;
+      }
+    }
   }
   for (const j of all) {
     if (!isJoint(j)) continue;
@@ -606,9 +653,11 @@ export function cloneEntities(all: Entity[], ids: string[], offset: Vec3 = [0, 0
     const touches = bodyIds.has(j.bodyA ?? '') || bodyIds.has(j.bodyB ?? '');
     if (!(aOk && bOk && (idSet.has(j.id) || touches))) continue;
     // World-anchored sides carry world coordinates — shift them with the copy.
+    const nj = uid('j');
+    idMap?.set(j.id, nj);
     out.push({
       ...j,
-      id: uid('j'),
+      id: nj,
       bodyA: j.bodyA ? map.get(j.bodyA)! : null,
       bodyB: j.bodyB ? map.get(j.bodyB)! : null,
       anchorA: j.bodyA ? j.anchorA : vadd(j.anchorA, offset),

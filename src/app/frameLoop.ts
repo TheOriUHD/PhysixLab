@@ -8,6 +8,7 @@ export class FrameLoop {
   private colorsDirty = true;
   private fpsAcc = 0;
   private fpsFrames = 0;
+  private reflectTick = 0;
 
   constructor(private app: App) {}
 
@@ -55,6 +56,9 @@ export class FrameLoop {
     }
 
     app.bodies.updateSkins(dt, app.sim.keys, app.sim.active);
+    // SSR reflects only glossy / metallic bodies; the list is rebuilt twice a second while the effect is on.
+    if (app.viewport.resolvedGraphics.ssr && ++this.reflectTick % 30 === 1)
+      app.viewport.post.reflectives = app.bodies.reflectiveMeshes();
     app.bodies.flush(); // -- VZ-B: instance buffers (VZ-30) --
 
     // -- JT-B: joint load estimates run while the stress overlay is on or a joint inspector is showing them --
