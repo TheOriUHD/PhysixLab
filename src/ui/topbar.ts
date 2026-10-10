@@ -156,10 +156,11 @@ export function buildTopbar(app: App): HTMLElement {
     'div',
     { class: 'transport' },
     playBtn,
-    driveBtn,
-    playModeBtn,
     stepBtn,
     resetBtn,
+    // -- NAV: after Stop, so the positions the tour and the tests address (`.tbtn:nth-child(3)` = Stop) stay put --
+    driveBtn,
+    playModeBtn,
     h('div', { class: 'timescale' }, ts.el),
     clock,
   );

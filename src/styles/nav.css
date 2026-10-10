@@ -37,12 +37,12 @@ html, body { overscroll-behavior: none; }
 .ctl-blurb { margin: 0 0 6px; color: var(--text-3); font-size: 11.5px; line-height: 1.35; }
 .ctl-sec h4 { margin: 8px 0 3px; font: 650 10.5px var(--font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
 .ctl-list { display: flex; flex-direction: column; }
-.ctl-row { display: flex; align-items: baseline; gap: 10px; padding: 2px 4px; border-radius: 6px; transition: background 0.08s; }
+.ctl-row { display: flex; align-items: baseline; column-gap: 10px; row-gap: 0; padding: 2px 4px; border-radius: 6px; transition: background 0.08s; }
 .ctl-keys { flex: none; min-width: 92px; display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 3px; }
 .ctl-keys kbd { min-width: 17px; text-align: center; }
 .ctl-gesture { color: var(--text); font-weight: 600; font-size: 11.5px; }
 .ctl-act { flex: 1; min-width: 0; color: var(--text-2); }
-.ctl-why { flex-basis: 100%; margin-left: 102px; color: var(--warn); font-size: 11px; font-style: normal; }
+.ctl-why { flex-basis: 100%; margin: 0 0 3px 102px; color: var(--warn); font-size: 11px; font-style: normal; line-height: 1.3; }
 .ctl-row.off { opacity: 0.78; flex-wrap: wrap; }
 .ctl-row.off .ctl-act { text-decoration: line-through; text-decoration-color: var(--text-3); }
 .ctl-row.off kbd { opacity: 0.55; }
