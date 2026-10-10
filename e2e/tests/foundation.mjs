@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { assert, near, newPage, root, screenOf, shot, simTime } from '../helpers.mjs';
+import { assert, near, newPage, root, shot, simTime } from '../helpers.mjs';
 
 export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
