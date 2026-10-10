@@ -37,6 +37,11 @@ export function currentBrowser() {
   return env.browser;
 }
 
+/** URL of the app under test (no trailing slash). */
+export function appUrl() {
+  return env.url;
+}
+
 /** Path of a Chromium / Chrome executable, or undefined to let playwright-core look for its own. */
 export function chromePath() {
   return [

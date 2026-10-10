@@ -1,0 +1,31 @@
+/* CM-A touch: on-screen joysticks and buttons, the Touch settings tab, touch-friendly hit areas. */
+
+/* ---- overlay ---- */
+.tc-overlay { position: absolute; inset: 0; z-index: 7; pointer-events: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; --tc-s: 1; --tc-o: 0.7; }
+.tc-overlay[hidden] { display: none; }
+.tc-zone { position: absolute; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 12px; }
+.tc-zone-left { left: calc(14px + env(safe-area-inset-left, 0px)); align-items: flex-start; }
+.tc-zone-right { right: calc(14px + env(safe-area-inset-right, 0px)); align-items: flex-end; }
+.tc-btns { display: grid; grid-template-columns: repeat(2, max(44px, calc(54px * var(--tc-s)))); gap: 10px; }
+.tc-btn { pointer-events: auto; touch-action: none; width: max(44px, calc(54px * var(--tc-s))); height: max(44px, calc(54px * var(--tc-s))); border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.28); background: rgba(24, 32, 46, 0.62); color: var(--text); font: 700 calc(14px * var(--tc-s)) var(--mono); opacity: var(--tc-o); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); padding: 0; -webkit-tap-highlight-color: transparent; }
+.tc-btn.pressed { opacity: 1; background: var(--accent-bg); border-color: var(--accent); color: var(--accent); transform: scale(0.94); }
+.tc-btn-LT, .tc-btn-RT, .tc-btn-LB, .tc-btn-RB, .tc-btn-Start, .tc-btn-Back { border-radius: 14px; }
+.tc-stick { position: relative; pointer-events: auto; touch-action: none; width: calc(128px * var(--tc-s)); height: calc(128px * var(--tc-s)); border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.25); background: radial-gradient(circle, rgba(61, 220, 255, 0.1), rgba(24, 32, 46, 0.5) 70%); opacity: var(--tc-o); -webkit-tap-highlight-color: transparent; }
+.tc-stick.pressed { opacity: 1; border-color: var(--accent-line); }
+.tc-thumb { position: absolute; left: 50%; top: 50%; width: calc(56px * var(--tc-s)); height: calc(56px * var(--tc-s)); margin: calc(-28px * var(--tc-s)) 0 0 calc(-28px * var(--tc-s)); border-radius: 50%; background: radial-gradient(circle at 35% 30%, #7be7ff, #1b8fb0); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5); pointer-events: none; }
+.stage.has-touch-controls .hint-bar { bottom: calc(190px * var(--tc-hint, 1)); }
+
+/* ---- settings tab ---- */
+.touch-tab .cm-group { margin: 12px 0 4px; font: 600 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.touch-tab .cm-group:first-child { margin-top: 0; }
+.touch-tab .cm-actions { margin-top: 10px; display: flex; gap: 8px; }
+.tc-choice { display: flex; flex-wrap: wrap; gap: 6px; }
+.tc-choice .chip { min-width: 40px; height: 28px; }
+
+/* ---- coarse pointers: finger-sized targets ---- */
+@media (pointer: coarse) {
+  .icon-btn, .tbtn, .chip, .btn, .tab, .menu-btn { min-height: 44px; }
+  .icon-btn { min-width: 44px; }
+  .chip { min-width: 44px; }
+  .marquee { border-width: 2px; }
+}

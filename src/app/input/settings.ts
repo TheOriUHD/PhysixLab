@@ -1,5 +1,6 @@
 /** Persisted input settings (a field of `Prefs`): key bindings, vehicle profile, axis tuning, gamepad and touch options. */
 import type { AxisCfg } from './axes';
+import { DEFAULT_TOUCH, sanitizeTouch, type TouchSettings } from '../touch/settings'; // -- CM-A touch --
 
 export interface InputSettings {
   /** Rebinding overrides: command / action id → the complete list of shortcuts (empty list = unbound). */
@@ -16,6 +17,8 @@ export interface InputSettings {
   gamepad: boolean;
   /** On-screen touch controls: `auto` shows them on touch devices only. */
   touchControls: 'auto' | 'on' | 'off';
+  /** Layout and gesture options of the touch controls (`src/app/touch/settings.ts`). */
+  touch: TouchSettings;
 }
 
 export const DEFAULT_INPUT: InputSettings = {
@@ -26,6 +29,7 @@ export const DEFAULT_INPUT: InputSettings = {
   keyboardRamp: true,
   gamepad: true,
   touchControls: 'auto',
+  touch: DEFAULT_TOUCH,
 };
 
 const isRec = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -61,5 +65,6 @@ export function sanitizeInput(raw: unknown): InputSettings {
   if (typeof raw.gamepad === 'boolean') out.gamepad = raw.gamepad;
   if (raw.touchControls === 'on' || raw.touchControls === 'off' || raw.touchControls === 'auto')
     out.touchControls = raw.touchControls;
+  out.touch = sanitizeTouch(raw.touch);
   return out;
 }

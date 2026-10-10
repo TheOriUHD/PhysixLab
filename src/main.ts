@@ -11,6 +11,7 @@ import './styles/themes.css';
 import './styles/vz-a.css';
 import './styles/tm.css'; // -- TM --
 import './styles/cm.css'; // -- CM-A --
+import './styles/cm-touch.css'; // -- CM-A touch --
 import './styles/diag.css';
 import './styles/tour.css';
 import './styles/vzb.css'; // -- VZ-B --
@@ -55,6 +56,7 @@ import { attachDiagnostics, installDiagnostics, preflight, showBootFailure } fro
 import { publishApi } from './api/install';
 import { installTour } from './ui/tour';
 import { initPwa } from './pwa'; // -- DT-40 --
+import { mountTouch } from './ui/touch'; // -- CM-A touch --
 
 installDiagnostics(); // -- UI-B: error boundary --
 
@@ -112,6 +114,7 @@ async function boot(): Promise<void> {
   mountZoneHud(app, shell.stage); // -- ZN: race board, score and event feed over the viewport
   wireShell(app, shell);
   const input = new InputController(app);
+  mountTouch(app, input); // -- CM-A touch: gestures + on-screen controls --
   app.viewport.controls.addEventListener('change', () => {
     /* camera moved */
   });
