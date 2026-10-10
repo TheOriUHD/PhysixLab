@@ -20,9 +20,20 @@ import {
   type Quat,
   type Vec3,
 } from '../../core/math';
+import { hasIndependentAnchors } from '../../model/jointParams';
 import type { JointEntity } from '../../model/types';
+import { initCoupling } from './couplings';
 import type { JointRec, WorldState } from './state';
 import { pos, QI, rot, rq, rv, X_AXIS, ZERO } from './util';
+
+// -- JT-A: engine axis-mask bits and the types whose engine joint takes explicit local frames --
+const AXES = { LinX: 1, LinY: 2, LinZ: 4, AngX: 8, AngY: 16, AngZ: 32 };
+const HAS_FRAME = new Set(['hinge', 'slider', 'sixdof', 'universal', 'screw']);
+function sixDofLockMask(def: JointEntity): number {
+  let m = 0;
+  for (let i = 0; i < 6; i++) if (def.params.dof[i].mode === 'locked') m |= 1 << i;
+  return m;
+}
 
 export function addJoint(s: WorldState, def: JointEntity): JointRec | null {
   const A = def.bodyA ? (s.bodies.get(def.bodyA) ?? null) : null;
@@ -32,7 +43,7 @@ export function addJoint(s: WorldState, def: JointEntity): JointRec | null {
   const qB = B ? rot(B.rb) : QI;
   const pA = A ? pos(A.rb) : ZERO;
   const pB = B ? pos(B.rb) : ZERO;
-  const rigid = def.type !== 'spring' && def.type !== 'rope';
+  const rigid = !hasIndependentAnchors(def.type); // -- JT-A: replaces the spring / rope test --
 
   const aA: Vec3 = def.anchorA;
   let aB: Vec3;
@@ -47,7 +58,7 @@ export function addJoint(s: WorldState, def: JointEntity): JointRec | null {
   const qAxis = qfromUnitVectors(X_AXIS, axisWorld);
   let frameA = qmul(qconj(qA), qAxis);
   let frameB = qmul(qconj(qB), qAxis);
-  if (def.type === 'fixed') {
+  if (def.type === 'fixed' || def.type === 'softweld') {
     frameA = qconj(qA);
     frameB = qconj(qB);
   }
@@ -72,9 +83,31 @@ export function addJoint(s: WorldState, def: JointEntity): JointRec | null {
     case 'rope':
       jd = RAPIER.JointData.rope(def.ropeLength, rv(aA), rv(aB));
       break;
+    // -- JT-A: engine joint (if any) + coupling rows in couplings.ts --
+    case 'conetwist':
+      jd = RAPIER.JointData.spherical(rv(aA), rv(aB));
+      break;
+    case 'sixdof':
+      jd = RAPIER.JointData.generic(rv(aA), rv(aB), rv(X_AXIS), sixDofLockMask(def));
+      break;
+    case 'universal':
+      jd = RAPIER.JointData.generic(rv(aA), rv(aB), rv(X_AXIS), AXES.LinX | AXES.LinY | AXES.LinZ | AXES.AngX);
+      break;
+    case 'screw':
+      jd = RAPIER.JointData.generic(rv(aA), rv(aB), rv(X_AXIS), AXES.LinY | AXES.LinZ | AXES.AngY | AXES.AngZ);
+      break;
+    case 'softweld':
+    case 'pulley':
+    case 'rack':
+    case 'gear':
+    case 'belt':
+    case 'winch':
+      // No engine constraint: an inert rope carries the "connected bodies collide" flag; couplings.ts does the work.
+      jd = RAPIER.JointData.rope(1e6, rv(aA), rv(aB));
+      break;
   }
   const joint = s.world.createImpulseJoint(jd, A ? A.rb : s.worldBody, B ? B.rb : s.worldBody, true);
-  if (def.type === 'hinge' || def.type === 'slider') {
+  if (HAS_FRAME.has(def.type)) {
     joint.setLocalFrame1(rv(aA), rq(frameA));
     joint.setLocalFrame2(rv(aB), rq(frameB));
   }
@@ -98,7 +131,9 @@ export function addJoint(s: WorldState, def: JointEntity): JointRec | null {
     force: 0,
     motorTarget: 0,
     cache: [NaN, NaN, NaN],
+    rt: [],
   };
+  initCoupling(s, rec);
   configureUnitJoint(s, rec, true);
   s.joints.set(def.id, rec);
   s.jointOrder.push(rec);

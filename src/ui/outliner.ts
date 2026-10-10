@@ -14,6 +14,17 @@ const JOINT_ICON = {
   ball: 'ball',
   spring: 'spring',
   rope: 'rope',
+  // -- JT-A --
+  conetwist: 'conetwist',
+  sixdof: 'sixdof',
+  pulley: 'pulley',
+  rack: 'rack',
+  gear: 'gear',
+  belt: 'belt',
+  universal: 'universal',
+  screw: 'screw',
+  winch: 'winch',
+  softweld: 'softweld',
 } as const;
 
 const LIGHT_ICON = { point: 'light', spot: 'lightSpot', directional: 'lightSun', area: 'lightArea' } as const;

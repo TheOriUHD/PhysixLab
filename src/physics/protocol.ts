@@ -375,5 +375,7 @@ export interface JointSnapshot {
   speed: number;
   force: number;
   motorTarget: number;
+  /** -- JT-A: runtime values of the coupling constraints (absent in older snapshots). -- */
+  rt?: number[];
   cache: [number, number, number];
 }

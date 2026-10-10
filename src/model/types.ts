@@ -5,6 +5,7 @@
  * JSON-serializable data. The physics worker builds a Rapier world from it, the renderer
  * mirrors it, and the UI edits it through SceneStore (which keeps it immutable + undoable).
  */
+import type { JointParams } from './jointParams';
 import type { Quat, Vec3 } from '../core/math';
 
 export type { Quat, Vec3 };
@@ -186,7 +187,24 @@ export interface DragSpec {
   angular2: number;
 }
 
-export type JointType = 'fixed' | 'hinge' | 'slider' | 'ball' | 'spring' | 'rope';
+export type JointType =
+  | 'fixed'
+  | 'hinge'
+  | 'slider'
+  | 'ball'
+  | 'spring'
+  | 'rope'
+  // -- JT-A: new joint types --
+  | 'conetwist'
+  | 'sixdof'
+  | 'pulley'
+  | 'rack'
+  | 'gear'
+  | 'belt'
+  | 'universal'
+  | 'screw'
+  | 'winch'
+  | 'softweld';
 
 export type MotorMode = 'off' | 'velocity' | 'position';
 
@@ -250,6 +268,8 @@ export interface JointEntity {
   ropeLength: number;
   /** Collide the two connected bodies with each other. */
   collideConnected: boolean;
+  // -- JT-A: settings of the cone-twist / 6-DOF / pulley / rack / gear / belt / screw / winch / soft weld types --
+  params: JointParams;
   hidden: boolean;
   /** Behaviours attached to the joint (FB-7); same mechanism as `BodyEntity.components`. */
   components: ComponentSpec[];

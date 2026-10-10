@@ -2,6 +2,7 @@ import { qident, qnorm, type Quat, type Vec3 } from '../core/math';
 import { materialFromPreset } from './materials';
 import { SCENE_FORMAT, SCENE_VERSION } from './migrations';
 import { makeShapeSpec, shapeLabel } from './shapeRegistry';
+import { defaultParams, type JointParams } from './jointParams';
 import type {
   BodyEntity,
   BoundsSettings,
@@ -170,8 +171,27 @@ const JOINT_LABELS: Record<JointType, string> = {
   ball: 'Ball joint',
   spring: 'Spring',
   rope: 'Rope',
+  // -- JT-A --
+  conetwist: 'Cone-twist',
+  sixdof: '6-DOF joint',
+  pulley: 'Pulley',
+  rack: 'Rack and pinion',
+  gear: 'Gear pair',
+  belt: 'Belt / chain drive',
+  universal: 'Universal joint',
+  screw: 'Screw',
+  winch: 'Winch',
+  softweld: 'Soft weld',
 };
 export const JOINT_TYPE_LABELS = JOINT_LABELS;
+
+/** Defaults for a new joint's `params`, tuned per type. */
+function jointParamsFor(type: JointType): JointParams {
+  const p = defaultParams();
+  if (type === 'sixdof') for (const d of p.dof) d.mode = 'locked';
+  if (type === 'winch') p.loadRating = 0;
+  return p;
+}
 
 export function createJoint(init: JointInit): JointEntity {
   const { name, type, bodyA, bodyB, anchorA, anchorB, axis, ...rest } = init;
@@ -190,6 +210,7 @@ export function createJoint(init: JointInit): JointEntity {
     spring: { restLength: 1, stiffness: 400, damping: 12, breakForce: 0 },
     ropeLength: 2,
     collideConnected: false,
+    params: jointParamsFor(type),
     hidden: false,
     components: [],
     ...(rest as Partial<JointEntity>),

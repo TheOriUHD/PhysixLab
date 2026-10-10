@@ -1,3 +1,4 @@
+import { sanitizeParams } from './jointParams';
 import { clamp, type Vec3 } from '../core/math';
 import { SceneFormatError, warn, type LoadReport } from './errors';
 import {
@@ -52,7 +53,25 @@ import { isLight, isPosed } from './types';
 
 const SOFTS: SoftType[] = ['jelly', 'balloon', 'cloth', 'cable'];
 const PINS: SoftPin[] = ['none', 'edge', 'corners', 'corners4', 'one-end', 'ends'];
-const JOINTS: JointType[] = ['fixed', 'hinge', 'slider', 'ball', 'spring', 'rope'];
+const JOINTS: JointType[] = [
+  'fixed',
+  'hinge',
+  'slider',
+  'ball',
+  'spring',
+  'rope',
+  // -- JT-A --
+  'conetwist',
+  'sixdof',
+  'pulley',
+  'rack',
+  'gear',
+  'belt',
+  'universal',
+  'screw',
+  'winch',
+  'softweld',
+];
 const SKIES: SkyPreset[] = ['studio', 'day', 'sunset', 'night', 'overcast'];
 
 function sanitizeBody(raw: any, report?: LoadReport): BodyEntity {
@@ -162,6 +181,7 @@ function sanitizeJoint(raw: any, report?: LoadReport): JointEntity {
     },
     ropeLength: Math.max(0.01, num(raw?.ropeLength, base.ropeLength)),
     collideConnected: bool(raw?.collideConnected, false),
+    params: sanitizeParams(raw?.params), // -- JT-A --
     hidden: bool(raw?.hidden, false),
     components: sanitizeComponents(raw?.components, 'joint', report, 'a joint'),
   };

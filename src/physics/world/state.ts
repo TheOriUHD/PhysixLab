@@ -114,6 +114,8 @@ export interface JointRec {
   force: number;
   motorTarget: number; // slewed position-motor target
   cache: [number, number, number]; // last (mode-specific) motor parameters sent to the engine
+  // -- JT-A: per-type runtime values of the coupling constraints (couplings.ts): rope length, unwrapped angle, … --
+  rt: number[];
 }
 
 export class WorldState {

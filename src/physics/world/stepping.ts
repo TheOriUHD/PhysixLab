@@ -5,6 +5,7 @@
  */
 import { clamp } from '../../core/math';
 import { applyDrag, emulateSleep } from './dynamics';
+import { stepCouplings } from './couplings';
 import { collectEvents, stepPending } from './events';
 import { applySoftWalls, checkBounds } from './bounds'; // -- ZN-34
 import { applyGrab, applyThrusters } from './forces';
@@ -74,7 +75,9 @@ export function stepOnce(s: WorldState): void {
   const tEnd = s.simTime + dt;
   for (let i = n; i > 0; i--) {
     applyDrag(s, dt / n);
+    stepCouplings(s, dt / n); // -- JT-A: coupling rows of the pulley / gear / rack / … joints --
     s.world.step(s.eventQueue);
+    stepCouplings(s, dt / n, true); // -- JT-A: re-couple gear / belt / rack / screw velocities --
     collectEvents(s, tEnd);
   }
   s.queriesDirty = false; // the step rebuilt the engine's query structures

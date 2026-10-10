@@ -32,6 +32,17 @@ export const JOINT_COLORS: Record<JointType, string> = {
   ball: '#c792ff',
   spring: '#4fd1ff',
   rope: '#d7a86e',
+  // -- JT-A --
+  conetwist: '#b58cff',
+  sixdof: '#7aa2ff',
+  pulley: '#e0b36a',
+  rack: '#7fd6c2',
+  gear: '#ff9f6e',
+  belt: '#c9a37a',
+  universal: '#ffd166',
+  screw: '#8fe388',
+  winch: '#f08fc0',
+  softweld: '#ff8fa8',
 };
 const MOTOR_COLOR = '#19e6c1';
 const SELECTED = '#ffffff';
@@ -166,6 +177,8 @@ class JointView {
         this.root.add(line);
         break;
       }
+      default:
+        break; // -- JT-A: gizmos of the new types are added in jointGizmos.ts --
     }
   }
 
