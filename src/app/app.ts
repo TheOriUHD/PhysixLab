@@ -25,6 +25,7 @@ import { SceneStore } from '../model/store';
 import { BodyViews } from '../render/bodyViews';
 import { SoftViews } from '../render/softViews';
 import { Effects } from '../render/effects';
+import { ComponentFx } from '../render/componentFx'; // -- CP: flames, blades and gauges of the powered parts
 import type { Gizmo } from '../render/gizmo';
 import { GroupViews } from '../render/groupViews';
 import { JointViews } from '../render/jointViews';
@@ -69,6 +70,7 @@ export class App extends Emitter<AppEvents> {
   readonly picker: Picker;
   readonly gizmo: Gizmo;
   readonly effects: Effects;
+  readonly componentFx: ComponentFx; // -- CP
   readonly labels = new Labels();
   hoverId: string | null = null;
 
@@ -98,6 +100,15 @@ export class App extends Emitter<AppEvents> {
     this.pathViews = new PathViews(this.viewport.paths);
     this.overlays = new Overlays(this.viewport.overlays);
     this.effects = new Effects(this.viewport.helpers);
+    // -- CP: the powered parts' flames, blades and gauges read the document, the live poses and the published numbers
+    this.componentFx = new ComponentFx(this.viewport.helpers, {
+      bodies: () => this.store.bodies(),
+      joints: () => this.store.joints(),
+      pose: (id) => this.sim.poseOf(id),
+      values: (id) => (this.sim.client.active ? this.sim.client.stateOf(id) : null),
+      live: () => this.sim.client.active && this.sim.client.frameNo > 0,
+      selected: (id) => this.store.selection.includes(id),
+    });
     this.picker = new Picker(this.viewport.dom, this.viewport.camera);
 
     this.gizmos = new GizmoController(this);

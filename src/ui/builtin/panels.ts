@@ -9,6 +9,8 @@ import { LIBRARY_PANELS } from '../libraryPanels';
 import { Outliner } from '../outliner';
 import { energyPanel, selectionPanel } from '../telemetry';
 import { buildWorldPanel } from '../worldPanel';
+// -- CP: the Controls tab (keys and analog axes of the scene)
+import { controlsPanel } from '../controlsPanel';
 
 const inspectorPanel: PanelDef = {
   id: 'inspector',
@@ -50,6 +52,15 @@ const worldPanel: PanelDef = {
 };
 
 export function registerBuiltinPanels(): void {
-  for (const p of [...LIBRARY_PANELS, inspectorPanel, outlinerPanel, worldPanel, energyPanel, selectionPanel])
+  for (const p of [
+    ...LIBRARY_PANELS,
+    inspectorPanel,
+    outlinerPanel,
+    worldPanel,
+    energyPanel,
+    selectionPanel,
+    controlsPanel,
+  ])
+    // -- CP: controlsPanel
     registerPanel(p);
 }

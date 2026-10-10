@@ -71,6 +71,7 @@ export class FrameLoop {
     );
 
     app.effects.update(dt);
+    app.componentFx.update(dt); // -- CP
     app.cameraControl.updateFollow(dt);
     app.measureTool.updateLabel();
     const rect = app.viewport.dom.getBoundingClientRect();

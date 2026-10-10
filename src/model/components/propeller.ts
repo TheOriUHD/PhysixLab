@@ -25,6 +25,16 @@ export const propeller: ComponentDef = {
     { kind: 'number', key: 'diameter', label: 'Diameter', default: 1, min: 0.02, max: 50, step: 0.05, unit: 'm' },
     {
       kind: 'number',
+      key: 'blades',
+      label: 'Blades',
+      default: 2,
+      min: 1,
+      max: 8,
+      step: 1,
+      hint: 'Shown in the viewport; the thrust coefficient already includes the blade area',
+    },
+    {
+      kind: 'number',
       key: 'thrustCoeff',
       label: 'Thrust coefficient',
       default: 0.1,

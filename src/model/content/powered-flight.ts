@@ -224,6 +224,8 @@ function helicopterEntities(): Entity[] {
         pitchBack: 'ArrowDown',
         rollRight: 'ArrowRight',
         rollLeft: 'ArrowLeft',
+        pitchAxis: 'pitch', // the Controls panel's sliders tilt the disc too, smoothly
+        rollAxis: 'roll',
         maxTilt: 6,
         trimRoll: -5, // leans the main rotor a little to the left, against the tail rotor's sideways push
         direction: [0, 1, 0],
@@ -264,7 +266,7 @@ registerTemplate({
   name: 'Helicopter',
   category: 'Powered parts',
   blurb: 'A main rotor with collective and cyclic, and a tail rotor that has to cancel its torque.',
-  hint: 'Press Play. Wait for the rotor to spool up, then hold R to raise the collective until it lifts off (F lowers it). Arrow keys tilt the disc to fly; Q / E trim the tail rotor against yaw.',
+  hint: 'Press Play. Wait for the rotor to spool up, then hold R to raise the collective until it lifts off (F lowers it). Arrow keys (or the pitch / roll sliders in Controls) tilt the disc to fly; Q / E trim the tail rotor against yaw.',
   view: { position: [-8, 4, 9], target: [0, 1.5, 0] },
   follow: 'Helicopter',
   build() {
