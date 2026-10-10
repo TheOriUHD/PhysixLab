@@ -26,6 +26,7 @@ import { openMenu } from './ui/menu';
 import { mountZoneHud } from './ui/zoneHud'; // -- ZN
 import { resolveMenu } from './app/registry/menus';
 import { loadExtensions, registerBuiltins } from './ui/builtin';
+import { publishApi } from './api/install';
 
 async function boot(): Promise<void> {
   // Everything the UI offers is a registration; register the built-ins before any UI is built.
@@ -141,7 +142,8 @@ async function boot(): Promise<void> {
   for (const f of extensionFailures) app.toast(`Extension ${f.file} failed to load: ${f.error.message}`, 'error');
   app.start();
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
-  (window as unknown as { physicslab: App }).physicslab = app;
+  // -- DT-30: the versioned public API (src/api); falls through to the App for the internal members --
+  (window as unknown as { physicslab: App }).physicslab = publishApi(app);
   if (!app.prefs.value.seenWelcome && !new URLSearchParams(location.search).has('nowelcome'))
     setTimeout(() => showWelcome(app), 400);
 }
