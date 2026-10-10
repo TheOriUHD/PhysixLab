@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="PhysicsLab logo">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#121a2a"/>
+      <stop offset="1" stop-color="#070a11"/>
+    </linearGradient>
+    <linearGradient id="arc" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#5eead4"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <radialGradient id="ball" cx="0.35" cy="0.32" r="0.8">
+      <stop offset="0" stop-color="#e0f7ff"/>
+      <stop offset="0.35" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
+  </defs>
+  <rect width="256" height="256" rx="58" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="3"/>
+  <!-- faint perspective floor -->
+  <g stroke="#5eead4" stroke-opacity="0.10" stroke-width="2" fill="none">
+    <path d="M28 196h200"/><path d="M40 214h176"/><path d="M58 232h140"/>
+    <path d="M128 182v62"/><path d="M86 182l-38 62"/><path d="M170 182l38 62"/>
+  </g>
+  <!-- bounce trajectory -->
+  <path d="M36 190C66 120 92 96 118 100s42 40 66 18" fill="none" stroke="url(#arc)" stroke-width="9" stroke-linecap="round" stroke-dasharray="1 0"/>
+  <g fill="#5eead4" fill-opacity="0.55">
+    <circle cx="52" cy="160" r="3.6"/><circle cx="68" cy="131" r="3.6"/><circle cx="86" cy="112" r="3.6"/>
+  </g>
+  <!-- ball -->
+  <circle cx="176" cy="104" r="40" fill="url(#glow)"/>
+  <circle cx="176" cy="104" r="26" fill="url(#ball)"/>
+  <ellipse cx="167" cy="94" rx="7.5" ry="5" fill="#ffffff" fill-opacity="0.65" transform="rotate(-30 167 94)"/>
+  <ellipse cx="176" cy="196" rx="30" ry="6" fill="#000000" fill-opacity="0.45" filter="url(#soft)"/>
+</svg>

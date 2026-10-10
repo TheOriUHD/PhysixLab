@@ -3,7 +3,28 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "PhysicsLab — an advanced in-browser 3D physics sandbox",
+  "description": "PhysicsLab \u2014 an advanced in-browser 3D physics sandbox",
+  "license": "MIT",
+  "homepage": "https://github.com/TheOriUHD/PhysicsSandbox#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheOriUHD/PhysicsSandbox.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TheOriUHD/PhysicsSandbox/issues"
+  },
+  "keywords": [
+    "physics",
+    "sandbox",
+    "3d",
+    "rapier",
+    "three.js",
+    "webassembly",
+    "simulation",
+    "education",
+    "vehicles",
+    "soft-body"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

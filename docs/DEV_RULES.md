@@ -36,7 +36,7 @@ E2E_URL=http://127.0.0.1:5173 npm run test:e2e    # use an already running dev s
 * Commit message footer (when you commit):
   ```
   Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
-  Claude-Session: https://claude.ai/code/session_01M6Xgo9GJDjvdHSYzAdoWkp
+  Claude-Session: <session link, if your tool provides one>
   ```
   Never put model identifiers anywhere else in the repository (code comments, docs, PRs).
 
