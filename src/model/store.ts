@@ -561,6 +561,8 @@ export class SceneStore extends Emitter<StoreEvents> {
   /** Assets nothing references — kept for undo while editing, dropped when the scene is saved. */
   unusedAssets(): string[] {
     const used = countAssetRefs(this.entities.values());
+    const hdri = this.settings.environment.hdri.assetId; // -- VZ-A: the scene HDRI is in use --
+    if (hdri) used.set(hdri, 1);
     return Object.keys(this.assets).filter((id) => !used.has(id));
   }
 
@@ -575,6 +577,17 @@ export class SceneStore extends Emitter<StoreEvents> {
       const { [id]: _gone, ...rest } = this.assets;
       this.assets = rest;
       this.emit('change', { type: 'assets', ids: [id] });
+      // -- VZ-A: the scene HDRI lives in the settings --
+      const env = this.settings.environment;
+      if (env.hdri.assetId === id) {
+        const environment = {
+          ...env,
+          sky: env.sky === 'hdri' ? ('studio' as const) : env.sky,
+          hdri: { ...env.hdri, assetId: null },
+        };
+        this.settings = { ...this.settings, environment };
+        this.emit('change', { type: 'settings', keys: new Set(['environment']) });
+      }
     });
     return true;
   }

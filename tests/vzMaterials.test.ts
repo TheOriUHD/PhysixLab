@@ -264,6 +264,22 @@ describe('VZ-10..13 environment settings', () => {
     expect(loaded.settings.environment.sky).toBe('studio');
   });
 
+  it('removing the HDRI asset clears the setting; the HDRI counts as used', () => {
+    const store = new SceneStore();
+    const id = store.addAsset(makeBlobAsset('sky.hdr', 'image/vnd.radiance', new Uint8Array([1, 2, 3])));
+    store.updateSettings({
+      environment: {
+        ...store.settings.environment,
+        sky: 'hdri',
+        hdri: { ...store.settings.environment.hdri, assetId: id },
+      },
+    });
+    expect(store.unusedAssets()).toEqual([]);
+    store.removeAsset(id);
+    expect(store.settings.environment.hdri.assetId).toBeNull();
+    expect(store.settings.environment.sky).toBe('studio');
+  });
+
   it('height fog parameters encode density at height 0 and a negative far (the shader flag)', () => {
     const p = heightFogParams(0.02, 0, 0.2);
     expect(p.near).toBeCloseTo(0.02, 8);

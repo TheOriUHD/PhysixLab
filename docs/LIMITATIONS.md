@@ -211,3 +211,5 @@ Plugins can register commands, declarative panels and example scenes (templates)
 * **Light shafts** are screen-space: the sun only produces shafts when it is in the frame (the orbit camera cannot look that high), spotlights always (up to three, nearest-first scan twice a second).
 * **Damage visuals** are procedural (cracks / scorch / dent-tint in the body shader) and accumulate from approach speed per material kind; skinned bodies and compound bodies' parts share the body's damage but skins are not damaged.
 * **Auto quality** judges by frame time on the main thread: a slow *simulation* step lowers quality too.
+* Themes (VZ-50): colour literals remain in other packages' canvases and stylesheets (`src/app/camera/minimap.ts`, `src/ui/timeTravel/timelinePanel.ts`, `src/ui/diag/panels.ts`, `cm.css`, `tm.css`, `diag.css`); they keep their own look in every theme until migrated to the `--canvas-*` / `--chart-*` tokens. The 3D viewport background is scene-driven.
+* Procedural pattern textures are cached per (pattern, colours, bump); dragging a colour slider adds cache entries that live until reload.

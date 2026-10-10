@@ -373,8 +373,13 @@ export function materialSection(ctx: InspectorContext, sel: BodyEntity[]): HTMLE
     void (async () => {
       try {
         const img = await readImage(f);
-        const id = app.store.addAsset(makeTextureAsset(f.name, img.dataUrl, img.width, img.height), 'Add texture');
-        texEdit('Texture image', (t) => ({ [key]: id, pattern: key === 'imageId' ? 'image' : t.pattern }));
+        app.store.begin('Texture image'); // the asset and the material edit are one undo step
+        try {
+          const id = app.store.addAsset(makeTextureAsset(f.name, img.dataUrl, img.width, img.height), 'Texture image');
+          texEdit('Texture image', (t) => ({ [key]: id, pattern: key === 'imageId' ? 'image' : t.pattern }));
+        } finally {
+          app.store.end();
+        }
       } catch (e) {
         app.toast(e instanceof Error ? e.message : `Could not use “${f.name}” as a texture.`, 'error');
       }

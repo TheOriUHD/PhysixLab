@@ -120,6 +120,19 @@ function stateOf(m: MeshPhysicalMaterial): MatState {
   return s;
 }
 
+/**
+ * Forget what was applied (another package reset the material's maps or shader patches): the next
+ * `applyMaterialSpec` rebuilds textures and the triplanar patch from scratch.
+ */
+export function resetMaterialState(m: MeshPhysicalMaterial): void {
+  const s = states.get(m);
+  if (!s) return;
+  s.texKey = '';
+  s.triplanar = false;
+  s.prevPatch = undefined;
+  s.prevKey = undefined;
+}
+
 /** Free the texture clones a material owns (call before disposing the material). */
 export function disposeMaterialTextures(m: MeshPhysicalMaterial): void {
   const s = states.get(m);
@@ -192,7 +205,7 @@ export function applyMaterialSpec(mat: MeshPhysicalMaterial, spec: MaterialSpec,
   mat.anisotropy = spec.anisotropy ?? 0;
   mat.ior = spec.ior ?? 1.5;
 
-  const trans = materialContext.transmission ? (spec.transmission ?? 0) : 0;
+  const trans = materialContext.transmission && !ghostly ? (spec.transmission ?? 0) : 0;
   mat.transmission = trans;
   mat.thickness = spec.thickness ?? 0;
   if (trans > 0) {
@@ -241,14 +254,15 @@ export function applyMaterialSpec(mat: MeshPhysicalMaterial, spec: MaterialSpec,
       mat.normalMap = t.triplanar ? null : own(normal);
       mat.roughnessMap = t.roughnessId ? own(imageTexture(t.roughnessId, LinearSRGBColorSpace)) : null;
       mat.emissiveMap = t.emissiveId ? own(imageTexture(t.emissiveId, SRGBColorSpace)) : null;
-      if (mat.emissiveMap && !emissiveOn) {
-        mat.emissive.set('#ffffff');
-        mat.emissiveIntensity = 1;
-      }
     }
     mat.needsUpdate = true;
   } else if (mat.map && t && t.pattern !== 'image') {
     mat.color.set('#ffffff');
+  }
+  // an emissive map alone glows at full strength
+  if (mat.emissiveMap && !emissiveOn) {
+    mat.emissive.set('#ffffff');
+    mat.emissiveIntensity = 1;
   }
   if (mat.normalMap && t) mat.normalScale.set(t.normalStrength, t.normalStrength);
 

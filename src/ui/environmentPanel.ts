@@ -176,8 +176,13 @@ export function buildEnvironmentSections(app: App): { sections: HTMLElement[]; r
     }
     try {
       const bytes = new Uint8Array(await f.arrayBuffer());
-      const id = store.addAsset(makeBlobAsset(f.name, f.type || guessMime(f.name), bytes), 'Add HDRI');
-      setEnv({ sky: 'hdri', hdri: { ...env().hdri, assetId: id } }, 'Use HDRI');
+      store.begin('Use HDRI'); // the asset and the setting are one undo step
+      try {
+        const id = store.addAsset(makeBlobAsset(f.name, f.type || guessMime(f.name), bytes), 'Use HDRI');
+        setEnv({ sky: 'hdri', hdri: { ...env().hdri, assetId: id } }, 'Use HDRI');
+      } finally {
+        store.end();
+      }
       app.toast(`Using “${f.name}” as the environment`, 'success');
     } catch (e) {
       app.toast(e instanceof Error ? e.message : `Could not use “${f.name}” as an HDRI.`, 'error');
