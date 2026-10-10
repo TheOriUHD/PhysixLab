@@ -115,3 +115,19 @@ export function sanitizeCameras(raw: unknown): SceneCameras {
     minimap: minimap(raw.minimap),
   };
 }
+
+/** Nothing saved: the default cameras. Documents leave the field out in that case (short files and share links). */
+export function isDefaultCameras(c: SceneCameras): boolean {
+  const d = emptyCameras();
+  return (
+    c.bookmarks.length === 0 &&
+    c.shots.length === 0 &&
+    c.panes.length === 0 &&
+    c.pips.length === 0 &&
+    c.split === d.split &&
+    c.minimap.enabled === d.minimap.enabled &&
+    c.minimap.range === d.minimap.range &&
+    c.minimap.rotate === d.minimap.rotate &&
+    c.minimap.corner === d.minimap.corner
+  );
+}

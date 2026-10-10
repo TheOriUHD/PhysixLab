@@ -243,7 +243,14 @@ describe('camera settings and saved cameras', () => {
     // a file from before the camera package loads with empty cameras
     const old = JSON.parse(text) as Record<string, unknown>;
     delete old.cameras;
-    expect(parseDocument(JSON.stringify(old)).cameras).toEqual(emptyCameras());
+    expect(parseDocument(JSON.stringify(old)).cameras).toBeUndefined();
+    // …and nothing is written for default cameras (keeps files and share links short)
+    expect(
+      (JSON.parse(serializeDocument(new SceneStore().toDocument())) as { cameras?: unknown }).cameras,
+    ).toBeUndefined();
+    const fresh = new SceneStore();
+    fresh.load(parseDocument(JSON.stringify(old)));
+    expect(fresh.cameras).toEqual(emptyCameras());
   });
 });
 

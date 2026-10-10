@@ -247,6 +247,7 @@ export class CameraRig extends Emitter<RigEvents> {
     const c = vp.controls;
     const driven = this.driven || !!this.override;
     vp.externalCamera = driven;
+    if (driven) vp.cancelTween();
     c.enabled = !driven;
     if (!driven) {
       c.enableRotate = true;
@@ -298,7 +299,8 @@ export class CameraRig extends Emitter<RigEvents> {
       this.retarget();
     }
     this.lastDriven = drove;
-    if (!drove) vp.externalCamera = false;
+    if (drove) vp.cancelTween();
+    else vp.externalCamera = false;
 
     this.autoNearFar();
     this.applyShake(dt);
@@ -344,6 +346,13 @@ export class CameraRig extends Emitter<RigEvents> {
   shake(amount: number): void {
     if (this.motionReduced || this.settings.shake <= 0) return;
     this.shakeAmp = Math.min(1.5, this.shakeAmp + amount * this.settings.shake);
+  }
+
+  /** Shake for an event at a world point: strongest within its `radius`, fading out to four times that. */
+  shakeAt(at: Vector3, strength: number, radius: number): void {
+    const d = this.app.camera.position.distanceTo(at);
+    const fall = Math.max(0, 1 - Math.max(0, d - radius) / (radius * 3));
+    this.shake(Math.min(1, strength / 120) * fall);
   }
 
   private applyShake(dt: number): void {

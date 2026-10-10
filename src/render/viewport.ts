@@ -573,6 +573,11 @@ export class Viewport {
     };
   }
 
+  /** -- CM-A: a camera rig takes over: a fly-to that was still running must not resume when it hands back. -- */
+  cancelTween(): void {
+    this.tween = null;
+  }
+
   /** Camera position + target, for persistence. */
   getView(): { position: [number, number, number]; target: [number, number, number] } {
     const p = this.camera.position,

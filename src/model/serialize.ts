@@ -14,7 +14,7 @@ import {
 import { LIMITS, formatBytes, formatCount } from './limits';
 import { pruneAssets, remapAssetRefs } from './assets';
 import { sanitizeAssetMap } from './sanitize/assets';
-import { sanitizeCameras } from './sanitize/cameras'; // -- CM-A --
+import { isDefaultCameras, sanitizeCameras } from './sanitize/cameras'; // -- CM-A --
 import { sanitizeWeatherField } from './sanitize/weather'; // -- VZ-B: weather --
 import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
 import { dedupeComponentIds, repairComponentRefs, sanitizeComponents } from './componentRegistry';
@@ -529,7 +529,10 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
     settings,
     entities: linked,
     assets,
-    cameras: sanitizeCameras(raw.cameras), // -- CM-A --
+    // -- CM-A: only when something is saved --
+    ...(raw.cameras && !isDefaultCameras(sanitizeCameras(raw.cameras))
+      ? { cameras: sanitizeCameras(raw.cameras) }
+      : {}),
   });
 }
 
