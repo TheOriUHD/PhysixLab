@@ -236,3 +236,13 @@ Plugins can register commands, declarative panels and example scenes (templates)
 * Procedural pattern textures are cached per (pattern, colours, bump); dragging a colour slider adds cache entries that live until reload.
 ## DT-42: first load is not under 1.2 MB gzip
 The Rapier WebAssembly binary alone is about 1.15 MB gzip (served as a separate cached asset), so the cold-start download is about 1.9 MB gzip; the JavaScript part is well below the target. Numbers and the lazy-loading policy are in docs/PERFORMANCE.md; `npm run size` enforces budgets in CI.
+
+## Presentation mode and quality of life (UI-41, UI-42)
+* **Drag and drop imports scene files only.** Meshes, images, audio, replays and prefab packs have no importer on this branch, so dropping one shows an explicit "… aren't supported yet" message (and the overlay says so while dragging) instead of pretending. `registerDropHandler(kind, handler)` in `src/ui/qol/dropHandlers.ts` is where another package plugs one in.
+* **Open recent is a headed block in the File menu**, not a nested submenu: the menu model has no nesting. At most 8 scenes are listed there (12 are remembered; the Scenes tab shows the newest 5).
+* **Recent scenes opened from a file or the clipboard keep their JSON only while it fits a small budget** (4 scenes, 700k characters in total, 300k each). A larger scene is listed but must be imported again to reopen it. Everything is per browser (localStorage).
+* **Thumbnails** are small JPEGs of the viewport (160 × 90), taken after a scene loads, saved or is edited; an example scene has none until it has been opened once. A browser with full storage shows no thumbnails.
+* **Hi-res capture** is limited by the GPU: the scale is reduced (and the saved-image toast says so) when the picture would exceed the largest renderable edge (at most 8192 px) or 36 megapixels. HTML overlays (body labels, measurements, quick bars) are not part of the image; the caption is drawn in separately. Software GL renders a 4× capture slowly.
+* **Reading the clipboard from the "Paste scene from clipboard" command** needs the browser's clipboard permission; when it is refused the command says so and Ctrl+V still works. Ctrl+V takes a scene over only when the clipboard text is a PhysicsLab scene; entity copy / paste is unchanged.
+* **Lighting presets change the scene** (they are the VZ environment presets, saved with the scene; Undo restores them); depth of field presets change the graphics preferences, not the scene.
+
