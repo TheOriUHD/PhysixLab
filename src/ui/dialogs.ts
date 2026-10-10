@@ -4,6 +4,7 @@ import { button } from './controls';
 import { h } from './dom';
 import { icon } from './icons';
 import { openModal } from './modal';
+import { ONBOARDING_TOUR, startTour } from './tour';
 
 /** The keyboard shortcut cheat-sheet (searchable; see `help/cheatSheet.ts`). */
 // -- UI-B: the cheat-sheet replaced the static list --
@@ -63,5 +64,19 @@ export function showWelcome(app: App): void {
     ),
   ];
   const ok = button('Let’s go', () => m.close(), { cls: 'primary' });
-  const m = openModal({ title: 'PhysicsLab', body, footer: [ok], onClose: () => app.prefs.set({ seenWelcome: true }) });
+  // -- UI-B: the guided first-run tour is offered right here --
+  const tour = button(
+    'Take the tour',
+    () => {
+      m.close();
+      startTour(ONBOARDING_TOUR, app);
+    },
+    { icon: 'info', title: 'A two-minute walk through the basics, right in the app' },
+  );
+  const m = openModal({
+    title: 'PhysicsLab',
+    body,
+    footer: [tour, ok],
+    onClose: () => app.prefs.set({ seenWelcome: true }),
+  });
 }

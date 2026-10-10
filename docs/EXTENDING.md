@@ -24,6 +24,7 @@ imports are rewritten for the folder the example says it belongs in. If you chan
 | a **template**, **prefab** or **map** | `registerTemplate`, `registerPrefab`, `registerMap` | `src/model/content/<name>.ts` | no |
 | a **particle effect** (sparks, smoke, confetti …) | `registerParticleType`, then `app.fx.emit` | `src/ui/extensions/<name>.ts` | no |
 | a **sound** or a **material's sound** | `registerSoundEvent`, `registerSoundMaterial`, then `app.audio.playEvent` | `src/ui/extensions/<name>.ts` | no |
+| a **guided tour** or a **context hint** | `registerTour`, `registerHint` (`src/ui/tour`) | `src/ui/extensions/<name>.ts` | no |
 | a **joint type** | *(a closed union for now)* | seven places, listed below | yes — see the checklist |
 
 Why two folders for the same kind of thing? **Content** (`src/model/content/`) is pure data built from the public
@@ -606,6 +607,77 @@ makes wind; a **component can ask for a sound** with `ctx.emit('sound', { id: 'e
 `ignite` and `bounce` events play the launch and trampoline sounds). The mute key is `Shift+M` (`M` is the Measure
 tool). The **Effects panel** carries the sound settings, as sections registered with `registerFxPanelSection`.
 
+## How to add a guided tour
+
+A tour is a spotlight walk-through of the real UI: the engine dims everything except the element a step points at,
+shows a card with the step counter and **Back / Next / Skip tour**, and moves on by itself when the user does what
+the step asks. The first-run onboarding tour (`src/ui/tour/onboarding.ts`) is built exactly this way, and the game
+tutorials use the same engine. `registerTour` also adds the command `help.tour.<id>` (so the tour is in the command
+palette) and a Help-menu entry; the user can leave at any time with **Skip tour** or `Esc`, and a step whose target
+cannot be found is shown as a centred card instead of failing.
+
+<!-- example: guided-tour.ts -->
+```ts
+// File: src/ui/extensions/inspector-tour.ts   (files in src/ui/extensions are loaded at start-up, nothing to edit)
+import { registerHint, registerTour } from '../tour';
+
+// A tour: Help → "Take the tour: Meet the Inspector" (and the palette command `help.tour.inspector-basics`).
+registerTour({
+  id: 'inspector-basics',
+  title: 'Meet the Inspector',
+  steps: [
+    // No target: a centred card.
+    { target: null, title: 'The Inspector', body: 'Everything about the selected object is edited on the right.' },
+    {
+      target: '.panel.right', // a CSS selector, or a function returning the element
+      title: 'Pick something',
+      body: 'Click an object in the 3D view. Keys look like this: [[Shift]] + click adds to the selection.',
+      placement: 'left',
+      onEnter: (app) => app.prefs.set({ showRight: true, rightTab: 'inspector' }),
+      waitFor: { event: 'selection' }, // moves on by itself when the user does it ("Skip step" stays available)
+    },
+    {
+      target: '.tbtn.play',
+      title: 'Now run it',
+      body: 'Press **Simulate** and watch what the numbers do.',
+      until: (app) => app.sim.mode === 'running', // or poll any condition you like
+    },
+  ],
+});
+
+// A context hint: shown once, the first time the user adds anything to the scene.
+registerHint({
+  id: 'demo-first-add',
+  trigger: { event: 'scene-change', type: 'add' },
+  text: 'Added! The Inspector on the right edits it — try the **Mass** field.',
+});
+```
+
+The API, all from `src/ui/tour`:
+
+- `registerTour({ id, title, steps, menuLabel?, onEnd? })` → unregister function. `onEnd(app, 'completed' | 'skipped')`
+  runs when the tour ends.
+- A step: `target` (CSS selector, `() => HTMLElement | null`, or `null` for a centred card), `title`, `body` (plain text
+  — `[[Ctrl+K]]` draws a key cap, `**bold**` makes bold text — or a DOM node you built; never raw HTML), and optionally
+  `placement` (`'auto'` default, `'top' | 'bottom' | 'left' | 'right' | 'center'`), `padding`, `onEnter(app)` /
+  `onExit(app)` (open the tab you are about to point at), and `allowInteraction`.
+- Waiting for the user: `waitFor` is one of `{ event: 'click', selector? }`, `{ event: 'command', id? }` (a command id
+  or a list of them), `{ event: 'selection', min? }`, `{ event: 'sim-mode', mode? }`, `{ event: 'scene-change', type? }`;
+  `until: (app) => boolean` is polled about eight times a second for anything no event announces. A step that waits
+  lets clicks through to the app and gets a **Skip step** button, so a tour can never get stuck.
+- `startTour(id, app)`, `stopTour()`, `isTourRunning()`, `runningTourId()`, `onTourChange(fn)`, `getTour`, `listTours`.
+- What the user finished or declined is remembered in `localStorage` (key `physicslab.guide.v1`, every access guarded),
+  so a tour you offer on first run is not offered twice.
+
+**Context hints** are the small cousin: `registerHint({ id, text, trigger?, when?, delayMs? })` shows a one-time card
+above the status bar the first time `trigger` (any `waitFor` event) happens and `when(app)` holds. Hints are
+remembered, wait while a tour or dialog is open, and can be switched off with the *Context hints* setting; there is a
+rotating tip of the day too (`help.tip`, setting *Tip of the day*). Pass `?nowelcome` in the URL to keep every
+unsolicited tour offer, hint and tip away (the test suite does).
+
+The pure parts — step state machine, wait matching, card placement, persistence — are in `src/ui/tour/tourLogic.ts`
+(no DOM), tested in `tests/tour.test.ts`; the spotlight itself is driven in a real browser by `e2e/tests/tour.mjs`.
+
 ## How to add a joint type
 
 Joint types are the one extension point that is still a closed union (`JointType`), so adding one means touching
@@ -707,6 +779,7 @@ if the load can take a moment. `lazy()` runs the loader once, shares the promise
 | templates / prefabs / maps | `src/model/content` | `register…`, `unregister…`, `get…`, `list…`, `onContentChange` |
 | particle types / fx surfaces | `src/render/fx` | `registerParticleType`, `particleTypes`, `registerFxSurface`, `surfaceFor`; `app.fx.emit` |
 | sound events / materials | `src/audio` | `registerSoundEvent`, `soundEvent`, `registerSoundMaterial`, `soundProfileFor`; `app.audio.playEvent` |
+| tours / hints | `src/ui/tour` | `registerTour`, `startTour`, `stopTour`, `isTourRunning`, `registerHint` |
 | shapes | `src/model/shapeRegistry` | `registerShape`, `getShape`, `listShapes`, `shapeDef` … |
 | components | `src/model/componentRegistry` + `src/physics/components` | `registerComponent`, `registerRuntime`, `componentDef`, `listComponents` |
 

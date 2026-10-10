@@ -8,6 +8,7 @@ import './styles/ed-path.css';
 import './styles/ui-a.css';
 import './styles/cm.css'; // -- CM-A --
 import './styles/diag.css';
+import './styles/tour.css';
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';
@@ -27,6 +28,7 @@ import { mountZoneHud } from './ui/zoneHud'; // -- ZN
 import { resolveMenu } from './app/registry/menus';
 import { loadExtensions, registerBuiltins } from './ui/builtin';
 import { publishApi } from './api/install';
+import { installTour } from './ui/tour';
 
 async function boot(): Promise<void> {
   // Everything the UI offers is a registration; register the built-ins before any UI is built.
@@ -141,6 +143,7 @@ async function boot(): Promise<void> {
 
   for (const f of extensionFailures) app.toast(`Extension ${f.file} failed to load: ${f.error.message}`, 'error');
   app.start();
+  installTour(app); // -- UI-B: guided tours, context hints, tips --
   // Exposed once the initial scene is in place — handy for debugging and relied on by the e2e tests.
   // -- DT-30: the versioned public API (src/api); falls through to the App for the internal members --
   (window as unknown as { physicslab: App }).physicslab = publishApi(app);
