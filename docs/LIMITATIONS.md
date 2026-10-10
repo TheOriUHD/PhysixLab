@@ -132,6 +132,16 @@ Pulley, rack, gear, belt / chain, winch, soft weld, screw and the limits / sprin
 * **Flames, blade blur and gauges are drawn, not simulated**: `src/render/componentFx.ts` draws a teardrop flame per thruster / jet, translucent blade discs for propellers and rotors, and dial / stroke / brake-ring gauges from the numbers the components publish. There are no exhaust particles or smoke yet (the `ignite` / `burnout` events and the published thrust are the hook); the sound engine (package FX) already voices them, from the published rpm / thrust and an ignition sound.
 * **The Controls panel drives analog axes only with its own sliders** (no gamepad or script input yet; the protocol accepts any `setAxis`). It lists the keys and axes found in the schemas of the enabled components of the scene, so a binding that a component reads through a script or a custom channel is not listed.
 
+## Charts (UI-30 / 31 / 32)
+
+* **Samples are per rendered frame**, at most 60 per simulated second (a chart's rate and record length are settable), so a spectrum can resolve frequencies up to half the sampling rate (30 Hz at best, less when the browser renders slower than the simulation) and fast contact transients are undersampled. Irregular frame spacing is resampled linearly onto a uniform grid before the FFT.
+* **Acceleration is the backward difference of the sampled velocity**, not an instantaneous value: it includes gravity and contact forces and is noisy at impacts.
+* **Angular momentum uses an effective moment of inertia** `2·KE_rot/ω²` recovered from the body's rotational kinetic energy, because the worker does not send the inertia tensor: exact for rotation about a principal axis, an approximation for a tumbling asymmetric body.
+* **Contacts are world-level.** The contact point count and total contact force come from the contact-point buffer of awake dynamic bodies (the same data as the Contacts overlay, which a chart switches on while it needs it); there is no per-body contact count or force, and no force for resting contacts of sleeping bodies.
+* **No hinge torque, temperature or sensor signals.** The engine's joint readback reports angle / speed (hinge, slider), length / force (spring) and tension (rope) only; there is no temperature simulation, and sensor events are events, not continuous values.
+* **Power is F·v** of the body's average net force over the last frame (the rate of change of its translational kinetic energy); use the Derivative option on an energy trace for dE/dt of anything else.
+* Chart data is not saved with the scene; configurations are saved per browser (localStorage), not per scene, and refer to objects by name.
+
 ## Rendering & platform
 
 * Targets desktop browsers with WebGL 2 and WebAssembly; touch navigation works (orbit/zoom) but editing is mouse- and keyboard-centric.
