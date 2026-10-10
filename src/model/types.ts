@@ -249,6 +249,25 @@ export interface SpringSpec {
   breakForce: number;
 }
 
+/**
+ * JT-11: when a joint fails. The thresholds apply to the force / torque the joint transmits (estimated by the
+ * engine, see `src/physics/world/jointLoad.ts`); 0 = that component never breaks the joint. Springs keep their
+ * own `spring.breakForce`. `fatigue` makes overload cumulative instead of instantaneous.
+ */
+export interface BreakSpec {
+  /** Newtons. */
+  force: number;
+  /** N·m (ignored by joints that transmit no torque, e.g. ball and rope). */
+  torque: number;
+  fatigue: {
+    enabled: boolean;
+    /** Load ratio (load / threshold, 0..1) above which damage accumulates. */
+    start: number;
+    /** Seconds the joint survives at exactly its threshold once fatigue is accumulating at the full rate. */
+    life: number;
+  };
+}
+
 export interface JointEntity {
   kind: 'joint';
   id: string;
@@ -276,6 +295,8 @@ export interface JointEntity {
   hidden: boolean;
   /** Behaviours attached to the joint (FB-7); same mechanism as `BodyEntity.components`. */
   components: ComponentSpec[];
+  // -- JT-B: breakage thresholds (absent = unbreakable) --
+  breakage?: BreakSpec;
 }
 
 /**

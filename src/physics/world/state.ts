@@ -32,6 +32,7 @@ import {
 import { RigidEnergy } from './energy';
 // -- TM: the recorder (snapshot ring, input log, tracks) --
 import { Recorder } from './recorder';
+import { LoadTracker, type JointLoad } from './jointLoad';
 
 export interface BodyRec {
   id: string;
@@ -146,6 +147,8 @@ export interface JointRec {
   cache: [number, number, number]; // last (mode-specific) motor parameters sent to the engine
   // -- JT-A: per-type runtime values of the coupling constraints (couplings.ts): rope length, unwrapped angle, … --
   rt: number[];
+  // -- JT-B: estimated load / fatigue (created by the estimator) --
+  jl?: JointLoad;
 }
 
 export class WorldState {
@@ -216,6 +219,8 @@ export class WorldState {
   readonly rigidEnergy = new RigidEnergy();
   /** Simulated seconds since the last readPoses (the force estimate divides by it). */
   simSinceRead = 0;
+  // -- JT-B: joint load estimation / breakage state --
+  readonly loads = new LoadTracker();
 
   constructor(world: RAPIER.World, worldBody: RAPIER.RigidBody, settings: SceneSettings) {
     this.world = world;

@@ -96,6 +96,11 @@ export function readJoints(s: WorldState, out?: Float32Array): Float32Array {
     buf[o + J.speed] = j.speed;
     buf[o + J.force] = j.force;
     buf[o + J.broken] = j.broken ? 1 : 0;
+    buf[o + J.load] = j.jl?.force ?? 0;
+    buf[o + J.torque] = j.jl?.torque ?? 0;
+    buf[o + J.ratio] = j.jl?.ratio ?? 0;
+    buf[o + J.damage] = j.jl?.damage ?? 0;
+    buf[o + J.exact] = j.jl?.exact === false ? 0 : 1;
   }
   return buf;
 }

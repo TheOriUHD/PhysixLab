@@ -52,6 +52,7 @@ export function takeSnapshot(s: WorldState): WorldSnapshot {
     motorTarget: j.motorTarget,
     cache: [...j.cache] as [number, number, number],
     rt: [...j.rt], // -- JT-A --
+    jl: j.jl ? { ...j.jl } : undefined,
   }));
   return {
     version: 1,
@@ -180,6 +181,7 @@ export function restoreSnapshot(s: WorldState, snap: WorldSnapshot): void {
       motorTarget: j.motorTarget,
       cache: [...j.cache] as [number, number, number],
       rt: j.rt ? [...j.rt] : [], // -- JT-A --
+      jl: j.jl ? { ...j.jl } : undefined,
     };
     s.joints.set(rec.id, rec);
     s.jointOrder.push(rec);

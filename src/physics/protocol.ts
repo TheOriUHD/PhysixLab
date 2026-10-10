@@ -59,12 +59,17 @@ export const B = {
 } as const;
 
 /** Floats per joint in the joint-state buffer. */
-export const JOINT_STRIDE = 4;
+export const JOINT_STRIDE = 9;
 export const J = {
   value: 0, // hinge: angle (rad) · slider: position (m) · spring/rope: length (m)
   speed: 1, // matching rate of change
   force: 2, // spring: force along the spring (N, + = tension); rope: tension estimate (N)
   broken: 3, // 1 once the joint has failed
+  load: 4, // estimated force the joint transmits (N), JT-10
+  torque: 5, // estimated torque it resists (N·m)
+  ratio: 6, // load / break threshold (0 = no threshold)
+  damage: 7, // fatigue damage 0..1
+  exact: 8, // 1 = the load estimate is exact (bridge of the joint graph), 0 = shared-load heuristic
 } as const;
 
 /** Floats per contact point in the contact buffer. */
@@ -106,6 +111,8 @@ export type SimOp =
   | { op: 'snapshot'; id: number }
   /** Replace the world state by a snapshot taken from this scene (see `WorldSnapshot`). */
   | { op: 'restore'; snapshot: WorldSnapshot }
+  // -- JT-B: estimate joint loads even when nothing is breakable (inspector readout, stress overlay) --
+  | { op: 'watchLoads'; on: boolean }
   /** Change how contact events are generated (`EventConfig`). */
   | { op: 'events'; config: Partial<EventConfig> }
   /** Add or replace a path the components can follow (`ctx.path`). Removal goes through `remove`. */
@@ -255,7 +262,8 @@ export interface ComponentEvent {
   data?: unknown;
 }
 
-export type SimEvent = { kind: 'jointBroken'; id: string; force: number } | ContactEvent | SensorEvent | ComponentEvent;
+export type SimEvent =
+  { kind: 'jointBroken'; id: string; force: number; torque?: number } | ContactEvent | SensorEvent | ComponentEvent;
 
 /**
  * Contact-event generation. Contact events cost a little per new contact, so they are off until something asks:
@@ -394,4 +402,6 @@ export interface JointSnapshot {
   /** -- JT-A: runtime values of the coupling constraints (absent in older snapshots). -- */
   rt?: number[];
   cache: [number, number, number];
+  /** JT-10: last load estimate and fatigue damage. */
+  jl?: { force: number; torque: number; ratio: number; damage: number; exact: boolean };
 }

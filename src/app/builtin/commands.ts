@@ -241,7 +241,7 @@ const SNAP_GRIDS = [0.05, 0.1, 0.25, 0.5, 1];
 const TRAILS: readonly ('off' | 'selected' | 'all')[] = ['off', 'selected', 'all'];
 
 function overlayToggle(
-  key: 'velocity' | 'force' | 'contacts' | 'com',
+  key: 'velocity' | 'force' | 'contacts' | 'com' | 'stress',
   label: string,
   description: string,
   icon: string,
@@ -339,6 +339,13 @@ const viewCommands: CommandDef[] = [
   overlayToggle('force', 'Net force vectors', 'Arrows showing the net force m·Δv/Δt on each body', 'force'),
   overlayToggle('contacts', 'Contact points & forces', 'Where bodies touch, coloured by force', 'contact'),
   overlayToggle('com', 'Centres of mass', 'A marker at each body’s centre of mass', 'com'),
+  // -- JT-B --
+  overlayToggle(
+    'stress',
+    'Joint stress',
+    'Colour joints green → red by the load they carry (against their break threshold, or the most loaded joint)',
+    'joints',
+  ),
   {
     id: 'view.overlay.trails',
     label: 'Motion trails',

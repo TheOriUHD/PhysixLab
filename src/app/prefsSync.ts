@@ -14,6 +14,8 @@ export class PrefsSync {
     app.bodies.mode = p.colorMode;
     app.joints.visible = p.showJoints;
     app.overlays.options = { ...p.overlays };
+    app.joints.stressOverlay = p.overlays.stress;
+    app.sim.client.watchLoads(p.overlays.stress);
     app.sim.timeScale = p.timeScale;
     app.sim.wantContacts = p.overlays.contacts;
     app.gizmo.setSpace(p.space);
@@ -38,6 +40,8 @@ export class PrefsSync {
           break;
         case 'overlays':
           app.overlays.options = { ...p.overlays };
+          app.joints.stressOverlay = p.overlays.stress;
+          app.sim.client.watchLoads(p.overlays.stress);
           app.sim.wantContacts = p.overlays.contacts;
           if (p.overlays.trails === 'off') app.overlays.clearTrails();
           break;

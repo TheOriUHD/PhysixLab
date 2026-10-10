@@ -83,6 +83,9 @@ export function applyOp(s: WorldState, op: SimOp): void {
     case 'wakeAll':
       for (const r of s.order) r.rb.wakeUp();
       break;
+    case 'watchLoads':
+      s.loads.watch = op.on;
+      break;
     case 'setSeed':
       s.rng.seed(op.seed);
       break;

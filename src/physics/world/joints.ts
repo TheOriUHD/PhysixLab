@@ -248,12 +248,14 @@ export function measureSpring(s: WorldState, j: JointRec): void {
   if (sp.breakForce > 0 && Math.abs(force) > sp.breakForce) breakJoint(s, j, Math.abs(force));
 }
 
-function breakJoint(s: WorldState, j: JointRec, force: number): void {
+export function breakJoint(s: WorldState, j: JointRec, force: number, torque?: number): void {
   if (j.joint && j.joint.isValid()) s.world.removeImpulseJoint(j.joint, true);
   j.joint = null;
   j.broken = true;
   j.force = 0;
-  s.events.push({ kind: 'jointBroken', id: j.id, force });
+  s.events.push(
+    torque === undefined ? { kind: 'jointBroken', id: j.id, force } : { kind: 'jointBroken', id: j.id, force, torque },
+  );
 }
 
 /** Measure a joint's current value (angle / position / length) and speed from the body poses. */

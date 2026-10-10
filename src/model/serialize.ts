@@ -18,6 +18,7 @@ import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
 import { dedupeComponentIds, repairComponentRefs, sanitizeComponents } from './componentRegistry';
 import { parentField, sanitizeGroup, sanitizeLight, sanitizePath } from './sanitize/kinds';
 import { sanitizeParts } from './sanitize/parts';
+import { breakageField } from './breakage';
 import { SCENE_FORMAT, SCENE_VERSION, migrateDocument } from './migrations';
 import {
   bool,
@@ -186,6 +187,8 @@ function sanitizeJoint(raw: any, report?: LoadReport): JointEntity {
     params: sanitizeParams(raw?.params), // -- JT-A --
     hidden: bool(raw?.hidden, false),
     components: sanitizeComponents(raw?.components, 'joint', report, 'a joint'),
+    // -- JT-B: breakage thresholds --
+    ...breakageField(raw?.breakage),
   };
 }
 
