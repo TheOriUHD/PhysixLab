@@ -1,5 +1,5 @@
 /**
- * Scene persistence: debounced autosave, a named scene library (localStorage), JSON
+ * Scene persistence: debounced autosave, a named scene library (IndexedDB via src/app/storage), JSON
  * import / export and shareable links (the scene is deflated into the URL hash, so
  * sharing needs no server).
  */
@@ -8,9 +8,7 @@ import { LIMITS } from '../model/limits';
 import { parseDocument, serializeDocument } from '../model/serialize';
 import type { SceneStore } from '../model/store';
 import type { SceneDocument } from '../model/types';
-
-const AUTOSAVE_KEY = 'physicslab:autosave:v1';
-const LIBRARY_KEY = 'physicslab:library:v1';
+import { getStorageStatus, StorageError, type StorageBackend } from './storage';
 
 export interface LibraryEntry {
   id: string;
@@ -20,25 +18,14 @@ export interface LibraryEntry {
   data: string;
 }
 
-function safeGet(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-function safeSet(key: string, value: string): boolean {
-  try {
-    localStorage.setItem(key, value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export class Persistence {
   private timer = 0;
   private lastSaved = -1;
+  private storage: StorageBackend | null = null;
+  // -- DT: scenes live in IndexedDB (src/app/storage); the sync API below reads this cache, filled by init() --
+  private autosave: string | null = null;
+  private libraryCache: LibraryEntry[] = [];
+  private writes: Promise<void> = Promise.resolve();
   onError: ((msg: string) => void) | null = null;
   onSaved: (() => void) | null = null;
 
@@ -48,6 +35,31 @@ export class Persistence {
     window.addEventListener('beforeunload', () => this.saveNow());
   }
 
+  /** Opens the storage layer (migrating old localStorage data) and loads the autosave and the library. Call once, before `loadAutosave()`. */
+  async init(): Promise<{ degraded: boolean; warning: string | null }> {
+    const status = await getStorageStatus();
+    this.storage = status.backend;
+    this.autosave = (await this.storage.get<string>('meta', 'autosave')) ?? null;
+    const items = await this.storage.list<LibraryEntry>('scenes');
+    this.libraryCache = items.map((i) => i.value).sort((a, b) => b.savedAt - a.savedAt);
+    return { degraded: status.degraded, warning: status.warning };
+  }
+
+  /** Resolves when every queued storage write has finished (used by tests and the crash-recovery code). */
+  flush(): Promise<void> {
+    return this.writes;
+  }
+
+  private write(op: (s: StorageBackend) => Promise<void>, failMsg: string): void {
+    this.writes = this.writes
+      .then(async () => {
+        if (this.storage) await op(this.storage);
+      })
+      .catch((e: unknown) =>
+        this.onError?.(e instanceof StorageError && e.code === 'quota' ? failMsg : (e as Error).message),
+      );
+  }
+
   private schedule(): void {
     window.clearTimeout(this.timer);
     this.timer = window.setTimeout(() => this.saveNow(), 900);
@@ -55,18 +67,19 @@ export class Persistence {
 
   saveNow(): void {
     if (this.store.revision === this.lastSaved) return;
-    const ok = safeSet(AUTOSAVE_KEY, serializeDocument(this.store.toDocument()));
-    if (ok) {
-      this.lastSaved = this.store.revision;
+    const json = serializeDocument(this.store.toDocument());
+    this.autosave = json;
+    this.lastSaved = this.store.revision;
+    this.write(async (s) => {
+      await s.put('meta', 'autosave', json);
       this.onSaved?.();
-    } else this.onError?.('Autosave failed — browser storage is full or unavailable. Export the scene to keep it.');
+    }, 'Autosave failed — browser storage is full. Free space in Settings → Storage or export the scene to keep it.');
   }
 
   loadAutosave(): SceneDocument | null {
-    const raw = safeGet(AUTOSAVE_KEY);
-    if (!raw) return null;
+    if (!this.autosave) return null;
     try {
-      return parseDocument(raw);
+      return parseDocument(this.autosave);
     } catch {
       return null;
     }
@@ -75,18 +88,12 @@ export class Persistence {
   // ---- library -----------------------------------------------------------------------------
 
   library(): LibraryEntry[] {
-    const raw = safeGet(LIBRARY_KEY);
-    if (!raw) return [];
-    try {
-      return JSON.parse(raw) as LibraryEntry[];
-    } catch {
-      return [];
-    }
+    return this.libraryCache;
   }
 
   saveToLibrary(): LibraryEntry | null {
     const doc = this.store.toDocument();
-    const list = this.library();
+    const list = this.libraryCache;
     const existing = list.find((e) => e.name === doc.name);
     const entry: LibraryEntry = {
       id: existing?.id ?? `s_${Date.now().toString(36)}`,
@@ -95,20 +102,18 @@ export class Persistence {
       bodies: doc.entities.filter((e) => e.kind === 'body').length,
       data: serializeDocument(doc),
     };
-    const next = existing ? list.map((e) => (e.id === existing.id ? entry : e)) : [entry, ...list];
-    if (!safeSet(LIBRARY_KEY, JSON.stringify(next))) {
-      this.onError?.('Could not save — browser storage is full.');
-      return null;
-    }
+    this.libraryCache = existing ? list.map((e) => (e.id === existing.id ? entry : e)) : [entry, ...list];
+    this.write((s) => s.put('scenes', entry.id, entry), 'Could not save — browser storage is full.');
     return entry;
   }
 
   deleteFromLibrary(id: string): void {
-    safeSet(LIBRARY_KEY, JSON.stringify(this.library().filter((e) => e.id !== id)));
+    this.libraryCache = this.libraryCache.filter((e) => e.id !== id);
+    this.write((s) => s.delete('scenes', id), 'Could not delete the scene.');
   }
 
   openFromLibrary(id: string): SceneDocument | null {
-    const e = this.library().find((x) => x.id === id);
+    const e = this.libraryCache.find((x) => x.id === id);
     if (!e) return null;
     try {
       return parseDocument(e.data);

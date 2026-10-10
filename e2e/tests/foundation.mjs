@@ -405,10 +405,23 @@ test('asset store: assets travel in share links, autosave and exported files; un
   );
 
   // 2. autosave in browser storage
-  const auto = await page.evaluate(() => {
+  const auto = await page.evaluate(async () => {
     const a = window.physicslab;
     a.persistence.saveNow();
-    const doc = JSON.parse(localStorage.getItem('physicslab:autosave:v1'));
+    await a.persistence.flush();
+    // -- DT-10: the autosave lives in IndexedDB now (meta/autosave) --
+    const db = await new Promise((res, rej) => {
+      const r = indexedDB.open('physicslab');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    const raw = await new Promise((res, rej) => {
+      const q = db.transaction('meta').objectStore('meta').get('autosave');
+      q.onsuccess = () => res(q.result);
+      q.onerror = () => rej(q.error);
+    });
+    db.close();
+    const doc = JSON.parse(raw);
     return { keys: Object.keys(doc.assets), version: doc.version };
   });
   assert(auto.keys.length === 1 && auto.keys[0] === ids.used && auto.version === 3, `autosave ${JSON.stringify(auto)}`);
