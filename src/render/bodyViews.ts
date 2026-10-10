@@ -1,12 +1,14 @@
 /**
- * Body meshes: one Mesh per BodyEntity, with shared unit geometries scaled to the shape's
- * size, PBR materials from the entity's material spec, and analytical colour modes
- * (speed / energy / force / sleep / type) for reading the simulation at a glance.
+ * Body meshes: one Mesh per BodyEntity (or, for a compound body, one Mesh per visible collider part under a
+ * Group), with shared unit geometries scaled to the shape's size, PBR materials from the entity's material
+ * spec, and analytical colour modes (speed / energy / force / sleep / type) for reading the simulation at a
+ * glance.
  */
-import type { BufferGeometry, Group } from 'three';
-import { Color, Mesh, MeshStandardMaterial, SRGBColorSpace, Vector3 } from 'three';
+import type { BufferGeometry, Group, Object3D } from 'three';
+import { Color, Group as ThreeGroup, Mesh, MeshStandardMaterial, SRGBColorSpace, Vector3 } from 'three';
+import { isCompound, partMaterial } from '../model/compound';
 import { shapeGeometry, shapeGeometryKey, shapeVisualScale } from '../model/shapeRegistry';
-import type { BodyEntity, ShapeSpec } from '../model/types';
+import type { BodyEntity, ColliderPart, MaterialSpec, ShapeSpec } from '../model/types';
 import { B, BODY_STRIDE } from '../physics/protocol';
 import { GEOMETRY_KIT } from './geometryKit';
 
@@ -58,45 +60,105 @@ class GeometryCache {
   }
 }
 
+/** One drawn mesh of a body: the body's shape, or one collider part. */
+interface Piece {
+  mesh: Mesh;
+  material: MeshStandardMaterial;
+  geoKey: string;
+  /** The part drawn; null for the body's own shape. */
+  part: ColliderPart | null;
+  /** Surface colour in the 'material' colour mode (the part's override, else the body's). */
+  baseColor: string;
+}
+
 export class BodyView {
-  readonly mesh: Mesh;
-  readonly material: MeshStandardMaterial;
-  geoKey = '';
+  /**
+   * Carries the pose: the body's own Mesh, or a Group of part meshes for a compound body. Anything that
+   * moves, hides or measures a body uses this; picking and tinting use `pieces`.
+   */
+  readonly mesh: Object3D;
+  /** Every mesh drawn for the body (picking targets, tinting). */
+  readonly pieces: Piece[] = [];
+  readonly compound: boolean;
   def: BodyEntity;
   /** Last pose written, so overlays can read it without touching the matrix. */
   readonly position = new Vector3();
   state = 0;
 
-  constructor(def: BodyEntity, cache: GeometryCache) {
+  constructor(
+    def: BodyEntity,
+    private cache: GeometryCache,
+  ) {
     this.def = def;
-    const { key, geo } = cache.acquire(def.shape);
-    this.geoKey = key;
-    this.material = new MeshStandardMaterial();
-    this.mesh = new Mesh(geo, this.material);
-    this.mesh.castShadow = true;
-    this.mesh.receiveShadow = true;
-    this.mesh.userData.entityId = def.id;
+    this.compound = isCompound(def);
+    if (this.compound) {
+      const group = new ThreeGroup();
+      group.userData.entityId = def.id;
+      for (const part of def.parts as ColliderPart[]) {
+        if (part.visible === false) continue;
+        const piece = this.makePiece(part.shape, part);
+        piece.mesh.position.set(part.position[0], part.position[1], part.position[2]);
+        piece.mesh.quaternion.set(part.rotation[0], part.rotation[1], part.rotation[2], part.rotation[3]);
+        group.add(piece.mesh);
+      }
+      this.mesh = group;
+    } else {
+      this.mesh = this.makePiece(def.shape, null).mesh;
+    }
     this.mesh.matrixAutoUpdate = true;
     this.applyMaterial(def);
     this.applyShape(def);
     this.setPoseFromDef(def);
   }
 
+  private makePiece(shape: ShapeSpec, part: ColliderPart | null): Piece {
+    const { key, geo } = this.cache.acquire(shape);
+    const material = new MeshStandardMaterial();
+    const mesh = new Mesh(geo, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData.entityId = this.def.id;
+    const s = shapeVisualScale(shape);
+    mesh.scale.set(s[0], s[1], s[2]);
+    const piece: Piece = { mesh, material, geoKey: key, part, baseColor: this.def.material.color };
+    this.pieces.push(piece);
+    return piece;
+  }
+
+  /** The (single) mesh of a simple body. */
+  private get first(): Piece {
+    return this.pieces[0];
+  }
+
+  /** Re-point a simple body at the geometry of its edited shape. */
   applyShape(def: BodyEntity): void {
+    if (this.compound) return; // parts are static meshes: a change of parts rebuilds the whole view
+    const piece = this.first;
+    const key = this.cache.key(def.shape);
+    if (key !== piece.geoKey) {
+      const { geo } = this.cache.acquire(def.shape);
+      this.cache.release(piece.geoKey);
+      piece.geoKey = key;
+      piece.mesh.geometry = geo;
+    }
     const s = shapeVisualScale(def.shape);
-    this.mesh.scale.set(s[0], s[1], s[2]);
+    piece.mesh.scale.set(s[0], s[1], s[2]);
   }
 
   applyMaterial(def: BodyEntity): void {
-    const m = def.material;
-    this.material.color.set(m.color);
-    this.material.metalness = m.metalness;
-    this.material.roughness = m.roughness;
-    this.material.opacity = def.ghost ? Math.min(m.opacity, 0.35) : m.opacity;
-    this.material.transparent = this.material.opacity < 0.999;
-    this.material.depthWrite = true;
-    this.material.envMapIntensity = 1;
-    this.material.needsUpdate = true;
+    for (const piece of this.pieces) {
+      const m: MaterialSpec = piece.part ? partMaterial(def, piece.part) : def.material;
+      piece.baseColor = m.color;
+      piece.material.color.set(m.color);
+      piece.material.metalness = m.metalness;
+      piece.material.roughness = m.roughness;
+      const ghostly = def.ghost || !!piece.part?.sensor;
+      piece.material.opacity = ghostly ? Math.min(m.opacity, 0.35) : m.opacity;
+      piece.material.transparent = piece.material.opacity < 0.999;
+      piece.material.depthWrite = true;
+      piece.material.envMapIntensity = 1;
+      piece.material.needsUpdate = true;
+    }
     this.mesh.visible = !def.hidden;
   }
 
@@ -104,6 +166,14 @@ export class BodyView {
     this.mesh.position.set(def.position[0], def.position[1], def.position[2]);
     this.mesh.quaternion.set(def.rotation[0], def.rotation[1], def.rotation[2], def.rotation[3]);
     this.position.copy(this.mesh.position);
+  }
+
+  /** Free GPU resources: the materials and this view's share of the cached geometries. */
+  dispose(): void {
+    for (const piece of this.pieces) {
+      piece.material.dispose();
+      this.cache.release(piece.geoKey);
+    }
   }
 }
 
@@ -152,8 +222,7 @@ export class BodyViews {
     const v = this.views.get(id);
     if (!v) return;
     this.group.remove(v.mesh);
-    v.material.dispose();
-    this.cache.release(v.geoKey);
+    v.dispose();
     this.views.delete(id);
   }
 
@@ -161,31 +230,42 @@ export class BodyViews {
     for (const id of [...this.views.keys()]) this.remove(id);
   }
 
-  /** Apply an edited definition (shape / material / visibility). */
-  update(def: BodyEntity): void {
+  /**
+   * Apply an edited definition (shape / parts / material / visibility). Returns true when the view was
+   * rebuilt (its root object changed), so callers holding the old one — the selection outline — refresh it.
+   */
+  update(def: BodyEntity): boolean {
     const v = this.views.get(def.id);
     if (!v) {
       this.add(def);
-      return;
+      return true;
     }
     const old = v.def;
-    v.def = def;
-    if (old.shape !== def.shape) {
-      const key = this.cache.key(def.shape);
-      if (key !== v.geoKey) {
-        const { geo } = this.cache.acquire(def.shape);
-        this.cache.release(v.geoKey);
-        v.geoKey = key;
-        v.mesh.geometry = geo;
-      }
-      v.applyShape(def);
+    if (v.compound !== isCompound(def) || (v.compound && old.parts !== def.parts)) {
+      // Different set of meshes: rebuild, keeping the pose and simulation state the old view had.
+      const { position, quaternion } = v.mesh;
+      const state = v.state;
+      const nv = this.add(def);
+      nv.mesh.position.copy(position);
+      nv.mesh.quaternion.copy(quaternion);
+      nv.position.copy(position);
+      nv.state = state;
+      nv.mesh.visible = !def.hidden && state !== 2;
+      return true;
     }
+    v.def = def;
+    if (old.shape !== def.shape) v.applyShape(def);
     if (old.material !== def.material || old.hidden !== def.hidden || old.ghost !== def.ghost) v.applyMaterial(def);
+    return false;
   }
 
+  /** Every mesh a click can hit (all parts of compound bodies), skipping hidden and fallen bodies. */
   pickables(): Mesh[] {
     const out: Mesh[] = [];
-    for (const v of this.views.values()) if (v.mesh.visible && v.state !== 2) out.push(v.mesh);
+    for (const v of this.views.values()) {
+      if (!v.mesh.visible || v.state === 2) continue;
+      for (const p of v.pieces) out.push(p.mesh);
+    }
     return out;
   }
 
@@ -234,39 +314,42 @@ export class BodyViews {
     for (const v of this.views.values()) {
       const d = v.def;
       const sel = selected.has(d.id);
-      let em = 0;
-      if (mode === 'material') {
-        v.material.color.set(d.material.color);
-      } else if (mode === 'type') {
-        v.material.color.set(TYPE_COLORS[d.bodyType]);
-      } else {
+      // Colour the whole body for the analytic modes; in 'material' mode each part keeps its own colour.
+      let flat: string | null = null;
+      const heat = this.tmpColor;
+      let useHeat = false;
+      if (mode === 'type') {
+        flat = TYPE_COLORS[d.bodyType];
+      } else if (mode !== 'material') {
         const i = indexOf(d.id);
         const o = i === undefined ? -1 : i * BODY_STRIDE;
         if (o < 0 || !poses) {
-          v.material.color.set(d.material.color);
+          flat = d.material.color;
         } else if (mode === 'sleep') {
           const st = poses[o + B.state];
-          v.material.color.set(d.bodyType !== 'dynamic' ? '#4a5566' : st === 0 ? '#ff9d42' : '#5f7396');
+          flat = d.bodyType !== 'dynamic' ? '#4a5566' : st === 0 ? '#ff9d42' : '#5f7396';
         } else if (d.bodyType !== 'dynamic') {
-          v.material.color.set('#3c4554');
+          flat = '#3c4554';
         } else if (mode === 'speed') {
           const s = Math.hypot(poses[o + B.vx], poses[o + B.vy], poses[o + B.vz]);
-          heatColor(s / this.scaleMax.speed, this.tmpColor);
-          v.material.color.copy(this.tmpColor);
+          heatColor(s / this.scaleMax.speed, heat);
+          useHeat = true;
         } else if (mode === 'energy') {
-          heatColor(Math.sqrt(poses[o + B.ke] / this.scaleMax.energy), this.tmpColor);
-          v.material.color.copy(this.tmpColor);
+          heatColor(Math.sqrt(poses[o + B.ke] / this.scaleMax.energy), heat);
+          useHeat = true;
         } else if (mode === 'force') {
           const f = Math.hypot(poses[o + B.fx], poses[o + B.fy], poses[o + B.fz]);
-          heatColor(f / this.scaleMax.force, this.tmpColor);
-          v.material.color.copy(this.tmpColor);
+          heatColor(f / this.scaleMax.force, heat);
+          useHeat = true;
         }
-        em = 0;
       }
-      v.material.emissive.setRGB(0, 0, 0);
-      if (sel) v.material.emissive.setRGB(0.02, 0.05, 0.09);
-      else if (d.id === this.hoverId) v.material.emissive.setRGB(0.05, 0.1, 0.14);
-      void em;
+      for (const piece of v.pieces) {
+        if (useHeat) piece.material.color.copy(heat);
+        else piece.material.color.set(flat ?? piece.baseColor);
+        piece.material.emissive.setRGB(0, 0, 0);
+        if (sel) piece.material.emissive.setRGB(0.02, 0.05, 0.09);
+        else if (d.id === this.hoverId) piece.material.emissive.setRGB(0.05, 0.1, 0.14);
+      }
     }
   }
 

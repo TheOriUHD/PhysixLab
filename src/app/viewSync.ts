@@ -57,7 +57,8 @@ export class ViewSync {
         for (const id of c.ids) {
           const e = app.store.get(id);
           if (isBody(e)) {
-            app.bodies.update(e);
+            // A rebuilt view (parts changed) has a new root object: the selection outline must follow it.
+            if (app.bodies.update(e)) this.refreshOutline();
             const view = app.bodies.get(id);
             // Document poses only drive the view when no live world owns the body.
             if (view && !(app.sim.client.active && app.sim.client.bodyIndex.has(id))) view.setPoseFromDef(e);

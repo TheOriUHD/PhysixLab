@@ -105,6 +105,36 @@ export interface BodyEntity {
   layer: string;
   /** Id of the entity this one is grouped under. */
   parent?: string;
+
+  // ── FB-3: compound bodies ──────────────────────────────────────────────────────────────────────
+  /**
+   * Colliders of a compound body. When present they replace the body's own `shape` as colliders and as the
+   * rendered geometry; `shape` stays the primary / bounding shape the editor sizes and the gizmo scales.
+   * One rigid body is built with a collider per part (and per collider of a part's own shape): mass, centre
+   * of mass and inertia come from all of them.
+   */
+  parts?: ColliderPart[];
+  /** Id of a mesh in `doc.assets` that is this body's visual (collision comes from the shape or the parts). */
+  meshId?: string;
+}
+
+/** Surface overrides of one collider part; anything left out is inherited from the body's material. */
+export type PartMaterial = Partial<
+  Pick<MaterialSpec, 'density' | 'friction' | 'restitution' | 'color' | 'metalness' | 'roughness' | 'opacity'>
+>;
+
+/** One collider of a compound body, positioned in the body's local frame. */
+export interface ColliderPart {
+  /** Unique within its body. */
+  id: string;
+  shape: ShapeSpec;
+  position: Vec3;
+  rotation: Quat;
+  material?: PartMaterial;
+  /** Detects overlaps but does not collide (it still adds mass unless its density is 0). */
+  sensor?: boolean;
+  /** `false` hides the part (invisible helper colliders). Default: drawn. */
+  visible?: boolean;
 }
 
 /**

@@ -5,6 +5,7 @@
 import { DEG, qfromEuler, qtoEuler, RAD, vlen } from '../../core/math';
 import type { Vec3 } from '../../core/math';
 import { MATERIAL_PRESETS, PRESET_BY_ID } from '../../model/materials';
+import { isCompound, massEstimate } from '../../model/compound';
 import { shapeDef } from '../../model/shapeRegistry';
 import { normalizeSize, shapeVolume } from '../../model/shapes';
 import type { BodyEntity } from '../../model/types';
@@ -196,12 +197,14 @@ export function bodyInspector(ctx: InspectorContext, sel: BodyEntity[]): HTMLEle
       return;
     }
     const liveMass = app.sim.client.active ? app.sim.client.info.mass[b.id] : undefined;
-    const m = liveMass ?? cur().reduce((s, x) => s + (x.massOverride ?? x.material.density * shapeVolume(x.shape)), 0);
+    const m = liveMass ?? cur().reduce((s, x) => s + massEstimate(x), 0);
     massVal.textContent = `${fmt(m, m < 10 ? 3 : m < 1000 ? 2 : 0)} kg`;
     massVal.title =
       b.massOverride !== undefined
         ? 'Mass override'
-        : `${fmt(shapeVolume(b.shape), 4)} m³ × ${b.material.density} kg/m³`;
+        : isCompound(b)
+          ? `Σ density × volume of ${b.parts?.length} collider parts`
+          : `${fmt(shapeVolume(b.shape), 4)} m³ × ${b.material.density} kg/m³`;
   });
 
   out.push(
@@ -429,6 +432,7 @@ function sizeFields(ctx: InspectorContext, id: string): HTMLElement[] {
   };
   return [
     row('Shape', h('span', { class: 'readout' }, def.label)),
+    ...compoundRows(get()),
     ...def.sizeFields.map((f) => mk(f.label, f.axis)),
     ...shapeParamRows(ctx, id, def),
   ];
@@ -553,4 +557,17 @@ function liveBodySection(ctx: InspectorContext, id: string): HTMLElement {
       b.mass > 0 ? `${fmt(vlen(b.force) / b.mass, 2)} m/s² (${fmt(vlen(b.force) / b.mass / 9.81, 2)} g)` : '—';
   });
   return section('Live', [dl], { id: 'live', badge: 'LIVE' });
+}
+
+/** Compound bodies say so: how many collider parts they are made of, and what resizing does to them. */
+function compoundRows(b: BodyEntity | undefined): HTMLElement[] {
+  if (!b || !isCompound(b)) return [];
+  const n = b.parts?.length ?? 0;
+  return [
+    row(
+      'Compound',
+      h('span', { class: 'readout' }, `${n} collider part${n === 1 ? '' : 's'}`),
+      "The size below is the body's bounding shape; scaling the body scales every part with it",
+    ),
+  ];
 }

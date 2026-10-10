@@ -33,7 +33,8 @@ export function addBody(s: WorldState, def: BodyEntity, ephemeral: boolean): Bod
     desc = desc.setLinvel(def.velocity[0], def.velocity[1], def.velocity[2]).setAngvel(rv(def.angularVelocity));
   }
   const rb = s.world.createRigidBody(desc);
-  const cols = makeColliders(def).map((d) => s.world.createCollider(d, rb));
+  const built = makeColliders(def);
+  const cols = built.map((b) => s.world.createCollider(b.desc, rb));
   if (isDyn) applyMassOverrides(rb, cols, def);
   const rec: BodyRec = {
     id: def.id,
@@ -41,6 +42,7 @@ export function addBody(s: WorldState, def: BodyEntity, ephemeral: boolean): Bod
     rb,
     col: cols[0],
     cols,
+    colParts: built.map((b) => b.part),
     mass: isDyn ? rb.mass() : 0,
     ephemeral,
     disabled: false,

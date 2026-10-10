@@ -4,6 +4,7 @@
  * changes to the live world instead of the document.
  */
 import { qconj, qmul, qrot, qrotInv, vadd, vlen, vnorm, vsub, type Quat, type Vec3 } from '../core/math';
+import { scaleParts } from '../model/compound';
 import { createBody, createJoint, createSoft, SOFT_LABELS } from '../model/factory';
 import { MATERIAL_PRESETS } from '../model/materials';
 import { makeShapeSpec, shapeDef, shapeLabel } from '../model/shapeRegistry';
@@ -146,8 +147,15 @@ export class Editor {
       }
       if (!isBody(e)) continue;
       const patch: Partial<BodyEntity> = { position: u.position, rotation: u.rotation };
-      if (u.scale)
-        patch.shape = { ...e.shape, size: normalizeSize(e.shape.type, u.scale, e.shape.size, e.shape.params) };
+      if (u.scale) {
+        const size = normalizeSize(e.shape.type, u.scale, e.shape.size, e.shape.params);
+        patch.shape = { ...e.shape, size };
+        // A compound body's parts follow the resize, so scaling the body scales what is drawn and collides.
+        if (e.parts?.length) {
+          const f = size.map((v, i) => v / e.shape.size[i]) as Vec3;
+          patch.parts = scaleParts(e.parts, f);
+        }
+      }
       patches.push([u.id, patch]);
     }
     this.store.updateMany(patches, 'Transform');

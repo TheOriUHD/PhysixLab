@@ -8,7 +8,7 @@
  */
 import type RAPIER from '@dimforge/rapier3d-compat';
 import type { Quat, Vec3 } from '../../core/math';
-import type { BodyEntity, JointEntity, SceneSettings, SoftEntity } from '../../model/types';
+import type { BodyEntity, ColliderPart, JointEntity, SceneSettings, SoftEntity } from '../../model/types';
 import type { EnergyStats, SimEvent } from '../protocol';
 import { RigidEnergy } from './energy';
 
@@ -20,6 +20,8 @@ export interface BodyRec {
   col: RAPIER.Collider;
   /** All colliders of the body: several for compound shapes. */
   cols: RAPIER.Collider[];
+  /** The compound-body part each collider came from (null for a body without parts), parallel to `cols`. */
+  colParts: (ColliderPart | null)[];
   mass: number;
   ephemeral: boolean;
   disabled: boolean;

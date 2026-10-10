@@ -3,6 +3,7 @@ import type { Quat, Vec3 } from '../../core/math';
 import type { BodyEntity } from '../../model/types';
 import { addBody } from './bodies';
 import { interactionGroups } from './bodyFields';
+import { colliderSurface } from './colliders';
 import { addJoint, dropJoint } from './joints';
 import { removeSoft } from './soft';
 import type { BodyRec, WorldState } from './state';
@@ -39,6 +40,7 @@ export function updateBody(s: WorldState, next: BodyEntity): void {
     old.bodyType !== next.bodyType ||
     (old.shape !== next.shape && JSON.stringify(old.shape) !== JSON.stringify(next.shape)) ||
     old.material.density !== next.material.density ||
+    (old.parts !== next.parts && JSON.stringify(old.parts) !== JSON.stringify(next.parts)) ||
     old.ccd !== next.ccd ||
     // the engine only takes the sleep flags when a body is created
     old.canSleep !== next.canSleep ||
@@ -69,10 +71,11 @@ export function updateBody(s: WorldState, next: BodyEntity): void {
     rec.rb.setLinvel(rv(next.velocity), true);
     rec.rb.setAngvel(rv(next.angularVelocity), true);
   }
-  for (const c of rec.cols) {
-    c.setFriction(next.material.friction);
-    c.setRestitution(next.material.restitution);
-  }
+  rec.cols.forEach((c, i) => {
+    const surface = colliderSurface(next, rec.colParts[i]);
+    c.setFriction(surface.friction);
+    c.setRestitution(surface.restitution);
+  });
   rec.rb.wakeUp();
 }
 

@@ -12,6 +12,7 @@ import {
 } from './factory';
 import { LIMITS, formatBytes, formatCount } from './limits';
 import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
+import { sanitizeParts } from './sanitize/parts';
 import { SCENE_FORMAT, SCENE_VERSION, migrateDocument } from './migrations';
 import {
   bool,
@@ -97,7 +98,21 @@ function sanitizeBody(raw: any, report?: LoadReport): BodyEntity {
     locked: bool(raw?.locked, false),
     hidden: bool(raw?.hidden, false),
     ...sanitizeBodyFields(raw ?? {}),
+    ...sanitizeCompound(raw ?? {}, report, name ? `"${name}"` : 'an object'),
   };
+}
+
+/** `parts` and `meshId` — only present on the entity when set. */
+function sanitizeCompound(
+  raw: any,
+  report: LoadReport | undefined,
+  owner: string,
+): Pick<BodyEntity, 'parts' | 'meshId'> {
+  const out: Pick<BodyEntity, 'parts' | 'meshId'> = {};
+  const parts = sanitizeParts(raw.parts, report, owner);
+  if (parts) out.parts = parts;
+  if (typeof raw.meshId === 'string' && raw.meshId) out.meshId = idStr(raw.meshId, '');
+  return out;
 }
 
 function sanitizeJoint(raw: any): JointEntity {
