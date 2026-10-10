@@ -79,6 +79,7 @@ function fakeApp() {
     setGizmo: vi.fn(),
     setTool: vi.fn(),
     addShape: vi.fn(),
+    placement: { ghost: { arm: vi.fn() } },
     editor: { duplicateSelection: vi.fn(), deleteSelection: vi.fn(), copy: vi.fn(), paste: vi.fn() },
   };
   return { app: app as unknown as App, raw: app, toasts, sim };
@@ -400,9 +401,13 @@ describe('built-in commands behave as the hard-wired code did', () => {
     expect(raw.store.settings.gravity).toEqual([0, -0, 0]);
   });
 
-  it('adding a shape from the command is what the number key did', () => {
+  it('a number key arms a ghost that follows the pointer; a programmatic call still adds at the view centre', () => {
     const { app, raw } = fakeApp();
     runCommand(`add.shape.${listShapes()[1].id}`, app, 'shortcut');
+    expect(raw.placement.ghost.arm).toHaveBeenCalledTimes(1);
+    expect(raw.placement.ghost.arm.mock.calls[0][0].id).toBe(`shape:${listShapes()[1].id}`);
+    expect(raw.addShape).not.toHaveBeenCalled();
+    runCommand(`add.shape.${listShapes()[1].id}`, app);
     expect(raw.addShape).toHaveBeenCalledWith(listShapes()[1].id);
   });
 });

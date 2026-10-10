@@ -28,9 +28,9 @@ test('scene objects: lights, a path and a group are added from the palette and l
     a.viewport.setView({ position: [0, 4, 9], target: [0, 1, 0] });
     a.store.setSelection([]);
   });
-  await page.click('.tile:has-text("Spot")');
-  await page.click('.tile:has-text("Sun")');
-  await page.click('.tile:has-text("Path")');
+  await page.dblclick('.tile:has-text("Spot")');
+  await page.dblclick('.tile:has-text("Sun")');
+  await page.dblclick('.tile:has-text("Path")');
   await page.evaluate(() => window.physicslab.store.setSelection([])); // a selection would be grouped by the tile
   await page.click('.tile:has-text("Group")');
   const kinds = await page.evaluate(() =>

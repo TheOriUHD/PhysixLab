@@ -18,7 +18,8 @@ canvas.placing {
   position: absolute;
   z-index: 8;
   left: 50%;
-  bottom: 52px;
+  bottom: 100px; /* above the selection bar */
+  pointer-events: none; /* the pointer still reads as "over the viewport" beneath it; only the buttons take clicks */
   transform: translateX(-50%);
   display: grid;
   gap: 4px;
@@ -73,6 +74,7 @@ canvas.placing {
   display: flex;
   gap: 8px;
   margin-top: 2px;
+  pointer-events: auto;
 }
 .place-hud-actions[hidden] {
   display: none;

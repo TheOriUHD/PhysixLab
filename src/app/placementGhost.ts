@@ -584,6 +584,8 @@ export class PlacementGhost extends Emitter<{ change: undefined }> {
     this.track(e);
     if (s.mode === 'drag') {
       if (e.pointerId !== s.pointerId || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      // the press happened on the tile, so the viewport (camera controls, selection) must not see the release
+      if (e.target === this.app.viewport.dom) e.stopImmediatePropagation();
       if (!this.pointer.inView) {
         this.cancel(); // let go over a panel: nothing happens
         return;

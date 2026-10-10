@@ -28,9 +28,9 @@ test('zones: the Add tab adds zones as coloured volumes, selected, in one undo s
   await page.waitForSelector('.zone-tiles .tile[data-zone="checkpoint"]');
   const tiles = await page.locator('.zone-tiles .tile').count();
   assert(tiles === 15, `one tile per action: ${tiles}`);
-  await page.click('.zone-tiles .tile[data-zone="checkpoint"]');
-  await page.click('.zone-tiles .tile[data-zone="checkpoint"]');
-  await page.click('.zone-tiles .tile[data-zone="finish"]');
+  await page.dblclick('.zone-tiles .tile[data-zone="checkpoint"]');
+  await page.dblclick('.zone-tiles .tile[data-zone="checkpoint"]');
+  await page.dblclick('.zone-tiles .tile[data-zone="finish"]');
   const made = await page.evaluate(() =>
     window.physicslab.store
       .bodies()

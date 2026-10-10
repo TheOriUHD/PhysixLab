@@ -93,13 +93,13 @@ test('SH-13 · the Add tab groups the shapes by category, with generated thumbna
   const added = await page.evaluate(() => window.physicslab.store.bodies().map((b) => b.shape.type));
   assert(added.join() === 'box,cylinder,torus', `1, 3 and 9 add box, cylinder, torus: ${added.join()}`);
 
-  // tooltips keep the "Click to add" hint; clicking a tile adds the shape
+  // tooltips carry the placement hint; double-clicking a tile adds the shape at the view centre
   const title = await page.locator('.shape-tile[data-shape="gear"]').getAttribute('title');
-  assert(/Click to add, or drag/.test(title ?? ''), `tile tooltip: ${title}`);
-  await page.locator('.shape-tile[data-shape="gear"]').click();
+  assert(/Drag into the scene/.test(title ?? ''), `tile tooltip: ${title}`);
+  await page.locator('.shape-tile[data-shape="gear"]').dblclick();
   assert(
     (await page.evaluate(() => window.physicslab.store.bodies().at(-1).shape.type)) === 'gear',
-    'clicking the gear tile adds a gear',
+    'double-clicking the gear tile adds a gear',
   );
 
   // a collapsed group stays collapsed after a reload, and the thumbnails come straight from the cache

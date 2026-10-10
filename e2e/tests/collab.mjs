@@ -59,7 +59,8 @@ test('collab: BroadcastChannel session - edits sync both ways, selection cursor,
   const [A, B] = await pair();
   await A.evaluate(() => window.physicslab.newScene());
   await A.click('.viewport-canvas', { position: { x: 700, y: 400 } });
-  await A.keyboard.press('1'); // a box
+  await A.keyboard.press('1'); // a box: armed, then placed at the pointer
+  await A.keyboard.press('Enter');
   assert((await bodies(A)).length === 1, 'host has one box');
 
   await openDialog(A, 'Alice');
@@ -85,6 +86,7 @@ test('collab: BroadcastChannel session - edits sync both ways, selection cursor,
   // Guest adds a sphere through the real UI -> appears on the host.
   await B.click('.viewport-canvas', { position: { x: 900, y: 500 } });
   await B.keyboard.press('2');
+  await B.keyboard.press('Enter');
   await waitBodies(A, 2);
   const sphere = (await bodies(B)).find((b) => b.type === 'sphere');
   assert(
@@ -151,6 +153,7 @@ test('collab: WebRTC session with copy/paste connection codes (offer -> answer -
   await A.evaluate(() => window.physicslab.newScene());
   await A.click('.viewport-canvas', { position: { x: 700, y: 400 } });
   await A.keyboard.press('1');
+  await A.keyboard.press('Enter');
   await openDialog(A, 'Alice');
   await A.click('#collab-host');
   await A.waitForSelector('#collab-invite');

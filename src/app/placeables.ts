@@ -141,8 +141,8 @@ export function softPlaceable(type: SoftType): Placeable {
     bounds: () => softBounds(proto),
     extent: () => {
       const b = softBounds(proto);
-      if (b.min && b.max) return [b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]];
-      return proto.size;
+      if (type === 'cloth' || type === 'cable' || !b.min || !b.max) return proto.size;
+      return [b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]];
     },
     entities: () => [proto],
     commit(app, pose) {
@@ -166,7 +166,7 @@ export function lightPlaceable(type: LightType): Placeable {
     icon: LIGHT_ITEMS.find((i) => i.type === type)?.icon ?? 'light',
     hover: LIGHT_HOVER[type],
     rotatable: true,
-    bounds: () => ({ halfHeight: 0.15 }),
+    bounds: () => ({ halfHeight: 0.01 }), // a light is a point: it hangs `hover` above the surface
     extent: () => null,
     entities,
     blocked: (app) =>

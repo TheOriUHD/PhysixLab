@@ -49,7 +49,8 @@ async function addSignal(page, widget, signal) {
 
 async function startCrate(page) {
   await page.evaluate(() => window.physicslab.newScene());
-  await page.keyboard.press('1'); // adds a crate and selects it
+  await page.keyboard.press('1'); // arms a ghost crate ...
+  await page.keyboard.press('Enter'); // ... placed at the view centre (the pointer is off the viewport)
   await page.evaluate(() => {
     const a = window.physicslab;
     a.store.update(a.store.selection[0], { position: [0, 500, 0] }); // a long free fall

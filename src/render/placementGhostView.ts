@@ -12,9 +12,7 @@ import {
   BufferGeometry,
   CircleGeometry,
   DoubleSide,
-  Float32BufferAttribute,
   Group,
-  Line,
   LineBasicMaterial,
   LineSegments,
   Mesh,
@@ -25,9 +23,13 @@ import {
   RingGeometry,
   ShaderMaterial,
   Vector3,
+  type InterleavedBufferAttribute,
   type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import type { Quat, Vec3 } from '../core/math';
 import type { GhostGeometry } from './ghostGeometry';
 
@@ -106,11 +108,14 @@ export class GhostView {
     depthWrite: false,
     side: DoubleSide,
   });
-  private readonly dropMat = new LineBasicMaterial({
+  /** A fat (2 px) line: plain GL lines are one pixel wide and vanish against a busy scene. */
+  private readonly dropMat = new LineMaterial({
     color: TINT.ok,
+    linewidth: 2.2,
     transparent: true,
-    opacity: 0.9,
+    opacity: 0.95,
     depthTest: false,
+    worldUnits: false,
   });
   private readonly shadowMat = new ShaderMaterial({
     vertexShader: SHADOW_VERT,
@@ -124,8 +129,8 @@ export class GhostView {
   });
   private readonly marker: Mesh;
   private readonly shadow: Mesh;
-  private readonly dropLine: Line;
-  private readonly dropPts = new Float32Array(6);
+  private readonly dropLine: LineSegments2;
+  private readonly dropGeo = new LineSegmentsGeometry();
   private readonly markerGeo: BufferGeometry;
   private readonly shadowGeo: BufferGeometry;
   private readonly q = new Quaternion();
@@ -165,9 +170,8 @@ export class GhostView {
     this.shadow.renderOrder = 980;
     this.shadow.scale.setScalar(footprint * 2.6);
     // drop line
-    const lg = new BufferGeometry();
-    lg.setAttribute('position', new Float32BufferAttribute(this.dropPts, 3));
-    this.dropLine = new Line(lg, this.dropMat);
+    this.dropGeo.setPositions([0, 0, 0, 0, 1, 0]);
+    this.dropLine = new LineSegments2(this.dropGeo, this.dropMat);
     this.dropLine.renderOrder = 992;
     this.dropLine.frustumCulled = false;
     this.marks.add(this.shadow, this.marker, this.dropLine);
@@ -211,15 +215,16 @@ export class GhostView {
     const show = height > 0.02;
     this.dropLine.visible = show;
     if (show) {
-      const p = this.dropPts;
-      p[0] = point[0];
-      p[1] = point[1];
-      p[2] = point[2];
-      p[3] = point[0] + n.x * height;
-      p[4] = point[1] + n.y * height;
-      p[5] = point[2] + n.z * height;
-      const attr = this.dropLine.geometry.getAttribute('position');
-      attr.needsUpdate = true;
+      // the segment lives in one interleaved buffer: write the two points in place (no allocation per move)
+      const start = this.dropGeo.getAttribute('instanceStart') as InterleavedBufferAttribute;
+      const a = start.data.array as Float32Array;
+      a[0] = point[0];
+      a[1] = point[1];
+      a[2] = point[2];
+      a[3] = point[0] + n.x * height;
+      a[4] = point[1] + n.y * height;
+      a[5] = point[2] + n.z * height;
+      start.data.needsUpdate = true;
     }
   }
 
@@ -262,7 +267,7 @@ export class GhostView {
     this.faint?.geometry.dispose();
     this.markerGeo.dispose();
     this.shadowGeo.dispose();
-    this.dropLine.geometry.dispose();
+    this.dropGeo.dispose();
     for (const m of [this.fillMat, this.edgeMat, this.faintMat, this.markerMat, this.dropMat, this.shadowMat])
       m.dispose();
   }

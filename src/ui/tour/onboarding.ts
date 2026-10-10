@@ -32,7 +32,7 @@ export function registerOnboardingTour(): () => void {
     {
       target: '#panel-add .tiles',
       title: 'Add a shape',
-      body: 'The library lives on the left. **Click a shape** to drop it into the scene — try a box or a sphere.',
+      body: 'The library lives on the left. **Drag a shape** into the scene — a ghost shows where it will land — or **click it, then click in the 3D view**. Try a box or a sphere.',
       placement: 'right',
       waitFor: { event: 'scene-change', type: 'add' },
       onEnter: (app) => {

@@ -11,8 +11,7 @@ import { icon } from './icons';
 import '../styles/placement.css';
 
 const ARMED_TEXT = 'Click to place · Esc to cancel · Q/E or R rotate · [ ] raise/lower · Shift+click = place several';
-const DRAG_TEXT =
-  'Release to place · Esc to cancel · Q/E or R rotate · [ ] raise/lower · Release over a panel to cancel';
+const DRAG_TEXT = 'Release to place · Esc to cancel · Q/E or R rotate · [ ] raise/lower';
 
 const fmtLift = (v: number): string => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(Math.round(v * 1000) / 1000)} m`;
 
@@ -64,7 +63,11 @@ export function mountPlacementHud(app: App, stage: HTMLElement): void {
       h('span', null, `Turn ${s.yawDeg}°`),
       h('span', null, `Height ${fmtLift(s.lift)}`),
       h('span', null, `Align to surface ${s.align ? 'on' : 'off'} (X)`),
-      h('span', { class: 'muted' }, 'Hold Alt: no snapping'),
+      h(
+        'span',
+        { class: 'muted' },
+        s.mode === 'drag' ? 'Hold Alt: no snapping · Release over a panel to cancel' : 'Hold Alt: no snapping',
+      ),
       ...(flag ? [flag] : []),
     );
     actions.hidden = s.mode === 'drag';

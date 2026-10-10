@@ -39,8 +39,8 @@ test('SH-1..6 · every new primitive is an Add-tab tile; clicking adds it and th
     const tile = page.locator('.tile', { hasText: new RegExp(`^${label}$`) });
     assert((await tile.count()) === 1, `exactly one Add tile named "${label}"`);
     const title = await tile.getAttribute('title');
-    assert(/Click to add/.test(title ?? ''), `${label} tile has a tooltip (${title})`);
-    await tile.click();
+    assert(/Drag into the scene/.test(title ?? ''), `${label} tile has a tooltip (${title})`);
+    await tile.dblclick();
     const added = await page.evaluate(() => {
       const b = window.physicslab.store.bodies();
       const last = b[b.length - 1];
