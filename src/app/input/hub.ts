@@ -102,6 +102,16 @@ export class InputHub {
     this.physical.delete(e.code);
   }
 
+  // -- CP: keys held with the mouse by the Controls panel's key caps count as pressed on the keyboard, so the per-frame
+  // rebuild of `sim.keys` below does not wipe them (and keys bound to ramped axes still ramp) --
+  holdKey(code: string): void {
+    this.physical.add(code);
+  }
+
+  releaseKey(code: string): void {
+    this.physical.delete(code);
+  }
+
   clearKeys(): void {
     this.down.clear();
     this.physical.clear();

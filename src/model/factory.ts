@@ -339,7 +339,7 @@ export function softDefaults(type: SoftType): Omit<SoftEntity, 'kind' | 'id' | '
         size: [0.8, 0.26, 0.2],
         resolution: 24,
         mass: 6,
-        stiffness: 400,
+        stiffness: 150,
         damping: 0.25,
         pin: 'none',
         volumePreserve: true,

@@ -69,12 +69,12 @@ export function workingPressureHint(def: Pick<SoftEntity, 'pneumatic' | 'volumeF
     };
   if (def.volumeFactor > 1.6)
     return { ok: false, text: 'Over-inflated: above ×1.6 the shell is stretched hard and rides rigidly.' };
-  if (def.stiffness < 300)
+  if (def.stiffness < 100)
     return {
       ok: false,
-      text: 'Pressure is right, but the rubber is too soft to hold it: raise the stiffness to 300 Hz or more.',
+      text: 'Pressure is right, but the rubber is too soft to hold it: raise the stiffness to 100 Hz or more.',
     };
-  return { ok: true, text: 'Working pressure: carries a vehicle (×1.15 – ×1.6, stiffness 300 Hz or more).' };
+  return { ok: true, text: 'Working pressure: carries a vehicle (×1.15 – ×1.6, stiffness 100 Hz or more).' };
 }
 
 /** Particle count caption with a heaviness note. */

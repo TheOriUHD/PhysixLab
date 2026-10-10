@@ -170,13 +170,13 @@ export function softWarnings(def: SoftEntity, ctx: SoftWarnContext): SoftWarning
   }
 
   // A tyre that cannot hold its shape under load.
-  if (def.type === 'tyre' && def.pneumatic && (def.stiffness < 300 || def.volumeFactor < 1.15)) {
+  if (def.type === 'tyre' && def.pneumatic && (def.stiffness < 100 || def.volumeFactor < 1.15)) {
     out.push({
       id: 'tyre-soft',
       message: 'This pneumatic tyre is too soft or under-inflated to carry a vehicle: the sidewalls will fold flat.',
       fix: {
         label: 'Inflate to working pressure',
-        patch: { stiffness: Math.max(def.stiffness, 400), volumeFactor: Math.max(def.volumeFactor, 1.3) },
+        patch: { stiffness: Math.max(def.stiffness, 150), volumeFactor: Math.max(def.volumeFactor, 1.3) },
       },
     });
   }
