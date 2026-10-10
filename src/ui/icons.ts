@@ -113,6 +113,8 @@ const PATHS: Record<string, string> = {
   map: '<path d="M9 4L3 6.5v13L9 17l6 2.5 6-2.5v-13L15 7z"/><path d="M9 4v13M15 7v12.5"/>',
   // ── ED-B: cut tool ──
   scissors: '<circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><path d="M8.2 7.5L20 18M8.2 16.5L20 6"/>',
+  // -- ED-B --
+  history: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>',
 };
 
 /** Is `name` one of the built-in icon keys? */

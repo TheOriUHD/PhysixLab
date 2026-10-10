@@ -196,7 +196,7 @@ export class SceneStore extends Emitter<StoreEvents> {
 
   private pushHistory(base: Snapshot): void {
     this.past.push(base);
-    if (this.past.length > HISTORY_LIMIT) this.past.shift();
+    if (this.past.length > this._historyLimit) this.past.splice(0, this.past.length - this._historyLimit);
     this.future = [];
     this.emit('history', undefined);
   }
@@ -241,6 +241,55 @@ export class SceneStore extends Emitter<StoreEvents> {
     this.emit('history', undefined);
     return next.label;
   }
+
+  // -- ED-B: history panel API --
+  private _historyLimit = HISTORY_LIMIT;
+
+  /** Maximum number of undo steps kept (older ones are dropped). */
+  get historyLimit(): number {
+    return this._historyLimit;
+  }
+  set historyLimit(n: number) {
+    this._historyLimit = Math.max(1, Math.floor(n));
+    if (this.past.length > this._historyLimit) {
+      this.past.splice(0, this.past.length - this._historyLimit);
+      this.emit('history', undefined);
+    }
+  }
+
+  /** Command labels: `done` in the order applied, `undone` in redo order (the next redo first). */
+  historyEntries(): { done: string[]; undone: string[] } {
+    return {
+      done: this.past.map((s) => s.label),
+      undone: this.future.map((s) => s.label).reverse(),
+    };
+  }
+
+  /** Undo / redo until exactly `doneCount` commands are applied (clamped). One 'history' event at the end. */
+  jumpTo(doneCount: number): void {
+    const total = this.past.length + this.future.length;
+    const target = Math.max(0, Math.min(total, Math.floor(doneCount)));
+    if (target === this.past.length) return;
+    while (this.past.length > target) {
+      const prev = this.past.pop()!;
+      this.future.push(this.snapshot(prev.label));
+      this.restore(prev);
+    }
+    while (this.past.length < target) {
+      const next = this.future.pop()!;
+      this.past.push(this.snapshot(next.label));
+      this.restore(next);
+    }
+    this.emit('history', undefined);
+  }
+
+  /** Forget all undo and redo steps (the document is untouched). */
+  clearHistory(): void {
+    this.past = [];
+    this.future = [];
+    this.emit('history', undefined);
+  }
+  // -- end ED-B --
 
   private restore(s: Snapshot): void {
     const old = this.entities;
