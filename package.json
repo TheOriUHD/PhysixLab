@@ -14,7 +14,9 @@
     "format:check": "prettier --check .",
     "docs:sync": "node scripts/sync-doc-examples.mjs",
     "test": "vitest run",
-    "test:e2e": "node e2e/run.mjs"
+    "test:e2e": "node e2e/run.mjs",
+    "size": "node scripts/check-size.mjs",
+    "cli": "node scripts/cli.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",

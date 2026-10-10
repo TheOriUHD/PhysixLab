@@ -277,3 +277,29 @@ describe('6-DOF (JT-2)', () => {
     expect(Math.abs(p.position[1] - 3)).toBeLessThan(0.01); // locked
   });
 });
+
+describe('reference pose offset (JT-22)', () => {
+  it('limits and the live angle are relative to the joint zero, not the build pose', async () => {
+    const mk = (refOffset: number) => {
+      const b = new Builder('ref');
+      const top = b.body('top', 'box', [0.2, 0.2, 0.2], [0, 3, 0], { bodyType: 'static' });
+      const arm = b.body('arm', 'box', [1, 0.1, 0.1], [0.5, 3, 0], { massOverride: 1 });
+      const j = b.joint('hinge', top, arm, [0, 3, 0], [0, 0, 1]);
+      j.limit = { enabled: true, min: 0, max: 1 }; // zero = horizontal-ish reference, 1 rad of travel
+      j.params = { ...j.params, refOffset };
+      return { b, arm, j };
+    };
+    // gravity swings the arm down (negative angle about +Z): with the build pose 0.5 rad above the lower stop it falls 0.5 rad
+    const s = mk(0.5);
+    const w = await make(s.b);
+    stepFor(w, 2);
+    const rec = w.getJointRec(s.j.id)!;
+    expect(rec.value).toBeGreaterThan(-0.05);
+    expect(rec.value).toBeLessThan(0.1); // rests on the lower stop at the joint's zero
+    // without the offset the same limits would let it fall below zero only by 0 (build pose is the zero)
+    const s0 = mk(0);
+    const w0 = await make(s0.b);
+    stepFor(w0, 1);
+    expect(w0.getJointRec(s0.j.id)!.value).toBeLessThan(0.1);
+  });
+});

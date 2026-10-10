@@ -54,6 +54,11 @@ export interface JointParams {
   pitch: number;
   // winch: rope tension the winch can hold (N, 0 = unlimited) and the live rope length (set at build)
   loadRating: number;
+  // reference pose (JT-22): the build pose sits `refOffset` (rad for a hinge, m for a slider) away from the joint's
+  // zero, so limits, the motor's position target and the live readout are all relative to that zero.
+  refOffset: number;
+  /** The reference pose is locked: "re-zero" is refused until it is unlocked. */
+  refLocked: boolean;
   // soft weld
   linStiffness: number;
   linDamping: number;
@@ -92,6 +97,8 @@ export function defaultParams(): JointParams {
     pulleyB: [1, 4, 0],
     pitch: 0.2,
     loadRating: 0,
+    refOffset: 0,
+    refLocked: false,
     linStiffness: 2000,
     linDamping: 60,
     angStiffness: 400,
@@ -135,6 +142,8 @@ export function sanitizeParams(raw: unknown): JointParams {
     pulleyB: vec(r.pulleyB, d.pulleyB),
     pitch: clampNum(r.pitch, d.pitch, -100, 100) || d.pitch,
     loadRating: clampNum(r.loadRating, 0, 0, 1e9),
+    refOffset: clampNum(r.refOffset, 0, -1e4, 1e4),
+    refLocked: typeof r.refLocked === 'boolean' ? r.refLocked : false,
     linStiffness: clampNum(r.linStiffness, d.linStiffness, 0, 1e9),
     linDamping: clampNum(r.linDamping, d.linDamping, 0, 1e9),
     angStiffness: clampNum(r.angStiffness, d.angStiffness, 0, 1e9),
