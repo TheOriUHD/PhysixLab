@@ -171,6 +171,8 @@ export class DriveNetwork {
   private list: Shaft[] = [];
   private pool: Row[] = [];
   private rowCount = 0;
+  /** Saved speeds waiting for their shaft to be created again (a restored world creates shafts lazily). */
+  private pending = new Map<string, number>();
   private roots = new Map<string, string>();
   private rootsVersion = -1;
 
@@ -221,6 +223,13 @@ export class DriveNetwork {
     let sh = this.virtual.get(key);
     if (!sh) {
       sh = new Shaft(this, key, name, null);
+      const saved = this.pending.get(key);
+      if (saved !== undefined) {
+        // a snapshot restore: the shaft comes back with the speed it had, already consistent with its neighbours
+        sh.omega = saved;
+        sh.fresh = false;
+        this.pending.delete(key);
+      }
       this.virtual.set(key, sh);
       this.list.push(sh);
     }
@@ -326,6 +335,7 @@ export class DriveNetwork {
     this.collect();
     this.phase++; // measurements taken before the engine step are stale after it
     for (const sh of this.list) sh.invalidate();
+    this.pending.clear(); // anything not claimed by a shaft in the first step after a restore belongs to nothing
     this.sweep();
   }
 
@@ -453,11 +463,12 @@ export class DriveNetwork {
   }
   load(saved: Record<string, number>): void {
     for (const [k, w] of Object.entries(saved)) {
+      if (!Number.isFinite(w)) continue;
       const sh = this.virtual.get(k);
-      if (sh && Number.isFinite(w)) {
+      if (sh) {
         sh.omega = w;
         sh.fresh = false; // a saved speed is already consistent with its neighbours
-      }
+      } else this.pending.set(k, w);
     }
   }
 
@@ -468,6 +479,7 @@ export class DriveNetwork {
     this.list = [];
     this.rowCount = 0;
     this.rootsVersion = -1;
+    // `pending` survives: `clear()` is called first on a restore, and the saved speeds are loaded right after
   }
 
   /** Number of shafts alive (tests). */
