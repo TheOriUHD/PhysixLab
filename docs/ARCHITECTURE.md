@@ -287,7 +287,21 @@ engine's event drain): race lines, kill / respawn, respawn points, teleport, lau
   become particle operations; each frame returns *all particle positions* in one transferred buffer, and topology is sent only
   when it changes (after a tear the engine splits the body into pieces, which the worker merges back into the owning
   entity's block). Grabbing applies a spring to the nearest particle. Soft bodies interact with rigid bodies and the
-  ground through the contact solver; they cannot be attached to joints yet.
+  ground through the contact solver.
+  *Package SF* adds, all in `physics/world/`: `softBuild.ts` (engine descriptions for every recipe incl. the volumetric
+  `mesh` — closed surface from `model/softMesh.ts` + `core/hull.ts` — and the `tyre` torus; material = Hz + damping +
+  Poisson + permanent set + surface friction), `softAttach.ts` (document `SoftAttachment`s → `attachParticle`: region or
+  tyre-rim particle sets are shifted so the region centre meets the stored body-local offset, then fastened; resolved
+  lazily every step so late or rebuilt bodies work; released on a broken linked joint or a removed body), `softCut.ts`
+  (`cutSoft`: the engine cuts along the triangle viewer-position + two far points; `tearSoft` severs the edges around a
+  point). `soft.ts` runs `softPrestep` before every step (attachment upkeep, the volume-factor decay of a punctured
+  balloon / tyre) and reports volumetric meshes through their skin (render and collision) instead of the lattice
+  boundary. `energy.ts` adds the edge-spring energy ½kx² to `EnergyStats.elastic`. A world snapshot carries each soft
+  body's runtime state next to the engine bytes (`WorldSnapshot.softs[]`: `volumeFactor`, released attachments,
+  fastened particle sets), which is what makes soft bodies work with time travel. Pure model helpers:
+  `model/softMaterial.ts` (the documented Hz → Young's-modulus mapping), `model/softBudget.ts` (particle counts, budget
+  tiers, resolution suggestion, stability warnings with one-click fixes), `model/ropeGen.ts` (rope / chain generator
+  with the mass-ratio guard).
 
 ## 8. Rendering (`render/`)
 
