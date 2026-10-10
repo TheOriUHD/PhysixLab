@@ -7,7 +7,7 @@
 import type { BufferGeometry, Group, Object3D } from 'three';
 import { Color, Group as ThreeGroup, Mesh, MeshStandardMaterial, Quaternion, SRGBColorSpace, Vector3 } from 'three';
 import { isCompound, partMaterial } from '../model/compound';
-import { shapeGeometry, shapeGeometryKey, shapeVisualScale } from '../model/shapeRegistry';
+import { shapeDef, shapeGeometry, shapeGeometryKey, shapeVisualScale } from '../model/shapeRegistry';
 import type { BodyEntity, ColliderPart, MaterialSpec, ShapeSpec } from '../model/types';
 import { B, BODY_STRIDE } from '../physics/protocol';
 import { GEOMETRY_KIT } from './geometryKit';
@@ -15,6 +15,7 @@ import { getSkin } from './skins/registry';
 import type { SkinBodyPose, SkinFrame, SkinInstance } from './skins/types';
 import './skins';
 import { DISSOLVE_BELOW, InstancePool, MIN_POOL, type PoolMember } from './instancing';
+import { applyShapeSurface } from './shapeSurface';
 
 export type ColorMode = 'material' | 'type' | 'speed' | 'energy' | 'force' | 'sleep';
 
@@ -164,6 +165,7 @@ export class BodyView implements PoolMember, SkinBodyPose {
     const { key, geo } = this.cache.acquire(shape);
     const material = new MeshStandardMaterial();
     const mesh = new Mesh(geo, material);
+    applyShapeSurface(material, geo, shape); // -- SH: vertex-coloured tyres, painted dice
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.userData.entityId = this.def.id;
@@ -190,6 +192,7 @@ export class BodyView implements PoolMember, SkinBodyPose {
       piece.geoKey = key;
       piece.mesh.geometry = geo;
     }
+    applyShapeSurface(piece.material, piece.mesh.geometry, def.shape); // -- SH: the new shape's surface
     const s = shapeVisualScale(def.shape);
     piece.mesh.scale.set(s[0], s[1], s[2]);
     this.scale = [s[0], s[1], s[2]];
@@ -322,6 +325,8 @@ export class BodyViews {
 
   private instKeyOf(v: BodyView): string | null {
     if (!this.instancingOn || v.compound || v.def.skin) return null;
+    // -- SH: a painted surface (dice) is an ink-mask map with its own shader, which a pooled clone of the material would lose
+    if (shapeDef(v.def.shape.type).surface) return null;
     const { color: _color, ...rest } = v.def.material;
     void _color;
     return `${this.cache.key(v.def.shape)}|${v.def.ghost ? 1 : 0}|${JSON.stringify(rest)}`;

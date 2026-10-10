@@ -46,9 +46,9 @@ radius, half height, the convex points (if it has them), the Rapier collider(s) 
 palette tile, the number key, the inspector fields, the physics world, the renderer, picking, saving and loading
 all read the registry — nothing else changes.
 
-<!-- example: pyramid-shape.ts -->
+<!-- example: spire-shape.ts -->
 ```ts
-// File: src/model/shapes/pyramid.ts   (then add `pyramid` to BUILTIN_SHAPES in src/model/shapes/index.ts)
+// File: src/model/shapes/spire.ts   (then add `spire` to BUILTIN_SHAPES in src/model/shapes/index.ts)
 import type { Vec3 } from '../../core/math';
 import type { ShapeDef } from '../shapeRegistry';
 import {
@@ -60,8 +60,8 @@ import {
   WIDTH_HEIGHT_DEPTH,
 } from './helpers';
 
-/** Square pyramid: the base lies in the XZ plane at the bottom of the size box, the apex is above its centre. */
-function pyramidPoints([x, y, z]: Vec3): Vec3[] {
+/** Square spire: the base lies in the XZ plane at the bottom of the size box, the apex is above its centre. */
+function spirePoints([x, y, z]: Vec3): Vec3[] {
   const hx = x / 2,
     hy = y / 2,
     hz = z / 2;
@@ -74,12 +74,12 @@ function pyramidPoints([x, y, z]: Vec3): Vec3[] {
   ];
 }
 
-export const pyramid: ShapeDef = {
-  id: 'pyramid',
-  label: 'Pyramid',
+export const spire: ShapeDef = {
+  id: 'spire',
+  label: 'Spire',
   icon: 'cone',
   category: 'structural',
-  blurb: 'Square pyramid: roofs, spikes, monuments',
+  blurb: 'Square spire: roofs, spikes, monuments',
   defaultSize: [1, 1, 1],
   params: [],
   sizeFields: WIDTH_HEIGHT_DEPTH,
@@ -87,22 +87,36 @@ export const pyramid: ShapeDef = {
   volume: ({ size }) => (size[0] * size[1] * size[2]) / 3,
   boundingRadius: ({ size }) => halfDiagonal(size),
   halfHeight: ({ size }) => size[1] / 2,
-  convexPoints: ({ size }) => pyramidPoints(size),
-  colliders: (R, { size }) => hullCollider(R, pyramidPoints(size), size),
-  geometry: (T, spec) => hullGeometry(T, pyramidPoints(unitSpec(spec).size)),
+  convexPoints: ({ size }) => spirePoints(size),
+  colliders: (R, { size }) => hullCollider(R, spirePoints(size), size),
+  geometry: (T, spec) => hullGeometry(T, spirePoints(unitSpec(spec).size)),
 };
 ```
 
-Then add `pyramid` to `BUILTIN_SHAPES` in `src/model/shapes/index.ts` (the position in that array is the position in
+Then add `spire` to `BUILTIN_SHAPES` in `src/model/shapes/index.ts` (the position in that array is the position in
 the palette; the first nine also answer to the 1–9 keys). Register shapes there, **not** with a `registerShape()`
 call from a main-thread-only module: the physics worker has its own copy of the registry and would simulate an
 unknown shape as a box.
 
 Helpers for the common cases live in `src/model/shapes/helpers.ts` (`hullCollider` / `hullGeometry` for convex
 shapes given as points, `single` for a one-collider shape, size fields, `clampDims` …). A compound shape returns
-several colliders from `colliders()`. `tests/shapeRegistry.test.ts` runs every registered shape against the engine
+several colliders from `colliders()`. Hollow and concave shapes are built from several
+convex parts that tile the solid without overlapping (so the engine's mass is exactly `density × volume`): `parts.ts`
+has `boxPart` / `hullPart`, `meshKit.ts` the mesh side (`MeshBuilder` with crease-angle normals, `lathe`,
+`extrudeOutline`) — `torus.ts` and `arch.ts` are worked examples, and `tests/primitiveShapes.test.ts` shows how to
+prove a compound shape (mesh volume = analytic volume = engine mass, a ball through the hole). `tests/shapeRegistry.test.ts` runs every registered shape against the engine
 (volume × density = integrated mass, bounding radius, mesh bounds); the example's own test also checks the centre
-of mass of a real pyramid.
+of mass of a real spire.
+
+A shape can also carry three optional fields that the palette and the inspector pick up without further code:
+`keywords` (extra search words: "donut" finds the torus), `quantities` (derived numbers the inspector shows and
+edits — a gear's module, a rounded box's corner radius in metres; each maps a value to the size and parameters
+that realise it, so undo, live resizing and the scale gizmo keep working) and `surface` (a painted texture over the
+geometry's uvs, as the dice have; the painter itself is registered in `src/render/shapeSurface.ts`). A geometry
+with a `color` attribute (`MeshBuilder.tint`) is drawn with vertex colours, as the wheel's dark tyre is. Convex
+shapes with a fine rounded edge or a flat polygon almost parallel to a neighbour need the engine-safety rule in
+`src/model/shapes/hull3.ts` (`firstSafeHull`): the engine's hull builder silently merges faces that meet at under
+about 1.35° and mis-computes the mass of such hulls, so give it candidates from the most detailed to a plain one.
 
 ## How to add a component
 

@@ -86,6 +86,7 @@ export function buildPowertrainCar(b: Builder, name = 'Powertrain car'): BodyEnt
           maxForce: 6000,
           keyPos: 'KeyA',
           keyNeg: 'KeyD',
+          axis: '', // -- CM-A: the sanitiser always writes the motor's analog axis
           slewRate: 2.4,
           brake: true,
         },

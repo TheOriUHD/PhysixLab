@@ -35,12 +35,14 @@ describe('Zones playground', () => {
   it('is a stable scene: no body leaves the world, the zero-g runner floats', async () => {
     const doc = getTemplate('zones-playground')!.build();
     const w = await PhysicsWorld.create(doc);
-    runCollect(w, 6);
     const c = doc.entities.find((e) => e.kind === 'body' && e.name === 'Runner C')!;
-    const p = w.getPose(c.id)!;
-    expect(p.position.every(Number.isFinite)).toBe(true);
-    // dropped from 4.5 m into the zero-g bubble: it would have hit the ground in 0.95 s; it is still up in the air
-    expect(p.position[1]).toBeGreaterThan(1.5);
+    runCollect(w, 1.2);
+    // dropped from 4.5 m into the zero-g bubble: it would have hit the ground in 0.95 s (and bounced up to about 1.2 m
+    // by now at most); it is still high in the air. (Sampled early: later the ball floats out of the bubble and
+    // bounces, so its height at one instant depends on the exact step it entered the bubble.)
+    expect(w.getPose(c.id)!.position[1]).toBeGreaterThan(1.5);
+    runCollect(w, 4.8);
+    expect(w.getPose(c.id)!.position.every(Number.isFinite)).toBe(true);
   });
 });
 

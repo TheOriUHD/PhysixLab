@@ -11,5 +11,70 @@ import { icosahedron } from './icosahedron';
 import { prism } from './prism';
 import { sphere } from './sphere';
 import { wedge } from './wedge';
+// -- SH: primitive shapes I (torus, ring, tube, arch, stairs, spiral stairs, hemisphere, dome, frustum, beams) --
+import { arch } from './arch';
+import { dome } from './dome';
+import { frustum } from './frustum';
+import { hemisphere } from './hemisphere';
+import { iBeam } from './iBeam';
+import { lBeam } from './lBeam';
+import { ring } from './ring';
+import { spiralStairs } from './spiralStairs';
+import { stairs } from './stairs';
+import { tBeam } from './tBeam';
+import { torus } from './torus';
+import { tube } from './tube';
+// -- SH: primitive shapes II (ellipsoid, regular solids) --
+import { ellipsoid } from './ellipsoid';
+import { pyramid, tetrahedron } from './pyramid';
+import { dodecahedron, octahedron } from './platonicShapes';
+import { curvedRamp, quarterPipe } from './curvedRamp';
+import { d10, d12, d20, d4, d6, d8 } from './dice';
+import { gear } from './gear';
+import { halfPipe } from './halfPipe';
+import { roundedBox } from './roundedBox';
+import { wheel } from './wheel';
+import { roundedCylinder } from './roundedCylinder';
 
-export const BUILTIN_SHAPES: readonly ShapeDef[] = [box, sphere, cylinder, capsule, cone, wedge, prism, icosahedron];
+export const BUILTIN_SHAPES: readonly ShapeDef[] = [
+  box,
+  sphere,
+  cylinder,
+  capsule,
+  cone,
+  wedge,
+  prism,
+  icosahedron,
+  // -- SH: primitive shapes I --
+  torus,
+  ring,
+  tube,
+  arch,
+  stairs,
+  spiralStairs,
+  hemisphere,
+  dome,
+  frustum,
+  iBeam,
+  lBeam,
+  tBeam,
+  // -- SH: primitive shapes II --
+  ellipsoid,
+  pyramid,
+  tetrahedron,
+  octahedron,
+  dodecahedron,
+  roundedBox,
+  roundedCylinder,
+  curvedRamp,
+  quarterPipe,
+  halfPipe,
+  gear,
+  wheel,
+  d4,
+  d6,
+  d8,
+  d10,
+  d12,
+  d20,
+];

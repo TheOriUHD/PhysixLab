@@ -18,11 +18,35 @@ test('shape registry: palette, number keys and the prism inspector come from the
     const { listShapes } = await import('/src/model/shapeRegistry.ts');
     return listShapes().map((d) => ({ id: d.id, label: d.label }));
   });
-  assert(reg.length === 8, `eight built-in shapes registered (${reg.length})`);
-  const tiles = await page.locator('.panel.left .tiles').first().locator('.tile').allTextContents();
+  // the original eight come first (the number keys depend on it); shape packages append after them
+  const CORE = 'box,sphere,cylinder,capsule,cone,wedge,prism,icosahedron';
   assert(
-    tiles.map((t) => t.trim()).join() === reg.map((d) => d.label).join(),
+    reg
+      .slice(0, 8)
+      .map((d) => d.id)
+      .join() === CORE,
+    `the eight original shapes come first (${reg.map((d) => d.id).join()})`,
+  );
+  // -- SH: the palette groups the registry by category, so compare as sets and check the order inside each group
+  const tiles = await page.locator('.panel.left .shape-tile').allTextContents();
+  assert(
+    tiles
+      .map((t) => t.trim())
+      .sort()
+      .join() ===
+      reg
+        .map((d) => d.label)
+        .sort()
+        .join(),
     `palette tiles follow the registry: ${tiles.join()}`,
+  );
+  const inGroups = await page
+    .locator('.panel.left .shape-tiles')
+    .evaluateAll((groups) => groups.map((g) => [...g.querySelectorAll('.shape-tile')].map((t) => t.dataset.shape)));
+  const position = new Map(reg.map((d, i) => [d.id, i]));
+  assert(
+    inGroups.every((ids) => ids.every((id, i) => i === 0 || position.get(ids[i - 1]) < position.get(id))),
+    `registry order is kept inside each category: ${JSON.stringify(inGroups)}`,
   );
   // the number keys address the registry order (7 = prism)
   await page.click('.viewport-canvas', { position: { x: 700, y: 400 } });

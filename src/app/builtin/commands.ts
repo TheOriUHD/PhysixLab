@@ -10,6 +10,7 @@ import { Vector3 } from 'three';
 import type { Vec3 } from '../../core/math';
 import { GRAVITY_PRESETS } from '../../model/gravityPresets';
 import { listShapes } from '../../model/shapeRegistry';
+import { shapeKeywords } from '../../model/shapes/keywords'; // -- SH
 import { COLOR_MODE_LABELS, type ColorMode } from '../../render/bodyViews';
 import type { Quality } from '../../render/viewport';
 import type { App } from '../app';
@@ -479,7 +480,7 @@ function addCommands(): CommandDef[] {
       category: 'Add',
       icon: def.icon,
       description: def.blurb,
-      keywords: ['new', 'create', 'shape', 'body'],
+      keywords: ['new', 'create', 'shape', 'body', ...shapeKeywords(def)], // -- SH: the palette's search words too
       shortcut: i < 9 ? String(i + 1) : undefined,
       help: false,
       run: ({ app }) => {
