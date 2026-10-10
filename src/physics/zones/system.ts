@@ -508,7 +508,7 @@ export class ZoneSystem {
 
   // ---- per step ----------------------------------------------------------------------------
 
-  /** Called once per fixed step, after the components: delayed respawns, spawn lifetimes, publishing. */
+  /** Called once per fixed step, after the components: delayed respawns and spawn lifetimes. */
   tick(): void {
     const t = this.s.simTime;
     if (this.pending.length) {
@@ -535,6 +535,10 @@ export class ZoneSystem {
         else if (r.lifetime > 0 && t - r.born >= r.lifetime) this.removeBody(id, 'lifetime');
       }
     }
+  }
+
+  /** Write the state for the page if anything changed since the last step. */
+  publishIfDirty(): void {
     if (this.dirty) this.publish();
   }
 

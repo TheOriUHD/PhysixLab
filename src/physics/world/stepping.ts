@@ -6,6 +6,7 @@
 import { clamp } from '../../core/math';
 import { applyDrag, emulateSleep } from './dynamics';
 import { collectEvents, stepPending } from './events';
+import { applySoftWalls, checkBounds } from './bounds'; // -- ZN-34
 import { applyGrab, applyThrusters } from './forces';
 import { driveMotor, measureJoint, measureSpring } from './joints';
 import { applySoftGrab } from './soft';
@@ -34,6 +35,7 @@ function preStep(s: WorldState, dt: number): void {
   applyThrusters(s);
   applySoftGrab(s);
   applyGrab(s);
+  applySoftWalls(s, dt); // -- ZN-34: the spring walls of the world bounds
   // Components run after the built-in forces, bodies first, then joints, each owner in array order.
   s.host.prestep(dt);
 }
@@ -49,6 +51,10 @@ function postStep(s: WorldState, dt: number): void {
       r.rb.setEnabled(false);
     }
   }
+  // -- ZN: delayed respawns and spawn lifetimes, then the world bounds, then the zone state goes out to the page
+  s.host.zones.tick();
+  checkBounds(s);
+  s.host.zones.publishIfDirty();
   for (const j of s.jointOrder) {
     if (j.broken || !j.joint) continue;
     if (j.def.type === 'spring') measureSpring(s, j);

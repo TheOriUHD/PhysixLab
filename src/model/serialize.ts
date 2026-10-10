@@ -242,11 +242,37 @@ function sanitizeBounds(raw: any): BoundsSettings {
   const min = lo.map((v, i) => Math.min(v, hi[i])) as BoundsSettings['min'];
   const max = lo.map((v, i) => Math.max(v, hi[i])) as BoundsSettings['max'];
   for (let i = 0; i < 3; i++) if (max[i] - min[i] < 1e-3) max[i] = min[i] + 1;
+  // -- ZN-34: per-face edges, the soft wall and the respawn policy (files without them get the plain kill box)
+  const edgeKinds = ['open', 'kill', 'soft', 'water'] as const;
+  const edges = raw?.edges ?? {};
+  const soft = raw?.soft ?? {};
+  const respawn = raw?.respawn ?? {};
   return {
     enabled: bool(raw?.enabled, d.enabled),
     min,
     max,
     policy: oneOf(raw?.policy, ['kill', 'respawn'], d.policy),
+    edges: {
+      nx: oneOf(edges.nx, edgeKinds, d.edges.nx),
+      px: oneOf(edges.px, edgeKinds, d.edges.px),
+      ny: oneOf(edges.ny, edgeKinds, d.edges.ny),
+      py: oneOf(edges.py, edgeKinds, d.edges.py),
+      nz: oneOf(edges.nz, edgeKinds, d.edges.nz),
+      pz: oneOf(edges.pz, edgeKinds, d.edges.pz),
+    },
+    soft: {
+      margin: clamp(num(soft.margin, d.soft.margin), 0.1, 1000),
+      stiffness: clamp(num(soft.stiffness, d.soft.stiffness), 0, 10000),
+      damping: clamp(num(soft.damping, d.soft.damping), 0, 1000),
+    },
+    respawn: {
+      to: oneOf(respawn.to, ['start', 'checkpoint'], d.respawn.to),
+      delay: clamp(num(respawn.delay, d.respawn.delay), 0, 600),
+      penaltySeconds: clamp(num(respawn.penaltySeconds, d.respawn.penaltySeconds), 0, 3600),
+      penaltyPoints: clamp(num(respawn.penaltyPoints, d.respawn.penaltyPoints), 0, 1_000_000),
+      max: int(respawn.max, d.respawn.max, 0, 9999),
+      wholeGroups: bool(respawn.wholeGroups, d.respawn.wholeGroups),
+    },
   };
 }
 

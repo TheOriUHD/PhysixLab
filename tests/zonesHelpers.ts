@@ -5,7 +5,7 @@ import type { Vec3 } from '../src/core/math';
 import { makeComponent } from '../src/model/componentRegistry';
 import { defaultSettings } from '../src/model/factory';
 import type { BodyEntity, ComponentParams, SceneSettings } from '../src/model/types';
-import type { ComponentEvent, SimEvent } from '../src/physics/protocol';
+import { B, BODY_STRIDE, type ComponentEvent, type SimEvent } from '../src/physics/protocol';
 import type { PhysicsWorld } from '../src/physics/world';
 import { createBody, run, worldOf } from './helpers';
 
@@ -61,7 +61,10 @@ export const isZoneEvent = (e: SimEvent): e is ComponentEvent => e.kind === 'com
 
 /** Every zone event raised so far (the queue is emptied). */
 export function zoneEvents(w: PhysicsWorld, name?: string): ComponentEvent[] {
-  return w.drainEvents().filter(isZoneEvent).filter((e) => !name || e.name === name);
+  return w
+    .drainEvents()
+    .filter(isZoneEvent)
+    .filter((e) => !name || e.name === name);
 }
 
 /** Run for `seconds` and return the zone events raised meanwhile, in order. */
@@ -76,3 +79,24 @@ export function runCollect(w: PhysicsWorld, seconds: number): ComponentEvent[] {
 }
 
 export { createBody, run, worldOf };
+
+/** Is the body switched off (killed, or held out of the world before a respawn)? A body that is gone is "off" too. */
+export function isOff(w: PhysicsWorld, id: string): boolean {
+  const i = w.bodyIds.indexOf(id);
+  if (i < 0) return true;
+  return w.readPoses(1)[i * BODY_STRIDE + B.state] === 2;
+}
+
+/** Position of a body (throws if it does not exist). */
+export function at(w: PhysicsWorld, id: string): Vec3 {
+  const p = w.getPose(id);
+  if (!p) throw new Error(`no body ${id}`);
+  return p.position;
+}
+
+/** Events of any component type ('zone' or 'bounds'), by name. */
+export function eventsOf(w: PhysicsWorld, type: string, name?: string): ComponentEvent[] {
+  return w
+    .drainEvents()
+    .filter((e): e is ComponentEvent => e.kind === 'component' && e.type === type && (!name || e.name === name));
+}
