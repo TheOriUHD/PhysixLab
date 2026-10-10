@@ -17,4 +17,5 @@ export * from './keymap';
 export * from './menus';
 export * from './panels';
 export * from './shortcuts';
+export * from './tips';
 export * from './tools';

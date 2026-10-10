@@ -6,7 +6,7 @@ Telemetry is still growing; this page describes what is there today.
 
 ## Showing the dock
 
-Use **View → Telemetry dock** (or the *Show Energy* / *Show Selection* commands in the palette). The dock fills while the simulation runs.
+Use **View → Telemetry dock** (or the *Show Energy* / *Show Selection* commands in the palette). The dock fills while the simulation runs. Its tab strip also hosts the Diagnostics and Profiler tabs, see [Troubleshooting and diagnostics](troubleshooting).
 
 ## Energy
 

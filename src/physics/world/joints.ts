@@ -153,9 +153,22 @@ export function dropJoint(s: WorldState, id: string): void {
 export function updateJoint(s: WorldState, next: JointEntity): void {
   const rec = s.joints.get(next.id);
   if (!rec) return;
+  const { broken, jl } = rec; // -- JT-B: an edit must not revive a broken joint or reset its fatigue --
   if (rec.joint && rec.joint.isValid()) s.world.removeImpulseJoint(rec.joint, true);
   dropJoint(s, rec.id);
-  addJoint(s, next);
+  const fresh = addJoint(s, next);
+  if (fresh) restoreBreakState(s, fresh, broken, jl);
+}
+
+/** JT-B: carry the broken flag and fatigue damage over to a rebuilt joint record. */
+export function restoreBreakState(s: WorldState, rec: JointRec, broken: boolean, jl: JointRec['jl']): void {
+  if (jl) rec.jl = { ...jl };
+  if (broken) {
+    if (rec.joint && rec.joint.isValid()) s.world.removeImpulseJoint(rec.joint, true);
+    rec.joint = null;
+    rec.broken = true;
+    rec.force = 0;
+  }
 }
 
 function configureUnitJoint(s: WorldState, rec: JointRec, initial: boolean): void {

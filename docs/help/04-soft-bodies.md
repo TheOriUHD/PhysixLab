@@ -13,7 +13,7 @@ Add them from the **Add** tab (or the palette: *Add Jelly*, *Add Cloth* …).
 | Cloth | A sheet that drapes and can tear. Pin an edge or corners to hang it. |
 | Cable | A flexible rope or cable, pinned at both ends by default. |
 
-Soft bodies collide with rigid bodies and the ground. They are simulated as particles.
+Soft bodies collide with rigid bodies and the ground. They are simulated as particles, so the [Diagnostics panel](troubleshooting) shows a particle count.
 
 ## Settings
 

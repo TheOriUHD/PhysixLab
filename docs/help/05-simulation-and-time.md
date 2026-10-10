@@ -32,4 +32,4 @@ The **World** tab of the right panel holds the scene's settings:
 - **Air** – extra drag on every dynamic body; fully left is a vacuum.
 - **Solver** – physics rate (60, 120, 240 or 480 Hz), solver iterations and sub-steps. Higher is more accurate and slower; raise them for stiff joints, tall stacks and fast objects.
 
-See also: [Telemetry and charts](telemetry).
+See also: [Telemetry and charts](telemetry), [Troubleshooting and diagnostics](troubleshooting).

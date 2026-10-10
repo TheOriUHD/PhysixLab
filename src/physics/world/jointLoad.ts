@@ -87,7 +87,7 @@ export class LoadTracker {
 
 /** Joints whose load the estimator tracks: rigid and rope joints that still exist. */
 function eligible(j: JointRec): boolean {
-  return !j.broken && !!j.joint && j.def.type !== 'spring';
+  return !j.broken && !!j.joint && j.def.type !== 'spring' && !(j.A && j.A === j.B);
 }
 
 /** Called once per fixed step before the engine steps: decide whether loads are needed this step. */
@@ -226,6 +226,8 @@ export function computeLoads(s: WorldState): void {
   const dtE = engineDt(s);
   const bals: Bal[] = [];
   let anyAwake = false;
+  // forget records of bodies that were rebuilt, restored or removed (compare by identity: ids survive a rebuild)
+  for (const r of t.bals.keys()) if (s.bodies.get(r.id) !== r) t.bals.delete(r);
   for (const b of t.bals.values()) {
     if (b.stamp !== t.stamp) continue;
     const r = b.rec;
@@ -393,6 +395,8 @@ export function computeLoads(s: WorldState): void {
   for (const e of edges) {
     const j = e.j;
     const jl = (j.jl ??= newJointLoad());
+    // a joint whose bodies are all asleep keeps its last estimate (stale contact impulses would corrupt it)
+    if ((!j.A || j.A.rb.isSleeping()) && (!j.B || j.B.rb.isSleeping())) continue;
     const type = j.def.type;
     jl.exact = e.exact;
     jl.force = vlen(e.fOnA);

@@ -49,11 +49,15 @@ import './styles/ed-b-tools.css';
 // -- ED-B --
 import { setContextTarget } from './ui/contextTarget';
 import './styles/ed-b.css';
+import { attachDiagnostics, installDiagnostics, preflight, showBootFailure } from './ui/diag/boot'; // -- UI-B: error boundary --
 import { publishApi } from './api/install';
 import { installTour } from './ui/tour';
 import { initPwa } from './pwa'; // -- DT-40 --
 
+installDiagnostics(); // -- UI-B: error boundary --
+
 async function boot(): Promise<void> {
+  if (!preflight()) return; // -- UI-B: capability check --
   // -- VZ-50: paint the stored theme before anything is built (no flash of the default theme) --
   const early = new PrefsStore().value;
   applyTheme(early.theme, early.accent);
@@ -63,6 +67,7 @@ async function boot(): Promise<void> {
   const root = document.getElementById('app')!;
   const shell = createShell(root);
   const app = new App(shell);
+  attachDiagnostics(app); // -- UI-B --
 
   shell.topSlot.replaceWith(buildTopbar(app));
   // The three docked regions are generated from the panel registry.
@@ -187,6 +192,7 @@ async function boot(): Promise<void> {
     setTimeout(() => showWelcome(app), 400);
 }
 
+boot().catch(showBootFailure); // -- UI-B: plain-language boot failure screen --
 boot().catch((e: unknown) => {
   console.error(e);
   const root = document.getElementById('app')!;

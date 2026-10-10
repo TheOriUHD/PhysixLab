@@ -5,7 +5,7 @@ import { addBody } from './bodies';
 import { applyBodyLayer, countHooks } from './layers';
 import { colliderSurface } from './colliders';
 import { unregisterColliders } from './events';
-import { addJoint, dropJoint } from './joints';
+import { addJoint, dropJoint, restoreBreakState } from './joints';
 import { removeSoft } from './soft';
 import { detachBody } from './softAttach';
 import type { BodyRec, WorldState } from './state';
@@ -109,7 +109,9 @@ function rebuildBody(s: WorldState, rec: BodyRec, next: BodyEntity): void {
     q = rot(rec.rb);
   const lv = rec.rb.linvel(),
     av = rec.rb.angvel();
-  const attached = s.jointOrder.filter((j) => j.A === rec || j.B === rec).map((j) => j.def);
+  const attachedRecs = s.jointOrder.filter((j) => j.A === rec || j.B === rec);
+  const attached = attachedRecs.map((j) => j.def);
+  const brokenState = attachedRecs.map((j) => ({ broken: j.broken, jl: j.jl })); // -- JT-B
   const ephemeral = rec.ephemeral;
   removeEntities(s, [rec.id]);
   const moved: BodyEntity = {
@@ -121,7 +123,10 @@ function rebuildBody(s: WorldState, rec: BodyRec, next: BodyEntity): void {
   };
   // The world keeps the authored definition (`next`), the engine body is built at the live pose (`moved`).
   addBody(s, moved, ephemeral, next);
-  for (const jd of attached) addJoint(s, jd);
+  attached.forEach((jd, i) => {
+    const fresh = addJoint(s, jd);
+    if (fresh) restoreBreakState(s, fresh, brokenState[i].broken, brokenState[i].jl); // -- JT-B
+  });
 }
 
 export function teleport(s: WorldState, id: string, position: Vec3, rotation: Quat, keepVelocity = false): void {
