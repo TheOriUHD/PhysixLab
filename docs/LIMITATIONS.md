@@ -126,6 +126,12 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 * Very large scenes (several thousand bodies) are limited by per-body draw calls, not by the physics worker; instanced rendering of identical shapes is a straightforward next step.
 * Shadows cover a camera-following frustum, so distant objects are unshadowed.
 
+## Outliner
+
+* **Row thumbnails are real renders only for rigid bodies** (one shared off-screen three.js renderer, cached by shape + material, rendered a few per frame). Groups, lights, paths, joints and soft bodies have no stand-alone mesh in the outliner, so they show their type icon; without WebGL every row falls back to the icon.
+* **Solo works by hiding**: soloing marks everything unrelated as hidden (`soloHid`) rather than being a separate render mode, so objects added while a solo is active stay visible until the solo is cleared; an object the user un-hides by hand during a solo is not hidden again.
+* **Reordering changes the document order** and, like any wholesale reorder, is refused while the simulation is running (it would rebuild the world).
+
 ## Ideas on the roadmap
 
 1. Rigid-joint load estimation + breakable welds/hinges; fracture templates.

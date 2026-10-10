@@ -28,7 +28,19 @@ interface Events extends Record<string, unknown> {
 }
 
 /** Keys of an entity that never matter to the live world. */
-const EDITOR_ONLY = new Set(['name', 'locked', 'hidden', 'tags', 'layer', 'parent', 'meshId', 'skin']);
+const EDITOR_ONLY = new Set([
+  'name',
+  'locked',
+  'hidden',
+  'tags',
+  'layer',
+  'parent',
+  'meshId',
+  'skin',
+  'colorTag',
+  'solo',
+  'soloHid',
+]);
 
 export class SimController extends Emitter<Events> {
   readonly client = new SimClient();

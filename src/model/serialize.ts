@@ -16,6 +16,7 @@ import { pruneAssets, remapAssetRefs } from './assets';
 import { sanitizeAssetMap } from './sanitize/assets';
 import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
 import { dedupeComponentIds, repairComponentRefs, sanitizeComponents } from './componentRegistry';
+import { outlinerMetaFields, sanitizeSelectionSets } from './sanitize/outlinerMeta'; // -- UI-A --
 import { parentField, sanitizeGroup, sanitizeLight, sanitizePath } from './sanitize/kinds';
 import { sanitizeParts } from './sanitize/parts';
 import { breakageField } from './breakage';
@@ -123,6 +124,7 @@ function sanitizeBody(raw: any, report?: LoadReport): BodyEntity {
     locked: bool(raw?.locked, false),
     hidden: bool(raw?.hidden, false),
     ...sanitizeBodyFields(raw ?? {}),
+    ...outlinerMetaFields(raw ?? {}, false), // -- UI-A --
     ...sanitizeCompound(raw ?? {}, report, name ? `"${name}"` : 'an object'),
     components: sanitizeComponents(raw?.components, 'body', report, name ? `"${name}"` : 'an object'),
   };
@@ -186,6 +188,7 @@ function sanitizeJoint(raw: any, report?: LoadReport): JointEntity {
     collideConnected: bool(raw?.collideConnected, false),
     params: sanitizeParams(raw?.params), // -- JT-A --
     hidden: bool(raw?.hidden, false),
+    ...outlinerMetaFields(raw ?? {}, true), // -- UI-A --
     components: sanitizeComponents(raw?.components, 'joint', report, 'a joint'),
     // -- JT-B: breakage thresholds --
     ...breakageField(raw?.breakage),
@@ -264,6 +267,7 @@ function sanitizeSoft(raw: any, report?: LoadReport): SoftEntity {
     shape: sanitizeShapeSpec(raw?.shape ?? d.shape, report, 'a soft mesh'),
     cell: clamp(num(raw?.cell, d.cell), 0.04, 1),
     pneumatic: bool(raw?.pneumatic, d.pneumatic),
+    ...outlinerMetaFields(raw ?? {}, true), // -- UI-A --
   };
 }
 
@@ -373,6 +377,7 @@ function sanitizeSettings(raw: any): SceneSettings {
     environment: sanitizeEnvironment(raw?.environment),
     bounds: sanitizeBounds(raw?.bounds),
     units: sanitizeUnits(raw?.units),
+    selectionSets: sanitizeSelectionSets(raw?.selectionSets), // -- UI-A --
   };
 }
 

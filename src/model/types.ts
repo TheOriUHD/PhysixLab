@@ -65,7 +65,21 @@ export interface SkinSpec {
   params?: Record<string, number | string | boolean>;
 }
 
-export interface BodyEntity {
+// -- UI-A: outliner organisation fields shared by every entity kind (UI-20/UI-21) --
+export interface OutlinerMeta {
+  /** Colour tag key (see `TAG_COLORS` in `model/outlinerMeta.ts`). Editor-only. */
+  colorTag?: string;
+  /** Free-form labels (bodies always carry the list; other kinds only when tagged). */
+  tags?: string[];
+  /** Soloed in the outliner: everything unrelated to the soloed entities is hidden (and marked `soloHid`). */
+  solo?: boolean;
+  /** Hidden *by* a solo (so that clearing the solo shows exactly these again). */
+  soloHid?: boolean;
+}
+// -- end UI-A --
+
+export interface BodyEntity extends OutlinerMeta {
+
   kind: 'body';
   id: string;
   name: string;
@@ -268,7 +282,7 @@ export interface BreakSpec {
   };
 }
 
-export interface JointEntity {
+export interface JointEntity extends OutlinerMeta {
   kind: 'joint';
   id: string;
   name: string;
@@ -325,7 +339,7 @@ export interface SoftAttachment {
   joint?: string;
 }
 
-export interface SoftEntity {
+export interface SoftEntity extends OutlinerMeta {
   kind: 'soft';
   id: string;
   name: string;
@@ -390,7 +404,7 @@ export interface SoftEntity {
  * *world* pose; the group's `position` / `rotation` is the pivot that moving the group (`SceneStore.transformGroup`)
  * carries every descendant about. A group has no physics of its own — it exists only in the document and the editor.
  */
-export interface GroupEntity {
+export interface GroupEntity extends OutlinerMeta {
   kind: 'group';
   id: string;
   name: string;
@@ -410,7 +424,7 @@ export type LightType = 'point' | 'spot' | 'directional' | 'area';
  * rotation of a spot / directional / area light points it straight down. Lights have no physical behaviour: they
  * are stored in the document, drawn as an editor helper and rendered by a real three.js light (`render/lightViews.ts`).
  */
-export interface LightEntity {
+export interface LightEntity extends OutlinerMeta {
   kind: 'light';
   id: string;
   name: string;
@@ -440,7 +454,7 @@ export interface LightEntity {
  * cameras and anything else that follows a route. Points are in the path's own frame; `position` / `rotation` place
  * that frame in the world.
  */
-export interface PathEntity {
+export interface PathEntity extends OutlinerMeta {
   kind: 'path';
   id: string;
   name: string;
@@ -490,6 +504,16 @@ export interface SceneSettings {
   bounds: BoundsSettings;
   /** Display units — storage only (the engine always works in m, kg, s, rad). */
   units: UnitsSettings;
+
+  // -- UI-A: named selection sets (UI-21) --
+  /** Named groups of entity ids the outliner saves and recalls. */
+  selectionSets: SelectionSet[];
+}
+
+/** A named, saved selection (UI-21). Ids of removed entities are skipped when it is recalled. */
+export interface SelectionSet {
+  name: string;
+  ids: string[];
 }
 
 export type SkyPreset = 'studio' | 'day' | 'sunset' | 'night' | 'overcast';

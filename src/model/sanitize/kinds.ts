@@ -7,6 +7,7 @@ import { clamp } from '../../core/math';
 import { createGroup, createLight, createPath, defaultPathPoints, lightDefaults, LIGHT_TYPES } from '../factory';
 import { LIMITS } from '../limits';
 import type { GroupEntity, LightEntity, LightType, PathEntity } from '../types';
+import { outlinerMetaFields } from './outlinerMeta'; // -- UI-A --
 import { bool, hexColor, idStr, isFiniteVec, nameStr, num, obj, oneOf, position3, quat } from './primitives';
 
 /** `parent` of a raw entity: a non-empty id, validated later once every entity id is known. */
@@ -26,6 +27,7 @@ export function sanitizeGroup(input: unknown): GroupEntity {
     locked: bool(raw.locked, false),
     hidden: bool(raw.hidden, false),
     ...parentField(raw),
+    ...outlinerMetaFields(raw, true), // -- UI-A --
   };
 }
 
@@ -52,6 +54,7 @@ export function sanitizeLight(input: unknown): LightEntity {
     locked: bool(raw.locked, false),
     hidden: bool(raw.hidden, false),
     ...parentField(raw),
+    ...outlinerMetaFields(raw, true), // -- UI-A --
   };
 }
 
@@ -75,5 +78,6 @@ export function sanitizePath(input: unknown): PathEntity {
     locked: bool(raw.locked, false),
     hidden: bool(raw.hidden, false),
     ...parentField(raw),
+    ...outlinerMetaFields(raw, true), // -- UI-A --
   };
 }
