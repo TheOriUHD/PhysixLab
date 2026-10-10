@@ -69,6 +69,15 @@ export class SimClient extends Emitter<ClientEvents> {
   info: BuiltInfo = { mass: {}, com: {} };
   /** Increments on every received frame. */
   frameNo = 0;
+  // -- UI-B: diagnostics (worker status, round trip, apply time) --
+  /** Protocol version the worker announced (null until it said ready). */
+  workerProtocol: number | null = null;
+  /** Message from the worker's last error, if any. */
+  lastError: string | null = null;
+  /** Milliseconds from sending the last tick to receiving its frame (includes the physics step). */
+  roundTripMs = 0;
+  /** Milliseconds the main thread spent unpacking the last frame. */
+  applyMs = 0;
   /** Increments whenever bodyIds / jointIds change. */
   layoutNo = 0;
   broken = new Set<string>();
@@ -84,7 +93,10 @@ export class SimClient extends Emitter<ClientEvents> {
     super();
     this.worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
     this.worker.onmessage = (e: MessageEvent<FromWorker>) => this.onMessage(e.data);
-    this.worker.onerror = (e) => this.emit('error', e.message);
+    this.worker.onerror = (e) => {
+      this.lastError = e.message; // -- UI-B: diagnostics --
+      this.emit('error', e.message);
+    };
   }
 
   private send(msg: ToWorker): void {
@@ -100,6 +112,8 @@ export class SimClient extends Emitter<ClientEvents> {
         this.emit('custom', { channel: m.channel, data: m.data });
         break;
       case 'frame': {
+        const t0 = performance.now(); // -- UI-B: diagnostics --
+        this.roundTripMs = t0 - this.inflightSince;
         this.inflight = false;
         if (!this.active) return;
         if (m.bodyIds) {
@@ -140,6 +154,7 @@ export class SimClient extends Emitter<ClientEvents> {
           this.snapshotRequests.delete(r.id);
         }
         this.frameNo++;
+        this.applyMs = performance.now() - t0; // -- UI-B: diagnostics --
         for (const ev of m.events) {
           if (ev.kind === 'jointBroken') this.broken.add(ev.id);
           this.emit('event', ev);
@@ -148,10 +163,12 @@ export class SimClient extends Emitter<ClientEvents> {
         break;
       }
       case 'error':
+        this.lastError = m.message; // -- UI-B: diagnostics --
         this.inflight = false;
         this.emit('error', m.message);
         break;
       case 'ready':
+        this.workerProtocol = m.protocol; // -- UI-B: diagnostics --
         if (m.protocol !== PROTOCOL_VERSION) {
           this.emit('error', `physics worker speaks protocol v${m.protocol}, this page expects v${PROTOCOL_VERSION}`);
         }

@@ -51,6 +51,7 @@ import { PostStack } from './postStack';
 import { DualCamera } from './dualCamera'; // -- CM-A --
 import { ViewGrid, type ViewPlane } from './viewGrid'; // -- CM-A --
 import { Weather } from './weather'; // -- VZ-B: weather (VZ-23) --
+import { OTHER, RENDER, profiler } from '../core/profiler'; // -- UI-B: frame timing --
 
 export type Quality = QualityChoice;
 
@@ -581,6 +582,7 @@ export class Viewport {
   }
 
   private frameOnce(): void {
+    profiler.begin(); // -- UI-B: frame timing --
     const now = performance.now();
     const rawDt = (now - this.lastTime) / 1000;
     const dt = Math.min(0.1, rawDt);
@@ -617,6 +619,7 @@ export class Viewport {
       void moved;
     }
 
+    profiler.mark(OTHER); // -- UI-B: frame timing --
     this.onFrame?.(dt);
 
     // Keep sun shadow frustum centred on what the user is looking at (VZ-32): the extent is quantised so the texel
@@ -654,12 +657,15 @@ export class Viewport {
     (this.gridMat.uniforms.uCamPos.value as Vector3).copy(this.camera.ortho ? tgt : this.camera.position);
     this.updateViewGrid();
 
+    profiler.mark(OTHER); // -- UI-B: frame timing --
     this.post.focusDistance = this.camera.position.distanceTo(this.controls.target);
     this.weather.update(dt, this.camera, this.controls.target, this.activeTier); // -- VZ-B: weather --
     this.post.render(dt);
     this.renderer.autoClear = false;
     this.viewHelper.render(this.renderer);
     this.renderer.autoClear = true;
+    profiler.mark(RENDER); // -- UI-B: frame timing --
+    profiler.end(); // -- UI-B: frame timing --
     if (this.thumbRequests.length) this.flushThumbnails();
   }
 

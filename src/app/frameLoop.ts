@@ -1,5 +1,6 @@
 /** The per-frame update: advance the simulation, push poses into the views, overlays, labels and camera. */
 import type { App } from './app';
+import { PHYSICS, SCENE, UI, profiler } from '../core/profiler'; // -- UI-B: frame timing --
 
 export class FrameLoop {
   /** Smoothed frames-per-second estimate (updated twice a second). */
@@ -29,6 +30,7 @@ export class FrameLoop {
 
     app.input.update(dt); // -- CM-A --
     app.sim.tick();
+    profiler.mark(PHYSICS); // -- UI-B: frame timing --
     const client = app.sim.client;
     const live = client.active && client.frameNo > 0;
 
@@ -99,6 +101,8 @@ export class FrameLoop {
     app.viewSync.frameAux(rect.width, rect.height);
     app.labels.update(app.camera, rect.width, rect.height);
 
+    profiler.mark(SCENE); // -- UI-B: frame timing --
     app.emit('frame', { dt });
+    profiler.mark(UI); // -- UI-B: frame timing --
   }
 }
