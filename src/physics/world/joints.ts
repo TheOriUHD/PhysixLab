@@ -223,7 +223,9 @@ export function driveMotor(s: WorldState, rec: JointRec, dt: number): void {
     const off = def.params.refOffset;
     let target = m.targetPosition - off;
     if (hasKeys) {
-      const desired = m.targetPosition * input - off;
+      // negative input may deflect by a different amount (Ackermann steering), see MotorSpec.targetPositionNeg
+      const range = input < 0 && m.targetPositionNeg !== undefined ? m.targetPositionNeg : m.targetPosition;
+      const desired = range * input - off;
       const step = m.slewRate * dt;
       rec.motorTarget += clamp(desired - rec.motorTarget, -step, step);
       target = rec.motorTarget;

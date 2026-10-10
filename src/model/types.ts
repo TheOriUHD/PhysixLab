@@ -285,6 +285,11 @@ export interface MotorSpec {
   targetVelocity: number;
   /** rad (hinge) or m (slider). With a key bound it is the deflection at full input. */
   targetPosition: number;
+  /**
+   * Deflection at full *negative* input (key / axis), when it differs from `targetPosition`: lets a steering knuckle
+   * turn further toward one side than the other, which is what Ackermann steering needs (the inner wheel turns more).
+   */
+  targetPositionNeg?: number;
   /** N/m or N·m/rad — position mode spring gain. */
   stiffness: number;
   /** N·s/m or N·m·s/rad — velocity-mode gain / position-mode damping. */

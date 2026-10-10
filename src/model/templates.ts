@@ -98,6 +98,20 @@ function doublePendulum(): SceneDocument {
   return b.done();
 }
 
+/**
+ * The wheels and the body never collide with each other: the front wheels sit only 5 cm from the chassis side, so
+ * with collisions on, their inner edge hit the body at ~8° of steering and the car could hardly turn. Group 1 =
+ * wheels (ignore group 2), group 2 = body (ignores group 1); both still collide with the ground and everything else.
+ */
+const WHEEL_GROUP = { group: 1, mask: 0xffff & ~(1 << 2) };
+const BODY_GROUP = { group: 2, mask: 0xffff & ~(1 << 1) };
+/** Steering lock in radians: the inner wheel turns further than the outer one (Ackermann), mean ~28 degrees. */
+const STEER_INNER = 0.55;
+const STEER_OUTER = 0.4;
+const STEER_LIMIT = 0.7;
+/** Physical width of a car wheel's collider in metres (see the wheel body below). */
+const TREAD = 0.05;
+
 export function buildCar(withTrack = true): SceneDocument {
   const b = new Builder('Drivable car');
   b.doc.settings.solverIterations = 10;
@@ -107,10 +121,12 @@ export function buildCar(withTrack = true): SceneDocument {
     // -- VZ-42: the detailed car skin draws the shell; the tag lets it follow this body's colour --
     skin: { id: 'car.body' },
     tags: ['car-body'],
+    collision: BODY_GROUP,
   });
   const cabin = b.body('Cabin', 'box', [1.1, 0.4, 1.0], [-0.15, y + 0.375, 0], {
     material: { preset: 'glass', density: 120, opacity: 0.55, color: '#8fd3ff' },
     hidden: true, // VZ-42: still simulates (mass, collider); the car.body skin draws the greenhouse
+    collision: BODY_GROUP,
   });
   b.joint('fixed', chassis, cabin, cabin.position, [0, 1, 0], { name: 'Cabin mount' });
 
@@ -155,29 +171,34 @@ export function buildCar(withTrack = true): SceneDocument {
       });
       b.joint('hinge', hub, knuckle, [c.x, wr, c.z], [0, 1, 0], {
         name: `${c.name} steering`,
-        limit: { enabled: true, min: -0.55, max: 0.55 },
+        limit: { enabled: true, min: -STEER_LIMIT, max: STEER_LIMIT },
         motor: {
           mode: 'position',
           targetVelocity: 0,
-          targetPosition: 0.42,
-          stiffness: 9000,
-          damping: 900,
-          maxForce: 6000,
+          // Ackermann: A turns toward −Z, so the −Z wheel is the inner one for A and the outer one for D
+          targetPosition: c.z < 0 ? STEER_INNER : STEER_OUTER,
+          targetPositionNeg: c.z < 0 ? STEER_OUTER : STEER_INNER,
+          stiffness: 40000,
+          damping: 3000,
+          maxForce: 30000,
           keyPos: 'KeyA',
           keyNeg: 'KeyD',
           axis: 'steer', // -- CM-A --
-          slewRate: 2.4,
+          slewRate: 6,
           brake: true,
         },
       });
       carrier = knuckle;
     }
-    const wheel = b.body(`${c.name} wheel`, 'cylinder', [wr * 2, ww, wr * 2], [c.x, wr, c.z], {
+    // The collider is a thin disc (the visible tyre, 0.3 m wide, is drawn by the `car.wheel` skin): a wide flat tread
+    // scrubs so hard when steered that the car could barely turn. The density keeps the wheel's mass unchanged.
+    const wheel = b.body(`${c.name} wheel`, 'cylinder', [wr * 2, TREAD, wr * 2], [c.x, wr, c.z], {
       rotation: rotX(90),
       ccd: true,
       skin: { id: 'car.wheel' },
       tags: ['car-wheel'],
-      material: { preset: 'rubber', density: 420, color: '#24262b', roughness: 0.9, friction: 1.1 },
+      collision: WHEEL_GROUP,
+      material: { preset: 'rubber', density: (420 * ww) / TREAD, color: '#24262b', roughness: 0.9, friction: 1.1 },
     });
     // Axle axis is −Z so that a positive motor speed rolls the car toward +X.
     b.joint('hinge', carrier, wheel, [c.x, wr, c.z], [0, 0, -1], {

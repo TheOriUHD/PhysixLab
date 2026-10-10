@@ -5,7 +5,8 @@ import { hasShape } from '../src/model/shapeRegistry';
 import { listPrefabs, listTemplates } from '../src/model/content';
 import { parseDocument, sanitizeDocument, serializeDocument } from '../src/model/serialize';
 import { PhysicsWorld } from '../src/physics/world';
-import { qrot, type Vec3 } from '../src/core/math';
+import { qrot, type Quat, type Vec3 } from '../src/core/math';
+import { buildCar } from '../src/model/templates';
 import type { BodyEntity, SceneDocument } from '../src/model/types';
 
 const log = (...a: unknown[]) =>
@@ -144,7 +145,8 @@ describe('scene behaviour', () => {
     const up = qrot(p1.rotation, [0, 1, 0]);
     log('car after 2.5s W', p1.position, 'v', p1.linvel, 'up', up);
     expect(p1.position[0] - p0.position[0]).toBeGreaterThan(5);
-    expect(up[1]).toBeGreaterThan(0.97);
+    // upright: the track's ramp (17 degrees) can be under the car at this moment, so the bound only has to catch a flip
+    expect(up[1]).toBeGreaterThan(0.9);
     // Steer left (A) from a standstill start in a fresh world.
     const w2 = await PhysicsWorld.create(doc);
     run(w2, 1.5);
@@ -296,3 +298,93 @@ describe('scene behaviour', () => {
   });
 });
 void ({} as Vec3);
+
+describe('drivable car handling', () => {
+  /** Run the car on a huge flat ground: throttle for `thr` seconds, then throttle + `key`; returns what the steering did. */
+  async function steerTrial(key: 'KeyA' | 'KeyD', thr: number) {
+    const doc = buildCar(false);
+    doc.settings.ground.halfSize = 1000;
+    const chassis = nameOf(doc, 'Chassis');
+    const fl = doc.entities.find((e) => e.name === 'Front left steering')!;
+    const fr = doc.entities.find((e) => e.name === 'Front right steering')!;
+    const w = await PhysicsWorld.create(doc);
+    run(w, 1.5);
+    w.setKeys(['KeyW']);
+    run(w, thr);
+    const p0 = w.getPose(chassis.id)!;
+    const heading = (q: Quat) => {
+      const f = qrot(q, [1, 0, 0]);
+      return Math.atan2(f[2], f[0]);
+    };
+    w.setKeys(['KeyW', key]);
+    run(w, 1.25); // let the wheels swing over and the turn build up
+    const h1 = heading(w.getPose(chassis.id)!.rotation);
+    run(w, 0.75);
+    const p1 = w.getPose(chassis.id)!;
+    let dh = heading(p1.rotation) - h1;
+    if (dh > Math.PI) dh -= 2 * Math.PI;
+    if (dh < -Math.PI) dh += 2 * Math.PI;
+    return {
+      yawRate: (Math.abs(dh) * 180) / Math.PI / 0.75, // deg/s once the turn has settled
+      up: qrot(p1.rotation, [0, 1, 0])[1],
+      left: (w.getJointRec(fl.id)!.value * 180) / Math.PI,
+      right: (w.getJointRec(fr.id)!.value * 180) / Math.PI,
+      speed: Math.hypot(...p0.linvel),
+    };
+  }
+
+  it('the front wheels reach a real steering lock (they used to jam against the body at ~8 degrees)', async () => {
+    const r = await steerTrial('KeyA', 2);
+    log('car lock A', r);
+    expect(Math.abs(r.left)).toBeGreaterThan(25); // inner wheel
+    expect(Math.abs(r.right)).toBeGreaterThan(17); // outer wheel
+    expect(Math.abs(r.left)).toBeGreaterThan(Math.abs(r.right) + 4); // Ackermann: the inner wheel turns more
+  });
+
+  it('turns hard at every speed, to both sides, without tipping over', async () => {
+    for (const thr of [0.8, 2, 5]) {
+      const a = await steerTrial('KeyA', thr);
+      const d = await steerTrial('KeyD', thr);
+      log(
+        `car turn rate after ${thr}s throttle: speed ${a.speed.toFixed(1)} A ${a.yawRate.toFixed(0)} D ${d.yawRate.toFixed(0)} deg/s`,
+      );
+      expect(a.yawRate).toBeGreaterThan(30); // deg/s (it was 5-20 before)
+      expect(d.yawRate).toBeGreaterThan(30);
+      // roughly symmetric: the drive torque leans the body one way, so the two sides differ a little but never by 2x
+      expect(Math.abs(a.yawRate - d.yawRate) / Math.max(a.yawRate, d.yawRate)).toBeLessThan(0.5);
+      expect(a.up).toBeGreaterThan(0.9);
+      expect(d.up).toBeGreaterThan(0.9);
+    }
+  });
+
+  it('a motor can deflect further one way than the other (targetPositionNeg)', async () => {
+    const doc = buildCar(false);
+    const joint = doc.entities.find((e) => e.name === 'Front left steering')!;
+    if (joint.kind !== 'joint') throw new Error('not a joint');
+    joint.motor.targetPosition = 0.2;
+    joint.motor.targetPositionNeg = 0.5;
+    const trial = async (key: string) => {
+      const w = await PhysicsWorld.create(doc);
+      run(w, 1.5);
+      w.setKeys([key]);
+      run(w, 1.2);
+      return Math.abs(w.getJointRec(joint.id)!.value);
+    };
+    const pos = await trial('KeyA'); // + direction: 0.2 rad
+    const neg = await trial('KeyD'); // − direction: 0.5 rad
+    log('asymmetric steering', pos, neg);
+    expect(neg).toBeGreaterThan(pos + 0.12);
+  });
+
+  it('the wheels and the body do not collide with each other but both still hit the world', () => {
+    const doc = buildCar(false);
+    const wheel = doc.entities.find((e) => e.name === 'Front left wheel');
+    const chassis = doc.entities.find((e) => e.name === 'Chassis');
+    if (wheel?.kind !== 'body' || chassis?.kind !== 'body') throw new Error('missing bodies');
+    // each one's membership group is outside the other's filter, while the default group 0 is inside both
+    expect(wheel.collision.mask & (1 << chassis.collision.group)).toBe(0);
+    expect(chassis.collision.mask & (1 << wheel.collision.group)).toBe(0);
+    expect(wheel.collision.mask & 1).toBe(1);
+    expect(chassis.collision.mask & 1).toBe(1);
+  });
+});

@@ -188,6 +188,10 @@ function sanitizeJoint(raw: any, report?: LoadReport): JointEntity {
       mode: ['off', 'velocity', 'position'].includes(m.mode) ? m.mode : 'off',
       targetVelocity: num(m.targetVelocity, base.motor.targetVelocity),
       targetPosition: num(m.targetPosition, base.motor.targetPosition),
+      // -- steering: kept only when the file has one, so scenes without it save back unchanged --
+      ...(m.targetPositionNeg !== undefined && Number.isFinite(Number(m.targetPositionNeg))
+        ? { targetPositionNeg: num(m.targetPositionNeg, base.motor.targetPosition) }
+        : {}),
       stiffness: Math.max(0, num(m.stiffness, base.motor.stiffness)),
       damping: Math.max(0, num(m.damping, base.motor.damping)),
       maxForce: Math.max(0, num(m.maxForce, base.motor.maxForce)),
