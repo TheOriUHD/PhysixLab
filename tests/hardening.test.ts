@@ -19,7 +19,9 @@ import { makePart } from '../src/model/compound';
 import { createGroup, createJoint, createLight, createPath, defaultSettings } from '../src/model/factory';
 import { SceneStore } from '../src/model/store';
 import type { BodyEntity, ComponentSpec, JointEntity } from '../src/model/types';
-import { registerRuntime } from '../src/physics/components';
+import { BUILTIN_COMPONENTS } from '../src/model/components';
+import { registerRuntime, runtimeOf } from '../src/physics/components';
+import { hasIcon } from '../src/ui/icons';
 import type { ContactEvent, SensorEvent, SimEvent } from '../src/physics/protocol';
 import { PhysicsWorld } from '../src/physics/world';
 import type { WorldState } from '../src/physics/world/state';
@@ -565,5 +567,33 @@ describe('snapshot / restore with a sine mover', () => {
     w.restore(snap);
     run(w, 1);
     expect(poseOf()).toEqual(first);
+  });
+});
+
+// ── registries are wired end to end ───────────────────────────────────────────────────────────────
+
+describe('built-in components are wired through every registry', () => {
+  it('each definition has an icon, a runtime in the worker, and gauges that match what the runtime publishes', async () => {
+    expect(BUILTIN_COMPONENTS.length).toBeGreaterThanOrEqual(2);
+    for (const def of BUILTIN_COMPONENTS) {
+      expect(hasIcon(def.icon), `${def.type}: icon "${def.icon}" exists in the icon set`).toBe(true);
+      expect(runtimeOf(def.type), `${def.type}: a runtime is registered`).toBeDefined();
+      for (const f of def.fields) expect(f.label, `${def.type}.${f.key} has a label`).toBeTruthy();
+      // run it for real and count the numbers it publishes
+      const kinematic = def.type === 'sineMover';
+      const b = withComponents(
+        createBody({
+          shape: { type: 'box', size: [1, 1, 1] },
+          position: [0, 5, 0],
+          ...(kinematic ? { bodyType: 'kinematic' as const } : {}),
+        }),
+        makeComponent(def.type),
+      );
+      const w = await worldOf([b], NO_G);
+      run(w, 0.05);
+      expect(w.missingRuntimes()).toEqual([]);
+      const published = w.drainComponentState().changed[b.components[0].id];
+      expect(published?.values?.length, `${def.type}: published values`).toBe(def.state?.length ?? 0);
+    }
   });
 });
