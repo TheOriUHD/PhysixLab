@@ -18,10 +18,10 @@
  */
 import { newDocument, createBody, createJoint } from '../src/model/factory';
 import { PhysicsWorld } from '../src/physics/world';
-import type { BodyEntity, JointEntity, SceneDocument, SoftEntity } from '../src/model/types';
+import type { Entity, SceneDocument } from '../src/model/types';
 
 export function docOf(
-  entities: (BodyEntity | JointEntity | SoftEntity)[],
+  entities: Entity[],
   patch: Partial<SceneDocument['settings']> = {},
 ): SceneDocument {
   const d = newDocument('test');
@@ -31,7 +31,7 @@ export function docOf(
 }
 
 export async function worldOf(
-  entities: (BodyEntity | JointEntity | SoftEntity)[],
+  entities: Entity[],
   patch: Partial<SceneDocument['settings']> = {},
 ): Promise<PhysicsWorld> {
   return PhysicsWorld.create(docOf(entities, patch));
