@@ -4,6 +4,13 @@ import { h } from './dom';
 import { icon } from './icons';
 // -- UI-A: Simple / Advanced mode --
 import { friendly } from './uiMode';
+// -- /UI-A --
+// -- UI-A: units, expressions, scrub handles --
+import { parseFieldInput } from './inspector/upgrades/expr';
+import { followUnits, systemOf, unitChip } from './inspector/upgrades/fieldUnits';
+import { quantityById, quantityOfSymbol, toDisplay } from './inspector/upgrades/units';
+import type { QuantityDef } from './inspector/upgrades/units';
+// -- /UI-A --
 
 export interface Field<T> {
   el: HTMLElement;
@@ -29,7 +36,13 @@ export interface NumberOpts {
   onStart?: () => void;
   onEnd?: () => void;
   title?: string;
+  // -- UI-A: what the field measures (id of a quantity in inspector/upgrades/units.ts); defaults to the one the `unit` text names, `null` = plain number --
+  quantity?: string | null;
 }
+
+// -- UI-A: scrubbing from outside the field (the inspector makes a row's label drag the row's number) --
+export const scrubHandles = new WeakMap<HTMLElement, (e: PointerEvent, target: HTMLElement) => void>();
+// -- /UI-A --
 
 /** Numeric input with drag-to-scrub label, arrow-key stepping and unit suffix. */
 export function numberField(o: NumberOpts): Field<number> {
@@ -43,10 +56,17 @@ export function numberField(o: NumberOpts): Field<number> {
     spellcheck: false,
     title: o.title ?? '',
   });
-  const unit = o.unit ? h('span', { class: 'num-unit' }, o.unit) : null;
+  // -- UI-A: unit toggle --
+  const quantity: QuantityDef | undefined = o.quantity === null ? undefined : (quantityById(o.quantity) ?? quantityOfSymbol(o.unit));
+  let el: HTMLElement | null = null;
+  const unit = o.unit ? (quantity ? unitChip(() => el ?? input, quantity) : h('span', { class: 'num-unit' }, o.unit)) : null;
+  let mixedNow = false;
+  // -- /UI-A --
   const clampV = (v: number) => Math.min(o.max ?? Infinity, Math.max(o.min ?? -Infinity, v));
   const show = (v: number, mixed = false) => {
-    input.value = mixed ? '—' : fmt(v, digits);
+    // -- UI-A: shown in the field's unit system --
+    mixedNow = mixed;
+    input.value = mixed ? '—' : fmt(quantity ? toDisplay(quantity, systemOf(el ?? input, quantity), v) : v, digits);
   };
   show(value);
 
@@ -66,15 +86,20 @@ export function numberField(o: NumberOpts): Field<number> {
 
   input.addEventListener('focus', () => input.select());
   input.addEventListener('change', () => {
-    const t = input.value.trim().replace(',', '.');
-    let v = Number(t);
-    if (!Number.isFinite(v)) {
-      // simple a/b fractions
-      const m = /^(-?[\d.]+)\s*\/\s*(-?[\d.]+)$/.exec(t);
-      v = m ? Number(m[1]) / Number(m[2]) : NaN;
+    // -- UI-A: expressions (`2*9.81`, `5 ft`, `3/4`) with units --
+    const r = parseFieldInput(input.value, quantity, systemOf(el ?? input, quantity));
+    if (!r.ok) {
+      input.classList.add('invalid');
+      input.title = r.error;
+      window.setTimeout(() => {
+        input.classList.remove('invalid');
+        input.title = o.title ?? '';
+      }, 1800);
+      show(value, mixedNow);
+      return;
     }
     o.onStart?.();
-    commit(v);
+    commit(r.value);
     o.onEnd?.();
   });
   input.addEventListener('keydown', (e) => {
@@ -99,43 +124,49 @@ export function numberField(o: NumberOpts): Field<number> {
     o.label !== undefined
       ? h('span', { class: `num-label ${o.labelClass ?? ''}`, title: 'Drag to scrub' }, o.label)
       : null;
-  if (label) {
-    label.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      label.setPointerCapture(e.pointerId);
-      const x0 = e.clientX,
-        v0 = value;
-      let started = false;
-      const move = (ev: PointerEvent) => {
-        const dx = ev.clientX - x0;
-        if (!started && Math.abs(dx) < 2) return;
-        if (!started) {
-          started = true;
-          o.onStart?.();
-          document.body.classList.add('scrubbing');
-        }
-        const mult = ev.shiftKey ? 0.1 : ev.ctrlKey || ev.metaKey ? 10 : 1;
-        commit(Number((v0 + (dx / 4) * step * mult).toFixed(8)), false);
-      };
-      const up = () => {
-        label.removeEventListener('pointermove', move);
-        label.removeEventListener('pointerup', up);
-        label.removeEventListener('pointercancel', up);
-        if (started) {
-          o.onEnd?.();
-          document.body.classList.remove('scrubbing');
-        }
-      };
-      label.addEventListener('pointermove', move);
-      label.addEventListener('pointerup', up);
-      label.addEventListener('pointercancel', up);
-    });
-  }
+  // -- UI-A: the scrub gesture can be started from any element (the row label of the inspector) --
+  const startScrub = (e: PointerEvent, host: HTMLElement) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    host.setPointerCapture(e.pointerId);
+    const x0 = e.clientX,
+      v0 = value;
+    let started = false;
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - x0;
+      if (!started && Math.abs(dx) < 2) return;
+      if (!started) {
+        started = true;
+        o.onStart?.();
+        document.body.classList.add('scrubbing');
+      }
+      const mult = ev.shiftKey ? 0.1 : ev.ctrlKey || ev.metaKey ? 10 : 1;
+      commit(Number((v0 + (dx / 4) * step * mult).toFixed(8)), false);
+    };
+    const up = () => {
+      host.removeEventListener('pointermove', move);
+      host.removeEventListener('pointerup', up);
+      host.removeEventListener('pointercancel', up);
+      if (started) {
+        o.onEnd?.();
+        document.body.classList.remove('scrubbing');
+      }
+    };
+    host.addEventListener('pointermove', move);
+    host.addEventListener('pointerup', up);
+    host.addEventListener('pointercancel', up);
+  };
+  if (label) label.addEventListener('pointerdown', (e) => startScrub(e, label));
+  // -- /UI-A --
 
-  const el = h('label', { class: 'num-field' }, label, input, unit);
+  const root = h('label', { class: 'num-field' }, label, input, unit);
+  // -- UI-A --
+  el = root;
+  scrubHandles.set(root, startScrub);
+  if (quantity) followUnits(root, () => show(value, mixedNow));
+  // -- /UI-A --
   return {
-    el,
+    el: root,
     set(v: number, mixed = false) {
       value = v;
       if (document.activeElement !== input) show(v, mixed);
@@ -154,8 +185,11 @@ export function vec3Field(o: {
   digits?: number;
 }): Field<[number, number, number]> {
   let cur: [number, number, number] = [0, 0, 0];
+  // -- UI-A: one unit chip for the three axes, which share the quantity --
+  const vq = o.unit ? quantityOfSymbol(o.unit) : undefined;
   const mk = (i: number, name: string) =>
     numberField({
+      quantity: vq?.id ?? null,
       label: name,
       labelClass: `axis-${name.toLowerCase()}`,
       step: o.step ?? 0.1,
@@ -173,8 +207,14 @@ export function vec3Field(o: {
   const fx = mk(0, 'X'),
     fy = mk(1, 'Y'),
     fz = mk(2, 'Z');
+  const vecEl = h('div', { class: 'vec3' }, fx.el, fy.el, fz.el);
+  if (vq?.imperial) {
+    vecEl.classList.add('has-unit');
+    vecEl.append(unitChip(() => fx.el, vq, 'num-unit vec-unit'));
+  }
+  // -- /UI-A --
   return {
-    el: h('div', { class: 'vec3' }, fx.el, fy.el, fz.el),
+    el: vecEl,
     set(v, mixed = false) {
       cur = [...v] as [number, number, number];
       fx.set(v[0], mixed);
