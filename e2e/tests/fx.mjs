@@ -4,6 +4,8 @@
  */
 import { assert, newPage, screenOf, shot, simTime } from '../helpers.mjs';
 
+// The graphics Auto governor drops software-GL runs to the Low tier (no explosion light, smaller particle budget): the
+// effects are tested at the Medium tier they were written for.
 export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
@@ -14,7 +16,7 @@ const play = (page) => page.evaluate(() => window.physicslab.sim.play());
 const pause = (page) => page.evaluate(() => window.physicslab.sim.pause());
 
 test('fx: Effects panel — master switch, quality and intensity drive the system and persist', async () => {
-  const page = await newPage();
+  const page = await newPage('&quality=medium');
   await page.click('#tab-fx');
   await page.waitForSelector('.fx-panel .section-head:has-text("Visual effects")');
   await shot(page, 'fx-panel');
@@ -50,7 +52,7 @@ test('fx: Effects panel — master switch, quality and intensity drive the syste
 });
 
 test('fx: ball pit — 300 balls fill the pit within the particle budget, and Reset clears every particle', async () => {
-  const page = await newPage('&scene=pit');
+  const page = await newPage('&scene=pit&quality=medium');
   await page.evaluate(() => window.physicslab.viewport.setView({ position: [0, 8.5, 5.5], target: [0, 0.2, 0] }));
   assert((await stats(page)).contactsWatched === true, 'contact events are requested from the physics');
   await play(page);
@@ -69,7 +71,7 @@ test('fx: ball pit — 300 balls fill the pit within the particle budget, and Re
 });
 
 test('fx: ball drop — sparks, dust, chips, shards and scuffs follow the materials, scaled by the impact', async () => {
-  const page = await newPage();
+  const page = await newPage('&quality=medium');
   await page.evaluate(async () => {
     const { Builder } = await import('/src/model/builder.ts');
     const b = new Builder('Impact balls');
@@ -110,7 +112,7 @@ test('fx: ball drop — sparks, dust, chips, shards and scuffs follow the materi
 });
 
 test('fx: car braking skid — slipping wheels smoke and leave skid marks; Reset clears them', async () => {
-  const page = await newPage('&scene=car');
+  const page = await newPage('&scene=car&quality=medium');
   await page.evaluate(async () => {
     const { buildCar } = await import('/src/model/templates.ts');
     const a = window.physicslab;
@@ -150,7 +152,7 @@ test('fx: car braking skid — slipping wheels smoke and leave skid marks; Reset
 });
 
 test('fx: blast tool — fireball, shock ring, debris, smoke and a light flash', async () => {
-  const page = await newPage('&scene=wreck');
+  const page = await newPage('&scene=wreck&quality=medium');
   await page.evaluate(() => {
     const a = window.physicslab;
     a.viewport.setView({ position: [3, 4, 14], target: [3, 2, 0] });
@@ -191,7 +193,7 @@ test('fx: blast tool — fireball, shock ring, debris, smoke and a light flash',
 });
 
 test('fx: switched off — nothing is emitted, no contact events are requested, the blast keeps its plain shock wave', async () => {
-  const page = await newPage('&scene=pit');
+  const page = await newPage('&scene=pit&quality=medium');
   await page.evaluate(() => window.physicslab.fxDirector.setSettings({ enabled: false }));
   assert((await stats(page)).contactsWatched === false, 'no contact events requested');
   await play(page);
@@ -208,7 +210,7 @@ test('fx: switched off — nothing is emitted, no contact events are requested, 
 });
 
 test('fx: determinism — the same scene seed gives the same effects, another seed does not (single-stepped runs)', async () => {
-  const page = await newPage();
+  const page = await newPage('&quality=medium');
   await page.evaluate(async () => {
     const { Builder } = await import('/src/model/builder.ts');
     const b = new Builder('Seeded drop');
@@ -260,7 +262,7 @@ test('fx: determinism — the same scene seed gives the same effects, another se
 });
 
 test('fx: a hard projectile hit sets off a small blast on top of the material effects', async () => {
-  const page = await newPage('&scene=wreck');
+  const page = await newPage('&scene=wreck&quality=medium');
   await page.evaluate(() => {
     const a = window.physicslab;
     a.prefs.set({ shootSpeed: 30 });
@@ -284,7 +286,7 @@ test('fx: a hard projectile hit sets off a small blast on top of the material ef
 });
 
 test('fx: physical debris — off by default; on, a glass pane hit by steel throws capped, auto-cleaned fragments', async () => {
-  const page = await newPage();
+  const page = await newPage('&quality=medium');
   await page.evaluate(async () => {
     const { Builder } = await import('/src/model/builder.ts');
     const b = new Builder('Pane');
@@ -334,7 +336,7 @@ test('fx: physical debris — off by default; on, a glass pane hit by steel thro
 });
 
 test('fx: previews, the clear button and the palette commands act on the real system', async () => {
-  const page = await newPage('&scene=car');
+  const page = await newPage('&scene=car&quality=medium');
   await page.click('#tab-fx');
   await page.waitForSelector('.fx-panel .fx-previews');
   const live = () => page.evaluate(() => window.physicslab.fx.stats.live);
@@ -396,7 +398,7 @@ test('fx: previews, the clear button and the palette commands act on the real sy
 });
 
 test('fx: skid marks fade with age and are drawn as darker ground (read back from the rendered image)', async () => {
-  const page = await newPage();
+  const page = await newPage('&quality=medium');
   await page.evaluate(() => {
     const a = window.physicslab;
     a.newScene();
@@ -414,7 +416,7 @@ test('fx: skid marks fade with age and are drawn as darker ground (read back fro
       async ([x, z]) => {
         const a = window.physicslab;
         const v = a.viewport;
-        v.composer.render(0.016);
+        v.post.render(0.016);
         const img = new Image();
         img.src = v.dom.toDataURL('image/png');
         await img.decode();

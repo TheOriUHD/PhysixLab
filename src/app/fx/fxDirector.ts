@@ -63,6 +63,8 @@ export class FxDirector {
   private scratchPos: [number, number, number] = [0, 0, 0];
   private scratchDir: [number, number, number] = [0, 1, 0];
   private scratchVel: [number, number, number] = [0, 0, 0];
+  /** The effects tier last handed to `fx.configure` (see `update`). */
+  private appliedTier: 'low' | 'medium' | 'high' = 'medium';
 
   constructor(private readonly app: App) {
     this.fx = new Fx(app.viewport.helpers, legacyTier(app.prefs.value.quality, app.viewport.graphicsInfo.tier));
@@ -97,7 +99,8 @@ export class FxDirector {
     const { app, fx } = this;
     const s = app.prefs.value.fx;
     const wasOn = fx.settings.enabled;
-    fx.configure(s, legacyTier(app.prefs.value.quality, app.viewport.graphicsInfo.tier)); // -- VZ-B: Quality grew ultra / auto --
+    this.appliedTier = legacyTier(app.prefs.value.quality, app.viewport.tierNow);
+    fx.configure(s, this.appliedTier); // -- VZ-B: Quality grew ultra / auto --
     this.debris.cap = fx.tier.physicalDebrisCap;
     if (!s.enabled && wasOn) this.clearAll();
     // Contact events only while something needs them.
@@ -197,6 +200,8 @@ export class FxDirector {
     const { app, fx } = this;
     const sim = app.sim;
     const client = sim.client;
+    // -- FX: follow the graphics tier (Auto governor, `?quality=`): it changes without a preferences change --
+    if (legacyTier(app.prefs.value.quality, app.viewport.tierNow) !== this.appliedTier) this.applySettings();
     this.syncEnvironment();
     const fxDt = this.clock.step(dt, {
       active: sim.active,

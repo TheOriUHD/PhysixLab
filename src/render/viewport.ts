@@ -495,6 +495,12 @@ export class Viewport {
     };
   }
 
+  // -- FX: the tier in force without the allocation of `graphicsInfo` (the effects compare it every frame, because the
+  // Auto governor and the `?quality=` override move it without touching the preferences) --
+  get tierNow(): QualityTier {
+    return this.activeTier;
+  }
+
   get currentQuality(): Quality {
     return this.quality;
   }

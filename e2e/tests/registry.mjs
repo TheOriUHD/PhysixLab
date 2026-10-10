@@ -692,8 +692,8 @@ test('panels: the three regions are generated from the panel registry, follow it
   await page.click('.dock .tab:has-text("Selection")');
   assert((await prefs(page)).bottomTab === 'selection', 'the Selection tab opens');
   assert(
-    (await page.locator('.dock .tab-toolbar select').isVisible()) &&
-      (await page.locator('.dock .tab-toolbar button').isVisible()),
+    (await page.locator('.dock .tab-toolbar:visible select').count()) > 0 &&
+      (await page.locator('.dock .tab-toolbar:visible button').count()) > 0,
     'the dock toolbar (time window, clear) is shown',
   );
   await page.keyboard.press('Shift+Space');
