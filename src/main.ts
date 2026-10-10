@@ -9,6 +9,7 @@ import './styles/ui-a.css';
 import './styles/cm.css'; // -- CM-A --
 import './styles/diag.css';
 import './styles/tour.css';
+import './styles/vzb.css'; // -- VZ-B --
 import { App } from './app/app';
 import { InputController } from './app/input';
 import { Persistence } from './app/persistence';

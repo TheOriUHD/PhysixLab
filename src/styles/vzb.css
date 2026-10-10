@@ -1,0 +1,5 @@
+/* VZ-B: graphics section, selection highlight options and damage readouts */
+.gfx-status { color: var(--text-3); font-size: 11.5px; line-height: 1.45; margin: 0 0 8px; padding: 0 2px; }
+.gfx-reset { white-space: nowrap; }
+.section .section .section-head .badge.on { color: var(--accent); }
+.btn.active { border-color: var(--accent); color: var(--accent); }

@@ -480,6 +480,28 @@ export class BodyViews {
     return false;
   }
 
+  /** Meshes glossy or metallic enough to show screen-space reflections (VZ-20). */
+  reflectiveMeshes(): Mesh[] {
+    const out: Mesh[] = [];
+    const glossy = (m: unknown): boolean => {
+      const sm = m as { roughness?: number; metalness?: number; visible?: boolean };
+      return sm.visible !== false && ((sm.roughness ?? 1) <= 0.5 || (sm.metalness ?? 0) >= 0.4);
+    };
+    for (const p of this.pools.values()) if (glossy(p.material)) out.push(p.mesh);
+    for (const v of this.views.values()) {
+      if (!this.shown(v)) continue;
+      if (v.skin) {
+        v.skin.root.traverse((o) => {
+          const m = o as Mesh;
+          if (m.isMesh && !Array.isArray(m.material) && glossy(m.material)) out.push(m);
+        });
+      } else if (!v.pool || v.promoted) {
+        for (const p of v.pieces) if (glossy(p.material)) out.push(p.mesh);
+      }
+    }
+    return out;
+  }
+
   /** Every mesh a click can hit (all parts of compound bodies), skipping hidden and fallen bodies. */
   pickables(): Mesh[] {
     const out: Mesh[] = [];
