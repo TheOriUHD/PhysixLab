@@ -17,6 +17,7 @@ import type { BodyEntity, JointEntity, SceneDocument, SceneSettings, SoftEntity 
 import '../components'; // registers the built-in component runtimes
 import { ComponentHost } from '../components/host';
 import { dispatchCustom } from '../custom';
+import '../diagnostics'; // registers the built-in `diagnostics` custom channel
 import type {
   BuiltInfo,
   ComponentStateEntry,

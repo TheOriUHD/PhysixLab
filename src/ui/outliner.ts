@@ -71,10 +71,11 @@ export class Outliner {
       this.render();
     });
     input.addEventListener('keydown', (e) => e.stopPropagation());
-    this.list.addEventListener('dragover', (ev) => {
+    // The whole panel is the "take it out of its group" drop zone (the list itself is only as tall as its rows).
+    this.el.addEventListener('dragover', (ev) => {
       if (ev.dataTransfer?.types.includes('text/x-physicslab-entities')) ev.preventDefault();
     });
-    this.list.addEventListener('drop', (ev) => {
+    this.el.addEventListener('drop', (ev) => {
       const raw = ev.dataTransfer?.getData('text/x-physicslab-entities');
       if (raw) app.editor.setParent(JSON.parse(raw) as string[], null);
     });
@@ -104,8 +105,10 @@ export class Outliner {
     const { store, editor } = this.app;
     if (isJoint(e)) return;
     row.addEventListener('dragstart', (ev) => {
-      if (!store.selection.includes(e.id)) store.setSelection([e.id]);
-      ev.dataTransfer?.setData('text/x-physicslab-entities', JSON.stringify(store.selection));
+      // Dragging a selected row drags the whole selection, an unselected one just itself. (The selection is left
+      // alone: changing it would switch the side panel to the inspector and hide the very list being dragged over.)
+      const dragged = store.selection.includes(e.id) ? store.selection : [e.id];
+      ev.dataTransfer?.setData('text/x-physicslab-entities', JSON.stringify(dragged));
       if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move';
     });
     if (!isGroup(e)) return;

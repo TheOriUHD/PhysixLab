@@ -432,3 +432,105 @@ test('scene files: groups, lights and paths survive export, share link and autos
   assert(re.views.join() === '1,1,1', `views were rebuilt: ${re.views}`);
   assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
 });
+
+test('outliner: drag a row onto a group to put it inside, onto empty space to take it out; the Group row in the inspector does the same', async () => {
+  const page = await newPage();
+  const ids = await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    const box = a.editor.addShape('box', [0, 0.5, 0], { name: 'Loose' });
+    const group = a.editor.addGroup([4, 0, 0]);
+    const other = a.editor.addShape('sphere', [2, 0.5, 0], { name: 'Other' });
+    a.store.setSelection([]);
+    return { box: box.id, group: group.id, other: other.id };
+  });
+  await page.click('.tab:has-text("Outliner")');
+  await page.locator('.o-item:has-text("Loose")').dragTo(page.locator('.o-item.is-group'));
+  assert(
+    (await page.evaluate((id) => window.physicslab.store.body(id).parent, ids.box)) === ids.group,
+    'dropping a row on a group parents it',
+  );
+  const posAfter = await page.evaluate((id) => window.physicslab.store.body(id).position, ids.box);
+  assert(JSON.stringify(posAfter) === JSON.stringify([0, 0.5, 0]), 'the member keeps its world pose');
+  // it is now nested (indented) under the group
+  const pad = await page.locator('.o-item:has-text("Loose")').evaluate((el) => parseFloat(el.style.paddingLeft || '0'));
+  assert(pad > 0, `indented under the group (${pad})`);
+  // dropping onto the empty part of the list takes it out again
+  await page
+    .locator('.o-item:has-text("Loose")')
+    .dragTo(page.locator('.panel.right .panel-body:visible'), { targetPosition: { x: 120, y: 360 } });
+  assert(
+    (await page.evaluate((id) => window.physicslab.store.body(id).parent, ids.box)) === undefined,
+    'dropping on empty space releases it',
+  );
+  // a group cannot be dropped into itself or what is inside it
+  await page.locator('.o-item:has-text("Other")').dragTo(page.locator('.o-item.is-group'));
+  assert(
+    (await page.evaluate((id) => window.physicslab.store.body(id).parent, ids.other)) === ids.group,
+    'Other is inside',
+  );
+  await page.evaluate((g) => window.physicslab.store.setSelection([g]), ids.group);
+  const refused = await page.evaluate((g) => {
+    const a = window.physicslab;
+    return [
+      a.editor.setParent([g], g),
+      a.editor.setParent([g], a.store.body(a.store.bodies().find((b) => b.parent === g).id).id),
+    ];
+  }, ids.group);
+  assert(refused[0] === false && refused[1] === false, `no cycles: ${refused}`);
+  // the inspector's Group row
+  await page.evaluate((id) => window.physicslab.store.setSelection([id]), ids.box);
+  await page.click('.panel.right .tab:has-text("Inspector")');
+  await page.locator('.panel.right .row:has(.row-label:text-is("Group")) select').selectOption(ids.group);
+  assert(
+    (await page.evaluate((id) => window.physicslab.store.body(id).parent, ids.box)) === ids.group,
+    'inspector row parents it',
+  );
+  await page.locator('.panel.right .row:has(.row-label:text-is("Group")) select').selectOption('');
+  assert(
+    (await page.evaluate((id) => window.physicslab.store.body(id).parent, ids.box)) === undefined,
+    'and releases it',
+  );
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});
+
+test('lights: more lights than the render budget keep their helper and are counted, shadows are capped', async () => {
+  const page = await newPage();
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.newScene();
+    a.editor.addShape('box', [0, 0.5, 0]);
+    for (let i = 0; i < 11; i++) a.editor.addLight(i < 6 ? 'spot' : 'point', [i - 5, 3, 0], { castShadow: true });
+  });
+  const budget = await page.evaluate(() => {
+    const a = window.physicslab;
+    const views = [...a.lightViews.views.values()];
+    return {
+      total: views.length,
+      real: views.filter((v) => v.light.visible).length,
+      over: a.lightViews.overBudgetCount,
+      shadows: views.filter((v) => v.light.visible && v.light.castShadow).length,
+      helpers: views.filter((v) => v.sprite.visible).length,
+    };
+  });
+  assert(
+    budget.total === 11 && budget.real === 8 && budget.over === 3,
+    `8 real lights, 3 over budget: ${JSON.stringify(budget)}`,
+  );
+  assert(budget.shadows === 3, `at most 3 shadow casters (${budget.shadows})`);
+  assert(budget.helpers === 11, 'every light keeps its helper');
+  // switching one of the real lights off hands its place to the next
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.store.update(a.store.lights()[0].id, { enabled: false });
+  });
+  const after = await page.evaluate(() => {
+    const a = window.physicslab;
+    return {
+      real: [...a.lightViews.views.values()].filter((v) => v.light.visible).length,
+      over: a.lightViews.overBudgetCount,
+    };
+  });
+  assert(after.real === 8 && after.over === 2, `the freed place goes to the next light: ${JSON.stringify(after)}`);
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});

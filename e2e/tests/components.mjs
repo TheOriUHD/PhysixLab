@@ -3,7 +3,7 @@
  * the inspector's Add menu, schema-generated editors for every field kind, live edits of a running simulation,
  * the worker driving bodies from component parameters, analog axes sent from the page, and published state shown live.
  */
-import { assert, near, newPage, nextFrame, pose, shot, simTime } from '../helpers.mjs';
+import { assert, near, newPage, pose, shot, simTime } from '../helpers.mjs';
 
 export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
@@ -259,11 +259,29 @@ test('protocol v2 from the page: analog axes reach the worker; seeds and ray cas
   );
   const miss = await page.evaluate(() => window.physicslab.sim.client.raycast([20, 5, 0], [0, 1, 0], 50));
   assert(miss === null, 'and misses upwards');
+  // the custom channel: a message to a worker handler and its reply back through the client
+  const diag = await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const off = window.physicslab.sim.client.on('custom', (m) => {
+          off();
+          resolve(m);
+        });
+        window.physicslab.sim.client.sendCustom('diagnostics', null);
+      }),
+  );
+  assert(
+    diag.channel === 'diagnostics' &&
+      diag.data.protocol === 2 &&
+      diag.data.bodies === 1 &&
+      diag.data.components === 1 &&
+      diag.data.missingRuntimes.length === 0,
+    `diagnostics reply from the worker: ${JSON.stringify(diag)}`,
+  );
   // a snapshot taken through the protocol restores the world to that moment
   const snapped = await page.evaluate(async (id) => {
     const a = window.physicslab;
     const snap = await a.sim.client.snapshot();
-    const at = a.sim.client.stats?.simTime ?? 0;
     const x = snap.bodies.find((b) => b.def.id === id);
     return { at: snap.simTime, bodies: snap.bodies.length, has: !!x, bytes: snap.rapier.byteLength };
   }, id);
@@ -271,7 +289,7 @@ test('protocol v2 from the page: analog axes reach the worker; seeds and ray cas
     snapped.has && snapped.bytes > 100 && snapped.bodies === 1,
     `snapshot over the worker boundary: ${JSON.stringify(snapped)}`,
   );
-  const restored = await page.evaluate(async (id) => {
+  const restored = await page.evaluate(async () => {
     const a = window.physicslab;
     const snap = await a.sim.client.snapshot();
     a.sim.pause();
@@ -279,7 +297,7 @@ test('protocol v2 from the page: analog axes reach the worker; seeds and ray cas
     await new Promise((r) => setTimeout(r, 500));
     const t = a.sim.client.stats?.simTime ?? 0;
     return { t, snapT: snap.simTime };
-  }, id);
+  });
   near(restored.t, restored.snapT, 0.05, 'restore puts the clock back to the snapshot');
   assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
 });
@@ -416,15 +434,13 @@ test('components: every field kind gets a generated editor (number, bool, enum, 
   assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
 });
 
-test('components: a component that fails in the worker is switched off and reported with a toast', async () => {
+test('components: an error event from the worker becomes a toast naming the component, its owner and the reason', async () => {
+  // The worker side (a faulty runtime is switched off, one `error` event, the world carries on) is covered by
+  // tests/components.test.ts; here the page side is checked with the event the host raises.
   const page = await newPage();
   const id = await boxScene(page);
-  // The runtime registry is shared with the worker only for built-in components, so provoke a real fault
-  // with built-in code: a path reference that makes no sense cannot throw… instead check the plumbing the app
-  // uses for the toast by emitting the same event the host raises.
   await page.evaluate((id) => {
-    const a = window.physicslab;
-    a.sim.client.emit('event', {
+    window.physicslab.sim.client.emit('event', {
       kind: 'component',
       t: 0,
       owner: id,
@@ -435,9 +451,5 @@ test('components: a component that fails in the worker is switched off and repor
     });
   }, id);
   const toast = await page.locator('.toast.warn').first().textContent();
-  assert(
-    /Constant force on Crate stopped: kaboom/.test(toast ?? ''),
-    `toast names the component, owner and reason: ${toast}`,
-  );
-  await nextFrame(page);
+  assert(/Constant force on Crate stopped: kaboom/.test(toast ?? ''), `toast text: ${toast}`);
 });

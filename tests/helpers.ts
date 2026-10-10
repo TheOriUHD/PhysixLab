@@ -20,10 +20,7 @@ import { newDocument, createBody, createJoint } from '../src/model/factory';
 import { PhysicsWorld } from '../src/physics/world';
 import type { Entity, SceneDocument } from '../src/model/types';
 
-export function docOf(
-  entities: Entity[],
-  patch: Partial<SceneDocument['settings']> = {},
-): SceneDocument {
+export function docOf(entities: Entity[], patch: Partial<SceneDocument['settings']> = {}): SceneDocument {
   const d = newDocument('test');
   d.settings = { ...d.settings, ...patch };
   d.entities = entities;

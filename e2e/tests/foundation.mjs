@@ -421,7 +421,7 @@ test('asset store: assets travel in share links, autosave and exported files; un
   const text = readFileSync(await download.path(), 'utf8');
   const exported = JSON.parse(text);
   assert(
-    Object.keys(exported.assets).join() === ids.used && exported.version === 2,
+    Object.keys(exported.assets).join() === ids.used && exported.version === 3,
     'the exported file contains the used asset',
   );
   assert(

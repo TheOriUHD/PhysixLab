@@ -13,7 +13,7 @@ export interface CustomApi {
   /** The simulated world the message arrived for. */
   world: PhysicsWorld;
   /** Send a reply to the page on any channel (usually the same one). */
-  reply(channel: string, data: unknown): void;
+  reply: (channel: string, data: unknown) => void;
 }
 
 export type CustomHandler = (data: unknown, api: CustomApi) => void;

@@ -422,6 +422,40 @@ describe('component events and state', () => {
 });
 
 describe('custom channel', () => {
+  it('ships a diagnostics channel that reports the world it is asked about', async () => {
+    const c = makeComponent('constantForce');
+    const w = await worldOf([withComponents(ball(), c), ball({ position: [3, 5, 0] })], NO_G);
+    run(w, 0.05);
+    const [reply] = w.custom('diagnostics', null);
+    expect(reply.channel).toBe('diagnostics');
+    expect(reply.data).toMatchObject({
+      protocol: PROTOCOL_VERSION,
+      bodies: 2,
+      joints: 0,
+      components: 1,
+      missingRuntimes: [],
+      stepCount: 6,
+    });
+    expect((reply.data as { simTime: number }).simTime).toBeCloseTo(0.05, 9);
+  });
+
+  it('reports component types that have a definition but no runtime in the worker', async () => {
+    registerComponent({
+      type: 'testNoRuntime',
+      label: 'No runtime',
+      icon: 'component',
+      category: 'Tests',
+      blurb: '',
+      appliesTo: 'body',
+      fields: [],
+    });
+    const w = await worldOf([withComponents(ball(), makeComponent('testNoRuntime'))], NO_G);
+    run(w, 0.02); // it does nothing, and the world does not mind
+    expect((w.custom('diagnostics', null)[0].data as { missingRuntimes: string[] }).missingRuntimes).toEqual([
+      'testNoRuntime',
+    ]);
+  });
+
   it('routes a message to the handler registered for its channel and returns its replies', async () => {
     registerCustomChannel('test:echo', (data, api) => {
       api.reply('test:echo', { got: data, bodies: api.world.bodyIds.length });
@@ -559,6 +593,114 @@ describe('ray casts', () => {
     const w = await worldOf([b]);
     run(w, 0.05);
     expect(w.drainComponentState().changed[c.id].values![0]).toBeCloseTo(3, 2);
+  });
+});
+
+// ── contact queries and body handles ──────────────────────────────────────────────────────────────
+
+describe('ctx.contacts and the body handle', () => {
+  it('contacts() lists what the body touches now: the other body, the point, the normal out of it, the force', async () => {
+    const log: { other: string; normal: Vec3; force: number; point: Vec3 }[][] = [];
+    registerComponent({
+      type: 'testContacts',
+      label: 'Contacts',
+      icon: 'component',
+      category: 'Tests',
+      blurb: '',
+      appliesTo: 'body',
+      fields: [],
+    });
+    registerRuntime<null>({
+      type: 'testContacts',
+      create: () => null,
+      poststep: (_s, _dt, ctx) => void log.push(ctx.contacts()),
+    });
+    const crate = createBody({
+      shape: { type: 'box', size: [1, 1, 1] },
+      position: [0, 0.5005, 0],
+      material: { preset: 'custom', density: 100, restitution: 0 },
+    });
+    const w = await worldOf([withComponents(crate, makeComponent('testContacts'))]);
+    run(w, 1);
+    const last = log[log.length - 1];
+    expect(last.length).toBeGreaterThanOrEqual(1);
+    expect(last.every((c) => c.other === GROUND_ID)).toBe(true);
+    for (const c of last) {
+      expect(c.normal[1]).toBeCloseTo(1, 3); // the ground pushes the crate up
+      expect(c.point[1]).toBeCloseTo(0, 1);
+    }
+    // the normal forces add up to the weight m·g = 100 kg · 9.81 (to within the solver's per-step noise)
+    const total = last.reduce((sum, c) => sum + c.force, 0);
+    expect(total).toBeGreaterThan(100 * 9.81 * 0.9);
+    expect(total).toBeLessThan(100 * 9.81 * 1.1);
+    // a body in free fall touches nothing
+    const air = await worldOf([withComponents(ball({ position: [0, 50, 0] }), makeComponent('testContacts'))]);
+    log.length = 0;
+    run(air, 0.1);
+    expect(log.every((l) => l.length === 0)).toBe(true);
+  });
+
+  it('BodyHandle: impulses, velocities, velocityAt, teleport and liveness', async () => {
+    const seen: Record<string, unknown> = {};
+    registerComponent({
+      type: 'testHandle',
+      label: 'Handle',
+      icon: 'component',
+      category: 'Tests',
+      blurb: '',
+      appliesTo: 'body',
+      fields: [],
+    });
+    registerRuntime<null>({
+      type: 'testHandle',
+      create: () => null,
+      prestep: (_s, _dt, ctx) => {
+        const b = ctx.body!;
+        if (ctx.step === 0) {
+          b.applyImpulse([4, 0, 0]); // 2 kg → 2 m/s
+          b.applyTorqueImpulse([0, 0, 1.5]);
+        }
+        if (ctx.step === 1) {
+          seen.v = b.linvel();
+          seen.w = b.angvel();
+          seen.vAt = b.velocityAt([0, 1, 0], [0, 0, 0]); // 1 m above the centre: v + ω × r
+          seen.mass = b.mass;
+          seen.type = b.type;
+          seen.other = ctx.bodyById('ghost-body');
+          seen.itself = ctx.bodyById(ctx.ownerId)?.id;
+          b.setVelocity([0, 3, 0], [0, 0, 0]);
+        }
+        if (ctx.step === 3) {
+          b.teleport([9, 9, 9]);
+        }
+      },
+    });
+    const b = withComponents(
+      createBody({
+        shape: { type: 'box', size: [1, 1, 1] },
+        material: { preset: 'custom', density: 2 },
+        linearDamping: 0,
+        angularDamping: 0,
+        canSleep: false,
+      }),
+      makeComponent('testHandle'),
+    );
+    const w = await worldOf([b], NO_G);
+    run(w, 0.05);
+    expect((seen.v as Vec3)[0]).toBeCloseTo(2, 5);
+    expect((seen.w as Vec3)[2]).toBeCloseTo(1.5 / (1 / 3), 3); // ω = L / I, I = 1/3 kg·m² for a 2 kg cube
+    // velocity of the point 1 m above the centre: v + ω × r = (2, 0, 0) + (0, 0, ω) × (0, 1, 0) = (2 − ω, 0, 0)
+    expect((seen.vAt as Vec3)[0]).toBeCloseTo(2 - 1.5 / (1 / 3), 3);
+    expect(seen.mass).toBeCloseTo(2, 6);
+    expect(seen.type).toBe('dynamic');
+    expect(seen.other).toBeNull();
+    expect(seen.itself).toBe(b.id);
+    const p = w.getPose(b.id)!;
+    expect([p.position[0], p.position[2]]).toEqual([9, 9]); // teleported at step 3…
+    expect(p.position[1]).toBeGreaterThan(9); // …and carried on with the velocity set at step 1
+    expect(p.linvel[1]).toBeCloseTo(3, 5); // setVelocity at step 1 replaced the velocity
+    expect(p.angvel).toEqual([0, 0, 0]);
+    w.removeEntities([b.id]);
   });
 });
 
