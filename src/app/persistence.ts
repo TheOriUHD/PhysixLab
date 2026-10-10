@@ -3,7 +3,8 @@
  * import / export and shareable links (the scene is deflated into the URL hash, so
  * sharing needs no server).
  */
-import type { LoadReport } from '../model/errors';
+import { SceneFormatError, type LoadReport } from '../model/errors';
+import { LIMITS } from '../model/limits';
 import { parseDocument, serializeDocument } from '../model/serialize';
 import type { SceneStore } from '../model/store';
 import type { SceneDocument } from '../model/types';
@@ -120,7 +121,8 @@ export class Persistence {
 
   exportFile(): void {
     const doc = this.store.toDocument();
-    const blob = new Blob([JSON.stringify(doc, null, 1)], { type: 'application/json' });
+    // Same writer as the autosave and share links, so unreferenced assets are left out of the file too.
+    const blob = new Blob([serializeDocument(doc, 1)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `${(doc.name || 'scene').replace(/[^\w-]+/g, '_')}.physicslab.json`;
@@ -145,7 +147,14 @@ export class Persistence {
     const b64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const url = new URL(location.href);
     url.hash = `scene=${b64}`;
-    return url.toString();
+    const link = url.toString();
+    if (link.length > LIMITS.maxShareLinkChars) {
+      throw new SceneFormatError(
+        'limit',
+        `This scene is too large for a share link (${Math.round(link.length / 1000)} kB; the limit is ${Math.round(LIMITS.maxShareLinkChars / 1000)} kB). Export it as a file instead.`,
+      );
+    }
+    return link;
   }
 
   static async fromHash(hash: string, report?: LoadReport): Promise<SceneDocument | null> {

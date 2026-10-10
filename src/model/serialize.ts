@@ -11,6 +11,8 @@ import {
   softDefaults,
 } from './factory';
 import { LIMITS, formatBytes, formatCount } from './limits';
+import { pruneAssets, remapAssetRefs } from './assets';
+import { sanitizeAssetMap } from './sanitize/assets';
 import { repairParents, sanitizeBodyFields } from './sanitize/bodyFields';
 import { sanitizeParts } from './sanitize/parts';
 import { SCENE_FORMAT, SCENE_VERSION, migrateDocument } from './migrations';
@@ -296,18 +298,33 @@ export function sanitizeDocument(input: any, report?: LoadReport): SceneDocument
     (e) =>
       e.kind !== 'joint' || ((e.bodyA === null || bodyIds.has(e.bodyA)) && (e.bodyB === null || bodyIds.has(e.bodyB))),
   );
-  return {
+  // Assets: validated, de-duplicated, and every entity reference repaired to match (merged twins follow the
+  // kept asset; references to missing or wrong-kind assets are dropped).
+  const { assets, remap } = sanitizeAssetMap(raw.assets, report);
+  let droppedRefs = 0;
+  const linked = remapAssetRefs(clean, (id, kind) => {
+    const target = remap.get(id) ?? id;
+    if (assets[target]?.kind === kind) return target;
+    droppedRefs++;
+    return undefined;
+  });
+  if (droppedRefs) warn(report, `${droppedRefs} reference(s) to missing or unusable assets were removed.`);
+  return pruneAssets({
     format: SCENE_FORMAT,
     version: SCENE_VERSION,
     name: nameStr(raw.name, 'Untitled scene'),
     settings: sanitizeSettings(raw.settings),
-    entities: clean,
-    assets: {},
-  };
+    entities: linked,
+    assets,
+  });
 }
 
-export function serializeDocument(doc: SceneDocument): string {
-  return JSON.stringify(doc);
+/**
+ * The scene as JSON text — what files, the autosave, the library and share links hold. Assets that nothing
+ * references are left out (garbage collection on save). `indent` pretty-prints for human-readable exports.
+ */
+export function serializeDocument(doc: SceneDocument, indent?: number): string {
+  return JSON.stringify(pruneAssets(doc), null, indent);
 }
 
 export function parseDocument(text: string, report?: LoadReport): SceneDocument {

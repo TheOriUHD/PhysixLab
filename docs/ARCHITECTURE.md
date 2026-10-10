@@ -25,7 +25,7 @@
 
 ### `model/` — the document (single source of truth)
 
-Plain JSON: `SceneDocument { settings, entities[] }` where an entity is a **body** (shape, pose, material, damping, locks, thrust, flags) or a **joint** (type, two bodies, anchors, axis, limits, motor, spring). Nothing in the document refers to the engine or the renderer.
+Plain JSON: `SceneDocument { settings, entities[], assets }` (format version 2; `migrations.ts` upgrades older files, `limits.ts` holds every size limit, `assets.ts` the binary asset store) where an entity is a **body** (shape, pose, material, damping, locks, thrust, flags) or a **joint** (type, two bodies, anchors, axis, limits, motor, spring). Nothing in the document refers to the engine or the renderer.
 
 * `SceneStore` keeps entities in a `Map` and treats every entity object as **immutable** — an edit replaces the object. A history snapshot is therefore just a shallow copy of the map (structural sharing), so 200 undo levels of a thousand-body scene cost almost nothing. Edits can be grouped (`begin`/`end`) so a gizmo drag or slider scrub is one undo step. Undo/redo diff the maps and emit precise `add / remove / update` events, so the renderer and the live simulation update incrementally.
 * `serialize.ts` validates and upgrades anything loaded (files, autosave, share links): unknown fields dropped, missing fields defaulted, bad numbers clamped, joints referring to missing bodies removed.
@@ -81,7 +81,7 @@ Vanilla TypeScript with a tiny `h()` hyperscript helper — no framework to keep
 
 ## Extending
 
-* **New shape**: add to `ShapeType`, `defaultSize/normalizeSize/volume/hullPoints` in `model/shapes.ts`, a collider branch in `physics/world/colliders.ts` (`makeCollider`), a geometry branch in `bodyViews.ts`, an icon.
+* **New shape**: one file under `src/model/shapes/` exporting a `ShapeDef` (id, label, icon, category, default size, size normalisation, parameter schema, volume, bounding radius, convex points, Rapier collider factory, three.js geometry factory) and one entry in `src/model/shapes/index.ts`. The palette, inspector, world, renderer and loader all read the registry (`src/model/shapeRegistry.ts`); nothing else changes.
 * **New joint type**: add to `JointType`, build it in `physics/world/joints.ts` (`addJoint`), draw it in `jointViews.ts`, add inspector sections.
 * **New analysis**: put the quantity in the frame buffer (`protocol.ts`), plot it in `ui/telemetry.ts` or colour by it in `bodyViews.ts`.
 * **Different engine / GPU compute**: replace `PhysicsWorld` behind the same ops/frame protocol (`physics/protocol.ts`); nothing else knows Rapier exists.

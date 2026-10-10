@@ -18,7 +18,8 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 
 ## Editor
 
-* Compound bodies exist in the document, the world and the renderer, but there is no editor UI to author their parts yet (use scene files / prefabs); no mesh import UI; no terrain/heightfield.
+* Compound bodies exist in the document, the world and the renderer, but there is no editor UI to author their parts yet (use scene files / prefabs); no terrain/heightfield.
+* **The asset store holds data, nothing draws it yet.** Meshes, textures, heightmaps, audio and blobs can be stored in a scene, referenced (`BodyEntity.meshId`), de-duplicated, saved, shared and undone, but no importer, renderer or collider consumes them yet — a body with a `meshId` is still drawn and simulated from its shape or parts. Share links carry assets too and are refused above 150 kB (the scene can still be exported as a file); assets are capped at 16 MB each, 64 MB and 256 per scene.
 * Scaling is per-shape-parameter (diameter, height, extents); a body cannot be non-uniformly scaled if its shape does not allow it (spheres, cylinders and cones stay round).
 * Joint creation derives the second body's anchor from the first; for a hinge/slider the initial relative pose is the zero reference, so set up the layout before connecting.
 * Groups/folders in the outliner and per-object collision layers are not implemented.

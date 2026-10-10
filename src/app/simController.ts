@@ -10,6 +10,7 @@
  * the document and the live world alike; *poses* (moving a body while paused) affect only the
  * live world, so Reset always returns to the layout the user built.
  */
+import { pruneAssets } from '../model/assets';
 import { Emitter } from '../core/events';
 import type { Quat, Vec3 } from '../core/math';
 import type { SceneChange, SceneStore } from '../model/store';
@@ -27,7 +28,7 @@ interface Events extends Record<string, unknown> {
 }
 
 /** Keys of an entity that never matter to the live world. */
-const EDITOR_ONLY = new Set(['name', 'locked', 'hidden']);
+const EDITOR_ONLY = new Set(['name', 'locked', 'hidden', 'tags', 'layer', 'parent', 'meshId']);
 
 export class SimController extends Emitter<Events> {
   readonly client = new SimClient();
@@ -88,7 +89,8 @@ export class SimController extends Emitter<Events> {
 
   private build(): void {
     this.ephemeral.clear();
-    this.client.build(this.store.toDocument());
+    // Only assets something references go to the worker (they can be megabytes).
+    this.client.build(pruneAssets(this.store.toDocument()));
     this.emit('layout', undefined);
   }
 
@@ -207,6 +209,8 @@ export class SimController extends Emitter<Events> {
       case 'settings':
         this.client.op({ op: 'settings', settings: this.store.settings });
         break;
+      case 'assets':
+        break; // the physics worker does not use assets yet; it gets the referenced ones when it is built
     }
   }
 

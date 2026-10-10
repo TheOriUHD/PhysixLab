@@ -314,3 +314,129 @@ test('compound bodies: every part is drawn, picked, outlined, simulated and scal
   await page.click('.tbtn[title^="Stop"]');
   assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
 });
+
+test('asset store: assets travel in share links, autosave and exported files; unused ones are collected', async () => {
+  const page = await newPage();
+  const ids = await page.evaluate(async () => {
+    const { makeMeshAsset, makeBlobAsset } = await import('/src/model/assets.ts');
+    const { createBody } = await import('/src/model/factory.ts');
+    const a = window.physicslab;
+    a.newScene();
+    // a quad mesh, referenced by a body, and a spare blob nothing uses
+    const used = a.store.addAsset(
+      makeMeshAsset('Quad', {
+        positions: [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0],
+        indices: [0, 1, 2, 0, 2, 3],
+        uvs: [0, 0, 1, 0, 1, 1, 0, 1],
+      }),
+    );
+    const spare = a.store.addAsset(makeBlobAsset('Spare', 'text/plain', new TextEncoder().encode('not referenced')));
+    // adding the same content again returns the same id and does not grow the store
+    const again = a.store.addAsset(
+      makeMeshAsset('Quad (copy)', {
+        positions: [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0],
+        indices: [0, 1, 2, 0, 2, 3],
+        uvs: [0, 0, 1, 0, 1, 1, 0, 1],
+      }),
+    );
+    a.store.add([createBody({ name: 'Mesh body', shape: { type: 'box' }, position: [0, 1, 0], meshId: used })]);
+    return { used, spare, again, held: Object.keys(a.store.assets).length };
+  });
+  assert(ids.again === ids.used && ids.held === 2, `identical content is stored once ${JSON.stringify(ids)}`);
+
+  // 1. share link: only the referenced asset travels, byte for byte
+  const shared = await page.evaluate(async () => {
+    const a = window.physicslab;
+    const { Persistence } = await import('/src/app/persistence.ts');
+    const url = await a.persistence.shareLink();
+    const back = await Persistence.fromHash(new URL(url).hash);
+    return {
+      keys: Object.keys(back.assets),
+      same:
+        JSON.stringify(Object.values(back.assets)[0]) ===
+        JSON.stringify(Object.values(a.store.assets).find((x) => x.kind === 'mesh')),
+      ref: back.entities[0].meshId,
+    };
+  });
+  assert(
+    shared.keys.length === 1 && shared.same && shared.ref === ids.used,
+    `share link carries the used asset only ${JSON.stringify(shared)}`,
+  );
+
+  // 2. autosave in browser storage
+  const auto = await page.evaluate(() => {
+    const a = window.physicslab;
+    a.persistence.saveNow();
+    const doc = JSON.parse(localStorage.getItem('physicslab:autosave:v1'));
+    return { keys: Object.keys(doc.assets), version: doc.version };
+  });
+  assert(auto.keys.length === 1 && auto.keys[0] === ids.used && auto.version === 2, `autosave ${JSON.stringify(auto)}`);
+
+  // 3. exported file, then imported again into a fresh scene
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.evaluate(() => window.physicslab.persistence.exportFile()),
+  ]);
+  const text = readFileSync(await download.path(), 'utf8');
+  const exported = JSON.parse(text);
+  assert(
+    Object.keys(exported.assets).join() === ids.used && exported.version === 2,
+    'the exported file contains the used asset',
+  );
+  assert(
+    !('Spare' in Object.fromEntries(Object.values(exported.assets).map((x) => [x.name, 1]))),
+    'the unused asset was collected on save',
+  );
+  await page.evaluate(() => window.physicslab.newScene());
+  await page.setInputFiles('input[type=file]', {
+    name: 'with-assets.physicslab.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(text),
+  });
+  await page.waitForFunction(() => window.physicslab.store.bodies().length === 1, null, { timeout: 10000 });
+  const reloaded = await page.evaluate(() => {
+    const a = window.physicslab;
+    const b = a.store.bodies()[0];
+    return {
+      mesh: a.store.getAsset(b.meshId)?.kind,
+      refs: a.store.assetRefCount(b.meshId),
+      unused: a.store.unusedAssets().length,
+    };
+  });
+  assert(
+    reloaded.mesh === 'mesh' && reloaded.refs === 1 && reloaded.unused === 0,
+    `import restores the asset and its reference ${JSON.stringify(reloaded)}`,
+  );
+
+  // 4. removing an asset unlinks it, and undo brings everything back
+  const undo = await page.evaluate(() => {
+    const a = window.physicslab;
+    const b = a.store.bodies()[0];
+    const id = b.meshId;
+    a.store.removeAsset(id);
+    const gone = !a.store.getAsset(id) && a.store.body(b.id).meshId === undefined;
+    a.store.undo();
+    return { gone, back: !!a.store.getAsset(id) && a.store.body(b.id).meshId === id };
+  });
+  assert(undo.gone && undo.back, `remove + undo ${JSON.stringify(undo)}`);
+
+  // 5. a scene too big for a link says so instead of producing a useless URL
+  const tooBig = await page.evaluate(async () => {
+    const { makeBlobAsset } = await import('/src/model/assets.ts');
+    const { createBody } = await import('/src/model/factory.ts');
+    const a = window.physicslab;
+    const noise = new Uint8Array(300_000);
+    for (let i = 0; i < noise.length; i += 65536)
+      crypto.getRandomValues(noise.subarray(i, Math.min(noise.length, i + 65536)));
+    const id = a.store.addAsset(makeBlobAsset('Noise', 'application/octet-stream', noise));
+    a.store.add([createBody({ shape: { type: 'box' }, meshId: id })]); // referenced, so it would be saved
+    try {
+      await a.persistence.shareLink();
+      return 'no error';
+    } catch (e) {
+      return e.message;
+    }
+  });
+  assert(/too large for a share link/.test(tooBig) && /Export it as a file/.test(tooBig), `big scene: ${tooBig}`);
+  assert(page.errors.length === 0, `no errors: ${page.errors.join(' | ')}`);
+});

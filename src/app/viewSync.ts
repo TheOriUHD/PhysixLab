@@ -70,6 +70,8 @@ export class ViewSync {
       case 'settings':
         if (c.keys.has('ground')) app.viewport.setGround(app.store.settings.ground);
         break;
+      case 'assets':
+        break; // nothing is drawn from assets yet
     }
     app.invalidateColors();
     app.gizmos.refresh();

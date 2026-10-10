@@ -83,7 +83,13 @@ export function buildTopbar(app: App): HTMLElement {
           label: 'Copy share link',
           icon: 'share',
           action: async () => {
-            const url = await app.persistence.shareLink();
+            let url: string;
+            try {
+              url = await app.persistence.shareLink();
+            } catch (e) {
+              app.toast((e as Error).message, 'error');
+              return;
+            }
             try {
               await navigator.clipboard.writeText(url);
               app.toast(

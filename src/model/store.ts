@@ -1,8 +1,18 @@
 import { Emitter } from '../core/events';
 import { vadd, type Vec3 } from '../core/math';
 import { newDocument, uid } from './factory';
+import { addAssetTo, countAssetRefs, remapAssetRefs } from './assets';
 import { SCENE_FORMAT, SCENE_VERSION } from './migrations';
-import type { Asset, BodyEntity, Entity, JointEntity, SceneDocument, SceneSettings, SoftEntity } from './types';
+import type {
+  Asset,
+  AssetInput,
+  BodyEntity,
+  Entity,
+  JointEntity,
+  SceneDocument,
+  SceneSettings,
+  SoftEntity,
+} from './types';
 import { isBody, isJoint, isSoft } from './types';
 
 export type SceneChange =
@@ -10,6 +20,7 @@ export type SceneChange =
   | { type: 'remove'; ids: string[]; removed: Entity[] }
   | { type: 'update'; ids: string[]; keys: Set<string> }
   | { type: 'settings'; keys: Set<string> }
+  | { type: 'assets'; ids: string[] }
   | { type: 'reset' };
 
 interface StoreEvents extends Record<string, unknown> {
@@ -22,12 +33,19 @@ interface StoreEvents extends Record<string, unknown> {
 interface Snapshot {
   entities: Map<string, Entity>;
   settings: SceneSettings;
+  assets: Record<string, Asset>;
   name: string;
   selection: string[];
   label: string;
 }
 
 const HISTORY_LIMIT = 200;
+
+/** Ids whose asset differs (added, removed or replaced) between two asset maps. */
+function changedKeys(a: Record<string, Asset>, b: Record<string, Asset>): string[] {
+  const ids = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...ids].filter((id) => a[id] !== b[id]);
+}
 
 /** Dynamic-key property read used for shallow change detection (entities / settings are plain objects). */
 const prop = (o: object, k: string): unknown => (o as Record<string, unknown>)[k];
@@ -109,6 +127,7 @@ export class SceneStore extends Emitter<StoreEvents> {
     return {
       entities: new Map(this.entities),
       settings: this.settings,
+      assets: this.assets,
       name: this.name,
       selection: [...this.selection],
       label,
@@ -211,14 +230,17 @@ export class SceneStore extends Emitter<StoreEvents> {
         if (prop(s.settings, k) !== prop(this.settings, k)) settingsKeys.add(k);
       }
     }
+    const assetIds = s.assets === this.assets ? [] : changedKeys(this.assets, s.assets);
     this.revision++;
     this.entities = new Map(s.entities);
     this.settings = s.settings;
+    this.assets = s.assets;
     this.name = s.name;
     if (removed.length) this.emit('change', { type: 'remove', ids: removed.map((e) => e.id), removed });
     if (added.length) this.emit('change', { type: 'add', ids: added });
     if (updated.length) this.emit('change', { type: 'update', ids: updated, keys });
     if (settingsChanged) this.emit('change', { type: 'settings', keys: settingsKeys });
+    if (assetIds.length) this.emit('change', { type: 'assets', ids: assetIds });
     this.setSelection(
       s.selection.filter((id) => this.entities.has(id)),
       true,
@@ -340,6 +362,67 @@ export class SceneStore extends Emitter<StoreEvents> {
     list.splice(Math.max(0, Math.min(list.length, toIndex)), 0, e);
     this.entities = new Map(list.map((x) => [x.id, x]));
     this.emit('change', { type: 'reset' });
+  }
+
+  // ---- assets -------------------------------------------------------------------------------
+
+  /**
+   * Store a binary asset (mesh, texture, heightmap, audio, blob) and return its id. Content already in the
+   * store is not added twice: the existing id comes back and nothing changes (no undo step). The change is
+   * undoable like any other, and groups into the surrounding `begin` / `end` batch.
+   * @throws SceneFormatError for a damaged or over-size asset, or when the scene's asset budget is used up.
+   */
+  addAsset(input: AssetInput, label = 'Add asset'): string {
+    const res = addAssetTo(this.assets, input);
+    if (!res.added) return res.id;
+    this.touch(label);
+    this.assets = res.assets;
+    this.emit('change', { type: 'assets', ids: [res.id] });
+    return res.id;
+  }
+
+  getAsset(id: string | null | undefined): Asset | undefined {
+    return id ? this.assets[id] : undefined;
+  }
+
+  /** How many entities reference the asset. */
+  assetRefCount(id: string): number {
+    return countAssetRefs(this.entities.values()).get(id) ?? 0;
+  }
+
+  /** Assets nothing references — kept for undo while editing, dropped when the scene is saved. */
+  unusedAssets(): string[] {
+    const used = countAssetRefs(this.entities.values());
+    return Object.keys(this.assets).filter((id) => !used.has(id));
+  }
+
+  /** Remove an asset; entities that referenced it lose the reference. One undo step. Returns false if unknown. */
+  removeAsset(id: string, label = 'Remove asset'): boolean {
+    if (!this.assets[id]) return false;
+    this.transact(label, () => {
+      const next = remapAssetRefs(this.all(), (ref) => (ref === id ? undefined : ref));
+      const changed = next.filter((e) => e !== this.entities.get(e.id));
+      this.touch(label);
+      this.swapEntities(changed);
+      const { [id]: _gone, ...rest } = this.assets;
+      this.assets = rest;
+      this.emit('change', { type: 'assets', ids: [id] });
+    });
+    return true;
+  }
+
+  /** Replace entities by new versions with the same ids (no history; callers have called `touch`). */
+  private swapEntities(next: Entity[]): void {
+    const ids: string[] = [];
+    const keys = new Set<string>();
+    for (const e of next) {
+      const old = this.entities.get(e.id);
+      if (!old || old === e) continue;
+      for (const k of new Set([...Object.keys(old), ...Object.keys(e)])) if (prop(old, k) !== prop(e, k)) keys.add(k);
+      this.entities.set(e.id, e);
+      ids.push(e.id);
+    }
+    if (ids.length) this.emit('change', { type: 'update', ids, keys });
   }
 
   // ---- selection ----------------------------------------------------------------------------
