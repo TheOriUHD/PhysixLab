@@ -5,5 +5,6 @@
 import type { ComponentDef } from '../componentRegistry';
 import { constantForce } from './constantForce';
 import { sineMover } from './sineMover';
+import { zone } from './zone'; // -- ZN
 
-export const BUILTIN_COMPONENTS: readonly ComponentDef[] = [constantForce, sineMover];
+export const BUILTIN_COMPONENTS: readonly ComponentDef[] = [constantForce, sineMover, zone];

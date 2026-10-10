@@ -1,5 +1,6 @@
 /** Inline stroke icons (24×24 viewBox, 1.75 stroke) — one consistent family. */
 import { svg } from './dom';
+import { ZONE_ICONS } from './iconsZones'; // -- ZN
 
 const wrap = (body: string, extra = '') =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" ${extra}>${body}</svg>`;
@@ -111,6 +112,7 @@ const PATHS: Record<string, string> = {
   chevronUp: '<path d="M6 15l6-6 6 6"/>',
   // ── FB-10: maps ──
   map: '<path d="M9 4L3 6.5v13L9 17l6 2.5 6-2.5v-13L15 7z"/><path d="M9 4v13M15 7v12.5"/>',
+  ...ZONE_ICONS, // -- ZN: zones, races, world bounds
 };
 
 /** Is `name` one of the built-in icon keys? */

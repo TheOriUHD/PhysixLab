@@ -13,6 +13,8 @@ import type { ComponentStateEntry, SimEvent } from '../protocol';
 import type { WorldState } from '../world/state';
 import { ComponentCtx, BodyHandleImpl, JointHandleImpl, type BodyHandle, type JointHandle } from './context';
 import { runtimeOf, type ComponentRuntime } from './registry';
+// -- ZN: zones, races and the respawn machinery shared by the zone components and the world bounds
+import { ZoneSystem } from '../zones/system';
 
 interface CompRec {
   spec: ComponentSpec;
@@ -37,7 +39,12 @@ export class ComponentHost {
   private bodyHandles = new Map<string, BodyHandleImpl>();
   private jointHandles = new Map<string, JointHandleImpl>();
 
-  constructor(private s: WorldState) {}
+  // -- ZN: the zone system of this world (races, score, respawn points, spawning)
+  readonly zones: ZoneSystem;
+
+  constructor(private s: WorldState) {
+    this.zones = new ZoneSystem(s, this);
+  }
 
   // ---- handles -----------------------------------------------------------------------------
 
@@ -140,6 +147,7 @@ export class ComponentHost {
     this.ordered = [];
     this.bodyHandles.clear();
     this.jointHandles.clear();
+    this.zones.clear(); // -- ZN
   }
 
   private make(ownerKind: 'body' | 'joint', ownerId: string, spec: ComponentSpec): CompRec {
@@ -326,11 +334,13 @@ export class ComponentHost {
         }
       }
     }
+    if (this.zones.hasState()) out['@zones'] = this.zones.save(); // -- ZN: standings, score, respawn points
     return out;
   }
 
   /** Give saved states back to the (re-created) components. */
   loadStates(saved: Record<string, unknown>): void {
+    if ('@zones' in saved) this.zones.load(saved['@zones']); // -- ZN
     for (const c of this.order()) {
       if (c.running && c.runtime?.loadState && c.spec.id in saved) {
         this.guard(c, 'loadState', () => c.runtime!.loadState!(c.state, saved[c.spec.id], c.ctx));
