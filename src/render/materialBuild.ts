@@ -129,24 +129,37 @@ export function disposeMaterialTextures(m: MeshPhysicalMaterial): void {
 
 /** Per-vertex object-space position and normal for the triplanar projection. */
 function patchTriplanar(shader: WebGLProgramParametersWithUniforms): void {
+  // The UV transform (`mapTransform`) only exists in the vertex shader, so the three projected coordinate pairs are
+  // transformed there and handed to the fragment shader as varyings.
   shader.vertexShader = shader.vertexShader
-    .replace('#include <common>', '#include <common>\nvarying vec3 vTriPos;\nvarying vec3 vTriN;')
+    .replace(
+      '#include <common>',
+      '#include <common>\nvarying vec3 vTriN;\nvarying vec2 vTriX;\nvarying vec2 vTriY;\nvarying vec2 vTriZ;',
+    )
     .replace(
       '#include <begin_vertex>',
       `#include <begin_vertex>
-vTriPos = position * vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz));
-vTriN = normal;`,
+vec3 triPos = position * vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz));
+vTriN = normal;
+#ifdef USE_MAP
+vTriX = ( mapTransform * vec3( triPos.zy, 1.0 ) ).xy;
+vTriY = ( mapTransform * vec3( triPos.xz, 1.0 ) ).xy;
+vTriZ = ( mapTransform * vec3( triPos.xy, 1.0 ) ).xy;
+#else
+vTriX = vTriY = vTriZ = vec2( 0.0 );
+#endif`,
     );
   shader.fragmentShader = shader.fragmentShader
-    .replace('#include <common>', '#include <common>\nvarying vec3 vTriPos;\nvarying vec3 vTriN;')
+    .replace(
+      '#include <common>',
+      '#include <common>\nvarying vec3 vTriN;\nvarying vec2 vTriX;\nvarying vec2 vTriY;\nvarying vec2 vTriZ;',
+    )
     .replace(
       '#include <map_fragment>',
       `#ifdef USE_MAP
   vec3 triW = pow(abs(normalize(vTriN)), vec3(4.0));
   triW /= (triW.x + triW.y + triW.z);
-  vec3 triC = texture2D(map, (mapTransform * vec3(vTriPos.zy, 1.0)).xy).rgb * triW.x
-            + texture2D(map, (mapTransform * vec3(vTriPos.xz, 1.0)).xy).rgb * triW.y
-            + texture2D(map, (mapTransform * vec3(vTriPos.xy, 1.0)).xy).rgb * triW.z;
+  vec3 triC = texture2D(map, vTriX).rgb * triW.x + texture2D(map, vTriY).rgb * triW.y + texture2D(map, vTriZ).rgb * triW.z;
   diffuseColor *= vec4(triC, 1.0);
 #endif`,
     );

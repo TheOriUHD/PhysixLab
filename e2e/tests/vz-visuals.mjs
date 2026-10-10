@@ -31,7 +31,7 @@ const pieceMat = (page, id, field) =>
     return f === 'map' ? !!m.map : f === 'normalMap' ? !!m.normalMap : f === 'transmission' ? m.transmission : f === 'clearcoat' ? m.clearcoat : f === 'emissive' ? m.emissive.r : null;
   }, [id, field]);
 
-test('material editor: picker search + preset click, preview sphere, texture pattern, triplanar', async () => {
+test('VZ-A: material editor: picker search + preset click, preview sphere, texture pattern, triplanar', async () => {
   const page = await newPage('&scene=pit&quality=low');
   await page.waitForTimeout(600);
   const id = await firstBody(page);
@@ -69,7 +69,7 @@ test('material editor: picker search + preset click, preview sphere, texture pat
   assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
 });
 
-test('material: glass transmission, emissive glow and user image textures', async () => {
+test('VZ-A: material: glass transmission, emissive glow and user image textures', async () => {
   const page = await newPage('&scene=pit&quality=medium');
   await page.waitForTimeout(600);
   const id = await firstBody(page);
@@ -108,7 +108,7 @@ test('material: glass transmission, emissive glow and user image textures', asyn
   assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
 });
 
-test('environment: every preset, the physical sky and tone mappings render without errors', async () => {
+test('VZ-A: environment: every preset, the physical sky and tone mappings render without errors', async () => {
   const page = await newPage('&scene=pit&quality=low');
   await page.waitForTimeout(600);
   for (const sky of ['studio', 'day', 'sunset', 'night', 'physical', 'blueprint', 'space', 'lab', 'desert', 'snow', 'overcast']) {
@@ -123,7 +123,7 @@ test('environment: every preset, the physical sky and tone mappings render witho
   assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
 });
 
-test('time of day moves the sun, its light and its shadow direction; the cycle advances', async () => {
+test('VZ-A: time of day moves the sun, its light and its shadow direction; the cycle advances', async () => {
   const page = await newPage('&scene=pit&quality=medium');
   await page.waitForTimeout(600);
   const read = () =>
@@ -148,7 +148,7 @@ test('time of day moves the sun, its light and its shadow direction; the cycle a
   assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
 });
 
-test('user HDRI: a .hdr stored as an asset lights the scene; removing it falls back', async () => {
+test('VZ-A: user HDRI: a .hdr stored as an asset lights the scene; removing it falls back', async () => {
   const page = await newPage('&scene=pit&quality=low');
   await page.waitForTimeout(600);
   const result = await page.evaluate(async () => {
@@ -172,7 +172,7 @@ test('user HDRI: a .hdr stored as an asset lights the scene; removing it falls b
   assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
 });
 
-test('fog (linear / exponential / height) and ground types apply', async () => {
+test('VZ-A: fog (linear / exponential / height) and ground types apply', async () => {
   const page = await newPage('&scene=pit&quality=low');
   await page.waitForTimeout(600);
   const fogKind = () => page.evaluate(() => {
@@ -203,7 +203,7 @@ test('fog (linear / exponential / height) and ground types apply', async () => {
   assert(page.errors.length === 0, `no console errors: ${page.errors.join(' | ')}`);
 });
 
-test('World panel: environment controls edit the scene settings', async () => {
+test('VZ-A: World panel: environment controls edit the scene settings', async () => {
   const page = await newPage('&scene=pit&quality=low');
   await page.waitForTimeout(600);
   await page.evaluate(() => window.physicslab.store.setSelection([]));
