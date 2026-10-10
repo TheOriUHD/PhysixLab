@@ -36,6 +36,8 @@ export class InspectorContext {
     const nameInput = h('input', {
       class: 'plain',
       type: 'text',
+      'aria-label': 'Name', // -- UI-B --
+      title: 'Name of the selected object',
       value: sel.length > 1 ? `${sel.length} objects` : first.name,
       spellcheck: false,
       disabled: sel.length > 1,

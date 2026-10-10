@@ -59,7 +59,7 @@ export const artMarkup = (art: EmptyArt): string =>
   `<svg viewBox="0 0 96 72" width="96" height="72" aria-hidden="true" focusable="false">${ART[art]}</svg>`;
 
 export function emptyState(o: EmptyStateOptions): HTMLElement {
-  const el = h('div', { class: `empty-state es${o.class ? ` ${o.class}` : ''}`, role: 'status' });
+  const el = h('div', { class: `empty-state es${o.class ? ` ${o.class}` : ''}`, 'data-empty': o.art ?? o.icon ?? '' });
   if (o.art) el.appendChild(svg(artMarkup(o.art), 'es-art'));
   else if (o.icon) el.appendChild(icon(o.icon, 'icon big'));
   el.appendChild(h('h4', null, o.title));

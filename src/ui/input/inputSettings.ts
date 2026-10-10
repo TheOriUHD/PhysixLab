@@ -17,6 +17,7 @@ import { COMMAND_CATEGORY_ORDER } from '../../app/registry/commands';
 import { formatShortcut } from '../../app/registry/shortcuts';
 import { button, selectField, sliderField, toggleField, row } from '../controls';
 import { h } from '../dom';
+import { emptyState } from '../emptyState'; // -- UI-B: empty states --
 import { icon } from '../icons';
 import { openModal } from '../modal';
 
@@ -234,7 +235,15 @@ function keyboardTab(): HTMLElement {
         );
       }
     }
-    if (!rows.length) list.appendChild(h('div', { class: 'empty-state' }, h('h4', null, 'No command matches')));
+    if (!rows.length)
+      list.appendChild(
+        emptyState({
+          art: 'search',
+          title: 'No command matches',
+          hint: 'Try fewer letters or another word.',
+          class: 'compact',
+        }),
+      );
     const p = presetById(inputMap.preset);
     presetNote.textContent = p
       ? p.blurb

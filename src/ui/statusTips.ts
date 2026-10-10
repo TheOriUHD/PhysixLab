@@ -48,7 +48,7 @@ export function tipText(app: App, tip: StatusTipDef): string {
 
 /** Put the tip slot into the status bar (before its flexible spacer). */
 export function mountStatusTips(app: App, bar: HTMLElement): void {
-  const slot = h('span', { class: 'status-tip', role: 'status', 'aria-live': 'off' });
+  const slot = h('span', { class: 'status-tip' });
   bar.insertBefore(slot, bar.querySelector('.grow'));
   let step = 0;
   let timer = 0;

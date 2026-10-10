@@ -12,6 +12,7 @@ import { listShapes, type ShapeDef } from '../model/shapeRegistry';
 import { requestThumbnail } from '../render/thumbnails';
 import { button } from './controls';
 import { h } from './dom';
+import { emptyState } from './emptyState'; // -- UI-B: empty states --
 import { icon } from './icons';
 import { groupByCategory, searchShapes, type ShapeHit } from './shapeSearch';
 import '../styles/shapePalette.css';
@@ -143,20 +144,14 @@ export function buildShapePalette(app: App): HTMLElement {
         },
         { cls: 'small' },
       );
-      body.appendChild(
-        h(
-          'div',
-          { class: 'empty-state' },
-          icon('search', 'icon big'),
-          h('h4', null, 'No shape matches'),
-          h(
-            'p',
-            null,
-            `Nothing matches “${state.query.trim()}”. Try a general word like “ramp”, “dice”, “gear” or “beam”.`,
-          ),
-          h('div', { style: { marginTop: '10px' } }, clear),
-        ),
-      );
+      // -- UI-B: empty state with an illustration --
+      const none = emptyState({
+        art: 'search',
+        title: 'No shape matches',
+        hint: `Nothing matches “${state.query.trim()}”. Try a general word like “ramp”, “dice”, “gear” or “beam”.`,
+      });
+      none.appendChild(h('div', { style: { marginTop: '10px' } }, clear));
+      body.appendChild(none);
       return;
     }
     // the tile that Tab enters: the one focused last if it is still shown, else the first

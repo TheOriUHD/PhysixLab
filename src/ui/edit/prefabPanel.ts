@@ -7,6 +7,7 @@ import { insertUserPrefab, prefabLibrary, updatePrefabFromSelection } from '../.
 import type { PanelContext, PanelView } from '../../app/registry/panels';
 import type { StoredPrefab } from '../../model/edit/userPrefab';
 import { clear, h } from '../dom';
+import { emptyState } from '../emptyState'; // -- UI-B: empty states --
 import { icon } from '../icons';
 import { openMenu, type MenuItem } from '../menu';
 import { confirmDialog } from '../modal';
@@ -225,18 +226,16 @@ export function buildMyPrefabsPanel(app: App, ctx: PanelContext): PanelView {
       list.appendChild(
         h(
           'div',
-          { class: 'empty-state ed-pf-empty' },
-          icon('layers', 'icon big'),
-          h('h4', null, !lib.loaded ? 'Loading…' : empty ? 'No prefabs yet' : 'No prefab matches'),
-          h(
-            'p',
-            null,
-            !lib.loaded
+          { class: 'ed-pf-empty' },
+          emptyState({
+            art: !lib.loaded ? 'recent' : empty ? 'folder' : 'search',
+            title: !lib.loaded ? 'Loading…' : empty ? 'No prefabs yet' : 'No prefab matches',
+            hint: !lib.loaded
               ? 'Reading your library.'
               : empty
                 ? 'Select objects in the scene, then choose “Save selection…” (or Edit → Save selection as prefab…) to keep them as a reusable prefab. Prefabs are stored in this browser; export a pack to share them.'
                 : 'Try another word or clear the tag filter.',
-          ),
+          }),
         ),
       );
       return;
