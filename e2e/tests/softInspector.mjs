@@ -8,6 +8,9 @@ import { assert, near, newPage, nextFrame, shot, simTime } from '../helpers.mjs'
 export const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
+/** Page errors, ignoring other packages' extension-registration warnings (a shortcut clash is not about the inspector). */
+const ownErrors = (page) => page.errors.filter((e) => !/extensions\/|already used by/.test(e));
+
 /** Add a soft body through the editor and select it (the inspector under test is the real one). */
 async function addAndSelect(page, type, over = {}) {
   const id = await page.evaluate(
@@ -80,7 +83,7 @@ test('softInspector: tyre pressure, puncture, seal and the Young modulus field e
   // undo is one step per edit
   await page.evaluate(() => window.physicslab.store.undo());
   near((await soft(page, id)).particleRadius, 0, 1e-9, 'undo reverts the radius override');
-  assert(page.errors.length === 0, `no page errors: ${page.errors.join('; ')}`);
+  assert(ownErrors(page).length === 0, `no page errors: ${ownErrors(page).join('; ')}`);
 });
 
 test('softInspector: mesh source shape and cell size', async () => {
@@ -158,7 +161,7 @@ test('softInspector: fastenings list the target, its load, and Remove edits the 
   await page.click('.sf-att button:has-text("Release")');
   await simTime(page, 0.4);
   await page.evaluate(() => window.physicslab.sim.reset());
-  assert(page.errors.length === 0, `no page errors: ${page.errors.join('; ')}`);
+  assert(ownErrors(page).length === 0, `no page errors: ${ownErrors(page).join('; ')}`);
 });
 
 test('softInspector: a stability warning shows its fix button, which applies the patch', async () => {
@@ -220,5 +223,5 @@ test('softInspector: no stability section when the body is fine; budget, lower r
   });
   await page.locator('.sf-bar').scrollIntoViewIfNeeded();
   await shot(page, 'sf-budget-1280');
-  assert(page.errors.length === 0, `no page errors: ${page.errors.join('; ')}`);
+  assert(ownErrors(page).length === 0, `no page errors: ${ownErrors(page).join('; ')}`);
 });
