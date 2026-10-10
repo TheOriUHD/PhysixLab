@@ -207,10 +207,10 @@ function mountDriveHud(app: App, stage: HTMLElement): void {
     cam.textContent = `${DRIVE_CAMERA_LABEL[h2.camera]} camera`;
     speed.textContent = String(Math.round(h2.speed));
     fg.setAttribute('stroke-dasharray', `${Math.min(75, (h2.speed / scale) * 75).toFixed(1)} 100`);
-    const bits: string[] = [];
-    if (h2.gear !== null) bits.push(h2.gear < 0 ? 'R' : h2.gear === 0 ? 'N' : `Gear ${h2.gear}`);
-    if (h2.rpm !== null) bits.push(`${Math.round(h2.rpm / 10) * 10} rpm`);
-    aux.textContent = bits.join(' · ');
+    const bits: HTMLElement[] = [];
+    if (h2.gear !== null) bits.push(h('span', null, h2.gear < 0 ? 'Gear R' : h2.gear === 0 ? 'Gear N' : `Gear ${h2.gear}`));
+    if (h2.rpm !== null) bits.push(h('span', null, `${Math.round(h2.rpm / 10) * 10} rpm`));
+    aux.replaceChildren(...bits);
     note.textContent = h2.paused ? 'Paused — resume with the pause key' : h2.tilted ? 'Tilted — press the reset key to flip upright' : '';
     note.classList.toggle('warn', h2.tilted && !h2.paused);
   });

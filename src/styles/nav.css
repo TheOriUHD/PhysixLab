@@ -8,7 +8,7 @@ html, body { overscroll-behavior: none; }
 
 /* ── context pill + controls legend ── */
 .ctl-legend {
-  position: absolute; left: 12px; bottom: 12px; z-index: 6;
+  position: absolute; left: 64px; bottom: 12px; z-index: 6; /* clear of the toolbox column */
   display: flex; flex-direction: column-reverse; align-items: flex-start; gap: 6px;
   max-width: min(380px, calc(100% - 24px)); max-height: calc(100% - 150px);
   pointer-events: none;
@@ -84,7 +84,7 @@ html, body { overscroll-behavior: none; }
 .drv-gauge-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 6px; color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); }
 .drv-speed-n { font: 700 40px var(--mono); line-height: 1; font-variant-numeric: tabular-nums; }
 .drv-gauge-text small { font: 600 11px var(--font); letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.8; }
-.drv-aux { margin-top: 4px; font: 600 11.5px var(--mono); opacity: 0.9; min-height: 14px; }
+.drv-aux { margin-top: 4px; font: 600 11px var(--mono); opacity: 0.9; min-height: 14px; display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
 .drv-note {
   position: absolute; left: 50%; top: 64px; transform: translateX(-50%); padding: 4px 12px; border-radius: 999px;
   background: var(--glass); border: 1px solid var(--border-2); color: var(--text-2); font-size: 12px;
@@ -99,4 +99,4 @@ body.immersive #app .workspace { grid-template-columns: minmax(0, 1fr) !importan
 body.immersive .stage { position: fixed; inset: 0; z-index: 4; }
 body.immersive .viewport-canvas { cursor: crosshair; }
 body.immersive-drive .viewport-canvas { cursor: grab; }
-body.immersive .ctl-legend { z-index: 8; }
+body.immersive .ctl-legend { z-index: 8; left: 12px; }

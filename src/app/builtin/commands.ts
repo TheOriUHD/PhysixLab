@@ -15,6 +15,7 @@ import { COLOR_MODE_LABELS, type ColorMode } from '../../render/bodyViews';
 import type { Quality } from '../../render/viewport';
 import type { App } from '../app';
 import { JOINT_ITEMS, LIGHT_ITEMS, SOFT_ITEMS } from '../addCatalog';
+import { fillMods, platform } from '../input/platform'; // -- NAV --
 import { pasteClaimedSince } from '../pasteClaim';
 import type { CommandDef } from '../registry/commands';
 import { registerHelp } from '../registry/help';
@@ -574,7 +575,7 @@ export function registerBuiltinHelp(): (() => void)[] {
     ['gesture.vertical', 'Edit', 'Vertical drag-move', 'Shift drag'],
     ['gesture.nudge', 'Edit', 'Nudge selection (1 m with Shift)', 'Arrow keys'],
     ['gesture.addAtView', 'Add', 'Add shape at view', `1 – ${n}`],
-    ['gesture.orbit', 'Camera', 'Orbit', 'Right drag · Alt drag'],
+    ['gesture.orbit', 'Camera', 'Orbit', fillMods('Right drag · {alt} drag', platform().os)], // -- NAV: Option on a Mac
     ['gesture.pan', 'Camera', 'Pan', 'Middle drag · Shift Right drag'],
     ['gesture.zoom', 'Camera', 'Zoom', 'Scroll'],
     ['gesture.frame', 'Camera', 'Frame the object under the pointer', 'Double-click'],

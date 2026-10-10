@@ -165,6 +165,32 @@ test('nav: a two-finger swipe orbits, Shift pans, Option zooms; the setting swap
   await page.close();
 });
 
+test('nav: Safari pinch / rotate gesture events zoom and turn the view and are preventDefault-ed', async () => {
+  const page = await newPage();
+  await scene(page);
+  const c0 = await camState(page);
+  const fire = (type, scale, rotation) =>
+    page.evaluate(
+      ([type, scale, rotation]) => {
+        const c = window.physicslab.viewport.dom;
+        const r = c.getBoundingClientRect();
+        const e = new Event(type, { bubbles: true, cancelable: true });
+        Object.assign(e, { scale, rotation, clientX: r.left + r.width * 0.5, clientY: r.top + r.height * 0.5 });
+        return !c.dispatchEvent(e);
+      },
+      [type, scale, rotation],
+    );
+  assert(await fire('gesturestart', 1, 0), 'gesturestart is preventDefault-ed (no page zoom)');
+  for (let i = 1; i <= 6; i++) assert(await fire('gesturechange', 1 + i * 0.12, i * 3), 'gesturechange is preventDefault-ed');
+  await fire('gestureend', 1.72, 18);
+  await settle(page);
+  const c1 = await camState(page);
+  assert(c1.dist < c0.dist * 0.75, `a Safari pinch out zooms in: ${c0.dist} -> ${c1.dist}`);
+  assert(Math.abs(c1.az - c0.az) > 0.1, `a Safari rotation turns the view: ${c0.az} -> ${c1.az}`);
+  assert(page.errors.length === 0, page.errors.join('\n'));
+  await page.close();
+});
+
 test('nav: the pointing device is detected from the wheel events, overridable, and a mouse wheel zooms', async () => {
   const page = await newPage();
   await scene(page, 'auto');
@@ -192,6 +218,39 @@ test('nav: the pointing device is detected from the wheel events, overridable, a
     a.input.update_settings({ nav: { ...a.input.settings.nav, device: 'trackpad' } });
   });
   assert((await dev()) === 'trackpad', 'override: trackpad');
+  assert(page.errors.length === 0, page.errors.join('\n'));
+  await page.close();
+});
+
+test('nav: Settings › Navigation shows the detected device, applies presets, sliders and inversions, and the cheat sheet follows', async () => {
+  const page = await newPage();
+  await page.keyboard.press('Control+k');
+  await page.fill('.palette-input', 'navigation mouse trackpad');
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.input-modal .nav-tab');
+  const status = await page.locator('.nav-status').innerText();
+  assert(/Linux/.test(status) && /mouse/.test(status) && /detected/.test(status), `the status names the system and device: ${status}`);
+  let sheet = await page.locator('.nav-sheet').innerText();
+  assert(/Right-drag/.test(sheet) && /Alt/.test(sheet) && !/Option/.test(sheet), `mouse cheat sheet with Alt: ${sheet}`);
+  await shot(page, 'nav-settings');
+  // presets
+  await page.click('.nav-presets [data-preset="trackpad-map"]');
+  await page.waitForFunction(() => window.physicslab.input.settings.nav.device === 'trackpad' && window.physicslab.input.settings.nav.swipe === 'pan');
+  sheet = await page.locator('.nav-sheet').innerText();
+  assert(/Two-finger swipe/.test(sheet) && /Pinch/.test(sheet), `the trackpad cheat sheet: ${sheet}`);
+  assert((await page.locator('.nav-status').innerText()).includes('your choice'), 'the status says it is the user choice');
+  await page.click('.nav-presets [data-preset="touch"]');
+  await page.waitForFunction(() => window.physicslab.input.settings.nav.device === 'touch');
+  assert(/Double-tap/.test(await page.locator('.nav-sheet').innerText()), 'the touch cheat sheet');
+  await page.click('.nav-presets [data-preset="auto"]');
+  await page.waitForFunction(() => window.physicslab.input.settings.nav.device === 'auto');
+  // an inversion and a speed are saved
+  await page.evaluate(() => {
+    const a = window.physicslab;
+    a.input.update_settings({ nav: { ...a.input.settings.nav, invertZoom: true, zoomSpeed: 2 } });
+  });
+  const nav = await page.evaluate(() => window.physicslab.input.settings.nav);
+  assert(nav.invertZoom && nav.zoomSpeed === 2, 'inversion and speed are kept');
   assert(page.errors.length === 0, page.errors.join('\n'));
   await page.close();
 });
