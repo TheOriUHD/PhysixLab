@@ -206,7 +206,7 @@ test('command palette: finds scenes, prefabs, maps, saved scenes and settings; c
   assert((await page.locator('.palette-item').count()) === 0, 'Reset is not offered while nothing is simulating');
   const empty = await page.locator('.palette-empty').textContent();
   assert(/Nothing matches/.test(empty), `empty state: ${empty}`);
-  assert((await page.locator('[role=status]').textContent()) === 'No results', 'announced to assistive tools');
+  assert((await page.locator('.palette [role=status]').textContent()) === 'No results', 'announced to assistive tools');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Space');
   await openPalette(page);
@@ -599,8 +599,13 @@ test('menus, toolbox and the shortcut help are generated from the registries —
 test('panels: the three regions are generated from the panel registry, follow it live, and fall back sensibly', async () => {
   const page = await newPage();
   const tabs = async (sel) => (await page.locator(`${sel} .tab`).allTextContents()).map((t) => t.trim());
-  assert((await tabs('.panel.left')).join() === 'Add,Prefabs,Maps,Scenes', `left: ${await tabs('.panel.left')}`);
-  assert((await tabs('.panel.right')).join() === 'Inspector,Outliner,World,Effects', 'right');
+  // The foundation's tabs come first and in this order; packages add their own (Effects, Help, My prefabs, ...) around them.
+  const only = (list, names) => list.filter((t) => names.includes(t)).join();
+  const left = await tabs('.panel.left');
+  assert(only(left, ['Add', 'Prefabs', 'Maps', 'Scenes']) === 'Add,Prefabs,Maps,Scenes', `left: ${left}`);
+  const right0 = await tabs('.panel.right');
+  assert(only(right0, ['Inspector', 'Outliner', 'World']) === 'Inspector,Outliner,World', `right: ${right0}`);
+  assert(right0.includes('Effects'), `the Effects tab is in the right region: ${right0}`);
   // -- ZN: packages add their own dock tabs (Zones, ...), so the built-in ones are checked in order, not the whole list.
   const dockTabs = await tabs('.dock');
   assert(
@@ -619,7 +624,7 @@ test('panels: the three regions are generated from the panel registry, follow it
       selected: t.getAttribute('aria-selected'),
       panelRole: panel.getAttribute('role'),
       labelled: panel.getAttribute('aria-labelledby') === t.id,
-      list: document.querySelector('.panel.left .tabs').getAttribute('role'),
+      list: document.querySelector('.panel.left [role=tablist]')?.getAttribute('role'),
     };
   });
   assert(
@@ -697,9 +702,10 @@ test('panels: the three regions are generated from the panel registry, follow it
   await page.evaluate(async () => {
     await import('/tests/examples/stats-panel.ts');
   });
+  const rightNow = await tabs('.panel.right');
   assert(
-    (await tabs('.panel.right')).join() === 'Inspector,Outliner,World,Effects,Stats',
-    `right now: ${await tabs('.panel.right')}`,
+    rightNow.includes('Stats') && rightNow.filter((t) => t !== 'Stats').join() === right0.join(),
+    `right now: ${rightNow} (before: ${right0})`,
   );
   await page.click('.panel.right .tab:has-text("Stats")');
   await page.waitForFunction(() =>
@@ -718,7 +724,7 @@ test('panels: the three regions are generated from the panel registry, follow it
   );
   assert(offered === 'Show Stats', 'registering the panel also registered its Show command');
   await page.evaluate(async () => (await import('/src/app/registry/index.ts')).unregisterPanel('stats'));
-  assert((await tabs('.panel.right')).join() === 'Inspector,Outliner,World,Effects', 'unregistering removes the tab');
+  assert((await tabs('.panel.right')).join() === right0.join(), 'unregistering removes the tab');
   assert(
     (await page.locator('.panel.right .tab.on').textContent()).trim() === 'Inspector',
     'and the region falls back to the first tab',
@@ -754,18 +760,18 @@ test('maps tab: the registered maps with thumbnails, filter, open one (camera + 
   await shot(page, 'fb-maps-tab');
 
   // Filter.
-  await page.fill('.panel.left .search input', 'blocks');
+  await page.fill('#panel-maps .search input', 'blocks');
   assert(
     (await page.locator('.map-card').count()) === 1 &&
       (await page.locator('.map-card').getAttribute('data-map')) === 'sandbox-box',
     'filter finds the map by tag',
   );
-  await page.fill('.panel.left .search input', 'zzzz');
+  await page.fill('#panel-maps .search input', 'zzzz');
   assert(
-    /No map matches/.test(await page.locator('.panel.left .empty-state').textContent()),
+    /No map matches/.test(await page.locator('#panel-maps .empty-state').textContent()),
     'and says when nothing matches',
   );
-  await page.fill('.panel.left .search input', '');
+  await page.fill('#panel-maps .search input', '');
 
   // Open the sandbox: scene, camera and objective.
   const camBefore = await page.evaluate(() => window.physicslab.camera.position.toArray());
@@ -933,26 +939,38 @@ test('keyboard: Ctrl+K works inside text fields; a focused panel tab leaves the 
     assert(await paletteClosed(page), `and Escape closes it again (${what})`);
   }
   await page.click('.panel.left .tab:has-text("Maps")');
-  await page.click('.panel.left .search input');
+  await page.click('#panel-maps .search input');
   await page.keyboard.press('Control+k');
   assert(!(await paletteClosed(page)), 'Ctrl+K opens the palette from the Maps filter');
   await page.keyboard.press('Control+k');
   assert(await paletteClosed(page), 'and toggles it shut again');
   // The text typed into a field still stays in the field.
-  await page.click('.panel.left .search input');
+  await page.click('#panel-maps .search input');
   await page.keyboard.type('blocks');
   assert((await page.locator('.map-card').count()) === 1, 'typing in the filter still filters');
-  await page.fill('.panel.left .search input', '');
+  await page.fill('#panel-maps .search input', '');
 
   // Arrow keys: on a focused tab they switch tabs while editing, but while a simulation runs they belong to the
   // motors and thrusters (the tab used to swallow them if it still had focus from a click).
   await page.click('.panel.right .tab:has-text("Outliner")');
+  await page.focus('#tab-outliner'); // the dock re-renders its tab strip on a click, which drops the focus
+  // the tab after the Outliner (packages add tabs between the foundation's, so read it from the strip)
+  const nextTab = await page.evaluate(() => {
+    const tabs = [...document.querySelectorAll('.panel.right .tab')];
+    return tabs[tabs.findIndex((t) => /Outliner/.test(t.textContent ?? '')) + 1]?.id.replace(/^tab-/, '');
+  });
   await page.keyboard.press('ArrowRight');
-  assert((await prefs(page)).rightTab === 'world', 'ArrowRight on a focused tab selects the next tab while editing');
+  const nowOn = await page.evaluate(() => document.querySelector('.panel.right .tab.on')?.id.replace(/^tab-/, ''));
+  assert(!!nextTab && nowOn === nextTab, `ArrowRight on a focused tab selects the next tab while editing (${nextTab})`);
   await page.keyboard.press('Space');
   await simTime(page, 0.1);
   await page.click('.panel.right .tab:has-text("Outliner")');
+  await page.focus('#tab-outliner');
   await page.keyboard.down('ArrowRight');
+  // the input hub copies the held keys into the simulation's key set once per frame
+  await page
+    .waitForFunction(() => window.physicslab.sim.keys.has('ArrowRight'), null, { timeout: 5000 })
+    .catch(() => undefined);
   const held = await page.evaluate(() => [...window.physicslab.sim.keys]);
   await page.keyboard.up('ArrowRight');
   assert(held.includes('ArrowRight'), `the simulation sees the arrow key (${held})`);

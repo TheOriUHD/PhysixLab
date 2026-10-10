@@ -426,7 +426,7 @@ test('zones: the command palette adds zones and race gates; the Zones tab explai
   await page.waitForSelector('.palette-input, [role="combobox"]');
   await page.keyboard.type('checkpoint');
   await page.waitForTimeout(250);
-  const first = (await page.locator('[role="option"]').first().textContent()) ?? '';
+  const first = (await page.locator('.palette [role="option"]').first().textContent()) ?? '';
   assert(/Checkpoint/.test(first), `the palette offers it: ${first}`);
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => window.physicslab.store.bodies().length === 1);
@@ -434,7 +434,7 @@ test('zones: the command palette adds zones and race gates; the Zones tab explai
   await page.keyboard.type('race: start');
   await page.waitForTimeout(250);
   assert(
-    /Add a race/.test((await page.locator('[role="option"]').first().textContent()) ?? ''),
+    /Add a race/.test((await page.locator('.palette [role="option"]').first().textContent()) ?? ''),
     'the race command is found',
   );
   await page.keyboard.press('Enter');
