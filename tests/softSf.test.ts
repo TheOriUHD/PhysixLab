@@ -369,6 +369,34 @@ describe('SF-5 volumetric soft meshes', () => {
   });
 });
 
+describe('SF-6 soft-rigid friction and collision tuning', () => {
+  it('surface friction decides whether a jelly slides under a sideways pull (gravity tilted like a slope)', async () => {
+    const slide = async (friction: number) => {
+      const jelly = createSoft('jelly', { position: [0, 0.55, 0], friction, mass: 10 });
+      const w = await worldOf([jelly], { gravity: [5, -9.81, 0] }); // ≈ 27° slope: tan = 0.51
+      run(w, 3);
+      const b = bounds(w.readSoft().positions);
+      return (b.lo[0] + b.hi[0]) / 2;
+    };
+    const slick = await slide(0.05);
+    const grippy = await slide(2);
+    expect(slick).toBeGreaterThan(3);
+    expect(grippy).toBeLessThan(slick * 0.5);
+  });
+
+  it('the particle radius override sets how far the surface hovers above the ground', async () => {
+    const rest = async (particleRadius: number) => {
+      const jelly = createSoft('jelly', { position: [0, 0.6, 0], particleRadius });
+      const w = await worldOf([jelly]);
+      run(w, 2);
+      return bounds(w.readSoft().positions).lo[1];
+    };
+    const thin = await rest(0.015);
+    const thick = await rest(0.1);
+    expect(thick - thin).toBeGreaterThan(0.05);
+  });
+});
+
 describe('SF-7 material model', () => {
   it('Young-modulus readout is the documented mapping and its inverse round-trips', () => {
     const j = createSoft('jelly', { stiffness: 12 });
