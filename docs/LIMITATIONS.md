@@ -138,6 +138,13 @@ Honest list of what PhysicsLab does **not** do (yet). Nothing in the UI pretends
 * The browser install dialogs, Add to Dock, OS file association (`file_handlers`) and the Web Share Target sheet cannot be driven headless; only their building blocks (manifest, launch-queue/share intake, service worker) are tested. File share targets work on Android/ChromeOS/recent Windows only; Safari and Firefox desktop have no install prompt, so the in-app Install entry stays hidden there.
 * An open tab of an older version can lose lazily loaded chunks after the new service worker deletes the old cache; the update banner asks the user to reload.
 
+## Inspector upgrades, calculators and readout (UI-10..12)
+
+* Reset-to-default, copy / paste of properties and property presets act on rigid bodies; other entity kinds keep unit toggles, expressions, label scrubbing and the filter.
+* Unit choices are remembered per row label (all fields with the same label, e.g. "Position", switch together) and per browser, not per document.
+* The readout lists impacts (contacts that just started, with impulse and approach speed) rather than every resting contact: the engine reports contact events per pair, not a persistent manifold per body. Acceleration is the average net force / mass of the last frame.
+* The moment-of-inertia readout is exact for box, sphere / ellipsoid and cylinder; compound bodies and other shapes use the bounding box and say so. The terminal-velocity calculator writes the engine's quadratic air drag (F = c·|v|·v); the hinge pendulum calculator is a point-mass approximation.
+
 ## Ideas on the roadmap
 
 1. Rigid-joint load estimation + breakable welds/hinges; fracture templates.

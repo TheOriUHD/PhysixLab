@@ -370,8 +370,10 @@ test('inspectorA: Readout panel shows live engine values while simulating, pins 
   const copyBtn = page.locator('.ui-a-readout .ui-a-copy');
   assert((await copyBtn.count()) === 1, `one Copy button in the readout (${await copyBtn.count()})`);
   await copyBtn.click({ timeout: 8000 });
-  await page.waitForSelector('.toast');
-  const toast = await page.locator('.toast').last().textContent();
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('.toast')].some((t) => /Readout copied|Could not copy/.test(t.textContent)),
+  );
+  const toast = (await page.locator('.toast').allTextContents()).join(' | ');
   assert(/Readout copied|Could not copy/.test(toast), `copy gives feedback (${toast})`);
   await shot(page, 'inspectorA-readout');
   assert(page.errors.length === 0, `no page errors: ${page.errors.join('; ')}`);

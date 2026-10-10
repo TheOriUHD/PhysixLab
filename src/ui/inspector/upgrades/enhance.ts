@@ -59,8 +59,9 @@ export function applyFilter(root: HTMLElement, query: string): void {
     const titleHit = tokens.every((t) => title.includes(t));
     let any = false;
     for (const r of rows) {
-      const tip = r.querySelector('.row-label')?.getAttribute('title') ?? '';
-      const text = `${r.textContent ?? ''} ${tip}`.toLowerCase();
+      const lab = r.querySelector('.row-label');
+      const text =
+        `${r.textContent ?? ''} ${lab?.getAttribute('title') ?? ''} ${(lab as HTMLElement | null)?.dataset.label ?? ''}`.toLowerCase();
       const hit = titleHit || tokens.every((t) => text.includes(t));
       r.classList.toggle('ui-a-hide', !hit);
       any ||= hit;

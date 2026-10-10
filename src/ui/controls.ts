@@ -57,9 +57,14 @@ export function numberField(o: NumberOpts): Field<number> {
     title: o.title ?? '',
   });
   // -- UI-A: unit toggle --
-  const quantity: QuantityDef | undefined = o.quantity === null ? undefined : (quantityById(o.quantity) ?? quantityOfSymbol(o.unit));
+  const quantity: QuantityDef | undefined =
+    o.quantity === null ? undefined : (quantityById(o.quantity) ?? quantityOfSymbol(o.unit));
   let el: HTMLElement | null = null;
-  const unit = o.unit ? (quantity ? unitChip(() => el ?? input, quantity) : h('span', { class: 'num-unit' }, o.unit)) : null;
+  const unit = o.unit
+    ? quantity
+      ? unitChip(() => el ?? input, quantity)
+      : h('span', { class: 'num-unit' }, o.unit)
+    : null;
   let mixedNow = false;
   // -- /UI-A --
   const clampV = (v: number) => Math.min(o.max ?? Infinity, Math.max(o.min ?? -Infinity, v));
@@ -472,7 +477,7 @@ export function row(label: string, control: HTMLElement | HTMLElement[], hint?: 
   return h(
     'div',
     { class: 'row' },
-    h('div', { class: 'row-label', title: hint ?? '' }, friendly(label)),
+    h('div', { class: 'row-label', title: hint ?? '', dataset: { label } }, friendly(label)), // UI-A: dataset.label = the unfriendly name, for resets / unit keys
     h('div', { class: 'row-control' }, control),
   );
 }
@@ -482,7 +487,7 @@ export function rowStack(label: string, control: HTMLElement | HTMLElement[], hi
   return h(
     'div',
     { class: 'row stack' },
-    h('div', { class: 'row-label', title: hint ?? '' }, friendly(label)),
+    h('div', { class: 'row-label', title: hint ?? '', dataset: { label } }, friendly(label)), // UI-A: dataset.label = the unfriendly name, for resets / unit keys
     h('div', { class: 'row-control' }, control),
   );
 }

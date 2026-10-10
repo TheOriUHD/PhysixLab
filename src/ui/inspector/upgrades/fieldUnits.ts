@@ -9,8 +9,11 @@ import { unitLabel } from './units';
 
 /** The text of a row label without its "(unit)" suffix and without extra children (reset button …). */
 export function rowBase(label: Element): string {
+  // `row()` records the name it was given: the label text may be the friendlier Simple-mode wording
+  const given = label instanceof HTMLElement ? label.dataset.label : undefined;
   const first = label.firstChild;
-  const raw = first && first.nodeType === Node.TEXT_NODE ? (first.textContent ?? '') : (label.textContent ?? '');
+  const raw =
+    given ?? (first && first.nodeType === Node.TEXT_NODE ? (first.textContent ?? '') : (label.textContent ?? ''));
   return raw.replace(/\s*\([^)]*\)\s*$/, '').trim();
 }
 
