@@ -296,6 +296,16 @@ describe('palette items come from the registries', () => {
     expect(items.find((i) => i.id === 'cmd:view.snap')?.shortcut).toBe('G');
   });
 
+  it('a second line is only shown when it says something the label does not (no "Select" under "Select")', () => {
+    const { app: a } = app();
+    const items = buildPaletteItems(a);
+    expect(items.find((i) => i.id === 'cmd:tool.select')?.detail).toBeUndefined();
+    expect(items.find((i) => i.id === 'cmd:tool.measure')?.detail).toBeUndefined();
+    expect(items.find((i) => i.id === 'cmd:tool.joint')?.detail).toBe('Connect with a joint — click two bodies');
+    for (const i of items)
+      if (i.detail !== undefined) expect(i.detail.toLowerCase(), i.id).not.toBe(i.label.toLowerCase());
+  });
+
   it('typing "gravity" finds the gravity presets first', () => {
     const { app: a } = app();
     const ranked = rankItems(buildPaletteItems(a), 'gravity', []);

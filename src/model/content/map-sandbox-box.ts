@@ -51,7 +51,7 @@ registerMap({
   description: 'A wooden box with a mound of loose sand-coloured blocks, a beach ball and a toy crate to play with.',
   category: 'Arenas',
   difficulty: 'sandbox',
-  tags: ['sandbox', 'blocks', 'toys', 'free play'],
+  tags: ['sandbox', 'blocks', 'toys'],
   objective: 'Free play: pile, push and knock things over. Roll something heavy into the mound.',
   icon: 'box',
   thumbnail: () => topDownThumbnail(build()),

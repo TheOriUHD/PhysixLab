@@ -300,9 +300,15 @@ function mapsTab(app: App, query: string): HTMLElement {
         h(
           'span',
           { class: 'map-info' },
-          h('h4', null, m.name, h('span', { class: `tag diff-${m.difficulty}` }, MAP_DIFFICULTY_LABELS[m.difficulty])),
+          h('h4', null, m.name),
           h('p', null, m.description),
-          h('span', { class: 'map-tags' }, ...m.tags.map((t) => h('span', { class: 'chip-tag' }, t))),
+          // The difficulty sits in the tag row: next to a short name it made the title wrap in the 268 px panel.
+          h(
+            'span',
+            { class: 'map-tags' },
+            h('span', { class: `tag diff-${m.difficulty}` }, MAP_DIFFICULTY_LABELS[m.difficulty]),
+            ...m.tags.map((t) => h('span', { class: 'chip-tag' }, t)),
+          ),
         ),
       );
       card.addEventListener('click', () => void confirmReplace(app, () => app.loadMap(m.id)));

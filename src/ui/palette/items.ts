@@ -50,11 +50,13 @@ export function buildPaletteItems(app: App): PaletteItem[] {
     const kind: PaletteKind = c.setting ? 'setting' : 'command';
     const checked = commandChecked(c, app);
     const shortcut = primaryShortcut(c);
+    const label = commandLabel(c, app);
     out.push({
       id: `cmd:${c.id}`,
       kind,
-      label: commandLabel(c, app),
-      detail: c.description,
+      label,
+      // A tool's tooltip often just repeats its name ("Select" / "Select"); a second line must say something new.
+      detail: c.description && c.description.toLowerCase() !== label.toLowerCase() ? c.description : undefined,
       group: c.setting ? 'Settings' : c.category,
       tag: TAGS[kind],
       icon: c.icon,

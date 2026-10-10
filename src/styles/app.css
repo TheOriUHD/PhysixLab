@@ -395,7 +395,7 @@ input[type="text"].plain:focus { border-color: var(--accent-line); }
 .map-info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .map-info h4 { margin: 0; font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .map-info p { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.38; }
-.map-info .tag { margin-left: auto; flex: none; white-space: nowrap; font: 600 9.5px var(--font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.map-info .tag { flex: none; align-self: center; margin-right: 3px; white-space: nowrap; font: 600 9.5px var(--font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
 .map-info .tag.diff-easy { color: var(--run); } .map-info .tag.diff-medium { color: var(--pause); } .map-info .tag.diff-hard, .map-info .tag.diff-expert { color: var(--danger); }
 .map-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 1px; }
 .chip-tag { font-size: 10.5px; padding: 0 6px; border-radius: 5px; background: var(--bg); color: var(--text-3); border: 1px solid var(--border); }

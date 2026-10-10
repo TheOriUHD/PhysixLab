@@ -25,7 +25,7 @@ registerMap({
   description: 'A 24 × 24 m walled floor with nothing on it. Build a machine, run an experiment, test a vehicle.',
   category: 'Arenas',
   difficulty: 'sandbox',
-  tags: ['empty', 'flat', 'walled', 'free play'],
+  tags: ['empty', 'flat', 'walled'],
   objective: 'Free play: there is nothing to win here. Add shapes, build something, then press Simulate.',
   icon: 'layers',
   thumbnail: () => topDownThumbnail(build()),
